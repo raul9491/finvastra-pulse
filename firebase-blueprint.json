@@ -1,0 +1,277 @@
+{
+  "entities": {
+    "user": {
+      "title": "User Profile",
+      "description": "User information and settings",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "employee"] },
+        "department": { "type": "string" },
+        "designation": { "type": "string" },
+        "managerId": { "type": "string" },
+        "joiningDate": { "type": "string", "format": "date" },
+        "location": { "type": "string" },
+        "phone": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "hasCalendarAccess": { "type": "boolean" },
+        "hrmsAccess": { "type": "boolean", "description": "Grants access to the HRMS module. Defaults to true for all employees." },
+        "crmAccess": { "type": "boolean", "description": "Grants access to the CRM module. Default false; set true for RMs by admin." },
+        "misAccess": { "type": "boolean", "description": "Grants access to the MIS module. Default false; set true for finance/accounts team by admin. Phase 4 build." },
+        "crmRole": {
+          "type": ["string", "null"],
+          "enum": ["admin", "lead_generator", "lead_convertor", "manager", null],
+          "description": "CRM functional role. lead_generator sources leads; lead_convertor closes them. Admin sets this field only."
+        },
+        "convertorVertical": {
+          "type": ["string", "null"],
+          "enum": ["loan", "wealth", "insurance", null],
+          "description": "Only set when crmRole === 'lead_convertor'. Drives handoff matching so an opportunity is transferred to the correct specialist."
+        },
+        "isHrmsManager": {
+          "type": "boolean",
+          "description": "Grants leave approval and admin attendance override in HRMS. Set by admin only."
+        }
+      },
+      "required": ["userId", "email", "role"]
+    },
+    "attendance": {
+      "title": "Attendance Record",
+      "description": "Daily attendance entry per employee. checkIn/checkOut are Firestore Timestamps (server-side). Phase 3 schema.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "date": { "type": "string", "format": "date", "description": "YYYY-MM-DD" },
+        "checkIn": { "type": ["object", "null"], "description": "Firestore Timestamp or null" },
+        "checkOut": { "type": ["object", "null"], "description": "Firestore Timestamp or null" },
+        "workingHours": { "type": "number" },
+        "status": { "type": "string", "enum": ["present", "half_day", "absent", "leave", "holiday"] },
+        "markedBy": { "type": "string", "enum": ["self", "admin"] },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "object", "description": "Firestore serverTimestamp()" },
+        "updatedAt": { "type": "object", "description": "Firestore serverTimestamp()" }
+      },
+      "required": ["userId", "date", "status", "markedBy", "createdAt", "updatedAt"]
+    },
+    "leave_application": {
+      "title": "Leave Application",
+      "description": "Employee leave application. Replaces Phase 1 /leaves collection. Phase 3 schema.",
+      "type": "object",
+      "properties": {
+        "employeeId": { "type": "string" },
+        "type": { "type": "string", "enum": ["casual", "sick", "earned", "lop", "optional"] },
+        "fromDate": { "type": "string", "format": "date", "description": "YYYY-MM-DD" },
+        "toDate": { "type": "string", "format": "date", "description": "YYYY-MM-DD" },
+        "days": { "type": "number", "description": "Working days (weekends + holidays excluded)" },
+        "reason": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "cancelled"] },
+        "appliedAt": { "type": "object", "description": "Firestore serverTimestamp()" },
+        "approvedBy": { "type": ["string", "null"] },
+        "approvedAt": { "type": ["object", "null"], "description": "Firestore Timestamp or null" },
+        "rejectionReason": { "type": ["string", "null"] },
+        "calendarEventId": { "type": ["string", "null"] }
+      },
+      "required": ["employeeId", "type", "fromDate", "toDate", "days", "reason", "status", "appliedAt"]
+    },
+    "leave_balance": {
+      "title": "Leave Balance",
+      "description": "Annual leave balance per employee. Doc ID = employeeId. Written by admin/Cloud Function.",
+      "type": "object",
+      "properties": {
+        "employeeId": { "type": "string" },
+        "year": { "type": "number" },
+        "casual": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "number" },
+            "used": { "type": "number" },
+            "remaining": { "type": "number" }
+          },
+          "required": ["total", "used", "remaining"]
+        },
+        "sick": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "number" },
+            "used": { "type": "number" },
+            "remaining": { "type": "number" }
+          },
+          "required": ["total", "used", "remaining"]
+        },
+        "earned": {
+          "type": "object",
+          "properties": {
+            "total": { "type": "number" },
+            "used": { "type": "number" },
+            "remaining": { "type": "number" }
+          },
+          "required": ["total", "used", "remaining"]
+        }
+      },
+      "required": ["employeeId", "year", "casual", "sick", "earned"]
+    },
+    "holiday": {
+      "title": "Holiday",
+      "description": "Public and company holidays for a given year. Readable by all authenticated users.",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date", "description": "YYYY-MM-DD" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["national", "regional", "optional"] },
+        "year": { "type": "number" }
+      },
+      "required": ["date", "name", "type", "year"]
+    },
+    "payslip": {
+      "title": "Payslip",
+      "description": "Monthly payslip generated by admin from CA-provided salary data. Read-only for employees. Phase 3 schema.",
+      "type": "object",
+      "properties": {
+        "employeeId": { "type": "string" },
+        "month": { "type": "string", "description": "YYYY-MM" },
+        "basicSalary": { "type": "number" },
+        "hra": { "type": "number" },
+        "conveyanceAllowance": { "type": "number" },
+        "medicalAllowance": { "type": "number" },
+        "otherAllowances": { "type": "number" },
+        "totalEarnings": { "type": "number" },
+        "pf": { "type": "number" },
+        "professionalTax": { "type": "number" },
+        "tds": { "type": "number" },
+        "otherDeductions": { "type": "number" },
+        "totalDeductions": { "type": "number" },
+        "netPay": { "type": "number" },
+        "workingDays": { "type": "number" },
+        "presentDays": { "type": "number" },
+        "lopDays": { "type": "number" },
+        "generatedAt": { "type": "object", "description": "Firestore serverTimestamp()" },
+        "generatedBy": { "type": "string", "description": "UID of admin who generated this payslip" },
+        "notes": { "type": "string" }
+      },
+      "required": ["employeeId", "month", "basicSalary", "totalEarnings", "totalDeductions", "netPay", "workingDays", "presentDays", "lopDays", "generatedAt", "generatedBy"]
+    },
+    "commission_statement": {
+      "title": "Commission Statement",
+      "description": "Actual commission payment received from a provider (bank/AMC/insurer). MIS-only. Phase 4.1.",
+      "type": "object",
+      "properties": {
+        "providerId": { "type": "string" },
+        "source": { "type": "string", "enum": ["bank", "amc", "insurer"] },
+        "periodStart": { "type": "string", "description": "YYYY-MM" },
+        "periodEnd": { "type": "string", "description": "YYYY-MM" },
+        "statementDate": { "type": "string", "format": "date", "description": "YYYY-MM-DD" },
+        "receivedDate": { "type": "string", "format": "date", "description": "YYYY-MM-DD" },
+        "fileName": { "type": "string" },
+        "fileUploadedAt": { "type": "object", "description": "Firestore Timestamp" },
+        "totalAmount": { "type": "number" },
+        "lineCount": { "type": "number" },
+        "matchedCount": { "type": "number" },
+        "discrepancyCount": { "type": "number" },
+        "unmatchedCount": { "type": "number" },
+        "status": { "type": "string", "enum": ["imported", "reconciling", "reconciled", "discrepancy", "closed"] },
+        "importedBy": { "type": "string" },
+        "importedAt": { "type": "object", "description": "Firestore serverTimestamp()" },
+        "closedBy": { "type": ["string", "null"] },
+        "closedAt": { "type": ["object", "null"] },
+        "notes": { "type": "string" }
+      },
+      "required": ["providerId", "source", "periodStart", "periodEnd", "statementDate", "receivedDate", "fileName", "totalAmount", "lineCount", "status", "importedBy", "importedAt"]
+    },
+    "statement_line": {
+      "title": "Statement Line",
+      "description": "A single line item within a commission statement, linked to a commission_record after reconciliation. Phase 4.2.",
+      "type": "object",
+      "properties": {
+        "statementId": { "type": "string" },
+        "providerId": { "type": "string" },
+        "rawDate": { "type": "string" },
+        "rawDescription": { "type": "string" },
+        "rawAmount": { "type": "string" },
+        "parsedDate": { "type": "string", "format": "date", "description": "YYYY-MM-DD" },
+        "parsedAmount": { "type": "number" },
+        "matchedCommissionRecordId": { "type": ["string", "null"] },
+        "matchedOpportunityId": { "type": ["string", "null"] },
+        "discrepancyAmount": { "type": ["number", "null"] },
+        "status": { "type": "string", "enum": ["unmatched", "matched", "discrepancy", "unknown", "excluded"] },
+        "reconciledBy": { "type": ["string", "null"] },
+        "reconciledAt": { "type": ["object", "null"] },
+        "notes": { "type": "string" }
+      },
+      "required": ["statementId", "providerId", "rawDate", "rawDescription", "rawAmount", "parsedDate", "parsedAmount", "status"]
+    },
+    "rm_payout_slab": {
+      "title": "RM Payout Slab",
+      "description": "Defines the percentage of received commission paid out to an RM or role. Phase 4.3.",
+      "type": "object",
+      "properties": {
+        "targetType": { "type": "string", "enum": ["user", "role"] },
+        "targetId": { "type": "string", "description": "userId OR crmRole value (e.g. lead_convertor)" },
+        "businessLine": { "type": "string", "enum": ["loan", "wealth", "insurance"] },
+        "percentage": { "type": "number", "minimum": 0, "maximum": 100 },
+        "effectiveFrom": { "type": "string", "format": "date" },
+        "effectiveTo": { "type": ["string", "null"], "format": "date" },
+        "active": { "type": "boolean" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "object", "description": "Firestore serverTimestamp()" }
+      },
+      "required": ["targetType", "targetId", "businessLine", "percentage", "effectiveFrom", "active", "createdBy", "createdAt"]
+    },
+    "rm_payout": {
+      "title": "RM Payout",
+      "description": "Monthly payout record for a single RM, calculated from received commissions. Phase 4.3.",
+      "type": "object",
+      "properties": {
+        "rmId": { "type": "string" },
+        "rmDisplayName": { "type": "string" },
+        "periodStart": { "type": "string", "description": "YYYY-MM" },
+        "periodEnd": { "type": "string", "description": "YYYY-MM" },
+        "lineItems": { "type": "array", "description": "Array of RmPayoutLineItem objects" },
+        "totalReceivedBase": { "type": "number" },
+        "totalPayout": { "type": "number" },
+        "status": { "type": "string", "enum": ["draft", "approved", "paid"] },
+        "generatedAt": { "type": "object", "description": "Firestore serverTimestamp()" },
+        "generatedBy": { "type": "string" },
+        "approvedBy": { "type": ["string", "null"] },
+        "approvedAt": { "type": ["object", "null"] },
+        "paidAt": { "type": ["object", "null"] },
+        "paymentReference": { "type": ["string", "null"] },
+        "paymentNotes": { "type": ["string", "null"] }
+      },
+      "required": ["rmId", "rmDisplayName", "periodStart", "periodEnd", "lineItems", "totalReceivedBase", "totalPayout", "status", "generatedAt", "generatedBy"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "Metadata about users"
+    },
+    "/attendance/{attendanceId}": {
+      "schema": "attendance",
+      "description": "Phase 3 HRMS attendance logs with Firestore Timestamp check-in/out"
+    },
+    "/leave_applications/{applicationId}": {
+      "schema": "leave_application",
+      "description": "Phase 3 HRMS leave applications (replaces Phase 1 /leaves)"
+    },
+    "/leave_balances/{docId}": {
+      "schema": "leave_balance",
+      "description": "Annual leave balance per employee; doc ID equals employeeId"
+    },
+    "/holidays/{holidayId}": {
+      "schema": "holiday",
+      "description": "Company holiday calendar; readable by all authenticated users"
+    },
+    "/payslips/{payslipId}": {
+      "schema": "payslip",
+      "description": "Monthly payslips generated by admin from CA salary data"
+    },
+    "/commission_statements/{statementId}": { "schema": "commission_statement" },
+    "/commission_statements/{statementId}/lines/{lineId}": { "schema": "statement_line" },
+    "/rm_payout_slabs/{slabId}": { "schema": "rm_payout_slab" },
+    "/rm_payouts/{payoutId}": { "schema": "rm_payout" }
+  }
+}

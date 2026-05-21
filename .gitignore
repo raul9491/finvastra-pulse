@@ -1,0 +1,19 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Firebase emulator data — persist .gitkeep to create the directory in git
+emulator-data/*
+!emulator-data/.gitkeep
+
+# Seed scripts contain real employee data — never commit
+scripts/seed/
+
+# Secrets
+*.key
+service-account*.json

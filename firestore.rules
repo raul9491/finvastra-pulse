@@ -1,0 +1,482 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 0. Global Safety Net — deny everything not explicitly permitted
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ─── Helpers ────────────────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    // TODO Phase 5: migrate to custom claims (request.auth.token.role == 'admin')
+    // via a Cloud Function trigger for performance and token caching.
+    function isAdmin() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'employee') == 'admin';
+    }
+    function hasCrmAccess() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('crmAccess', false) == true;
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // ─── Validation helpers ──────────────────────────────────────────────────────
+    // isValidAttendance / isValidLeave removed — Phase 1 helpers superseded by Phase 3
+    // HRMS rules at the bottom of this file (use Timestamp-based validation there).
+
+    function isValidLead(data) {
+      // Lead = person record. Deal data lives in the opportunities subcollection.
+      return data.keys().hasAll([
+               'displayName', 'phone', 'source', 'primaryOwnerId',
+               'consentGiven', 'consentTimestamp', 'consentMethod',
+               'createdBy', 'createdAt', 'tags', 'deleted'
+             ]) &&
+             data.keys().hasOnly([
+               'displayName', 'phone', 'email', 'panRaw', 'panEncrypted', 'panMasked',
+               'source', 'tags', 'primaryOwnerId', 'consentGiven', 'consentTimestamp',
+               'consentMethod', 'createdBy', 'createdAt', 'updatedAt', 'deleted',
+               'deletedAt', 'slaDeadline', 'triagePriority', 'importBatchId',
+               'importHash', 'importedBy', 'importedAt'
+             ]) &&
+             data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 200 &&
+             data.phone is string && data.phone.size() == 10 &&
+             data.source in ['website', 'instagram', 'facebook', 'walkin', 'referral', 'broker', 'offline_bulk', 'social_meta'] &&
+             data.createdBy == request.auth.uid &&
+             data.consentGiven == true &&
+             data.consentMethod in ['verbal', 'written', 'digital', 'offline_collection'] &&
+             data.deleted == false;
+    }
+
+    // Bank submission status must follow the defined progression.
+    // Skipping steps (e.g. preparing → disbursed) is not allowed.
+    // 'rejected' is terminal from any non-disbursed state.
+    function validBankSubStatusTransition(from, to) {
+      return from == to ||
+             (from == 'preparing'  && to in ['submitted', 'rejected']) ||
+             (from == 'submitted'  && to in ['in_review', 'rejected']) ||
+             (from == 'in_review'  && to in ['sanctioned', 'rejected']) ||
+             (from == 'sanctioned' && to in ['disbursed', 'rejected']);
+    }
+
+    // crmRole=lead_convertor requires convertorVertical; all other roles require it to be null.
+    function validCrmRolePair(data) {
+      return !data.keys().hasAny(['crmRole', 'convertorVertical']) ||
+             (data.get('crmRole', null) == 'lead_convertor' && data.keys().hasAny(['convertorVertical']) && data.get('convertorVertical', null) != null) ||
+             (data.get('crmRole', null) != 'lead_convertor' && data.get('convertorVertical', null) == null);
+    }
+
+    function isValidCommissionSlab(data) {
+      // Exactly one of percentage or flatFee must be present — not both, not neither
+      return data.keys().hasAll(['providerId', 'product', 'minTicket', 'basisOn',
+                                  'effectiveFrom', 'active', 'lastModifiedBy']) &&
+             data.minTicket is number && data.minTicket >= 0 &&
+             data.basisOn in ['sanctioned', 'disbursed'] &&
+             (
+               ('percentage' in data && !('flatFee' in data)) ||
+               (!('percentage' in data) && 'flatFee' in data)
+             );
+    }
+
+    function isValidActivity(data) {
+      return data.keys().hasAll(['type', 'content', 'by', 'at']) &&
+             data.keys().hasOnly(['type', 'content', 'by', 'at', 'relatedDocId']) &&
+             data.type in ['call', 'email', 'whatsapp', 'meeting', 'note', 'status_change', 'ownership_change', 'commission_calculated'] &&
+             data.content is string && data.content.size() > 0 && data.content.size() <= 2000 &&
+             data.by == request.auth.uid;
+    }
+
+    // ─── Users ───────────────────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow get:  if isSignedIn();
+      allow list: if isSignedIn();
+
+      // First sign-in bootstrap.
+      // Regular employees land as 'employee'. Admin email is verified by Firebase Auth
+      // (request.auth.token.email cannot be spoofed) so we allow it to self-create as 'admin'.
+      allow create: if isOwner(userId) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'email', 'displayName', 'role', 'photoURL', 'createdAt',
+                         'employeeId', 'department', 'designation', 'managerId',
+                         'joiningDate', 'location', 'phone', 'dateOfBirth', 'leaveBalance',
+                         'hrmsAccess', 'crmAccess', 'hasCalendarAccess'
+                       ]) &&
+                       incoming().keys().hasAll(['userId', 'email', 'displayName', 'role', 'photoURL']) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().email == request.auth.token.email &&
+                       (
+                         incoming().role == 'employee' ||
+                         (incoming().role == 'admin' && request.auth.token.email == 'rahulv@finvastra.com')
+                       );
+
+      allow update: if isSignedIn() && (
+        (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'photoURL', 'phone', 'location', 'department',
+          'designation', 'dateOfBirth', 'leaveBalance', 'hasCalendarAccess'
+        ])) ||
+        // Admin can update any user field, but crmRole/convertorVertical must be a valid pair
+        (isAdmin() && validCrmRolePair(incoming()))
+      );
+    }
+
+    // ─── Employee sensitive data (bank accounts) ─────────────────────────────────
+    // Admin: full read/write. Employee: read own only. No one else.
+    match /employee_sensitive/{userId} {
+      allow get:    if isAdmin() || isOwner(userId);
+      allow list:   if isAdmin();
+      allow create,
+            update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ─── Attendance / Leaves / Payroll ───────────────────────────────────────────
+    // Phase 1 placeholder rules removed. Phase 3 HRMS rules are at the bottom of
+    // this file: /attendance/{recordId}, /leave_applications/{applicationId},
+    // /leave_balances/{docId}, /holidays/{holidayId}, /payslips/{payslipId}.
+    // The old /leaves and /payroll collections are superseded by the Phase 3 schema.
+
+    // ─── Notifications ───────────────────────────────────────────────────────────
+    match /notifications/{notifId} {
+      allow get:    if isOwner(existing().get('userId', '')) || isAdmin();
+      allow list:   if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isOwner(existing().get('userId', '')) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['isRead']);
+      allow delete: if isAdmin() || isOwner(existing().get('userId', ''));
+    }
+
+    // ─── CRM: Leads (person record) ──────────────────────────────────────────────
+    match /leads/{leadId} {
+      // Admin sees all; RM sees leads where they are the primary owner
+      allow get:  if isAdmin() || (hasCrmAccess() && resource.data.primaryOwnerId == request.auth.uid);
+      allow list: if isAdmin() || (hasCrmAccess() && resource.data.primaryOwnerId == request.auth.uid);
+
+      // Admin always bypasses crmAccess — needed when the user doc was bootstrapped
+      // with crmAccess:false on first emulator sign-in before admin role was set.
+      allow create: if (hasCrmAccess() || isAdmin()) && isValidLead(incoming());
+
+      // Admin updates any field; primary owner can update non-consent, non-PAN fields
+      allow update: if isAdmin() ||
+                       (hasCrmAccess() &&
+                        resource.data.primaryOwnerId == request.auth.uid &&
+                        incoming().diff(existing()).affectedKeys().hasOnly([
+                          'displayName', 'phone', 'email', 'source', 'tags',
+                          'primaryOwnerId', 'updatedAt'
+                        ]));
+
+      allow delete: if false;  // soft delete only — set deleted:true via admin update
+    }
+
+    // ─── CRM: Opportunities (deal record) ────────────────────────────────────────
+    match /leads/{leadId}/opportunities/{oppId} {
+      // Admin + lead's primaryOwner + opportunity's ownerId can all read
+      allow get, list: if isAdmin() ||
+                          (hasCrmAccess() && (
+                            resource.data.ownerId == request.auth.uid ||
+                            get(/databases/$(database)/documents/leads/$(leadId)).data.primaryOwnerId == request.auth.uid
+                          ));
+
+      // Only admin or lead's primary owner can create opportunities on that lead
+      allow create: if isAdmin() ||
+                       (hasCrmAccess() &&
+                        get(/databases/$(database)/documents/leads/$(leadId)).data.get('primaryOwnerId','') == request.auth.uid);
+
+      // Admin updates any field; opportunity owner updates stage/status/notes only
+      allow update: if isAdmin() ||
+                       (hasCrmAccess() &&
+                        resource.data.ownerId == request.auth.uid &&
+                        incoming().diff(existing()).affectedKeys().hasOnly([
+                          'stage', 'status', 'notes', 'expectedCloseDate',
+                          'actualCloseDate', 'updatedAt', 'customFields'
+                        ]));
+
+      allow delete: if false;
+    }
+
+    // ─── CRM: Opportunity Activities ─────────────────────────────────────────────
+    match /leads/{leadId}/opportunities/{oppId}/activities/{actId} {
+      allow read: if isAdmin() ||
+                     (hasCrmAccess() && (
+                       get(/databases/$(database)/documents/leads/$(leadId)/opportunities/$(oppId)).data.ownerId == request.auth.uid ||
+                       get(/databases/$(database)/documents/leads/$(leadId)).data.primaryOwnerId == request.auth.uid
+                     ));
+      allow create: if hasCrmAccess() && isValidActivity(incoming());
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ─── CRM: Bank Submissions ───────────────────────────────────────────────────
+    match /leads/{leadId}/opportunities/{oppId}/bank_submissions/{subId} {
+      // Opportunity owner + lead primary owner + admin can read
+      allow get, list: if isAdmin() ||
+                          (hasCrmAccess() && (
+                            get(/databases/$(database)/documents/leads/$(leadId)/opportunities/$(oppId)).data.ownerId == request.auth.uid ||
+                            get(/databases/$(database)/documents/leads/$(leadId)).data.primaryOwnerId == request.auth.uid
+                          ));
+
+      // Only the opportunity owner or admin can create a bank submission
+      allow create: if (isAdmin() ||
+                        (hasCrmAccess() &&
+                         get(/databases/$(database)/documents/leads/$(leadId)/opportunities/$(oppId)).data.ownerId == request.auth.uid)) &&
+                       incoming().keys().hasAll(['providerId', 'status', 'isPrimary', 'createdAt', 'createdBy', 'updatedAt', 'statusHistory']) &&
+                       incoming().keys().hasOnly([
+                         'providerId', 'status', 'isPrimary', 'createdAt', 'createdBy',
+                         'updatedAt', 'notes', 'requestedAmount', 'statusHistory',
+                         'documentStatus', 'documentStatusLog'
+                       ]) &&
+                       incoming().status == 'preparing' &&
+                       incoming().isPrimary == false;
+
+      // Status transitions must follow the defined progression.
+      // isPrimary can only become true when status is 'disbursed'.
+      allow update: if (isAdmin() ||
+                        (hasCrmAccess() &&
+                         get(/databases/$(database)/documents/leads/$(leadId)/opportunities/$(oppId)).data.ownerId == request.auth.uid)) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'status', 'updatedAt', 'submittedAt', 'decisionAt', 'disbursedAt',
+                         'sanctionedAmount', 'disbursedAmount', 'requestedAmount',
+                         'interestRate', 'tenureMonths', 'isPrimary',
+                         'rejectionReason', 'notes', 'statusHistory',
+                         'documentStatus', 'documentStatusLog'
+                       ]) &&
+                       // Status can only change along the valid progression path
+                       (!incoming().diff(existing()).affectedKeys().hasAny(['status']) ||
+                        validBankSubStatusTransition(existing().status, incoming().status)) &&
+                       // isPrimary=true is only permitted when status is 'disbursed'
+                       (!incoming().diff(existing()).affectedKeys().hasAny(['isPrimary']) ||
+                        !incoming().isPrimary ||
+                        incoming().status == 'disbursed');
+
+      // Only admin can delete submission records
+      allow delete: if isAdmin();
+    }
+
+    // ─── CRM: Config — Opportunity Types ─────────────────────────────────────────
+    match /opportunity_types/{typeId} {
+      allow read:  if hasCrmAccess() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ─── CRM: Config — Providers ─────────────────────────────────────────────────
+    match /providers/{providerId} {
+      allow read:  if hasCrmAccess() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ─── CRM: Config — Document Types ───────────────────────────────────────────
+    match /document_types/{typeId} {
+      allow read:  if hasCrmAccess() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ─── CRM: Commission Slabs ───────────────────────────────────────────────────
+    match /commission_slabs/{slabId} {
+      allow read:   if hasCrmAccess() || isAdmin();
+      allow create,
+            update: if isAdmin() && isValidCommissionSlab(incoming());
+      allow delete: if isAdmin();  // deactivation preferred over deletion
+    }
+
+    // ─── CRM: Commission Records ─────────────────────────────────────────────────
+    match /commission_records/{recordId} {
+      // Admin sees all; RM sees only their own records
+      allow read: if isAdmin() ||
+                     (hasCrmAccess() && resource.data.rmOwnerId == request.auth.uid);
+      // Records are created by the RM's own client session on primary disbursal.
+      // Phase 6: move to Cloud Function so the client cannot set slabId or amounts.
+      allow create: if hasCrmAccess() &&
+                       incoming().rmOwnerId == request.auth.uid &&
+                       incoming().status == 'pending' &&
+                       incoming().calculatedCommission >= 0;
+      // Only admin can update (mark paid, clawback, etc.)
+      allow update: if isAdmin() &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'status', 'actualPayoutDate', 'actualAmount',
+                         'clawbackReason', 'notes', 'paidAt', 'updatedAt'
+                       ]);
+      // Never delete — audit trail integrity (aligns with MIS matchedRecordId references)
+      allow delete: if false;
+    }
+
+    // ─── Commission Leakage Reports ──────────────────────────────────────────────
+    match /commission_leakage_reports/{reportId} {
+      allow read:   if isAdmin();
+      allow write:  if false;  // server-only (Admin SDK bypasses rules)
+    }
+
+    // ─── Import Jobs ─────────────────────────────────────────────────────────────
+    match /import_jobs/{jobId} {
+      // Triggering user can read their own job's progress; admin sees all
+      allow read: if isAdmin() ||
+                     (isSignedIn() && resource.data.triggeredBy == request.auth.uid);
+      // Written exclusively by the server (Firebase Admin SDK bypasses these rules)
+      allow create: if false;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // ─── Audit Logs ──────────────────────────────────────────────────────────────
+    match /audit_logs/{logId} {
+      allow read:   if isAdmin();
+      allow create: if isSignedIn(); // server-side writes; client writes allowed for now
+      allow update: if false;        // audit logs are immutable
+      allow delete: if false;
+    }
+
+    // ─── Access Logs ─────────────────────────────────────────────────────────────
+    match /access_logs/{logId} {
+      allow read:   if isAdmin();
+      allow create: if false;  // server-only (Admin SDK bypasses rules)
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ─── RTBF Log ────────────────────────────────────────────────────────────────
+    // Records the fact of an erasure request (not the original PII).
+    // Written by CRM admins; immutable once created.
+    match /rtbf_log/{eventId} {
+      allow read:   if isAdmin();
+      allow create: if hasCrmAccess() &&
+                       incoming().keys().hasAll(['leadId', 'initiatedBy', 'initiatedAt', 'reason']) &&
+                       incoming().initiatedBy == request.auth.uid;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ─── Public Tracker Links ─────────────────────────────────────────────────────
+    match /public_tracker_links/{token} {
+      allow read:  if false;   // served exclusively via /api/track/:token server endpoint
+      allow write: if false;   // server-only writes (Admin SDK)
+    }
+
+    // ─── User Subcollections ─────────────────────────────────────────────────────
+
+    // Login history — append-only by the owner; readable by owner + admin.
+    // Phase 6: server-side trim to last 50 entries.
+    match /users/{userId}/login_history/{eventId} {
+      allow read:   if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId);
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // Known devices — owner can register and update lastSeen; owner or admin can remove.
+    match /users/{userId}/known_devices/{fingerprintHash} {
+      allow read:   if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId);
+      // Only lastSeenAt may be mutated after creation — prevents retroactive fingerprint spoofing.
+      allow update: if isOwner(userId) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['lastSeenAt']);
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    // ─── HRMS: Helpers ───────────────────────────────────────────────────────────
+    function isHrmsManager() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isHrmsManager', false) == true;
+    }
+
+    // ─── HRMS: Attendance ─────────────────────────────────────────────────────────
+    match /attendance/{recordId} {
+      allow read:   if isAdmin() || isHrmsManager() ||
+                       (isSignedIn() && resource.data.get('userId', '') == request.auth.uid);
+      allow create: if isSignedIn() &&
+                       incoming().keys().hasAll(['userId', 'date', 'status']) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+      allow update: if isAdmin() || isHrmsManager();
+      allow delete: if false;
+    }
+
+    // ─── HRMS: Leave Applications ────────────────────────────────────────────────
+    match /leave_applications/{applicationId} {
+      allow read:   if isAdmin() || isHrmsManager() ||
+                       (isSignedIn() && resource.data.get('employeeId', '') == request.auth.uid);
+      allow create: if isSignedIn() &&
+                       incoming().keys().hasAll(['employeeId', 'type', 'fromDate', 'toDate', 'days', 'reason', 'status']) &&
+                       incoming().employeeId == request.auth.uid &&
+                       incoming().status == 'pending';
+      allow update: if isAdmin() || isHrmsManager() ||
+                       (isSignedIn() &&
+                        resource.data.get('employeeId', '') == request.auth.uid &&
+                        resource.data.status == 'pending' &&
+                        incoming().diff(existing()).affectedKeys().hasOnly(['status']) &&
+                        incoming().status == 'cancelled');
+      allow delete: if false;
+    }
+
+    // ─── HRMS: Leave Balances ─────────────────────────────────────────────────────
+    match /leave_balances/{docId} {
+      allow read:   if isAdmin() || isHrmsManager() ||
+                       (isSignedIn() && docId == request.auth.uid);
+      allow write:  if isAdmin();
+    }
+
+    // ─── HRMS: Holidays ───────────────────────────────────────────────────────────
+    match /holidays/{holidayId} {
+      allow read:   if isSignedIn();
+      allow write:  if isAdmin();
+    }
+
+    // ─── HRMS: Payslips ───────────────────────────────────────────────────────────
+    match /payslips/{payslipId} {
+      allow read:   if isAdmin() || isHrmsManager() ||
+                       (isSignedIn() && resource.data.get('employeeId', '') == request.auth.uid);
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ─── MIS: Helpers ─────────────────────────────────────────────────────────────
+    function hasMisAccess() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('misAccess', null) != null;
+    }
+    function isMisAdmin() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('misAccess', '') == 'admin';
+    }
+
+    // ─── MIS: Commission Statements ───────────────────────────────────────────────
+    match /commission_statements/{statementId} {
+      allow read:   if isAdmin() || hasMisAccess();
+      allow create: if isAdmin() || isMisAdmin();
+      allow update: if isAdmin() || isMisAdmin();
+      allow delete: if false;
+
+      match /lines/{lineId} {
+        allow read:  if isAdmin() || hasMisAccess();
+        allow write: if isAdmin() || isMisAdmin();
+      }
+    }
+
+    // ─── MIS: RM Payout Slabs ─────────────────────────────────────────────────────
+    match /rm_payout_slabs/{slabId} {
+      // AUDIT FIX: was isSignedIn() — payout percentages are confidential.
+      // Only MIS users and admin can read. Prevents regular employees from
+      // seeing RM compensation structure.
+      allow read:  if isAdmin() || hasMisAccess();
+      allow write: if isAdmin() || isMisAdmin();
+    }
+
+    // ─── MIS: RM Payouts ──────────────────────────────────────────────────────────
+    match /rm_payouts/{payoutId} {
+      allow read:   if isAdmin() || hasMisAccess() ||
+                       (isSignedIn() && resource.data.get('rmId', '') == request.auth.uid);
+      allow create: if isAdmin() || isMisAdmin();
+      allow update: if isAdmin() || isMisAdmin();
+      allow delete: if false;
+    }
+  }
+}

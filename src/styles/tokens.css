@@ -1,0 +1,14 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,100..900,0..100;1,9..144,100..900,0..100&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
+
+:root {
+  --navy:        #0B1538;
+  --navy-soft:   #1B2A4E;
+  --gold:        #C9A961;
+  --gold-deep:   #9A7E3F;
+  --gold-bright: #E5C97C;
+  --paper:       #FAFAF7;
+  --paper-warm:  #F2EFE7;
+  --ink:         #0A0A0A;
+  --ink-soft:    #2A2A2A;
+  --mute:        #8B8B85;
+}

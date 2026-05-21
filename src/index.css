@@ -1,0 +1,48 @@
+@import "./styles/tokens.css";
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --color-navy:        #0B1538;
+  --color-navy-soft:   #1B2A4E;
+  --color-gold:        #C9A961;
+  --color-gold-deep:   #9A7E3F;
+  --color-gold-bright: #E5C97C;
+  --color-paper:       #FAFAF7;
+  --color-paper-warm:  #F2EFE7;
+  --color-ink:         #0A0A0A;
+  --color-ink-soft:    #2A2A2A;
+  --color-mute:        #8B8B85;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--navy-soft);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gold-deep);
+}

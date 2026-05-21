@@ -3,43 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { signInWithEmailAndPassword, type AuthError } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 import { useAuth, SESSION_EXPIRED_KEY } from './AuthContext';
-import { VastraLogo } from '../../components/ui/VastraLogo';
-
-// ─── Decorative: faint concentric gold circles ────────────────────────────────
-function ConcentricRings() {
-  return (
-    <svg
-      className="absolute inset-0 w-full h-full pointer-events-none select-none"
-      aria-hidden
-      preserveAspectRatio="xMidYMid slice"
-    >
-      {[120, 240, 360, 480, 600, 720, 840, 960].map((r) => (
-        <circle key={r} cx="50%" cy="50%" r={r} fill="none"
-          stroke="rgba(201,169,97,0.04)" strokeWidth="1" />
-      ))}
-    </svg>
-  );
-}
-
-// ─── Decorative: gold diamond watermark (top-right) ──────────────────────────
-function DiamondWatermark() {
-  return (
-    <div className="absolute top-8 right-8 w-44 opacity-[0.12] pointer-events-none select-none" aria-hidden>
-      <svg viewBox="0 0 120 120" className="w-full h-full">
-        <g transform="translate(60,60) scale(1.1)">
-          {(['rotate(45 0 -23)', 'rotate(45 0 23)', 'rotate(45 -23 0)', 'rotate(45 23 0)'] as const).map((t, i) => (
-            <rect key={i}
-              x={['-15','-15','-38','8'][i]} y={['-38','8','-15','-15'][i]}
-              width="30" height="30" rx="6"
-              fill="none" stroke="#C9A961" strokeWidth="7"
-              transform={t}
-            />
-          ))}
-        </g>
-      </svg>
-    </div>
-  );
-}
+import { VideoLogo } from '../../components/ui/VideoLogo';
+import { MercuryBackground } from '../../components/ui/MercuryBackground';
 
 const AUTH_ERRORS: Record<string, string> = {
   'auth/invalid-credential':     'Invalid email or password.',
@@ -53,12 +18,14 @@ const AUTH_ERRORS: Record<string, string> = {
 export function LoginPage() {
   const { user, loading, authError: domainError } = useAuth();
   const navigate = useNavigate();
-  const [email,         setEmail]         = useState('');
-  const [password,      setPassword]      = useState('');
-  const [emailTouched,  setEmailTouched]  = useState(false);
-  const [localError,    setLocalError]    = useState('');
-  const [submitting,    setSubmitting]    = useState(false);
+
+  const [email,          setEmail]          = useState('');
+  const [password,       setPassword]       = useState('');
+  const [emailTouched,   setEmailTouched]   = useState(false);
+  const [localError,     setLocalError]     = useState('');
+  const [submitting,     setSubmitting]     = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [btnHover,       setBtnHover]       = useState(false);
 
   useEffect(() => {
     if (sessionStorage.getItem(SESSION_EXPIRED_KEY)) {
@@ -74,9 +41,9 @@ export function LoginPage() {
   if (loading) return null;
   if (user)    return null;
 
-  const emailValid = email.endsWith('@finvastra.com');
+  const emailValid        = email.endsWith('@finvastra.com');
   const showDomainWarning = emailTouched && email.length > 0 && !emailValid;
-  const displayError = domainError || localError;
+  const displayError      = domainError || localError;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,33 +59,61 @@ export function LoginPage() {
     }
   };
 
-  const inp = `w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm outline-none
-    transition-colors focus:border-navy focus:ring-2 focus:ring-navy/10`;
+  const inp = [
+    'w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm outline-none',
+    'transition-all duration-200',
+    'focus:border-[#C9A961] focus:ring-2 focus:ring-[#C9A961]/10',
+  ].join(' ');
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-navy">
-      <ConcentricRings />
-      <DiamondWatermark />
+    <div style={{ position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: 'transparent' }}>
 
-      {/* ── Video logo — top-left corner ── */}
-      <div className="absolute top-6 left-6 z-20 flex flex-col items-start gap-1.5">
-        <video autoPlay loop muted playsInline style={{ width: 140 }}>
-          <source src="/video/logo-transparent.webm" type="video/webm" />
-        </video>
-        <span style={{
-          fontFamily: '"Fraunces", Georgia, serif',
-          fontWeight: 700, fontSize: 13,
-          letterSpacing: '0.05em', color: '#FFFFFF',
-        }}>
-          Finvastra Pulse
-        </span>
+      {/* ── WebGL Mercury background ── */}
+      <MercuryBackground />
+
+      {/* ── Rotating gold diamond (top-right decoration) ── */}
+      <div style={{
+        position:      'absolute',
+        top:           32, right: 32,
+        width:         200, height: 200,
+        opacity:       0.15,
+        zIndex:        1,
+        animation:     'rotateSlow 30s linear infinite',
+        pointerEvents: 'none',
+      }}>
+        <svg viewBox="0 0 120 120" width="200" height="200">
+          <g transform="translate(60,60) scale(1.1)">
+            {(['rotate(45 0 -23)', 'rotate(45 0 23)', 'rotate(45 -23 0)', 'rotate(45 23 0)'] as const).map((t, i) => (
+              <rect key={i}
+                x={['-15','-15','-38','8'][i]} y={['-38','8','-15','-15'][i]}
+                width="30" height="30" rx="6"
+                fill="none" stroke="#C9A961" strokeWidth="7"
+                transform={t}
+              />
+            ))}
+          </g>
+        </svg>
       </div>
 
-      <div className="relative z-10 w-full mx-4 max-w-md">
-        <div className="bg-white rounded-3xl p-10 shadow-[0_24px_64px_rgba(0,0,0,0.3)]">
+      {/* ── Video logo — top-left ── */}
+      <div style={{ position: 'absolute', top: 24, left: 24, zIndex: 2 }}>
+        <VideoLogo size="sm" showText={true} />
+      </div>
 
-          <div className="flex justify-center mb-8">
-            <VastraLogo size="lg" />
+      {/* ── Login card ── */}
+      <div style={{ position: 'relative', zIndex: 2, width: '100%', maxWidth: 440, margin: '0 16px' }}>
+        <div style={{
+          background:      'rgba(255,255,255,0.97)',
+          backdropFilter:  'blur(8px)',
+          borderRadius:    28,
+          padding:         40,
+          boxShadow:       '0 32px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08)',
+          animation:       'fadeUp 0.6s ease 0.1s both',
+        }}>
+
+          {/* Logo inside card */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}>
+            <VideoLogo size="md" showText={false} />
           </div>
 
           {sessionExpired && (
@@ -127,11 +122,17 @@ export function LoginPage() {
             </div>
           )}
 
-          <h1 className="text-2xl font-bold text-ink text-center mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif' }}>
+          <h1 style={{
+            fontFamily:  '"Fraunces", Georgia, serif',
+            fontSize:     24,
+            fontWeight:   700,
+            color:        '#0A0A0A',
+            textAlign:    'center',
+            marginBottom: 4,
+          }}>
             Welcome back
           </h1>
-          <p className="text-sm text-center mb-7" style={{ color: '#8B8B85' }}>
+          <p style={{ fontSize: 14, textAlign: 'center', color: '#8B8B85', marginBottom: 28 }}>
             Sign in with your <strong>@finvastra.com</strong> account
           </p>
 
@@ -181,21 +182,41 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={!emailValid || submitting}
-              className="w-full py-3 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
-              style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
+              onMouseEnter={() => setBtnHover(true)}
+              onMouseLeave={() => setBtnHover(false)}
+              style={{
+                width:        '100%',
+                padding:      '12px',
+                borderRadius: 12,
+                fontSize:     14,
+                fontWeight:   600,
+                color:        '#C9A961',
+                background:   'linear-gradient(135deg, #0B1538, #1B2A4E)',
+                boxShadow:    btnHover && !submitting ? '0 8px 24px rgba(11,21,56,0.4)' : 'none',
+                filter:       btnHover && !submitting ? 'brightness(1.15)' : 'none',
+                transition:   'all 0.2s ease',
+                border:       'none',
+                cursor:       (!emailValid || submitting) ? 'not-allowed' : 'pointer',
+                opacity:      (!emailValid || submitting) ? 0.5 : 1,
+              }}
             >
               {submitting ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
 
-          <p className="text-center text-xs mt-5" style={{ color: '#8B8B85' }}>
+          <p style={{ textAlign: 'center', fontSize: 13, marginTop: 20, color: '#8B8B85' }}>
             Don't have an account?{' '}
-            <Link to="/request-access" className="font-semibold hover:underline" style={{ color: '#0B1538' }}>
+            <Link
+              to="/request-access"
+              style={{ color: '#C9A961', fontWeight: 600, textDecoration: 'none' }}
+              onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+              onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+            >
               Request access
             </Link>
           </p>
 
-          <p className="text-center text-xs mt-4" style={{ color: '#8B8B85' }}>
+          <p style={{ textAlign: 'center', fontSize: 11, marginTop: 16, color: '#8B8B85' }}>
             Access restricted to Finvastra team members only.<br />
             © 2026 Finvastra Financial Services Pvt. Ltd.
           </p>

@@ -2,23 +2,14 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
+import { VideoLogo } from '../../components/ui/VideoLogo';
+import { MercuryBackground } from '../../components/ui/MercuryBackground';
 
 const DEPARTMENTS = [
   'BD & Client Relations', 'Management', 'Digital Marketing',
   'HR', 'Admin', 'Tech', 'Consultant', 'Housekeeping', 'Other',
 ];
 
-function ConcentricRings() {
-  return (
-    <svg className="absolute inset-0 w-full h-full pointer-events-none select-none"
-      aria-hidden preserveAspectRatio="xMidYMid slice">
-      {[120, 240, 360, 480, 600, 720, 840, 960].map((r) => (
-        <circle key={r} cx="50%" cy="50%" r={r} fill="none"
-          stroke="rgba(201,169,97,0.04)" strokeWidth="1" />
-      ))}
-    </svg>
-  );
-}
 
 export function RequestAccessPage() {
   const [fullName,       setFullName]       = useState('');
@@ -31,10 +22,10 @@ export function RequestAccessPage() {
   const [error,          setError]          = useState('');
   const [submitted,      setSubmitted]      = useState(false);
 
-  const emailValid   = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personalEmail);
-  const mobileValid  = /^[6-9]\d{9}$/.test(mobileNumber);
-  const canSubmit    = fullName.trim() && emailValid && mobileValid &&
-                       department && designation.trim() && !submitting;
+  const emailValid  = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personalEmail);
+  const mobileValid = /^[6-9]\d{9}$/.test(mobileNumber);
+  const canSubmit   = fullName.trim() && emailValid && mobileValid &&
+                      department && designation.trim() && !submitting;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,18 +33,18 @@ export function RequestAccessPage() {
     setError(''); setSubmitting(true);
     try {
       await addDoc(collection(db, 'access_requests'), {
-        fullName:      fullName.trim(),
-        personalEmail: personalEmail.trim().toLowerCase(),
-        mobileNumber:  mobileNumber.trim(),
+        fullName:        fullName.trim(),
+        personalEmail:   personalEmail.trim().toLowerCase(),
+        mobileNumber:    mobileNumber.trim(),
         department,
-        designation:   designation.trim(),
-        message:       message.trim(),
-        status:        'pending',
-        submittedAt:   serverTimestamp(),
-        reviewedBy:    null,
-        reviewedAt:    null,
+        designation:     designation.trim(),
+        message:         message.trim(),
+        status:          'pending',
+        submittedAt:     serverTimestamp(),
+        reviewedBy:      null,
+        reviewedAt:      null,
         rejectionReason: null,
-        createdUid:    null,
+        createdUid:      null,
       });
       setSubmitted(true);
     } catch (err) {
@@ -64,42 +55,48 @@ export function RequestAccessPage() {
     }
   };
 
-  const inp = `w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none
-    transition-colors focus:border-navy focus:ring-2 focus:ring-navy/10`;
+  const inp = [
+    'w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none',
+    'transition-all duration-200',
+    'focus:border-[#C9A961] focus:ring-2 focus:ring-[#C9A961]/10',
+  ].join(' ');
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-navy py-10">
-      <ConcentricRings />
+    <div style={{ position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: 'transparent', paddingTop: 40, paddingBottom: 40 }}>
 
-      {/* Video logo — top-left */}
-      <div className="absolute top-6 left-6 z-20 flex flex-col items-start gap-1.5">
-        <video autoPlay loop muted playsInline style={{ width: 140 }}>
-          <source src="/video/logo-transparent.webm" type="video/webm" />
-        </video>
-        <span style={{
-          fontFamily: '"Fraunces", Georgia, serif',
-          fontWeight: 700, fontSize: 13,
-          letterSpacing: '0.05em', color: '#FFFFFF',
-        }}>
-          Finvastra Pulse
-        </span>
+      {/* ── WebGL Mercury background ── */}
+      <MercuryBackground />
+
+      {/* ── Video logo — top-left ── */}
+      <div style={{ position: 'absolute', top: 24, left: 24, zIndex: 2 }}>
+        <VideoLogo size="sm" showText={true} />
       </div>
 
-      <div className="relative z-10 w-full mx-4 max-w-md">
-        <div className="bg-white rounded-3xl p-10 shadow-[0_24px_64px_rgba(0,0,0,0.3)]">
+      {/* ── Card ── */}
+      <div style={{ position: 'relative', zIndex: 2, width: '100%', maxWidth: 440, margin: '0 16px' }}>
+        <div style={{
+          background:     'rgba(255,255,255,0.97)',
+          backdropFilter: 'blur(8px)',
+          borderRadius:   28,
+          padding:        40,
+          boxShadow:      '0 32px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08)',
+          animation:      'fadeUp 0.6s ease 0.1s both',
+        }}>
 
           {submitted ? (
             /* ── Success screen ── */
-            <div className="text-center py-4">
-              <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-5"
-                style={{ backgroundColor: '#D1FAE5' }}>
-                <span className="text-2xl">✓</span>
-              </div>
-              <h2 className="text-2xl font-bold mb-3"
-                style={{ fontFamily: '"Fraunces", Georgia, serif', color: '#0A0A0A' }}>
+            <div style={{ textAlign: 'center', padding: '16px 0' }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: '50%',
+                backgroundColor: '#D1FAE5',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 20px',
+                fontSize: 24,
+              }}>✓</div>
+              <h2 style={{ fontFamily: '"Fraunces", Georgia, serif', fontSize: 24, fontWeight: 700, color: '#0A0A0A', marginBottom: 12 }}>
                 Request submitted
               </h2>
-              <p className="text-sm leading-relaxed" style={{ color: '#8B8B85' }}>
+              <p style={{ fontSize: 14, lineHeight: 1.6, color: '#8B8B85' }}>
                 Your access request has been sent to the Finvastra admin team.
                 Once your account is created you will receive login credentials
                 on your official <strong>@finvastra.com</strong> email.
@@ -108,11 +105,10 @@ export function RequestAccessPage() {
           ) : (
             /* ── Request form ── */
             <>
-              <h1 className="text-2xl font-bold text-center mb-1"
-                style={{ fontFamily: '"Fraunces", Georgia, serif', color: '#0A0A0A' }}>
+              <h1 style={{ fontFamily: '"Fraunces", Georgia, serif', fontSize: 24, fontWeight: 700, color: '#0A0A0A', textAlign: 'center', marginBottom: 4 }}>
                 Request access
               </h1>
-              <p className="text-sm text-center mb-7" style={{ color: '#8B8B85' }}>
+              <p style={{ fontSize: 14, textAlign: 'center', color: '#8B8B85', marginBottom: 28 }}>
                 Fill in your details and the admin team will create your account.
               </p>
 
@@ -123,18 +119,14 @@ export function RequestAccessPage() {
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-                {/* Full Name */}
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5"
-                    style={{ color: '#8B8B85' }}>Full Name *</label>
+                  <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>Full Name *</label>
                   <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)}
                     placeholder="As per Aadhaar / PAN" className={inp} style={{ color: '#0A0A0A' }} />
                 </div>
 
-                {/* Personal Email */}
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5"
-                    style={{ color: '#8B8B85' }}>Personal Email *</label>
+                  <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>Personal Email *</label>
                   <input type="email" value={personalEmail} onChange={(e) => setPersonalEmail(e.target.value)}
                     placeholder="For contact only — not used for login"
                     className={inp} style={{ color: '#0A0A0A' }} />
@@ -143,10 +135,8 @@ export function RequestAccessPage() {
                   )}
                 </div>
 
-                {/* Mobile */}
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5"
-                    style={{ color: '#8B8B85' }}>Mobile Number *</label>
+                  <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>Mobile Number *</label>
                   <input type="tel" value={mobileNumber} onChange={(e) => setMobileNumber(e.target.value)}
                     placeholder="10-digit Indian mobile" maxLength={10}
                     className={inp} style={{ color: '#0A0A0A' }} />
@@ -155,10 +145,8 @@ export function RequestAccessPage() {
                   )}
                 </div>
 
-                {/* Department */}
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5"
-                    style={{ color: '#8B8B85' }}>Department *</label>
+                  <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>Department *</label>
                   <select value={department} onChange={(e) => setDepartment(e.target.value)}
                     className={inp} style={{ color: department ? '#0A0A0A' : '#8B8B85' }}>
                     <option value="">Select department…</option>
@@ -166,19 +154,16 @@ export function RequestAccessPage() {
                   </select>
                 </div>
 
-                {/* Designation */}
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5"
-                    style={{ color: '#8B8B85' }}>Designation *</label>
+                  <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>Designation *</label>
                   <input type="text" value={designation} onChange={(e) => setDesignation(e.target.value)}
                     placeholder="Your job title" className={inp} style={{ color: '#0A0A0A' }} />
                 </div>
 
-                {/* Message */}
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5"
-                    style={{ color: '#8B8B85' }}>Message to Admin
-                    <span className="ml-1 font-normal normal-case tracking-normal">
+                  <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+                    Message to Admin
+                    <span className="ml-1 font-normal normal-case tracking-normal" style={{ color: '#8B8B85' }}>
                       (optional, {200 - message.length} chars left)
                     </span>
                   </label>
@@ -190,16 +175,28 @@ export function RequestAccessPage() {
                 <button
                   type="submit"
                   disabled={!canSubmit}
-                  className="w-full py-3 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 mt-2"
-                  style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
+                  style={{
+                    width:        '100%',
+                    padding:      '12px',
+                    borderRadius: 12,
+                    fontSize:     14,
+                    fontWeight:   600,
+                    color:        '#C9A961',
+                    background:   'linear-gradient(135deg, #0B1538, #1B2A4E)',
+                    border:       'none',
+                    cursor:       !canSubmit ? 'not-allowed' : 'pointer',
+                    opacity:      !canSubmit ? 0.5 : 1,
+                    transition:   'all 0.2s ease',
+                    marginTop:    8,
+                  }}
                 >
                   {submitting ? 'Submitting…' : 'Submit request'}
                 </button>
               </form>
 
-              <p className="text-center text-xs mt-5" style={{ color: '#8B8B85' }}>
+              <p style={{ textAlign: 'center', fontSize: 13, marginTop: 20, color: '#8B8B85' }}>
                 Already have an account?{' '}
-                <Link to="/login" className="font-semibold hover:underline" style={{ color: '#0B1538' }}>
+                <Link to="/login" style={{ color: '#C9A961', fontWeight: 600, textDecoration: 'none' }}>
                   Sign in
                 </Link>
               </p>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { updatePassword } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import { Eye, EyeOff, CheckCircle2, Circle } from 'lucide-react';
+import { VideoLogo } from '../../components/ui/VideoLogo';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from './AuthContext';
 import { useToast } from '../../components/ui/Toast';
@@ -86,17 +87,8 @@ export function ResetPasswordPage() {
       <ConcentricRings />
 
       {/* Video logo — top-left */}
-      <div className="absolute top-6 left-6 z-20 flex flex-col items-start gap-1.5">
-        <video autoPlay loop muted playsInline style={{ width: 140 }}>
-          <source src="/video/logo-transparent.webm" type="video/webm" />
-        </video>
-        <span style={{
-          fontFamily: '"Fraunces", Georgia, serif',
-          fontWeight: 700, fontSize: 13,
-          letterSpacing: '0.05em', color: '#FFFFFF',
-        }}>
-          Finvastra Pulse
-        </span>
+      <div className="absolute top-6 left-6 z-20">
+        <VideoLogo size="sm" showText={true} />
       </div>
 
       <div className="relative z-10 w-full mx-4 max-w-md">

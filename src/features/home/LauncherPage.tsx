@@ -3,12 +3,12 @@ import { signOut } from 'firebase/auth';
 import { Users, TrendingUp, BarChart3, ArrowRight, LogOut } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../auth/AuthContext';
-import { VastraLogo } from '../../components/VastraLogo';
+import { VideoLogo } from '../../components/ui/VideoLogo';
 
 function FullPageLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#FAFAF7' }}>
-      <VastraLogo size="lg" iconOnly />
+      <VideoLogo size="sm" showText={false} />
     </div>
   );
 }
@@ -80,7 +80,7 @@ export function LauncherPage() {
 
       {/* Top bar */}
       <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
-        <VastraLogo size="sm" />
+        <VideoLogo size="sm" showText={true} dark={true} />
         <div className="flex items-center gap-4">
           {profile?.photoURL ? (
             <img src={profile.photoURL} alt={profile.displayName} className="w-8 h-8 rounded-full object-cover" />
@@ -113,7 +113,7 @@ export function LauncherPage() {
 
           {/* Brand video — animation only, no text */}
           <div className="flex justify-center mb-8">
-            <VastraLogo size="lg" iconOnly />
+            <VideoLogo size="sm" showText={false} />
           </div>
 
           {/* Greeting */}

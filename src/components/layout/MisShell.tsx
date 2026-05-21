@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
-import { VastraLogo } from '../VastraLogo';
+import { VideoLogo } from '../ui/VideoLogo';
 
 type NavEntry = { path: string; label: string; icon: ElementType; adminOnly: boolean };
 
@@ -38,7 +38,7 @@ const PAGE_TITLES: Record<string, string> = {
 function FullPageLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#FAFAF7' }}>
-      <VastraLogo size="lg" iconOnly />
+      <VideoLogo size="sm" showText={false} />
     </div>
   );
 }
@@ -82,7 +82,7 @@ export function MisShell() {
       >
         {/* Logo */}
         <div className="h-16 flex items-center px-4 shrink-0" style={{ borderBottom: '1px solid #1B2A4E' }}>
-          <VastraLogo size="sm" light />
+          <VideoLogo size="xs" showText={true} />
         </div>
 
         {/* Module label */}

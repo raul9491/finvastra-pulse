@@ -8,7 +8,7 @@ import {
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { useMyLeads } from '../../features/crm/hooks/useMyLeads';
-import { VastraLogo } from '../VastraLogo';
+import { VideoLogo } from '../ui/VideoLogo';
 
 type NavEntry = { path: string; label: string; icon: ElementType; live: boolean; end?: boolean; badge?: number };
 
@@ -67,7 +67,7 @@ const PAGE_TITLES: Record<string, string> = {
 function FullPageLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#FAFAF7' }}>
-      <VastraLogo size="lg" iconOnly />
+      <VideoLogo size="sm" showText={false} />
     </div>
   );
 }
@@ -153,7 +153,7 @@ export function CrmShell() {
         style={{ backgroundColor: '#0B1538', borderRight: '1px solid #1B2A4E' }}>
 
         <div className="h-16 flex items-center px-4 shrink-0" style={{ borderBottom: '1px solid #1B2A4E' }}>
-          <VastraLogo size="sm" light />
+          <VideoLogo size="xs" showText={true} />
         </div>
 
         <div className="px-5 pt-5 pb-3">

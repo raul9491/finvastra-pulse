@@ -7,6 +7,7 @@ import {
   onSnapshot,
   addDoc,
   updateDoc,
+  setDoc,
   doc,
   getDoc,
   serverTimestamp,
@@ -152,18 +153,18 @@ export async function approveLeave(
     const balanceRef = doc(db, 'leave_balances', `${application.employeeId}_${year}`);
     const balSnap = await getDoc(balanceRef);
 
-    if (balSnap.exists()) {
-      const bal = balSnap.data() as LeaveBalance;
-      const current = bal[balanceType];
-      const newUsed = current.used + application.days;
-      const newRemaining = Math.max(0, current.total - newUsed);
-      await updateDoc(balanceRef, {
-        [`${balanceType}.used`]:      newUsed,
-        [`${balanceType}.remaining`]: newRemaining,
-      });
-    }
-    // If no balance doc exists yet, skip deduction silently —
-    // admin should initialise balances for each employee at year start.
+    const current = balSnap.exists()
+      ? (balSnap.data() as LeaveBalance)[balanceType]
+      : { total: 0, used: 0, remaining: 0 };
+
+    const newUsed      = (current?.used ?? 0) + application.days;
+    const newRemaining = Math.max(0, (current?.total ?? 0) - newUsed);
+
+    await setDoc(balanceRef, {
+      employeeId: application.employeeId,
+      year,
+      [balanceType]: { ...current, used: newUsed, remaining: newRemaining },
+    }, { merge: true });
   }
 
   // Fire-and-forget: ask the server to create a Google Calendar event.
@@ -183,12 +184,20 @@ export async function approveLeave(
 }
 
 // ─── rejectLeave ──────────────────────────────────────────────────────────────
-// Marks the application rejected with a mandatory reason.
-export async function rejectLeave(applicationId: string, reason: string): Promise<void> {
+// Marks the application rejected with a mandatory reason and records who rejected it.
+export async function rejectLeave(
+  applicationId: string,
+  reason: string,
+  rejectedBy: string,
+): Promise<void> {
   await updateDoc(doc(db, 'leave_applications', applicationId), {
-    status: 'rejected',
+    status:          'rejected',
     rejectionReason: reason,
-    approvedAt: serverTimestamp(),
+    rejectedAt:      serverTimestamp(),
+    reviewedAt:      serverTimestamp(),
+    reviewedBy:      rejectedBy,
+    approvedBy:      null,
+    approvedAt:      null,
   });
 }
 

@@ -61,6 +61,7 @@ export function LauncherPage() {
 
   if (loading) return <FullPageLoader />;
   if (!user) return <Navigate to="/login" replace />;
+  if (profile?.mustResetPassword) return <Navigate to="/reset-password" replace />;
 
   const isAdmin = profile?.role === 'admin';
   const showHrms = isAdmin || profile?.hrmsAccess !== false;

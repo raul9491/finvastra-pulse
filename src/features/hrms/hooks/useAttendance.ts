@@ -102,21 +102,25 @@ export async function checkIn(userId: string): Promise<void> {
 // compute workingHours from server time — avoids client clock drift.
 export async function checkOut(recordId: string, checkInTime: Date): Promise<void> {
   const ref = doc(db, 'attendance', recordId);
+  try {
+    await updateDoc(ref, {
+      checkOut:  serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
 
-  await updateDoc(ref, {
-    checkOut:  serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-
-  const snap = await getDoc(ref);
-  if (snap.exists()) {
-    const checkOutTs = snap.data().checkOut as Timestamp | null;
-    if (checkOutTs?.toDate) {
-      const workingHours = (checkOutTs.toDate().getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
-      const roundedHours = Math.round(workingHours * 100) / 100;
-      const status: AttendanceStatus = roundedHours < 4 ? 'half_day' : 'present';
-      await updateDoc(ref, { workingHours: roundedHours, status });
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const checkOutTs = snap.data().checkOut as Timestamp | null;
+      if (checkOutTs?.toDate) {
+        const workingHours = (checkOutTs.toDate().getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+        const roundedHours = Math.round(workingHours * 100) / 100;
+        const status: AttendanceStatus = roundedHours < 4 ? 'half_day' : 'present';
+        await updateDoc(ref, { workingHours: roundedHours, status });
+      }
     }
+  } catch (err) {
+    console.error('[useAttendance] checkOut failed:', err);
+    throw new Error('Check-out failed — please try again');
   }
 }
 

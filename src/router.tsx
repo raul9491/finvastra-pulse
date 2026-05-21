@@ -2,12 +2,16 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 import { CustomerTrackerPage }    from './features/public/CustomerTrackerPage';
 import { LoginPage }              from './features/auth/LoginPage';
+import { ResetPasswordPage }      from './features/auth/ResetPasswordPage';
+import { RequestAccessPage }      from './features/auth/RequestAccessPage';
 import { LauncherPage }           from './features/home/LauncherPage';
 
 import { HrmsShell }              from './components/layout/HrmsShell';
 import { HrmsDashboardPage }      from './features/hrms/dashboard/HrmsDashboardPage';
 import { EmployeesPage }          from './features/hrms/employees/EmployeesPage';
 import { ImportEmployeesPage }    from './features/hrms/employees/ImportEmployeesPage';
+import { EmployeeProfilePage }    from './features/hrms/employees/EmployeeProfilePage';
+import { AccessRequestsPage }     from './features/hrms/employees/AccessRequestsPage';
 import { AttendancePage }         from './features/hrms/attendance/AttendancePage';
 import { AdminAttendancePage }    from './features/hrms/attendance/AdminAttendancePage';
 import { LeavePage }              from './features/hrms/leave/LeavePage';
@@ -64,6 +68,14 @@ export const router = createBrowserRouter([
     element: <LoginPage />,
   },
   {
+    path: '/reset-password',
+    element: <ResetPasswordPage />,
+  },
+  {
+    path: '/request-access',
+    element: <RequestAccessPage />,
+  },
+  {
     path: '/',
     element: <LauncherPage />,
   },
@@ -74,6 +86,8 @@ export const router = createBrowserRouter([
       { index: true,        element: <Navigate to="/hrms/dashboard" replace /> },
       { path: 'dashboard',  element: <HrmsDashboardPage /> },
       { path: 'employees',                element: <EmployeesPage /> },
+      { path: 'employees/:userId',        element: <EmployeeProfilePage /> },
+      { path: 'admin/access-requests',     element: <AccessRequestsPage /> },
       { path: 'admin/import-employees',   element: <ImportEmployeesPage /> },
       { path: 'attendance', element: <AttendancePage /> },
       { path: 'leave',         element: <LeavePage /> },

@@ -35,6 +35,15 @@ const ADMIN_NAV: NavEntry[] = [
   { path: '/crm/admin/right-to-be-forgotten',  label: 'Right to Erasure',    icon: Settings, live: true, end: true },
 ];
 
+function resolveCrmTitle(pathname: string): string {
+  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
+  if (/^\/crm\/leads\/[^/]+\/opportunities\/[^/]+\/submissions\/[^/]+$/.test(pathname)) return 'Submission Detail';
+  if (/^\/crm\/leads\/[^/]+\/opportunities\/new$/.test(pathname)) return 'New Opportunity';
+  if (/^\/crm\/leads\/[^/]+\/opportunities\/[^/]+$/.test(pathname)) return 'Opportunity';
+  if (/^\/crm\/leads\/[^/]+$/.test(pathname)) return 'Lead Detail';
+  return 'CRM & Leads';
+}
+
 const PAGE_TITLES: Record<string, string> = {
   '/crm/dashboard':                      'Dashboard',
   '/crm/import/history':                 'Import History',
@@ -116,6 +125,7 @@ export function CrmShell() {
 
   if (loading) return <FullPageLoader />;
   if (!user) return <Navigate to="/login" replace />;
+  if (profile?.mustResetPassword) return <Navigate to="/reset-password" replace />;
 
   const canAccess = profile?.role === 'admin' || profile?.crmAccess === true;
   if (!canAccess) return <Navigate to="/" replace />;
@@ -129,7 +139,7 @@ export function CrmShell() {
     navigate('/login', { replace: true });
   };
 
-  const pageTitle = PAGE_TITLES[location.pathname] ?? 'CRM & Leads';
+  const pageTitle = resolveCrmTitle(location.pathname);
 
   const initials = profile?.displayName
     ? profile.displayName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()

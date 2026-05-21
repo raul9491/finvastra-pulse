@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Download, X } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useMyPayslips } from '../hooks/usePayslips';
@@ -14,6 +15,19 @@ function formatMonth(month: string): string {
 
 function formatCurrency(amount: number): string {
   return `₹${amount.toLocaleString('en-IN')}`;
+}
+
+// ─── Edit Profile button ──────────────────────────────────────────────────────
+function EditProfileButton() {
+  const navigate = useNavigate();
+  return (
+    <button
+      onClick={() => navigate('/hrms/settings')}
+      className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-white/10 text-white hover:bg-white/20 transition-colors border border-white/20"
+    >
+      Edit Profile
+    </button>
+  );
 }
 
 // ─── Employee profile banner ──────────────────────────────────────────────────
@@ -55,9 +69,7 @@ function ProfileBanner({ profile }: { profile: UserProfile }) {
 
       {/* Edit Profile button — top-right of the banner */}
       <div className="absolute right-6 bottom-3">
-        <button className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-white/10 text-white hover:bg-white/20 transition-colors border border-white/20">
-          Edit Profile
-        </button>
+        <EditProfileButton />
       </div>
     </div>
   );

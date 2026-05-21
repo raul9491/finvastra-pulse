@@ -120,11 +120,20 @@ service cloud.firestore {
       allow update: if isSignedIn() && (
         (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly([
           'displayName', 'photoURL', 'phone', 'location', 'department',
-          'designation', 'dateOfBirth', 'leaveBalance', 'hasCalendarAccess'
+          'designation', 'dateOfBirth', 'leaveBalance', 'hasCalendarAccess',
+          'mustResetPassword'   // employee clears this after setting their own password
         ])) ||
         // Admin can update any user field, but crmRole/convertorVertical must be a valid pair
         (isAdmin() && validCrmRolePair(incoming()))
       );
+    }
+
+    // ─── Employee profiles (HR data: PAN/bank/aadhaar compliance) ───────────────
+    // Admin + HRMS manager only. Sensitive data; employees do not read own profile here.
+    match /employee_profiles/{empCode} {
+      allow read:          if isAdmin() || isHrmsManager();
+      allow create, update: if isAdmin() || isHrmsManager();
+      allow delete:         if false;
     }
 
     // ─── Employee sensitive data (bank accounts) ─────────────────────────────────
@@ -321,6 +330,16 @@ service cloud.firestore {
       allow create: if false;
       allow update: if false;
       allow delete: if isAdmin();
+    }
+
+    // ─── Access Requests ─────────────────────────────────────────────────────────
+    // Public submit (unauthenticated users can request access).
+    // Only admin can read/update/review requests.
+    match /access_requests/{requestId} {
+      allow create: if true;
+      allow read:   if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if false;
     }
 
     // ─── Audit Logs ──────────────────────────────────────────────────────────────

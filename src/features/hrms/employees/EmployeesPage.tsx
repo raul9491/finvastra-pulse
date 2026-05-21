@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import { Search, Edit2, Download, UserPlus } from 'lucide-react';
 import { updateDoc, doc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
@@ -165,6 +166,7 @@ function EditEmployeeModal({ employee, onClose, adminUserId }: {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export function EmployeesPage() {
   const { user, profile } = useAuth();
+  const navigate = useNavigate();
   const { employees, loading } = useAllEmployees();
   const isAdmin = profile?.role === 'admin';
 
@@ -310,18 +312,26 @@ export function EmployeesPage() {
                 </thead>
                 <tbody>
                   {filtered.map((emp) => {
-                    const loginStatus = emp.employeeStatus === 'inactive'
-                      ? { label: 'Inactive',         bg: '#F1F5F9', text: '#475569' }
-                      : (emp as unknown as { needsEmailSetup?: boolean }).needsEmailSetup
+                    const isInactive = emp.employeeStatus === 'inactive';
+                    const loginStatus = isInactive
+                      ? { label: 'Inactive',          bg: '#F1F5F9', text: '#475569' }
+                      : emp.needsEmailSetup
                       ? { label: 'Needs Email Setup', bg: '#FFFBEB', text: '#92400E' }
+                      : emp.mustResetPassword
+                      ? { label: 'Reset Pending',     bg: '#FFFBEB', text: '#92400E' }
                       : { label: 'Active',            bg: '#D1FAE5', text: '#065F46' };
                     return (
-                      <tr key={emp.userId} className="border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors">
+                      <tr key={emp.userId}
+                        className="border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors"
+                        style={{ opacity: isInactive ? 0.55 : 1 }}>
                         <td className="px-4 py-3 font-mono text-xs" style={{ color: '#8B8B85' }}>
                           {emp.employeeId ?? '—'}
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => navigate(`/hrms/employees/${emp.userId}`)}
+                            className="flex items-center gap-3 hover:opacity-75 transition-opacity text-left"
+                          >
                             {emp.photoURL ? (
                               <img src={emp.photoURL} alt={emp.displayName} className="w-8 h-8 rounded-full object-cover shrink-0" />
                             ) : (
@@ -331,7 +341,7 @@ export function EmployeesPage() {
                               </div>
                             )}
                             <p className="text-sm font-medium" style={{ color: '#0A0A0A' }}>{emp.displayName}</p>
-                          </div>
+                          </button>
                         </td>
                         <td className="px-4 py-3 text-sm" style={{ color: '#2A2A2A' }}>{emp.department ?? '—'}</td>
                         <td className="px-4 py-3 text-sm" style={{ color: '#2A2A2A' }}>{emp.designation ?? '—'}</td>

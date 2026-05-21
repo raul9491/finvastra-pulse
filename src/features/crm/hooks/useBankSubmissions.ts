@@ -7,7 +7,6 @@ import {
 import { db } from '../../../lib/firebase';
 import type { BankSubmission, BankSubmissionStatus, ActivityType, CommissionSlab } from '../../../types';
 import { findMatchingSlab, calculateCommission } from './useCommissionSlabs';
-import { createCommissionRecord } from './useCommissionRecords';
 
 // Loan stage names match the /opportunity_types seed data exactly
 const LOAN_STAGE_ORDER = [
@@ -122,9 +121,19 @@ export async function setPrimarySubmission(
     notes: 'Marked as primary disbursement',
   };
 
-  // All reads + financial writes are atomic. Return the data needed for
-  // the post-transaction commission calculation.
-  const { sub, opp } = await runTransaction(db, async (t) => {
+  // Pre-read commission slabs before the transaction — collection queries are
+  // not permitted inside Firestore transactions (only document reads via t.get).
+  const slabsSnap = await getDocs(
+    query(collection(db, 'commission_slabs'), where('active', '==', true)),
+  );
+  const allSlabs = slabsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as CommissionSlab));
+
+  // Pre-generate the commission record ref so the ID is available post-transaction
+  // for the activity log. The t.set() below atomically creates the document.
+  const commissionRef = doc(collection(db, 'commission_records'));
+
+  // All reads + all financial writes are atomic in one transaction.
+  const { sub, opp, commissionDisplay } = await runTransaction(db, async (t) => {
     const subSnap = await t.get(subRef);
     const oppSnap = await t.get(oppRef);
 
@@ -134,9 +143,6 @@ export async function setPrimarySubmission(
     const subData = subSnap.data()!;
     const oppData = oppSnap.data()!;
 
-    // Guards evaluated on fresh transaction reads — race-safe:
-    // Two simultaneous calls both see status='open'; only one commits.
-    // The second retry sees status='won' and aborts cleanly.
     if (subData.status !== 'disbursed') {
       throw new Error('Only a disbursed submission can be marked as primary.');
     }
@@ -147,19 +153,56 @@ export async function setPrimarySubmission(
       throw new Error('Another submission is already marked as the primary disbursement.');
     }
 
+    // Calculate commission inside the transaction using pre-loaded slabs
+    const basisAmount = oppData.basisOn === 'sanctioned'
+      ? (subData.sanctionedAmount ?? subData.disbursedAmount ?? 0)
+      : (subData.disbursedAmount  ?? subData.sanctionedAmount ?? 0);
+
+    const disbursedDateStr = subData.disbursedAt?.toDate
+      ? (subData.disbursedAt.toDate() as Date).toISOString().slice(0, 10)
+      : todayStr;
+
+    const matchedSlab          = findMatchingSlab(allSlabs, subData.providerId, oppData.product, basisAmount, disbursedDateStr);
+    const calculatedCommission = matchedSlab ? calculateCommission(matchedSlab, basisAmount) : 0;
+    const noSlabMatch          = matchedSlab === null;
+
+    const payoutDate = new Date(disbursedDateStr);
+    payoutDate.setDate(payoutDate.getDate() + 30);
+
     const now = serverTimestamp();
     t.update(subRef, { isPrimary: true, updatedAt: now, statusHistory: arrayUnion(histEntry) });
     t.update(oppRef, { stage: 'Disbursed', status: 'won', actualCloseDate: todayStr, updatedAt: now });
 
+    // Commission record created INSIDE the transaction — rolls back atomically
+    // if any other write in the transaction fails.
+    t.set(commissionRef, {
+      leadId,
+      opportunityId:     oppId,
+      submissionId:      subId,
+      providerId:        subData.providerId,
+      rmOwnerId:         oppData.ownerId as string,
+      slabId:            matchedSlab?.id ?? null,
+      basisAmount,
+      calculatedCommission,
+      status:            'pending',
+      expectedPayoutDate: payoutDate.toISOString().slice(0, 10),
+      notes:             noSlabMatch ? 'NO_SLAB_MATCH — admin review required' : null,
+      createdAt:         serverTimestamp(),
+    });
+
+    const display = noSlabMatch
+      ? 'No matching slab — commission to be set manually'
+      : `₹${calculatedCommission.toLocaleString('en-IN')} (${matchedSlab!.percentage != null ? `${matchedSlab!.percentage}%` : `₹${matchedSlab!.flatFee} flat`} of ₹${basisAmount.toLocaleString('en-IN')})`;
+
     return {
       sub: { id: subSnap.id, ...subData } as BankSubmission,
       opp: oppData,
+      commissionDisplay: display,
     };
   });
 
-  // Post-transaction: activities + commission calculation.
-  // These are append-only writes — the transaction above ensures they run
-  // exactly once (only the winning transaction gets here).
+  // Post-transaction: non-critical activity logs only.
+  // The financial record is already committed above.
   const now = serverTimestamp();
   await addDoc(collection(db, 'leads', leadId, 'opportunities', oppId, 'activities'), {
     type:    'status_change' as ActivityType,
@@ -168,51 +211,9 @@ export async function setPrimarySubmission(
     at:  now,
   });
 
-  // ── Auto-calculate commission ──────────────────────────────────────────────
-  const basisAmount = opp.basisOn === 'sanctioned'
-    ? (sub.sanctionedAmount ?? sub.disbursedAmount ?? 0)
-    : (sub.disbursedAmount ?? sub.sanctionedAmount ?? 0);
-
-  const disbursedDateStr = sub.disbursedAt?.toDate
-    ? sub.disbursedAt.toDate().toISOString().slice(0, 10)
-    : todayStr;
-
-  // Fetch all active slabs; filter client-side (small collection)
-  const slabsSnap = await getDocs(
-    query(collection(db, 'commission_slabs'), where('active', '==', true)),
-  );
-  const allSlabs = slabsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as CommissionSlab));
-  const matchedSlab = findMatchingSlab(allSlabs, sub.providerId, opp.product, basisAmount, disbursedDateStr);
-
-  const calculatedCommission = matchedSlab ? calculateCommission(matchedSlab, basisAmount) : 0;
-  const noSlabMatch = matchedSlab === null;
-
-  // Expected payout: disbursed date + 30 days
-  const payoutDate = new Date(disbursedDateStr);
-  payoutDate.setDate(payoutDate.getDate() + 30);
-
-  const recordId = await createCommissionRecord({
-    leadId,
-    opportunityId: oppId,
-    submissionId:  subId,
-    providerId:    sub.providerId,
-    rmOwnerId:     opp.ownerId as string,
-    slabId:        matchedSlab?.id ?? null,
-    basisAmount,
-    calculatedCommission,
-    status:            'pending',
-    expectedPayoutDate: payoutDate.toISOString().slice(0, 10),
-    notes: noSlabMatch ? 'NO_SLAB_MATCH — admin review required' : undefined,
-  });
-
-  // Activity on opportunity for commission visibility
-  const commissionDisplay = noSlabMatch
-    ? 'No matching slab — commission to be set manually'
-    : `₹${calculatedCommission.toLocaleString('en-IN')} (${matchedSlab!.percentage != null ? `${matchedSlab!.percentage}%` : `₹${matchedSlab!.flatFee} flat`} of ₹${basisAmount.toLocaleString('en-IN')})`;
-
   await addDoc(collection(db, 'leads', leadId, 'opportunities', oppId, 'activities'), {
     type:    'commission_calculated' as ActivityType,
-    content: `Expected commission: ${commissionDisplay} from ${sub.providerId} — record #${recordId}`,
+    content: `Expected commission: ${commissionDisplay} from ${sub.providerId} — record #${commissionRef.id}`,
     by:  userId,
     at:  now,
   });

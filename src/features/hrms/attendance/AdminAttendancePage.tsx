@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react';
 import { format, parseISO, getDaysInMonth } from 'date-fns';
 import { Navigate } from 'react-router-dom';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, getDocs, query, collection, where, orderBy } from 'firebase/firestore';
+import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
-import { useTeamAttendance, adminMarkAttendance, useMyAttendance } from '../hooks/useAttendance';
+import { useTeamAttendance, adminMarkAttendance } from '../hooks/useAttendance';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import type { Attendance, AttendanceStatus, UserProfile } from '../../../types';
 
@@ -130,10 +131,6 @@ function ExportMonthButton({ employees, month }: MonthExportProps) {
   const handleExport = useCallback(async () => {
     setExporting(true);
     try {
-      // Dynamic import to avoid adding to the hook dependency graph
-      const { getDocs, query, collection, where, orderBy } = await import('firebase/firestore');
-      const { db } = await import('../../../lib/firebase');
-
       const startDate = `${month}-01`;
       const daysInMonth = getDaysInMonth(parseISO(`${month}-01`));
       const endDate = `${month}-${String(daysInMonth).padStart(2, '0')}`;

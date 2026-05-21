@@ -66,6 +66,145 @@ function extractSheetId(urlOrId: string): string {
   return match ? match[1] : urlOrId.trim();
 }
 
+// ─── Service-account path for Sheets API ─────────────────────────────────────
+// Prefer GOOGLE_APPLICATION_CREDENTIALS env var; fall back to auto-detect.
+function getServiceAccountPath(): string | null {
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) return process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  try {
+    const dir   = "C:/Users/raul9/Downloads";
+    const files = fs.readdirSync(dir);
+    const sa    = files.find((f) => f.includes("firebase-adminsdk") || f.includes("service-account"));
+    return sa ? `${dir}/${sa}` : null;
+  } catch { return null; }
+}
+
+// ─── Employee master sheet reader (service account, not public CSV) ───────────
+const EMPLOYEE_SHEET_ID  = "14AQc2MZe9Z2EcS5e8XYVvoPERgNPL2pCVhGHaYA-bPc";
+const EMPLOYEE_SHEET_TAB = "Employee Master";
+
+async function fetchEmployeeMasterRows(): Promise<string[][]> {
+  const saPath = getServiceAccountPath();
+  if (!saPath) throw new Error("No service account file found. Set GOOGLE_APPLICATION_CREDENTIALS or place the SA JSON in C:/Users/raul9/Downloads/.");
+  const sheetsAuth = new google.auth.GoogleAuth({
+    keyFile: saPath,
+    scopes:  ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+  });
+  const client = await sheetsAuth.getClient();
+  const sheets = google.sheets({ version: "v4", auth: client as Parameters<typeof google.sheets>[0]["auth"] });
+  const res    = await sheets.spreadsheets.values.get({
+    spreadsheetId: EMPLOYEE_SHEET_ID,
+    range:         `${EMPLOYEE_SHEET_TAB}!A1:AC`,
+  });
+  const rows = res.data.values as string[][] | null;
+  if (!rows || rows.length < 3) throw new Error("Sheet returned fewer than 3 rows — check tab name and sharing permissions.");
+  return rows.slice(2); // skip 2 header rows
+}
+
+// ─── Role resolver (mirrors importEmployeesFromSheet.ts) ──────────────────────
+interface SheetRoleAttrs {
+  role: "admin" | "employee";
+  hrmsAccess: boolean; crmAccess: boolean;
+  crmRole: string | null; convertorVertical: string | null;
+  isHrmsManager: boolean; misAccess: string | null;
+}
+
+function resolveSheetRole(dept: string, desig: string): SheetRoleAttrs {
+  const d  = dept.trim().toLowerCase();
+  const dg = desig.trim().toLowerCase();
+  if (d === "tech")
+    return { role:"admin",    hrmsAccess:true,  crmAccess:true,  crmRole:"admin",           convertorVertical:null,   isHrmsManager:false, misAccess:"admin"  };
+  if (d === "management" && (dg.includes("director") || dg.includes("co-founder")))
+    return { role:"admin",    hrmsAccess:true,  crmAccess:true,  crmRole:"admin",           convertorVertical:null,   isHrmsManager:false, misAccess:"admin"  };
+  if (d === "management" && dg.includes("accountant"))
+    return { role:"employee", hrmsAccess:true,  crmAccess:false, crmRole:null,              convertorVertical:null,   isHrmsManager:false, misAccess:"viewer" };
+  if (d === "management" && (dg.includes("sales manager") || dg.includes("vice president") || dg.includes(" vp")))
+    return { role:"employee", hrmsAccess:true,  crmAccess:true,  crmRole:"lead_convertor",  convertorVertical:"loan", isHrmsManager:false, misAccess:null     };
+  if (d.includes("bd") || d.includes("client relation")) {
+    if (dg.includes("vice president") || dg.includes(" vp") || dg.includes("sales manager") || dg.includes("relationship manager"))
+      return { role:"employee", hrmsAccess:true, crmAccess:true, crmRole:"lead_convertor", convertorVertical:"loan", isHrmsManager:false, misAccess:null };
+    if (dg.includes("telesales"))
+      return { role:"employee", hrmsAccess:true, crmAccess:true, crmRole:"lead_generator", convertorVertical:null,   isHrmsManager:false, misAccess:null };
+    return   { role:"employee", hrmsAccess:true, crmAccess:true, crmRole:null,             convertorVertical:null,   isHrmsManager:false, misAccess:null };
+  }
+  if (d === "hr" && dg.includes("manager"))
+    return { role:"employee", hrmsAccess:true,  crmAccess:false, crmRole:null, convertorVertical:null, isHrmsManager:true,  misAccess:null };
+  if (d === "consultant")
+    return { role:"employee", hrmsAccess:false, crmAccess:false, crmRole:null, convertorVertical:null, isHrmsManager:false, misAccess:null };
+  return     { role:"employee", hrmsAccess:true,  crmAccess:false, crmRole:null, convertorVertical:null, isHrmsManager:false, misAccess:null };
+}
+
+// Column indices for the employee master sheet (verified 2026-05-21)
+const EC = {
+  status:1, empCode:2, name:3, dob:4, contactNo:5, personalEmail:6, doj:7,
+  officialEmail:8, officialPhone:9, department:10, designation:11, manager:12,
+  /* col 13 = aadhaar — never read/stored (UIDAI prohibition) */
+  pan:14, uan:15, presentAddr:16, permanentAddr:17,
+  personalBankName:18, personalBankBranch:19, personalBankAcct:20, personalBankIfsc:21,
+  officialBankName:22, officialBankBranch:23, officialBankAcct:24, officialBankIfsc:25,
+  lwd:26, salary:27,
+} as const;
+
+function maskPanServer(pan: string): string {
+  if (!pan || pan.length < 6) return pan;
+  return pan.slice(0, 5) + "****" + pan.slice(-1);
+}
+
+function parseEmployeeRow(row: string[]): {
+  empCode:string; name:string; status:"active"|"inactive";
+  officialEmail:string|null; personalEmail:string|null;
+  phone:string|null; officialPhone:string|null;
+  dob:string|null; doj:string|null; lwd:string|null;
+  department:string|null; designation:string|null; reportingManager:string|null;
+  panMasked:string|null; panRaw:string|null; uan:string|null;
+  presentAddress:string|null; permanentAddress:string|null;
+  personalBankName:string|null; personalBankBranch:string|null;
+  personalBankAcct:string|null; personalBankIfsc:string|null;
+  officialBankName:string|null; officialBankBranch:string|null;
+  officialBankAcct:string|null; officialBankIfsc:string|null;
+  grossSalary:number|null;
+  roleAttrs: SheetRoleAttrs; needsEmailSetup:boolean;
+} {
+  const n = (s: string | undefined) => { const t=(s??"").trim(); return (!t||t==="NA")?null:t; };
+  const parseDate = (s: string) => { const m=s.trim().match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/); return m?`${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`:(/^\d{4}-\d{2}-\d{2}$/.test(s.trim())?s.trim():null); };
+  const parseMoney = (s: string) => { const v=parseFloat((s??"").replace(/,/g,"").trim()); return isNaN(v)||v===0?null:v; };
+
+  const statusRaw    = (n(row[EC.status])??"active").toLowerCase();
+  const officialEmail = n(row[EC.officialEmail]);
+  const panRaw       = n(row[EC.pan]);
+
+  return {
+    empCode:         n(row[EC.empCode]) ?? "",
+    name:            n(row[EC.name])    ?? "",
+    status:          statusRaw.includes("inactive") ? "inactive" : "active",
+    officialEmail,
+    personalEmail:   n(row[EC.personalEmail]),
+    phone:           n(row[EC.contactNo]),
+    officialPhone:   n(row[EC.officialPhone]),
+    dob:             row[EC.dob]  ? parseDate(row[EC.dob])  : null,
+    doj:             row[EC.doj]  ? parseDate(row[EC.doj])  : null,
+    lwd:             row[EC.lwd]  ? parseDate(row[EC.lwd])  : null,
+    department:      n(row[EC.department]),
+    designation:     n(row[EC.designation]),
+    reportingManager:n(row[EC.manager]),
+    panMasked:       panRaw ? maskPanServer(panRaw) : null,
+    panRaw,
+    uan:             n(row[EC.uan]),
+    presentAddress:  n(row[EC.presentAddr]),
+    permanentAddress:n(row[EC.permanentAddr]),
+    personalBankName:   n(row[EC.personalBankName]),
+    personalBankBranch: n(row[EC.personalBankBranch]),
+    personalBankAcct:   n(row[EC.personalBankAcct]),
+    personalBankIfsc:   n(row[EC.personalBankIfsc]),
+    officialBankName:   n(row[EC.officialBankName]),
+    officialBankBranch: n(row[EC.officialBankBranch]),
+    officialBankAcct:   n(row[EC.officialBankAcct]),
+    officialBankIfsc:   n(row[EC.officialBankIfsc]),
+    grossSalary:     row[EC.salary] ? parseMoney(row[EC.salary]) : null,
+    roleAttrs:       resolveSheetRole(n(row[EC.department])??"", n(row[EC.designation])??""),
+    needsEmailSetup: !officialEmail,
+  };
+}
+
 // Template Sheet URL — replace with an actual published Sheet before launch
 const TEMPLATE_SHEET_URL = "https://docs.google.com/spreadsheets/d/REPLACE_WITH_TEMPLATE_ID";
 
@@ -1237,11 +1376,21 @@ async function startServer() {
         convertorVertical,
         isHrmsManager,
         misAccess,
-        employeeStatus:    "active",
-        needsEmailSetup:   false,
-        photoURL:          null,
-        createdAt:         admin.firestore.FieldValue.serverTimestamp(),
+        employeeStatus:      "active",
+        needsEmailSetup:     false,
+        mustResetPassword:   true,
+        photoURL:            null,
+        createdAt:           admin.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
+
+      // Try to generate a password reset link so employee sets their own password.
+      // Fire-and-forget; mustResetPassword flag is the primary enforcement.
+      try {
+        const resetLink = await admin.auth().generatePasswordResetLink(email as string);
+        console.log(`[create-employee] Password reset link for ${email}: ${resetLink}`);
+      } catch (e) {
+        console.warn(`[create-employee] Could not generate reset link for ${email}:`, e);
+      }
 
       // Audit log
       await db.collection("audit_logs").add({
@@ -1368,11 +1517,165 @@ async function startServer() {
     return res.json({ uid: newUid, tempPassword });
   });
 
-  // ─── Employee master import from Google Sheet ────────────────────────────────
-  // Reads the Finvastra employee master sheet (public CSV export), creates
-  // Firebase Auth accounts + Firestore /users docs in one pass.
-  // Skips: Aadhaar (UIDAI ban), PAN, UAN, bank accounts.
-  // dryRun=true → preview only, no writes.
+  // ─── Employee master import (service-account Sheets API) ────────────────────
+
+  // Preview: reads sheet via SA, returns parsed employee list. No writes.
+  app.post("/api/admin/employees/import-preview", async (req, res) => {
+    try {
+      const uid = await verifyFirebaseToken(req);
+      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+      const callerSnap = await db.collection("users").doc(uid).get();
+      if (callerSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+
+      const rows = await fetchEmployeeMasterRows();
+      const employees = rows
+        .map(parseEmployeeRow)
+        .filter((e) => e.empCode && e.name);
+
+      return res.json({
+        employees: employees.map(({ panRaw: _, personalBankAcct: _2, officialBankAcct: _3, ...rest }) => rest),
+        total:    employees.length,
+        active:   employees.filter((e) => e.status === "active").length,
+        inactive: employees.filter((e) => e.status === "inactive").length,
+      });
+    } catch (e) {
+      console.error("[import-preview]", e);
+      return res.status(500).json({ error: e instanceof Error ? e.message : "Preview failed" });
+    }
+  });
+
+  // Confirm: re-reads sheet via SA, creates Auth + Firestore + encrypted profile docs.
+  app.post("/api/admin/employees/import-confirm", async (req, res) => {
+    try {
+      const uid = await verifyFirebaseToken(req);
+      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+      const callerSnap = await db.collection("users").doc(uid).get();
+      if (callerSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+
+      const rows = await fetchEmployeeMasterRows();
+      const parsed = rows.map(parseEmployeeRow).filter((e) => e.empCode && e.name);
+
+      let created = 0, updated = 0, skipped = 0;
+      const errors: string[] = [];
+
+      for (const emp of parsed) {
+        try {
+          const docId     = emp.status === "active" && emp.officialEmail ? null : emp.empCode;
+          const profileBase: Record<string, unknown> = {
+            employeeId:           emp.empCode,
+            displayName:          emp.name,
+            email:                emp.officialEmail ?? "",
+            personalEmail:        emp.personalEmail,
+            phone:                emp.officialPhone ?? emp.phone,
+            department:           emp.department,
+            designation:          emp.designation,
+            reportingManagerName: emp.reportingManager,
+            joiningDate:          emp.doj,
+            lastWorkingDate:      emp.status === "inactive" ? emp.lwd : null,
+            employeeStatus:       emp.status,
+            needsEmailSetup:      emp.needsEmailSetup,
+            photoURL:             null,
+            ...emp.roleAttrs,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          };
+
+          // Aadhaar column (index 13) is intentionally skipped — UIDAI prohibition.
+          const sensitiveDoc: Record<string, unknown> = {
+            uid:              emp.empCode,
+            dob:              emp.dob,
+            uan:              emp.uan,
+            presentAddress:   emp.presentAddress,
+            permanentAddress: emp.permanentAddress,
+            personalEmail:    emp.personalEmail,
+            personalPhone:    emp.phone,
+            personalBankName:    emp.personalBankName,
+            personalBankBranch:  emp.personalBankBranch,
+            personalBankIfsc:    emp.personalBankIfsc,
+            officialBankName:    emp.officialBankName,
+            officialBankBranch:  emp.officialBankBranch,
+            officialBankIfsc:    emp.officialBankIfsc,
+            grossSalary:         emp.grossSalary,
+            aadhaarVerified:     false,
+            aadhaarVerifiedOn:   null,
+            aadhaarVerifiedBy:   null,
+            aadhaarDriveLink:    null,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          };
+          if (emp.panRaw) sensitiveDoc.panEncrypted = encryptField(emp.panRaw);
+          if (emp.personalBankAcct) sensitiveDoc.personalBankAccountEncrypted = encryptField(emp.personalBankAcct);
+          if (emp.officialBankAcct) sensitiveDoc.officialBankAccountEncrypted = encryptField(emp.officialBankAcct);
+
+          if (emp.status === "inactive" || !emp.officialEmail) {
+            // No Auth account — use empCode as doc ID
+            const ref  = db.collection("users").doc(emp.empCode);
+            const snap = await ref.get();
+            if (snap.exists) {
+              await ref.set({ ...profileBase, userId: emp.empCode, createdAt: snap.data()!.createdAt }, { merge: false });
+              updated++;
+            } else {
+              await ref.set({ ...profileBase, userId: emp.empCode, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+              created++;
+            }
+            await db.collection("employee_profiles").doc(emp.empCode).set(
+              { ...sensitiveDoc, createdAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true }
+            );
+            if (emp.status === "inactive") { skipped++; created--; }
+            continue;
+          }
+
+          // Active + has email → Auth account
+          let authUid: string;
+          let authExisted = false;
+          try {
+            const existing = await admin.auth().getUserByEmail(emp.officialEmail);
+            authUid     = existing.uid;
+            authExisted = true;
+          } catch {
+            const newUser = await admin.auth().createUser({
+              email: emp.officialEmail, displayName: emp.name,
+              password: "Finvastra@2026", emailVerified: false, disabled: false,
+            });
+            authUid = newUser.uid;
+          }
+
+          const userRef  = db.collection("users").doc(authUid);
+          const userSnap = await userRef.get();
+          if (userSnap.exists) {
+            await userRef.set({ ...profileBase, userId: authUid, email: emp.officialEmail, createdAt: userSnap.data()!.createdAt }, { merge: false });
+            updated++;
+          } else {
+            // New Auth account → force password reset on first login
+            const resetFlag = !authExisted ? { mustResetPassword: true } : {};
+            await userRef.set({ ...profileBase, ...resetFlag, userId: authUid, email: emp.officialEmail, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+            if (!authExisted) created++;
+            else updated++;
+          }
+
+          await db.collection("employee_profiles").doc(emp.empCode).set(
+            { ...sensitiveDoc, createdAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true }
+          );
+          await db.collection("audit_logs").add({
+            actor: uid, action: "import_employee",
+            targetPath: `/users/${authUid}`,
+            before: null, after: { email: emp.officialEmail, displayName: emp.name },
+            at: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        } catch (rowErr) {
+          errors.push(`${emp.empCode} ${emp.name}: ${rowErr instanceof Error ? rowErr.message : String(rowErr)}`);
+        }
+      }
+
+      return res.json({ created, updated, skipped, errors });
+    } catch (e) {
+      console.error("[import-confirm]", e);
+      return res.status(500).json({ error: e instanceof Error ? e.message : "Import failed" });
+    }
+  });
+
+  // ─── Employee master import from Google Sheet (legacy — kept for compat) ─────
+  // Original endpoint used public CSV; new flow uses /api/admin/employees/import-preview
+  // and /api/admin/employees/import-confirm above. This endpoint is no longer called
+  // by the UI but preserved in case it's needed via API directly.
   app.post("/api/hrms/employees/import-from-sheet", async (req, res) => {
     try {
       const uid = await verifyFirebaseToken(req);

@@ -66,7 +66,23 @@
       "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\\\\scripts\\\\seed\")",
       "Bash(git init *)",
       "Bash(git branch *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git remote *)",
+      "Bash(git push *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\\\\src\" -Recurse -File -Filter \"*.tsx\" -o Name)",
+      "Bash(grep -r '\\\\$[0-9]' src/features --include=\"*.tsx\")",
+      "Bash(grep \"\\\\.ts$\")",
+      "Bash(Remove-Item \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\\\\src\\\\components\\\\ui\\\\Avatar.tsx\" -Force)",
+      "Bash(Remove-Item \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\\\\src\\\\components\\\\ui\\\\Skeleton.tsx\" -Force)",
+      "Bash(Write-Output \"deleted\")",
+      "Bash(ls \"C:/Users/raul9/Downloads/\" | grep -E \"firebase-adminsdk|service-account\" 2>/dev/null || echo \"no match\")",
+      "Read(//c/Users/raul9/Downloads/**)",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\\\\public\\\\video\")",
+      "PowerShell(Copy-Item \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\\\\video\\\\logo-transparent.webm\" \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\\\\public\\\\video\\\\logo-transparent.webm\" -Force)",
+      "PowerShell(\\(Get-Item \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\\\\public\\\\video\\\\logo-transparent.webm\"\\).Length)",
+      "Bash(firebase deploy *)",
+      "Bash(node -e \"console.log\\(require\\('crypto'\\).randomBytes\\(32\\).toString\\('hex'\\)\\)\")"
     ]
   }
 }

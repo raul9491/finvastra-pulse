@@ -16,7 +16,7 @@ export function NavItem({ icon, label, active, expanded, onClick, badge }: NavIt
       title={!expanded ? label : undefined}
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative ${
         active
-          ? 'bg-navy text-gold shadow-lg shadow-navy/20'
+          ? 'bg-navy text-gold shadow-[0_2px_8px_rgba(11,21,56,0.2)]'
           : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
       }`}
     >

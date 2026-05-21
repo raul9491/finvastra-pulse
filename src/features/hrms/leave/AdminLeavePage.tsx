@@ -14,6 +14,7 @@ import {
   rejectLeave,
 } from '../hooks/useLeave';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
+import { useToast } from '../../../components/ui/Toast';
 import { db } from '../../../lib/firebase';
 import type { LeaveApplication, LeaveStatus, LeaveType } from '../../../types';
 
@@ -49,10 +50,11 @@ const TYPE_LABELS: Record<LeaveType, string> = {
 
 interface RejectModalProps {
   applicationId: string;
+  rejectedBy: string;
   onClose: () => void;
 }
 
-function RejectModal({ applicationId, onClose }: RejectModalProps) {
+function RejectModal({ applicationId, rejectedBy, onClose }: RejectModalProps) {
   const [reason,     setReason]     = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error,      setError]      = useState<string | null>(null);
@@ -64,9 +66,10 @@ function RejectModal({ applicationId, onClose }: RejectModalProps) {
     }
     setSubmitting(true);
     try {
-      await rejectLeave(applicationId, reason.trim());
+      await rejectLeave(applicationId, reason.trim(), rejectedBy);
       onClose();
     } catch (err) {
+      console.error('[AdminLeavePage] rejectLeave error:', err);
       setError(err instanceof Error ? err.message : 'Failed to reject.');
       setSubmitting(false);
     }
@@ -133,13 +136,18 @@ interface PendingTabProps {
 
 function PendingTab({ approverId, employeeNameById }: PendingTabProps) {
   const { applications, loading } = usePendingApprovals();
+  const toast = useToast();
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
 
-  const handleApprove = async (appId: string) => {
+  const handleApprove = async (appId: string, employeeName: string) => {
     setApprovingId(appId);
     try {
       await approveLeave(appId, approverId);
+      toast.success(`Leave approved for ${employeeName}`);
+    } catch (err) {
+      console.error('[AdminLeavePage] approveLeave error:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to approve leave');
     } finally {
       setApprovingId(null);
     }
@@ -209,7 +217,7 @@ function PendingTab({ approverId, employeeNameById }: PendingTabProps) {
                 <td className="px-6 py-3.5">
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => handleApprove(app.id)}
+                      onClick={() => handleApprove(app.id, employeeNameById(app.employeeId))}
                       disabled={approvingId === app.id}
                       className="px-3 py-1 rounded-lg text-xs font-semibold transition-opacity hover:opacity-80"
                       style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}
@@ -234,6 +242,7 @@ function PendingTab({ approverId, employeeNameById }: PendingTabProps) {
       {rejectingId && (
         <RejectModal
           applicationId={rejectingId}
+          rejectedBy={approverId}
           onClose={() => setRejectingId(null)}
         />
       )}

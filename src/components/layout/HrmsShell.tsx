@@ -1,13 +1,27 @@
-import type { ElementType } from 'react';
+import { type ElementType, useState, useEffect } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import {
   LayoutDashboard, Users, Clock, CalendarOff, Receipt, CalendarDays,
-  Settings, LogOut, LayoutGrid, ClipboardList, FileText, ShieldCheck, UserPlus,
+  Settings, LogOut, LayoutGrid, ClipboardList, FileText, ShieldCheck, UserPlus, Inbox,
 } from 'lucide-react';
-import { auth } from '../../lib/firebase';
+import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { VastraLogo } from '../VastraLogo';
+
+function usePendingRequestCount(enabled: boolean): number {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    return onSnapshot(
+      query(collection(db, 'access_requests'), where('status', '==', 'pending')),
+      (snap) => setCount(snap.size),
+      () => setCount(0),
+    );
+  }, [enabled]);
+  return count;
+}
 
 type NavEntry = { path: string; label: string; icon: ElementType; live: boolean };
 
@@ -22,23 +36,26 @@ const NAV: NavEntry[] = [
 ];
 
 const ADMIN_NAV: NavEntry[] = [
+  { path: '/hrms/admin/access-requests',   label: 'Access Requests',      icon: Inbox,         live: true },
   { path: '/hrms/admin/access',            label: 'Access & Permissions', icon: ShieldCheck,   live: true },
   { path: '/hrms/admin/import-employees',  label: 'Import Employees',     icon: UserPlus,      live: true },
   { path: '/hrms/admin/attendance',        label: 'Attendance',           icon: Clock,         live: true },
   { path: '/hrms/leave/admin',             label: 'Leave Approvals',      icon: ClipboardList, live: true },
-  { path: '/hrms/admin/holidays',          label: 'Holidays',             icon: CalendarDays,  live: true },
+  { path: '/hrms/admin/holidays',          label: 'Manage Holidays',      icon: CalendarDays,  live: true },
   { path: '/hrms/admin/payslips',          label: 'Generate Payslips',    icon: FileText,      live: true },
 ];
 
 const PAGE_TITLES: Record<string, string> = {
   '/hrms/dashboard':        'Dashboard',
   '/hrms/employees':        'Employees',
+  // /hrms/employees/:userId resolved by prefix match below
   '/hrms/attendance':       'Attendance',
   '/hrms/leave':            'Leave',
   '/hrms/leave/apply':      'Apply for Leave',
   '/hrms/payslips':         'Payslips',
   '/hrms/holidays':         'Holidays',
   '/hrms/settings':         'Settings',
+  '/hrms/admin/access-requests':   'Access Requests',
   '/hrms/admin/access':            'Access & Permissions',
   '/hrms/admin/import-employees':  'Import Employees',
   '/hrms/admin/attendance': 'Attendance — Admin',
@@ -62,6 +79,7 @@ export function HrmsShell() {
 
   if (loading) return <FullPageLoader />;
   if (!user) return <Navigate to="/login" replace />;
+  if (profile?.mustResetPassword) return <Navigate to="/reset-password" replace />;
 
   const canAccess = profile?.role === 'admin' || profile?.hrmsAccess !== false;
   if (!canAccess) return <Navigate to="/" replace />;
@@ -69,12 +87,16 @@ export function HrmsShell() {
   const isAdmin = profile?.role === 'admin';
   const isHrmsManager = profile?.isHrmsManager === true;
 
+  const pendingRequests = usePendingRequestCount(isAdmin);
+  const onAccessRequestsPage = location.pathname === '/hrms/admin/access-requests';
+
   const handleLogout = async () => {
     await signOut(auth);
     navigate('/login', { replace: true });
   };
 
-  const pageTitle = PAGE_TITLES[location.pathname] ?? 'HR & Operations';
+  const pageTitle = PAGE_TITLES[location.pathname]
+    ?? (/^\/hrms\/employees\/[^/]+$/.test(location.pathname) ? 'Employee Profile' : 'HR & Operations');
 
   const initials = profile?.displayName
     ? profile.displayName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
@@ -126,24 +148,31 @@ export function HrmsShell() {
               <div className="px-3 pt-4 pb-2">
                 <p className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: '#475569' }}>Admin</p>
               </div>
-              {ADMIN_NAV.map(({ path, label, icon: Icon }) => (
-                <NavLink
-                  key={path}
-                  to={path}
-                  end
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3'}`
-                  }
-                  style={({ isActive }) =>
-                    isActive
-                      ? { backgroundColor: '#1B2A4E', color: '#FFFFFF', borderColor: '#C9A961' }
-                      : { color: '#94A3B8' }
-                  }
-                >
-                  <Icon size={17} className="shrink-0" />
-                  <span className="text-sm">{label}</span>
-                </NavLink>
-              ))}
+              {ADMIN_NAV.map(({ path, label, icon: Icon }) => {
+                const badge = path === '/hrms/admin/access-requests' && !onAccessRequestsPage
+                  ? pendingRequests : 0;
+                return (
+                  <NavLink key={path} to={path} end
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3'}`
+                    }
+                    style={({ isActive }) =>
+                      isActive
+                        ? { backgroundColor: '#1B2A4E', color: '#FFFFFF', borderColor: '#C9A961' }
+                        : { color: '#94A3B8' }
+                    }
+                  >
+                    <Icon size={17} className="shrink-0" />
+                    <span className="text-sm flex-1">{label}</span>
+                    {badge > 0 && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full mr-1 leading-none"
+                        style={{ backgroundColor: '#DC2626', color: '#FFFFFF' }}>
+                        {badge}
+                      </span>
+                    )}
+                  </NavLink>
+                );
+              })}
             </>
           )}
         </div>

@@ -249,7 +249,7 @@ function AddSlabModal({ isOpen, onClose, existingSlab, employees, createdBy }: A
                   className="text-sm"
                   style={{ color: bl !== 'loan' ? '#8B8B85' : '#0A0A0A' }}
                 >
-                  {bl === 'loan' ? 'Loan' : bl === 'wealth' ? 'Wealth (coming soon)' : 'Insurance (coming soon)'}
+                  {bl === 'loan' ? 'Loan' : bl === 'wealth' ? 'Wealth' : 'Insurance'}
                 </span>
               </label>
             ))}

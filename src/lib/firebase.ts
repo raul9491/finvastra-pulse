@@ -1,8 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app';
 import {
   getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
   connectAuthEmulator,
 } from 'firebase/auth';
 import {
@@ -86,14 +84,6 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   // Intentionally not logging PII — errInfo is surfaced to error tracking only
   throw new Error(JSON.stringify(errInfo));
 }
-
-export const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope('https://www.googleapis.com/auth/calendar');
-// Restrict the Google account picker to @finvastra.com Workspace accounts only.
-// Users with personal Gmail accounts will be shown an error if they try anyway.
-googleProvider.setCustomParameters({ hd: 'finvastra.com', prompt: 'select_account' });
-
-export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
 
 // Re-export Firestore helpers so callers don't need a second firebase import
 export {

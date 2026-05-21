@@ -358,9 +358,7 @@ export function OpportunityDetailPage() {
             {opportunity.opportunityType === 'wealth' ? 'Investments' : 'Policies'}
           </h3>
           <p className="text-sm" style={{ color: '#8B8B85' }}>
-            {opportunity.opportunityType === 'wealth'
-              ? 'Investment tracking coming in Phase 2.6.'
-              : 'Policy management coming in Phase 2.7.'}
+            No {opportunity.opportunityType === 'wealth' ? 'investments' : 'policies'} recorded yet.
           </p>
         </div>
       )}

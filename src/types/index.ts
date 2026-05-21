@@ -16,6 +16,38 @@ export interface BankAccount {
   ifsc: string | null;
 }
 
+// Stored in /employee_profiles/{empCode} — HR/admin only.
+// Account numbers are encrypted server-side and never sent to the browser.
+// Aadhaar number is never stored here or anywhere else (UIDAI prohibition).
+export interface EmployeeProfile {
+  uid: string;                          // = empCode
+  dob: string | null;
+  uan: string | null;
+  presentAddress: string | null;
+  permanentAddress: string | null;
+  personalEmail: string | null;
+  personalPhone: string | null;
+  // Bank meta (non-account fields — safe to show)
+  personalBankName: string | null;
+  personalBankBranch: string | null;
+  personalBankIfsc: string | null;
+  officialBankName: string | null;
+  officialBankBranch: string | null;
+  officialBankIfsc: string | null;
+  grossSalary: number | null;
+  // Encrypted blobs — present server-side only, typed as object client-side
+  panEncrypted?: object;
+  personalBankAccountEncrypted?: object;
+  officialBankAccountEncrypted?: object;
+  // Aadhaar compliance — verification record only, number never stored
+  aadhaarVerified: boolean;
+  aadhaarVerifiedOn: string | null;     // DD-MM-YYYY
+  aadhaarVerifiedBy: string | null;     // empCode of HR who verified
+  aadhaarDriveLink: string | null;
+  updatedAt?: import('firebase/firestore').Timestamp;
+  createdAt?: import('firebase/firestore').Timestamp;
+}
+
 // Stored in /employee_sensitive/{userId} — readable only by admin or the employee themselves
 export interface EmployeeSensitive {
   userId: string;
@@ -67,10 +99,32 @@ export interface UserProfile {
   crmRole?: CrmRole;
   // Only set when crmRole === 'lead_convertor'; drives handoff matching
   convertorVertical?: ConvertorVertical;
+  needsEmailSetup?: boolean;   // true = no @finvastra.com email yet; cannot log in
+  mustResetPassword?: boolean; // true = forced reset on first login
   isHrmsManager?: boolean;    // grants leave approval + admin attendance override
   crmCanImport?: boolean;     // can trigger bulk Sheet imports (default: only managers; admin can grant individually)
   misAccess?: MisAccess;
   createdAt?: import('firebase/firestore').Timestamp;
+}
+
+// ─── Access Requests ─────────────────────────────────────────────────────────
+
+export type AccessRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface AccessRequest {
+  id: string;
+  fullName: string;
+  personalEmail: string;
+  mobileNumber: string;
+  department: string;
+  designation: string;
+  message: string;
+  status: AccessRequestStatus;
+  submittedAt: import('firebase/firestore').Timestamp;
+  reviewedBy: string | null;
+  reviewedAt: import('firebase/firestore').Timestamp | null;
+  rejectionReason: string | null;
+  createdUid: string | null;
 }
 
 // ─── MIS: Commission Reconciliation ──────────────────────────────────────────

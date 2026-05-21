@@ -206,11 +206,13 @@ export function GeneratePayslipPage() {
       const snap = await getDocs(q);
       const records = snap.docs.map((d) => d.data() as Omit<Attendance, 'id'>);
 
-      // Count 'present' and 'half_day' records per user
+      // Count present days: present = 1.0, half_day = 0.5, absent = 0
       const presentCount = new Map<string, number>();
       for (const r of records) {
-        if (r.status === 'present' || r.status === 'half_day') {
-          presentCount.set(r.userId, (presentCount.get(r.userId) ?? 0) + 1);
+        if (r.status === 'present') {
+          presentCount.set(r.userId, (presentCount.get(r.userId) ?? 0) + 1.0);
+        } else if (r.status === 'half_day') {
+          presentCount.set(r.userId, (presentCount.get(r.userId) ?? 0) + 0.5);
         }
       }
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  collection, query, where, getDocs, onSnapshot, orderBy, limit,
+  collection, query, where, onSnapshot, orderBy, limit,
 } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import type { CommissionStatement, RmPayout } from '../../../types';
@@ -21,8 +21,7 @@ interface MisOverviewData {
 
 // ─── useMisOverview ───────────────────────────────────────────────────────────
 // month = 'YYYY-MM'
-// Aggregation queries use getDocs (single-shot on mount/month-change).
-// Recent-list queries use onSnapshot for live updates.
+// All queries use onSnapshot so the dashboard updates live when data changes.
 
 export function useMisOverview(month: string): MisOverviewData {
   const [data, setData] = useState<MisOverviewData>({
@@ -37,95 +36,85 @@ export function useMisOverview(month: string): MisOverviewData {
     loading: true,
   });
 
-  // ── Aggregation: single-shot on month change ──────────────────────────────
+  // ── Commission statements: received totals + open count + discrepancy ───────
   useEffect(() => {
     if (!month) return;
-
-    let cancelled = false;
-
-    async function loadAggregates() {
-      // 1. Commission statements for this period
-      //    periodStart <= month AND periodEnd >= month
-      const stmtSnap = await getDocs(
-        query(
-          collection(db, 'commission_statements'),
-          where('periodStart', '<=', month),
-          where('periodEnd', '>=', month),
-        ),
-      );
-
-      let currentMonthReceived = 0;
-      let openStatements = 0;
-      let discrepancyCount = 0;
-
-      for (const d of stmtSnap.docs) {
-        const stmt = d.data() as Omit<CommissionStatement, 'id'>;
-        if (stmt.status === 'closed' || stmt.status === 'reconciled') {
-          currentMonthReceived += stmt.totalAmount ?? 0;
+    return onSnapshot(
+      query(
+        collection(db, 'commission_statements'),
+        where('periodStart', '<=', month),
+        where('periodEnd', '>=', month),
+      ),
+      (snap) => {
+        let currentMonthReceived = 0;
+        let openStatements = 0;
+        let discrepancyCount = 0;
+        for (const d of snap.docs) {
+          const stmt = d.data() as Omit<CommissionStatement, 'id'>;
+          if (stmt.status === 'closed' || stmt.status === 'reconciled') {
+            currentMonthReceived += stmt.totalAmount ?? 0;
+          }
+          if (stmt.status !== 'closed') openStatements++;
+          discrepancyCount += stmt.discrepancyCount ?? 0;
         }
-        if (stmt.status !== 'closed') {
-          openStatements++;
-        }
-        discrepancyCount += stmt.discrepancyCount ?? 0;
-      }
-
-      // 2. Commission records expected in this month
-      //    expectedPayoutDate starts with 'YYYY-MM-'
-      //    Firestore doesn't support startsWith, so use range query on date prefix
-      const monthStart = `${month}-01`;
-      const monthEnd   = `${month}-31`; // safe upper bound for all months
-
-      const recSnap = await getDocs(
-        query(
-          collection(db, 'commission_records'),
-          where('expectedPayoutDate', '>=', monthStart),
-          where('expectedPayoutDate', '<=', monthEnd),
-        ),
-      );
-
-      let currentMonthExpected = 0;
-      for (const d of recSnap.docs) {
-        const rec = d.data() as { calculatedCommission?: number };
-        currentMonthExpected += rec.calculatedCommission ?? 0;
-      }
-
-      // 3. RM payouts in draft/approved status for this period
-      const payoutSnap = await getDocs(
-        query(
-          collection(db, 'rm_payouts'),
-          where('periodStart', '==', month),
-          where('status', 'in', ['draft', 'approved']),
-        ),
-      );
-
-      let pendingPayoutsAmount = 0;
-      for (const d of payoutSnap.docs) {
-        const payout = d.data() as { totalPayout?: number };
-        pendingPayoutsAmount += payout.totalPayout ?? 0;
-      }
-
-      const variance = currentMonthReceived - currentMonthExpected;
-
-      if (!cancelled) {
         setData((prev) => ({
           ...prev,
           currentMonthReceived,
-          currentMonthExpected,
-          variance,
           openStatements,
-          pendingPayoutsAmount,
           discrepancyCount,
+          variance: currentMonthReceived - prev.currentMonthExpected,
         }));
-      }
-    }
+      },
+      () => {},
+    );
+  }, [month]);
 
-    loadAggregates().catch(() => {
-      if (!cancelled) {
-        setData((prev) => ({ ...prev, loading: false }));
-      }
-    });
+  // ── Commission records: expected total for this month ────────────────────────
+  useEffect(() => {
+    if (!month) return;
+    const monthStart = `${month}-01`;
+    const monthEnd   = `${month}-31`; // safe upper bound for all months
+    return onSnapshot(
+      query(
+        collection(db, 'commission_records'),
+        where('expectedPayoutDate', '>=', monthStart),
+        where('expectedPayoutDate', '<=', monthEnd),
+      ),
+      (snap) => {
+        let currentMonthExpected = 0;
+        for (const d of snap.docs) {
+          const rec = d.data() as { calculatedCommission?: number };
+          currentMonthExpected += rec.calculatedCommission ?? 0;
+        }
+        setData((prev) => ({
+          ...prev,
+          currentMonthExpected,
+          variance: prev.currentMonthReceived - currentMonthExpected,
+        }));
+      },
+      () => {},
+    );
+  }, [month]);
 
-    return () => { cancelled = true; };
+  // ── RM payouts: pending total for this period ────────────────────────────────
+  useEffect(() => {
+    if (!month) return;
+    return onSnapshot(
+      query(
+        collection(db, 'rm_payouts'),
+        where('periodStart', '==', month),
+        where('status', 'in', ['draft', 'approved']),
+      ),
+      (snap) => {
+        let pendingPayoutsAmount = 0;
+        for (const d of snap.docs) {
+          const payout = d.data() as { totalPayout?: number };
+          pendingPayoutsAmount += payout.totalPayout ?? 0;
+        }
+        setData((prev) => ({ ...prev, pendingPayoutsAmount }));
+      },
+      () => {},
+    );
   }, [month]);
 
   // ── Recent statements: live ───────────────────────────────────────────────

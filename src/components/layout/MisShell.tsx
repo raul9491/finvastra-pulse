@@ -18,6 +18,13 @@ const NAV: NavEntry[] = [
   { path: '/mis/admin/payout-slabs',  label: 'Payout Slabs',   icon: Settings,        adminOnly: true  },
 ];
 
+function resolveMisTitle(pathname: string): string {
+  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
+  if (/^\/mis\/statements\/[^/]+$/.test(pathname)) return 'Statement Detail';
+  if (/^\/mis\/payouts\/[^/]+$/.test(pathname)) return 'Payout Detail';
+  return 'MIS · Finance';
+}
+
 const PAGE_TITLES: Record<string, string> = {
   '/mis/overview':           'MIS Overview',
   '/mis/statements':         'Commission Statements',
@@ -43,6 +50,7 @@ export function MisShell() {
 
   if (loading) return <FullPageLoader />;
   if (!user) return <Navigate to="/login" replace />;
+  if (profile?.mustResetPassword) return <Navigate to="/reset-password" replace />;
 
   const canAccess = profile?.role === 'admin' || profile?.misAccess != null;
   if (!canAccess) return <Navigate to="/" replace />;
@@ -55,7 +63,7 @@ export function MisShell() {
     navigate('/login', { replace: true });
   };
 
-  const pageTitle = PAGE_TITLES[location.pathname] ?? 'MIS · Finance';
+  const pageTitle = resolveMisTitle(location.pathname);
 
   const initials = profile?.displayName
     ? profile.displayName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()

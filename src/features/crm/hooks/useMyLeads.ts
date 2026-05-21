@@ -194,6 +194,9 @@ export function useMyLeads(userId: string): UseMyLeadsResult {
     return unsubscribe;
   }, [userId]);
 
+  // All hooks declared above — safe to short-circuit for empty userId.
+  if (!userId) return { leads: [], overdue: 0, urgent: 0, total: 0, loading: false, error: null };
+
   return { leads, overdue, urgent, total, loading, error };
 }
 

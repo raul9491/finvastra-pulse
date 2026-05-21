@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
@@ -174,7 +174,7 @@ export function HrmsDashboardPage() {
   const { applications: pendingApprovals } = usePendingApprovals();
 
   // Auto-seed 2026 holidays if collection is empty (non-blocking)
-  useMemo(() => { seedHolidays2026().catch(() => {}); }, []);
+  useEffect(() => { seedHolidays2026().catch((e) => console.error('[seedHolidays2026]', e)); }, []);
 
   // ── Attendance stats ───────────────────────────────────────────────────────
   const { presentDays, halfDays, workingDays } = useMemo(() => {

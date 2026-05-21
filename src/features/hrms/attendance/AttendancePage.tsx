@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   format,
   startOfMonth,
@@ -122,9 +122,11 @@ export function AttendancePage() {
   const { records, loading: monthLoading } = useMyAttendance(userId, currentMonth);
   const { record: todayRecord, loading: todayLoading } = useTodayAttendance(userId);
 
-  // ── Check-in / check-out loading flags ────────────────────────────────────
-  const [checkingIn, setCheckingIn] = useState(false);
+  // ── Check-in / check-out loading flags + error ───────────────────────────
+  const [checkingIn,  setCheckingIn]  = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
+  const [clockError,  setClockError]  = useState('');
+  const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Live duration ticker ───────────────────────────────────────────────────
   const [liveDuration, setLiveDuration] = useState('');
@@ -143,11 +145,20 @@ export function AttendancePage() {
   }, [todayRecord]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
+  function showClockError(msg: string) {
+    setClockError(msg);
+    if (errorTimer.current) clearTimeout(errorTimer.current);
+    errorTimer.current = setTimeout(() => setClockError(''), 5000);
+  }
+
   const handleCheckIn = useCallback(async () => {
     if (!userId) return;
     setCheckingIn(true);
     try {
       await checkIn(userId);
+    } catch (err) {
+      console.error('[AttendancePage] checkIn error:', err);
+      showClockError('Check-in failed. Please try again.');
     } finally {
       setCheckingIn(false);
     }
@@ -156,10 +167,16 @@ export function AttendancePage() {
   const handleCheckOut = useCallback(async () => {
     if (!todayRecord) return;
     const checkInDate = toDate(todayRecord.checkIn);
-    if (!checkInDate) return;
+    if (!checkInDate) {
+      showClockError('Cannot check out — no check-in time recorded.');
+      return;
+    }
     setCheckingOut(true);
     try {
       await checkOut(todayRecord.id, checkInDate);
+    } catch (err) {
+      console.error('[AttendancePage] checkOut error:', err);
+      showClockError('Check-out failed. Please try again.');
     } finally {
       setCheckingOut(false);
     }
@@ -211,6 +228,12 @@ export function AttendancePage() {
         >
           Today — {format(today, 'dd MMM yyyy')}
         </h3>
+
+        {clockError && (
+          <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ backgroundColor: '#FEE2E2', color: '#991B1B' }}>
+            {clockError}
+          </div>
+        )}
 
         {todayLoading && (
           <div className="h-10 rounded-lg animate-pulse" style={{ background: '#F2EFE7', width: 180 }} />

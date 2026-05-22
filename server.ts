@@ -924,6 +924,63 @@ async function startServer() {
     return res.json({ ok: true });
   });
 
+  // ─── Support Tickets ─────────────────────────────────────────────────────────
+  // Sends an email to rahulv@finvastra.com when an employee raises a support ticket.
+  // The Firestore write happens client-side first; this endpoint is fire-and-forget.
+  app.post("/api/support/raise", async (req, res) => {
+    const uid = await verifyFirebaseToken(req);
+    if (!uid) return res.status(401).json({ error: "Unauthorized" });
+
+    const { category, subject, description } = req.body as {
+      category: string; subject: string; description: string;
+    };
+    if (!category || !subject || !description) {
+      return res.status(400).json({ error: "Missing fields" });
+    }
+
+    const userSnap = await db.collection("users").doc(uid).get();
+    const userData = userSnap.data();
+    const senderName  = (userData?.displayName as string | undefined) ?? "An employee";
+    const senderEmail = (userData?.email       as string | undefined) ?? "";
+    const empId       = (userData?.employeeId  as string | undefined) ?? "";
+
+    if (process.env.RESEND_API_KEY) {
+      try {
+        await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          },
+          body: JSON.stringify({
+            from:    "pulse@finvastra.com",
+            to:      ["rahulv@finvastra.com"],
+            subject: `[Support] ${category}: ${subject}`,
+            text: [
+              `Support ticket raised on Finvastra Pulse`,
+              ``,
+              `From     : ${senderName} (${empId}) <${senderEmail}>`,
+              `Category : ${category}`,
+              `Subject  : ${subject}`,
+              ``,
+              `Details`,
+              `───────`,
+              description,
+              ``,
+              `View all tickets in the Firestore /support_requests collection.`,
+            ].join("\n"),
+          }),
+        });
+      } catch (e) {
+        console.error("[support/raise] email failed:", e);
+      }
+    } else {
+      console.log(`[Support Ticket - no RESEND_API_KEY] From: ${senderEmail} | ${category}: ${subject}`);
+    }
+
+    return res.json({ ok: true });
+  });
+
   // ─── Scheduled Jobs API ─────────────────────────────────────────────────────
   // All three endpoints are triggered daily by Cloud Scheduler (HTTP target).
   // Manual admin trigger also available from the dashboard.

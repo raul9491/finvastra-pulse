@@ -342,6 +342,19 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ─── Support Requests ────────────────────────────────────────────────────────
+    // Any signed-in employee can raise a ticket. Only admin can read/manage.
+    match /support_requests/{requestId} {
+      allow create: if isSignedIn() &&
+                       incoming().submittedBy == request.auth.uid &&
+                       incoming().keys().hasAll(['submittedBy', 'category', 'subject', 'description', 'status', 'submittedAt']) &&
+                       incoming().description.size() <= 2000 &&
+                       incoming().subject.size() <= 120;
+      allow read:   if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
     // ─── Audit Logs ──────────────────────────────────────────────────────────────
     match /audit_logs/{logId} {
       allow read:   if isAdmin();
@@ -412,7 +425,13 @@ service cloud.firestore {
                        incoming().keys().hasAll(['userId', 'date', 'status']) &&
                        incoming().userId == request.auth.uid &&
                        incoming().date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
-      allow update: if isAdmin() || isHrmsManager();
+      allow update: if isAdmin() || isHrmsManager() ||
+                       // Employee can only check out their own record
+                       (isSignedIn() &&
+                        resource.data.get('userId', '') == request.auth.uid &&
+                        incoming().diff(existing()).affectedKeys().hasOnly(
+                          ['checkOut', 'workingHours', 'status', 'updatedAt']
+                        ));
       allow delete: if false;
     }
 

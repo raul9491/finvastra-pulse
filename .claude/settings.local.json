@@ -88,7 +88,11 @@
       "Bash(git stash *)",
       "PowerShell($env:GOOGLE_APPLICATION_CREDENTIALS = \"C:/Users/raul9/Downloads/gen-lang-client-0643641184-firebase-adminsdk-fbsvc-04fbf4c625.json\"; cd \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\"; npm run seed:production)",
       "Bash(node -e ' *)",
-      "PowerShell($env:GOOGLE_APPLICATION_CREDENTIALS = \"C:/Users/raul9/Downloads/gen-lang-client-0643641184-firebase-adminsdk-fbsvc-04fbf4c625.json\"; cd \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\"; npm run migrate:profiles)"
+      "PowerShell($env:GOOGLE_APPLICATION_CREDENTIALS = \"C:/Users/raul9/Downloads/gen-lang-client-0643641184-firebase-adminsdk-fbsvc-04fbf4c625.json\"; cd \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\"; npm run migrate:profiles)",
+      "Bash(firebase login:add)",
+      "PowerShell(Copy-Item \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\\\\images\\\\favicon.png\" \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\\\\public\\\\favicon.png\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\\\\public\\\\images\")",
+      "PowerShell(Copy-Item \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\\\\images\\\\logo-finvastra.png\" \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\\\\public\\\\images\\\\logo-finvastra.png\")"
     ]
   }
 }

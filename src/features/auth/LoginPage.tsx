@@ -102,8 +102,8 @@ export function LoginPage() {
         }}>
 
           {/* Logo inside card */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}>
-            <VideoLogo size="md" showText={false} />
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
+            <img src="/favicon.png" alt="Finvastra" style={{ width: 88, height: 88, objectFit: 'contain' }} />
           </div>
 
           {sessionExpired && (

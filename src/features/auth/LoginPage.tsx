@@ -71,28 +71,18 @@ export function LoginPage() {
       {/* ── WebGL Mercury background ── */}
       <MercuryBackground />
 
-      {/* ── Rotating gold diamond (top-right decoration) ── */}
+      {/* ── Finvastra logo — top-right ── */}
       <div style={{
         position:      'absolute',
-        top:           32, right: 32,
-        width:         200, height: 200,
-        opacity:       0.15,
+        top:           24, right: 32,
         zIndex:        1,
-        animation:     'rotateSlow 30s linear infinite',
         pointerEvents: 'none',
       }}>
-        <svg viewBox="0 0 120 120" width="200" height="200">
-          <g transform="translate(60,60) scale(1.1)">
-            {(['rotate(45 0 -23)', 'rotate(45 0 23)', 'rotate(45 -23 0)', 'rotate(45 23 0)'] as const).map((t, i) => (
-              <rect key={i}
-                x={['-15','-15','-38','8'][i]} y={['-38','8','-15','-15'][i]}
-                width="30" height="30" rx="6"
-                fill="none" stroke="#C9A961" strokeWidth="7"
-                transform={t}
-              />
-            ))}
-          </g>
-        </svg>
+        <img
+          src="/images/logo-finvastra.png"
+          alt="Finvastra"
+          style={{ width: 180, opacity: 0.75, mixBlendMode: 'screen' }}
+        />
       </div>
 
       {/* ── Video logo — top-left ── */}

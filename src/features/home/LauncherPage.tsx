@@ -80,7 +80,7 @@ export function LauncherPage() {
 
       {/* Top bar */}
       <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
-        <VideoLogo size="sm" showText={true} dark={true} />
+        <img src="/images/logo-finvastra.png" alt="Finvastra" style={{ height: 44, objectFit: 'contain' }} />
         <div className="flex items-center gap-4">
           {profile?.photoURL ? (
             <img src={profile.photoURL} alt={profile.displayName} className="w-8 h-8 rounded-full object-cover" />
@@ -113,7 +113,7 @@ export function LauncherPage() {
 
           {/* Brand video — animation only, no text */}
           <div className="flex justify-center mb-8">
-            <VideoLogo size="sm" showText={false} />
+            <VideoLogo size="md" showText={false} />
           </div>
 
           {/* Greeting */}

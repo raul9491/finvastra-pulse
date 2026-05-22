@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { updatePassword } from 'firebase/auth';
+import { updatePassword, signOut } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
-import { Eye, EyeOff, CheckCircle2, Circle } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle2, Circle, LogOut } from 'lucide-react';
 import { VideoLogo } from '../../components/ui/VideoLogo';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from './AuthContext';
@@ -45,6 +45,12 @@ export function ResetPasswordPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [submitting,  setSubmitting]  = useState(false);
   const [error,       setError]       = useState('');
+  const [needsReauth, setNeedsReauth] = useState(false);
+
+  const handleSignOutRetry = async () => {
+    await signOut(auth);
+    navigate('/login', { replace: true });
+  };
 
   const rules = {
     minLength:   newPwd.length >= 8,
@@ -70,7 +76,8 @@ export function ResetPasswordPage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Password update failed';
       if (msg.includes('requires-recent-login')) {
-        setError('Session expired. Please sign out and sign in again, then set your password.');
+        setNeedsReauth(true);
+        setError('For security, please sign out and sign in again to set your password.');
       } else {
         setError(msg);
       }
@@ -108,8 +115,21 @@ export function ResetPasswordPage() {
           </p>
 
           {error && (
-            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
-              {error}
+            <div className="mb-4 space-y-3">
+              <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
+                {error}
+              </div>
+              {needsReauth && (
+                <button
+                  type="button"
+                  onClick={handleSignOutRetry}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-colors"
+                  style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
+                >
+                  <LogOut size={15} />
+                  Sign out and sign in again
+                </button>
+              )}
             </div>
           )}
 
@@ -184,6 +204,17 @@ export function ResetPasswordPage() {
 
           <p className="text-center text-xs mt-6" style={{ color: '#8B8B85' }}>
             This step cannot be skipped.
+          </p>
+          <p className="text-center text-xs mt-3" style={{ color: '#8B8B85' }}>
+            Having trouble?{' '}
+            <button
+              type="button"
+              onClick={handleSignOutRetry}
+              className="underline hover:opacity-70 transition-opacity"
+              style={{ color: '#8B8B85' }}
+            >
+              Sign out
+            </button>
           </p>
         </div>
       </div>

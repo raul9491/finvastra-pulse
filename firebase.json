@@ -5,10 +5,13 @@
     "ui": { "enabled": true, "port": 4000 },
     "singleProjectMode": true
   },
-  "firestore": {
-    "rules": "firestore.rules",
-    "indexes": "firestore.indexes.json"
-  },
+  "firestore": [
+    {
+      "database": "ai-studio-27afcadd-87fc-4f68-8a88-587e904a31bf",
+      "rules": "firestore.rules",
+      "indexes": "firestore.indexes.json"
+    }
+  ],
   "hosting": {
     "target": "pulse",
     "public": "dist",

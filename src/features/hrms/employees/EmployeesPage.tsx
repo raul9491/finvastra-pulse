@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { Search, Edit2, Download, UserPlus } from 'lucide-react';
+import { Search, Edit2, Download, UserPlus, Shield } from 'lucide-react';
 import { updateDoc, doc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
@@ -265,6 +265,14 @@ export function EmployeesPage() {
           </div>
           {isAdmin && (
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate('/hrms/admin/access')}
+                className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg border transition-colors hover:bg-slate-50"
+                style={{ borderColor: '#E2E8F0', color: '#2A2A2A' }}
+              >
+                <Shield size={14} />
+                Manage Permissions
+              </button>
               <button
                 onClick={handleExport}
                 disabled={employees.length === 0}

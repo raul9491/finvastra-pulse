@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Modal } from '../../../components/ui/Modal';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import type { EmployeeStatus } from '../../../types';
 
+const EMP_PREFIXES = ['FAPL', 'FWPL', 'HK', 'CL'] as const;
+type EmpPrefix = typeof EMP_PREFIXES[number];
+
 interface AddEmployeeForm {
   // Basic
   displayName: string;
-  employeeId: string;
   employeeStatus: EmployeeStatus;
   joiningDate: string;
   lastWorkingDate: string;
@@ -48,7 +50,7 @@ interface AddEmployeeForm {
 }
 
 const EMPTY: AddEmployeeForm = {
-  displayName: '', employeeId: '', employeeStatus: 'active',
+  displayName: '', employeeStatus: 'active',
   joiningDate: '', lastWorkingDate: '',
   phone: '', personalEmail: '', officialEmail: '', officialPhone: '',
   department: '', designation: '', location: '', reportingManagerName: '',
@@ -71,6 +73,28 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
   const [error, setError] = useState('');
   const [result, setResult] = useState<Result | null>(null);
   const [sameAddress, setSameAddress] = useState(false);
+
+  const [empPrefix, setEmpPrefix] = useState<EmpPrefix>('FAPL');
+  const [empNumber, setEmpNumber] = useState('');
+
+  const nextForPrefix = useMemo(() => {
+    const nums = employees
+      .map((e) => e.employeeId ?? '')
+      .filter((id) => id.startsWith(empPrefix + '-'))
+      .map((id) => parseInt(id.split('-')[1] ?? '0', 10))
+      .filter((n) => !isNaN(n) && n > 0);
+    const max = nums.length > 0 ? Math.max(...nums) : 0;
+    return String(max + 1).padStart(3, '0');
+  }, [employees, empPrefix]);
+
+  useEffect(() => { setEmpNumber(nextForPrefix); }, [employees, empPrefix, nextForPrefix]);
+
+  const computedEmpId = (() => {
+    const n = empNumber.trim();
+    if (!n) return '';
+    const padded = String(parseInt(n, 10)).padStart(3, '0');
+    return `${empPrefix}-${padded}`;
+  })();
 
   const set = (k: keyof AddEmployeeForm, v: string) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -108,7 +132,7 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
 
       const body = {
         ...(form.displayName.trim()         ? { displayName: form.displayName.trim() }               : {}),
-        ...(form.employeeId.trim()          ? { employeeId: form.employeeId.trim() }                 : {}),
+        ...(computedEmpId                   ? { employeeId: computedEmpId }                          : {}),
         employeeStatus: form.employeeStatus,
         ...(form.joiningDate                ? { joiningDate: form.joiningDate }                      : {}),
         ...(form.lastWorkingDate            ? { lastWorkingDate: form.lastWorkingDate }              : {}),
@@ -229,7 +253,30 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
           </div>
           <div>
             {fLabel('Emp Code')}
-            <input className={inp} value={form.employeeId} onChange={(e) => set('employeeId', e.target.value)} placeholder="e.g. FAPL-023" />
+            <div className="flex items-center gap-1.5">
+              <select
+                className={`${sel} w-28 shrink-0`}
+                value={empPrefix}
+                onChange={(e) => setEmpPrefix(e.target.value as EmpPrefix)}
+              >
+                {EMP_PREFIXES.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <span className="text-slate-400 font-mono text-sm shrink-0">—</span>
+              <input
+                type="number"
+                min={1}
+                className={`${inp} w-20 shrink-0`}
+                value={empNumber}
+                onChange={(e) => setEmpNumber(e.target.value)}
+                placeholder={nextForPrefix}
+              />
+              <span className="text-xs shrink-0 font-mono font-semibold" style={{ color: '#0A0A0A' }}>
+                {computedEmpId || `${empPrefix}-${nextForPrefix}`}
+              </span>
+            </div>
+            <p className="mt-1 text-xs" style={{ color: '#8B8B85' }}>
+              Next available for {empPrefix}: <span className="font-mono">{empPrefix}-{nextForPrefix}</span>
+            </p>
           </div>
           <div>
             {fLabel('Status')}

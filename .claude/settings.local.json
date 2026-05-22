@@ -82,7 +82,13 @@
       "PowerShell(Copy-Item \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\\\\video\\\\logo-transparent.webm\" \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\\\\public\\\\video\\\\logo-transparent.webm\" -Force)",
       "PowerShell(\\(Get-Item \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\\\\public\\\\video\\\\logo-transparent.webm\"\\).Length)",
       "Bash(firebase deploy *)",
-      "Bash(node -e \"console.log\\(require\\('crypto'\\).randomBytes\\(32\\).toString\\('hex'\\)\\)\")"
+      "Bash(node -e \"console.log\\(require\\('crypto'\\).randomBytes\\(32\\).toString\\('hex'\\)\\)\")",
+      "Bash(git commit *)",
+      "Bash(git pull *)",
+      "Bash(git stash *)",
+      "PowerShell($env:GOOGLE_APPLICATION_CREDENTIALS = \"C:/Users/raul9/Downloads/gen-lang-client-0643641184-firebase-adminsdk-fbsvc-04fbf4c625.json\"; cd \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\"; npm run seed:production)",
+      "Bash(node -e ' *)",
+      "PowerShell($env:GOOGLE_APPLICATION_CREDENTIALS = \"C:/Users/raul9/Downloads/gen-lang-client-0643641184-firebase-adminsdk-fbsvc-04fbf4c625.json\"; cd \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\"; npm run migrate:profiles)"
     ]
   }
 }

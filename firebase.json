@@ -17,6 +17,10 @@
     "public": "dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
+      {
+        "source": "/api/**",
+        "run": { "serviceId": "pulse-api", "region": "asia-south1" }
+      },
       { "source": "**", "destination": "/index.html" }
     ],
     "headers": [

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { Search, Edit2, Download, UserPlus, Shield } from 'lucide-react';
+import { Search, Edit2, Download, UserPlus, Shield, Eye } from 'lucide-react';
 import { updateDoc, doc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
@@ -168,7 +168,9 @@ export function EmployeesPage() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const { employees, loading } = useAllEmployees();
-  const isAdmin = profile?.role === 'admin';
+  const isAdmin       = profile?.role === 'admin';
+  const isHrmsManager = profile?.isHrmsManager === true;
+  const canViewProfile = isAdmin || isHrmsManager;
 
   const [search,          setSearch]         = useState('');
   const [editingEmployee, setEditingEmployee] = useState<UserProfile | null>(null);
@@ -207,6 +209,7 @@ export function EmployeesPage() {
       'Contact No.', 'Email ID', 'DOJ', 'Official Email ID', 'Official No.',
       'Department', 'Designation', 'Location', 'Reporting Manager',
       'Present Address', 'Permanent Address', 'LWD',
+      'Bank Name', 'Bank Branch', 'Account No.', 'IFSC Code', 'UAN',
       'Basic Salary', 'HRA', 'Conveyance Allowance', 'Medical Allowance', 'Other Allowances', 'Gross Salary',
     ];
 
@@ -232,6 +235,11 @@ export function EmployeesPage() {
       v(e.presentAddress),
       v(e.permanentAddress),
       isoToSheet(e.lastWorkingDate),
+      v(e.bankName),
+      v(e.bankBranch),
+      v(e.bankAccountNo),
+      v(e.bankIfsc),
+      v(e.uan),
       salary(e.salaryBasic),
       salary(e.salaryHra),
       salary(e.salaryConveyance),
@@ -313,7 +321,7 @@ export function EmployeesPage() {
               <table className="w-full text-left">
                 <thead>
                   <tr style={{ backgroundColor: '#FAFAF7', borderBottom: '1px solid #E2E8F0' }}>
-                    {['Emp Code', 'Name', 'Department', 'Designation', 'Email', 'Status', 'Login Status', isAdmin ? '' : null].filter(Boolean).map((h) => (
+                    {['Emp Code', 'Name', 'Department', 'Designation', 'Email', 'Status', 'Login Status', canViewProfile ? '' : null].filter(Boolean).map((h) => (
                       <th key={h!} className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>{h}</th>
                     ))}
                   </tr>
@@ -363,18 +371,29 @@ export function EmployeesPage() {
                             {loginStatus.label}
                           </span>
                         </td>
-                        {isAdmin && (
+                        {canViewProfile && (
                           <td className="px-4 py-3">
-                            <button onClick={() => setEditingEmployee(emp)} className="p-1.5 text-slate-400 hover:text-slate-700 transition-colors">
-                              <Edit2 size={14} />
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => navigate(`/hrms/employees/${emp.userId}`)}
+                                title="View profile"
+                                className="p-1.5 text-slate-400 hover:text-slate-700 transition-colors"
+                              >
+                                <Eye size={14} />
+                              </button>
+                              {isAdmin && (
+                                <button onClick={() => setEditingEmployee(emp)} title="Edit permissions" className="p-1.5 text-slate-400 hover:text-slate-700 transition-colors">
+                                  <Edit2 size={14} />
+                                </button>
+                              )}
+                            </div>
                           </td>
                         )}
                       </tr>
                     );
                   })}
                   {filtered.length === 0 && (
-                    <tr><td colSpan={8} className="px-4 py-12 text-center text-sm" style={{ color: '#8B8B85' }}>No employees found.</td></tr>
+                    <tr><td colSpan={canViewProfile ? 8 : 7} className="px-4 py-12 text-center text-sm" style={{ color: '#8B8B85' }}>No employees found.</td></tr>
                   )}
                 </tbody>
               </table>

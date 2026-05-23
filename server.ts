@@ -83,14 +83,7 @@ const EMPLOYEE_SHEET_ID  = "14AQc2MZe9Z2EcS5e8XYVvoPERgNPL2pCVhGHaYA-bPc";
 const EMPLOYEE_SHEET_TAB = "Employee Master";
 
 async function fetchEmployeeMasterRows(): Promise<string[][]> {
-  const saPath = getServiceAccountPath();
-  if (!saPath) throw new Error("No service account file found. Set GOOGLE_APPLICATION_CREDENTIALS or place the SA JSON in C:/Users/raul9/Downloads/.");
-  const sheetsAuth = new google.auth.GoogleAuth({
-    keyFile: saPath,
-    scopes:  ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-  });
-  const client = await sheetsAuth.getClient();
-  const sheets = google.sheets({ version: "v4", auth: client as Parameters<typeof google.sheets>[0]["auth"] });
+  const sheets = await getSheetsClient();
   const res    = await sheets.spreadsheets.values.get({
     spreadsheetId: EMPLOYEE_SHEET_ID,
     range:         `${EMPLOYEE_SHEET_TAB}!A1:AC`,
@@ -443,7 +436,7 @@ const HOUR_MS = 60 * 60 * 1000;
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 8080;
 
   // ─── CORS ─────────────────────────────────────────────────────────────────
   const ALLOWED_ORIGINS = process.env.NODE_ENV === "production"
@@ -470,7 +463,7 @@ async function startServer() {
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    `${process.env.APP_URL}/auth/callback`
+    `${process.env.APP_URL}/api/auth/callback`
   );
 
   // Auth URL endpoint
@@ -488,7 +481,7 @@ async function startServer() {
   });
 
   // OAuth Callback
-  app.get(["/auth/callback", "/auth/callback/"], async (req, res) => {
+  app.get(["/api/auth/callback", "/api/auth/callback/"], async (req, res) => {
     const { code } = req.query;
     try {
       const { tokens } = await oauth2Client.getToken(code as string);
@@ -1381,6 +1374,11 @@ async function startServer() {
       const {
         displayName, email, employeeId, department, designation,
         reportingManagerName, joiningDate, phone, personalEmail,
+        officialPhone, location, employeeStatus = "active",
+        lastWorkingDate,
+        dateOfBirth, gender, bloodGroup, fatherMotherName, spouseName,
+        presentAddress, permanentAddress,
+        salaryBasic, salaryHra, salaryConveyance, salaryMedical, salaryOther, grossSalary,
         role = "employee", hrmsAccess = true, crmAccess = false,
         crmRole = null, convertorVertical = null,
         isHrmsManager = false, misAccess = null,
@@ -1419,13 +1417,29 @@ async function startServer() {
         userId:               newUid,
         displayName,
         email,
-        ...(personalEmail    ? { personalEmail }    : {}),
-        ...(phone            ? { phone }            : {}),
-        ...(employeeId       ? { employeeId }       : {}),
-        ...(department       ? { department }       : {}),
-        ...(designation      ? { designation }      : {}),
+        ...(personalEmail        ? { personalEmail }        : {}),
+        ...(phone                ? { phone }                : {}),
+        ...(officialPhone        ? { officialPhone }        : {}),
+        ...(location             ? { location }             : {}),
+        ...(employeeId           ? { employeeId }           : {}),
+        ...(department           ? { department }           : {}),
+        ...(designation          ? { designation }          : {}),
         ...(reportingManagerName ? { reportingManagerName } : {}),
-        ...(joiningDate      ? { joiningDate }      : {}),
+        ...(joiningDate          ? { joiningDate }          : {}),
+        ...(lastWorkingDate      ? { lastWorkingDate }      : {}),
+        ...(dateOfBirth          ? { dateOfBirth }          : {}),
+        ...(gender               ? { gender }               : {}),
+        ...(bloodGroup           ? { bloodGroup }           : {}),
+        ...(fatherMotherName     ? { fatherMotherName }     : {}),
+        ...(spouseName           ? { spouseName }           : {}),
+        ...(presentAddress       ? { presentAddress }       : {}),
+        ...(permanentAddress     ? { permanentAddress }     : {}),
+        ...(salaryBasic          ? { salaryBasic }          : {}),
+        ...(salaryHra            ? { salaryHra }            : {}),
+        ...(salaryConveyance     ? { salaryConveyance }     : {}),
+        ...(salaryMedical        ? { salaryMedical }        : {}),
+        ...(salaryOther          ? { salaryOther }          : {}),
+        ...(grossSalary          ? { grossSalary }          : {}),
         role,
         hrmsAccess,
         crmAccess,
@@ -1433,7 +1447,7 @@ async function startServer() {
         convertorVertical,
         isHrmsManager,
         misAccess,
-        employeeStatus:      "active",
+        employeeStatus:      employeeStatus ?? "active",
         needsEmailSetup:     false,
         mustResetPassword:   true,
         photoURL:            null,

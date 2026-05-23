@@ -1,0 +1,10 @@
+.gcloudignore
+.git
+.gitignore
+node_modules/
+dist/
+emulator-data/
+.env.local
+*.log
+coverage/
+scripts/python/

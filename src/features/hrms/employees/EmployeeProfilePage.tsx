@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, CheckCircle2, Clock, Pencil, X, Check } from 'lucide-react';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import type { UserProfile, EmployeeProfile } from '../../../types';
@@ -36,6 +36,26 @@ function useEmployeeProfileDoc(empCode: string | undefined) {
   }, [empCode]);
 
   return { epDoc, epLoading, setEpDoc };
+}
+
+interface SensitiveData {
+  bankName?: string; bankBranch?: string;
+  bankAccountNo?: string; bankIfsc?: string; uan?: string;
+}
+
+function useEmployeeSensitive(userId: string | undefined) {
+  const [sensitive,    setSensitive]    = useState<SensitiveData | null>(null);
+  const [sensLoading,  setSensLoading]  = useState(true);
+
+  useEffect(() => {
+    if (!userId) { setSensLoading(false); return; }
+    getDoc(doc(db, 'employee_sensitive', userId))
+      .then((snap) => setSensitive(snap.exists() ? (snap.data() as SensitiveData) : {}))
+      .catch(() => setSensitive(null))
+      .finally(() => setSensLoading(false));
+  }, [userId]);
+
+  return { sensitive, sensLoading, setSensitive };
 }
 
 // ─── Field row ────────────────────────────────────────────────────────────────
@@ -210,10 +230,12 @@ function IdentityVerification({
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
-function EditProfileModal({ profile, userId, onSave, onClose }: {
+function EditProfileModal({ profile, userId, sensitiveData, onSave, onSaveSensitive, onClose }: {
   profile: UserProfile;
   userId: string;
+  sensitiveData: SensitiveData | null;
   onSave: (updated: Partial<UserProfile>) => void;
+  onSaveSensitive: (updated: SensitiveData) => void;
   onClose: () => void;
 }) {
   const [saving, setSaving] = useState(false);
@@ -233,11 +255,11 @@ function EditProfileModal({ profile, userId, onSave, onClose }: {
   const [spouseName,      setSpouseName]       = useState(profile.spouseName ?? '');
   const [presentAddress,  setPresentAddress]   = useState(profile.presentAddress ?? '');
   const [permanentAddress,setPermanentAddress] = useState(profile.permanentAddress ?? '');
-  const [bankName,        setBankName]         = useState(profile.bankName ?? '');
-  const [bankBranch,      setBankBranch]       = useState(profile.bankBranch ?? '');
-  const [bankAccountNo,   setBankAccountNo]    = useState(profile.bankAccountNo ?? '');
-  const [bankIfsc,        setBankIfsc]         = useState(profile.bankIfsc ?? '');
-  const [uan,             setUan]              = useState(profile.uan ?? '');
+  const [bankName,        setBankName]         = useState(sensitiveData?.bankName ?? '');
+  const [bankBranch,      setBankBranch]       = useState(sensitiveData?.bankBranch ?? '');
+  const [bankAccountNo,   setBankAccountNo]    = useState(sensitiveData?.bankAccountNo ?? '');
+  const [bankIfsc,        setBankIfsc]         = useState(sensitiveData?.bankIfsc ?? '');
+  const [uan,             setUan]              = useState(sensitiveData?.uan ?? '');
   const [salaryBasic,     setSalaryBasic]      = useState(num2str(profile.salaryBasic));
   const [salaryHra,       setSalaryHra]        = useState(num2str(profile.salaryHra));
   const [salaryConveyance,setSalaryConveyance] = useState(num2str(profile.salaryConveyance));
@@ -268,11 +290,6 @@ function EditProfileModal({ profile, userId, onSave, onClose }: {
         ...(spouseName       ? { spouseName }       : { spouseName: null }),
         ...(presentAddress   ? { presentAddress }   : { presentAddress: null }),
         ...(permanentAddress ? { permanentAddress } : { permanentAddress: null }),
-        ...(bankName      ? { bankName }      : { bankName: null }),
-        ...(bankBranch    ? { bankBranch }    : { bankBranch: null }),
-        ...(bankAccountNo ? { bankAccountNo } : { bankAccountNo: null }),
-        ...(bankIfsc      ? { bankIfsc }      : { bankIfsc: null }),
-        ...(uan           ? { uan }           : { uan: null }),
         ...(num(salaryBasic)       != null ? { salaryBasic: num(salaryBasic) }             : { salaryBasic: null }),
         ...(num(salaryHra)         != null ? { salaryHra: num(salaryHra) }                 : { salaryHra: null }),
         ...(num(salaryConveyance)  != null ? { salaryConveyance: num(salaryConveyance) }   : { salaryConveyance: null }),
@@ -283,6 +300,17 @@ function EditProfileModal({ profile, userId, onSave, onClose }: {
       };
       await updateDoc(doc(db, 'users', userId), updates);
       onSave(updates as Partial<UserProfile>);
+
+      // Bank details go to employee_sensitive (access-controlled — not world-readable)
+      const sensitiveUpdates: SensitiveData = {
+        ...(bankName      ? { bankName }      : {}),
+        ...(bankBranch    ? { bankBranch }    : {}),
+        ...(bankAccountNo ? { bankAccountNo } : {}),
+        ...(bankIfsc      ? { bankIfsc }      : {}),
+        ...(uan           ? { uan }           : {}),
+      };
+      await setDoc(doc(db, 'employee_sensitive', userId), sensitiveUpdates, { merge: true });
+      onSaveSensitive(sensitiveUpdates);
       onClose();
     } catch {
       setError('Failed to save. Please try again.');
@@ -420,7 +448,8 @@ export function EmployeeProfilePage() {
   const [localProfile, setLocalProfile] = useState<UserProfile | null>(null);
   const displayProfile = localProfile ?? profile;
 
-  const { epDoc, epLoading, setEpDoc }  = useEmployeeProfileDoc(displayProfile?.employeeId);
+  const { epDoc, epLoading, setEpDoc }        = useEmployeeProfileDoc(displayProfile?.employeeId);
+  const { sensitive, sensLoading, setSensitive } = useEmployeeSensitive(userId);
 
   const handleEpUpdate = (updated: Partial<EmployeeProfile>) => {
     setEpDoc((prev) => prev ? { ...prev, ...updated } : null);
@@ -527,15 +556,19 @@ export function EmployeeProfilePage() {
         </Section>
       )}
 
-      {/* Bank Details — admin only */}
+      {/* Bank Details — admin only, read from employee_sensitive */}
       {currentUser?.role === 'admin' && (
-        <Section title="Bank Details">
-          <FieldRow label="Bank"           value={displayProfile.bankName ?? null} />
-          <FieldRow label="Branch"         value={displayProfile.bankBranch ?? null} />
-          <FieldRow label="Account No."    value={displayProfile.bankAccountNo ?? null} />
-          <FieldRow label="IFSC Code"      value={displayProfile.bankIfsc ?? null} />
-          <FieldRow label="UAN"            value={displayProfile.uan ?? null} />
-        </Section>
+        sensLoading ? (
+          <div className="h-32 bg-slate-100 rounded-2xl animate-pulse" />
+        ) : (
+          <Section title="Bank Details">
+            <FieldRow label="Bank"         value={sensitive?.bankName ?? null} />
+            <FieldRow label="Branch"       value={sensitive?.bankBranch ?? null} />
+            <FieldRow label="Account No."  value={sensitive?.bankAccountNo ?? null} />
+            <FieldRow label="IFSC Code"    value={sensitive?.bankIfsc ?? null} />
+            <FieldRow label="UAN"          value={sensitive?.uan ?? null} />
+          </Section>
+        )
       )}
 
       {/* Salary Structure — admin only */}
@@ -569,7 +602,9 @@ export function EmployeeProfilePage() {
         <EditProfileModal
           profile={displayProfile}
           userId={userId}
+          sensitiveData={sensitive}
           onSave={(updated) => setLocalProfile((prev) => ({ ...(prev ?? displayProfile), ...updated } as UserProfile))}
+          onSaveSensitive={(updated) => setSensitive((prev) => ({ ...prev, ...updated }))}
           onClose={() => setEditingProfile(false)}
         />
       )}

@@ -209,7 +209,6 @@ export function EmployeesPage() {
       'Contact No.', 'Email ID', 'DOJ', 'Official Email ID', 'Official No.',
       'Department', 'Designation', 'Location', 'Reporting Manager',
       'Present Address', 'Permanent Address', 'LWD',
-      'Bank Name', 'Bank Branch', 'Account No.', 'IFSC Code', 'UAN',
       'Basic Salary', 'HRA', 'Conveyance Allowance', 'Medical Allowance', 'Other Allowances', 'Gross Salary',
     ];
 
@@ -235,11 +234,6 @@ export function EmployeesPage() {
       v(e.presentAddress),
       v(e.permanentAddress),
       isoToSheet(e.lastWorkingDate),
-      v(e.bankName),
-      v(e.bankBranch),
-      v(e.bankAccountNo),
-      v(e.bankIfsc),
-      v(e.uan),
       salary(e.salaryBasic),
       salary(e.salaryHra),
       salary(e.salaryConveyance),

@@ -83,12 +83,6 @@ export interface UserProfile {
   bloodGroup?: string;
   fatherMotherName?: string;
   spouseName?: string;
-  // Bank details (admin-only view)
-  bankName?: string;
-  bankBranch?: string;
-  bankAccountNo?: string;
-  bankIfsc?: string;
-  uan?: string;
   // Salary structure — monthly components that pre-fill payslip generation
   salaryBasic?: number;
   salaryHra?: number;

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { Search, Edit2, Download, UserPlus, Shield, Eye } from 'lucide-react';
-import { updateDoc, doc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { updateDoc, doc, addDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
@@ -188,18 +188,30 @@ export function EmployeesPage() {
   const crmRoleLabel = (r?: CrmRole) => r ? (CRM_ROLE_LABELS[r] ?? r) : '—';
   const verticalLabel = (v?: ConvertorVertical) => v ? (CONVERTOR_VERTICAL_LABELS[v] ?? v) : '—';
 
-  const handleExport = () => {
-    // Convert MM-DD to DD-MM-YYYY (use current year as placeholder for display)
+  const handleExport = async () => {
     const dobToSheet = (mmdd?: string) => {
       if (!mmdd) return 'NA';
       const [mm, dd] = mmdd.split('-');
-      return `${dd}-${mm}-????`; // year not stored; keep placeholder
+      return `${dd}-${mm}-????`;
     };
     const isoToSheet = (iso?: string) => {
       if (!iso) return 'NA';
       const [y, m, d] = iso.split('-');
       return `${d}-${m}-${y}`;
     };
+    type SensRow = { salaryBasic?: number; salaryHra?: number; salaryConveyance?: number; salaryMedical?: number; salaryOther?: number; grossSalary?: number };
+    type DetRow  = { phone?: string; officialPhone?: string; personalEmail?: string; dateOfBirth?: string; presentAddress?: string; permanentAddress?: string; lastWorkingDate?: string; gender?: string; bloodGroup?: string; fatherMotherName?: string; spouseName?: string };
+
+    // Fetch both protected collections in parallel
+    const [sensSnap, detSnap] = await Promise.all([
+      getDocs(collection(db, 'employee_sensitive')),
+      getDocs(collection(db, 'user_details')),
+    ]);
+    const sensMap: Record<string, SensRow> = {};
+    sensSnap.forEach((d) => { sensMap[d.id] = d.data() as SensRow; });
+    const detMap: Record<string, DetRow> = {};
+    detSnap.forEach((d) => { detMap[d.id] = d.data() as DetRow; });
+
     const salary = (n?: number) => n ? n.toLocaleString('en-IN') : 'NA';
     const v = (s?: string | null) => (s && s.trim()) ? s.trim() : 'NA';
 
@@ -212,35 +224,39 @@ export function EmployeesPage() {
       'Basic Salary', 'HRA', 'Conveyance Allowance', 'Medical Allowance', 'Other Allowances', 'Gross Salary',
     ];
 
-    const rows = employees.map((e, idx) => [
-      String(idx + 1),
-      e.employeeStatus === 'inactive' ? 'Inactive' : 'Active',
-      v(e.employeeId),
-      v(e.displayName),
-      dobToSheet(e.dateOfBirth),
-      v(e.gender),
-      v(e.bloodGroup),
-      v(e.fatherMotherName),
-      v(e.spouseName),
-      v(e.phone),
-      v(e.personalEmail),
-      isoToSheet(e.joiningDate),
-      v(e.email),
-      v(e.officialPhone),
-      v(e.department),
-      v(e.designation),
-      v(e.location),
-      v(e.reportingManagerName),
-      v(e.presentAddress),
-      v(e.permanentAddress),
-      isoToSheet(e.lastWorkingDate),
-      salary(e.salaryBasic),
-      salary(e.salaryHra),
-      salary(e.salaryConveyance),
-      salary(e.salaryMedical),
-      salary(e.salaryOther),
-      salary(e.grossSalary),
-    ]);
+    const rows = employees.map((e, idx) => {
+      const det = detMap[e.userId] ?? {};
+      const sen = sensMap[e.userId] ?? {};
+      return [
+        String(idx + 1),
+        e.employeeStatus === 'inactive' ? 'Inactive' : 'Active',
+        v(e.employeeId),
+        v(e.displayName),
+        dobToSheet(det.dateOfBirth),
+        v(det.gender),
+        v(det.bloodGroup),
+        v(det.fatherMotherName),
+        v(det.spouseName),
+        v(det.phone),
+        v(det.personalEmail),
+        isoToSheet(e.joiningDate),
+        v(e.email),
+        v(det.officialPhone),
+        v(e.department),
+        v(e.designation),
+        v(e.location),
+        v(e.reportingManagerName),
+        v(det.presentAddress),
+        v(det.permanentAddress),
+        isoToSheet(det.lastWorkingDate),
+        salary(sen.salaryBasic),
+        salary(sen.salaryHra),
+        salary(sen.salaryConveyance),
+        salary(sen.salaryMedical),
+        salary(sen.salaryOther),
+        salary(sen.grossSalary),
+      ];
+    });
 
     const escape = (cell: string) => cell.includes(',') || cell.includes('"') || cell.includes('\n')
       ? `"${cell.replace(/"/g, '""')}"` : cell;

@@ -1,15 +1,22 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   isWeekend, parseISO, isAfter,
 } from 'date-fns';
-import { Clock, CalendarOff, CalendarDays, Receipt, ChevronRight, AlertCircle } from 'lucide-react';
+import {
+  Clock, CalendarOff, CalendarDays, Receipt, ChevronRight,
+  AlertCircle, Megaphone, Pin, AlertTriangle, X, ReceiptText,
+} from 'lucide-react';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useMyAttendance } from '../hooks/useAttendance';
 import { useMyLeaveBalance, usePendingApprovals } from '../hooks/useLeave';
 import { useHolidays, seedHolidays2026 } from '../hooks/useHolidays';
 import { useMyPayslips } from '../hooks/usePayslips';
+import { useAnnouncements, markAnnouncementRead, useUnreadAnnouncementCount } from '../hooks/useAnnouncements';
+import type { UserProfile } from '../../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -26,6 +33,80 @@ function workingDaysInMonth(year: number, month: number, holidays: string[]): nu
   return eachDayOfInterval({ start, end })
     .filter((d) => !isWeekend(d) && !holidaySet.has(format(d, 'yyyy-MM-dd')))
     .length;
+}
+
+// ─── Team Today hook (manager/admin only) ─────────────────────────────────────
+
+function useTeamToday(enabled: boolean): { present: number; leave: number; absent: number; loading: boolean } {
+  const [stats, setStats] = useState({ present: 0, leave: 0, absent: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!enabled) { setLoading(false); return; }
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const q = query(collection(db, 'attendance'), where('date', '==', today));
+    getDocs(q).then((snap) => {
+      let present = 0, leave = 0;
+      snap.forEach((d) => {
+        const s = d.data().status as string;
+        if (s === 'present' || s === 'half_day') present++;
+        else if (s === 'leave') leave++;
+      });
+      setStats({ present, leave, absent: 0 });
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [enabled]);
+
+  return { ...stats, loading };
+}
+
+// ─── Announcements Banner ─────────────────────────────────────────────────────
+
+function AnnouncementBanner({ userId }: { userId: string }) {
+  const { announcements } = useAnnouncements();
+  const unread = announcements.filter((a) => !(a.readBy ?? []).includes(userId));
+  const pinned = unread.filter((a) => a.pinned || a.priority !== 'normal');
+
+  if (pinned.length === 0) return null;
+
+  const top = pinned[0];
+  const isUrgent = top.priority === 'urgent';
+  const isImportant = top.priority === 'important';
+
+  return (
+    <div
+      className="rounded-2xl border px-5 py-4 flex items-center gap-4 mb-6"
+      style={{
+        backgroundColor: isUrgent ? '#FFF1F2' : isImportant ? '#FFFBEB' : '#EFF6FF',
+        borderColor: isUrgent ? '#FECDD3' : isImportant ? '#FCD34D' : '#BFDBFE',
+      }}
+    >
+      <div className="shrink-0">
+        {isUrgent || isImportant ? (
+          <AlertTriangle size={18} style={{ color: isUrgent ? '#BE123C' : '#92400E' }} />
+        ) : (
+          <Megaphone size={18} style={{ color: '#1D4ED8' }} />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          {top.pinned && <Pin size={12} style={{ color: '#C9A961' }} />}
+          <span className="text-sm font-semibold text-ink">{top.title}</span>
+          {unread.length > 1 && (
+            <span className="text-xs text-mute">+{unread.length - 1} more</span>
+          )}
+        </div>
+        <p className="text-xs text-mute mt-0.5 truncate">{top.body}</p>
+      </div>
+      <button
+        onClick={() => markAnnouncementRead(top.id, userId)}
+        className="p-1.5 rounded-lg hover:bg-black/5 transition-colors shrink-0"
+        title="Dismiss"
+      >
+        <X size={14} style={{ color: '#8B8B85' }} />
+      </button>
+    </div>
+  );
 }
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
@@ -154,6 +235,41 @@ function HolidaysCard({ holidays, loading }: { holidays: { date: string; name: s
   );
 }
 
+// ─── Team Today card ──────────────────────────────────────────────────────────
+
+function TeamTodayCard({ present, leave, absent, loading }: { present: number; leave: number; absent: number; loading: boolean }) {
+  const navigate = useNavigate();
+  return (
+    <button onClick={() => navigate('/hrms/admin/attendance')}
+      className="group w-full text-left bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-md transition-all">
+      <div className="flex items-center justify-between mb-4">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+          style={{ backgroundColor: '#10B98115', color: '#065F46' }}>
+          <Clock size={18} />
+        </div>
+        <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500 transition-colors" />
+      </div>
+      <p className="text-[10px] font-bold uppercase tracking-widest mb-3 text-mute">Team Today</p>
+      {loading ? (
+        <div className="h-8 w-24 bg-slate-100 rounded animate-pulse" />
+      ) : (
+        <div className="space-y-1.5 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: '#16A34A' }} />
+            <span className="text-ink-soft">{present} present / checked in</span>
+          </div>
+          {leave > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: '#2563EB' }} />
+              <span className="text-ink-soft">{leave} on leave</span>
+            </div>
+          )}
+        </div>
+      )}
+    </button>
+  );
+}
+
 // ─── HrmsDashboardPage ────────────────────────────────────────────────────────
 
 export function HrmsDashboardPage() {
@@ -172,6 +288,9 @@ export function HrmsDashboardPage() {
   const { holidays, loading: holLoading }  = useHolidays(currentYear);
   const { payslips, loading: payLoading }  = useMyPayslips(uid);
   const { applications: pendingApprovals } = usePendingApprovals();
+  const unreadCount = useUnreadAnnouncementCount(uid);
+
+  const teamToday = useTeamToday(isManager);
 
   // Auto-seed 2026 holidays if collection is empty (non-blocking)
   useEffect(() => { seedHolidays2026().catch((e) => console.error('[seedHolidays2026]', e)); }, []);
@@ -187,14 +306,12 @@ export function HrmsDashboardPage() {
   }, [attendanceRecords, holidays]);
 
   const latestPayslip = payslips[0] ?? null;
-
-  // ── Leave pending check ────────────────────────────────────────────────────
   const myPendingLeave = pendingApprovals.filter((a) => a.employeeId === uid).length;
 
   return (
     <div className="max-w-5xl mx-auto">
       {/* Greeting */}
-      <div className="mb-8">
+      <div className="mb-6">
         <h2 className="text-4xl mb-1 text-ink"
           style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300 }}>
           {profile?.displayName ? greeting(profile.displayName) : 'Welcome back.'}
@@ -209,9 +326,11 @@ export function HrmsDashboardPage() {
         </p>
       </div>
 
+      {/* Announcements banner — pinned/urgent only */}
+      <AnnouncementBanner userId={uid} />
+
       {/* 4-card grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-        {/* Attendance */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
         <StatCard
           icon={<Clock size={18} />}
           label="Attendance this month"
@@ -221,14 +340,8 @@ export function HrmsDashboardPage() {
           link="/hrms/attendance"
           loading={attLoading}
         />
-
-        {/* Leave balance */}
         <LeaveCard loading={balLoading} balance={balance} />
-
-        {/* Upcoming holidays */}
         <HolidaysCard holidays={holidays} loading={holLoading} />
-
-        {/* Latest payslip */}
         <StatCard
           icon={<Receipt size={18} />}
           label="Latest Payslip"
@@ -259,15 +372,27 @@ export function HrmsDashboardPage() {
         </button>
       )}
 
-      {/* Quick links */}
+      {/* Team Today — managers only */}
+      {isManager && (
+        <div className="mb-6">
+          <TeamTodayCard
+            present={teamToday.present}
+            leave={teamToday.leave}
+            absent={teamToday.absent}
+            loading={teamToday.loading}
+          />
+        </div>
+      )}
+
+      {/* Quick Actions */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6">
         <p className="text-[10px] font-bold uppercase tracking-widest mb-4 text-mute">Quick Actions</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Apply for Leave',  path: '/hrms/leave/apply',   color: '#1D4ED8' },
             { label: 'Clock In / Out',   path: '/hrms/attendance',    color: '#0B1538' },
+            { label: 'Submit Claim',     path: '/hrms/claims',        color: '#C9A961' },
             { label: 'View Payslips',    path: '/hrms/payslips',      color: '#166534' },
-            { label: 'Holiday Calendar', path: '/hrms/holidays',      color: '#C9A961' },
           ].map(({ label, path, color }) => (
             <button key={path} onClick={() => navigate(path)}
               className="px-4 py-3 rounded-xl text-sm font-semibold text-center transition-opacity hover:opacity-80"
@@ -277,6 +402,21 @@ export function HrmsDashboardPage() {
           ))}
         </div>
       </div>
+
+      {/* Announcements count badge (if unread) */}
+      {unreadCount > 0 && (
+        <button
+          onClick={() => navigate('/hrms/announcements')}
+          className="w-full mt-4 group flex items-center justify-between bg-white border border-slate-200 rounded-2xl px-6 py-4 hover:shadow-sm transition-all">
+          <div className="flex items-center gap-3">
+            <Megaphone size={18} style={{ color: '#0B1538' }} />
+            <p className="text-sm font-semibold" style={{ color: '#0B1538' }}>
+              {unreadCount} unread announcement{unreadCount > 1 ? 's' : ''}
+            </p>
+          </div>
+          <ChevronRight size={16} className="text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+        </button>
+      )}
     </div>
   );
 }

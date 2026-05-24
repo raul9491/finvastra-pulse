@@ -13,7 +13,7 @@ import type { UserProfile } from '../../types';
 // ─── Update profile fields ────────────────────────────────────────────────────
 export async function updateProfile(
   userId: string,
-  fields: Partial<Pick<UserProfile, 'displayName' | 'photoURL' | 'phone' | 'location' | 'department' | 'designation' | 'dateOfBirth'>>
+  fields: Partial<Pick<UserProfile, 'displayName' | 'photoURL' | 'location'>>
 ): Promise<void> {
   await updateDoc(doc(db, 'users', userId), fields);
 }

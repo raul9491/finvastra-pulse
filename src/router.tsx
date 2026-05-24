@@ -22,6 +22,12 @@ import { GeneratePayslipPage }    from './features/hrms/payslips/GeneratePayslip
 import { HolidaysPage }           from './features/hrms/holidays/HolidaysPage';
 import { HrmsSettingsPage }        from './features/hrms/settings/SettingsPage';
 import { AccessManagementPage }   from './features/hrms/admin/AccessManagementPage';
+import { ClaimsPage }             from './features/hrms/claims/ClaimsPage';
+import { AdminClaimsPage }        from './features/hrms/claims/AdminClaimsPage';
+import { DocumentsPage }          from './features/hrms/documents/DocumentsPage';
+import { AdminDocumentsPage }     from './features/hrms/documents/AdminDocumentsPage';
+import { AnnouncementsPage }      from './features/hrms/announcements/AnnouncementsPage';
+import { AdminAnnouncementsPage } from './features/hrms/announcements/AdminAnnouncementsPage';
 
 import { CrmShell }               from './components/layout/CrmShell';
 import { CrmDashboardPage }       from './features/crm/dashboard/CrmDashboardPage';
@@ -99,6 +105,12 @@ export const router = createBrowserRouter([
       { path: 'admin/attendance',    element: <AdminAttendancePage /> },
       { path: 'admin/payslips',      element: <GeneratePayslipPage /> },
       { path: 'admin/holidays',      element: <HolidaysPage /> },
+      { path: 'admin/claims',        element: <AdminClaimsPage /> },
+      { path: 'admin/documents',     element: <AdminDocumentsPage /> },
+      { path: 'admin/announcements', element: <AdminAnnouncementsPage /> },
+      { path: 'claims',              element: <ClaimsPage /> },
+      { path: 'documents',           element: <DocumentsPage /> },
+      { path: 'announcements',       element: <AnnouncementsPage /> },
       { path: 'settings',            element: <HrmsSettingsPage /> },
     ],
   },

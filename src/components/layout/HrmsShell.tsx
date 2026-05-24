@@ -5,10 +5,12 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import {
   LayoutDashboard, Users, Clock, CalendarOff, Receipt, CalendarDays,
   Settings, LogOut, LayoutGrid, ClipboardList, FileText, ShieldCheck, UserPlus, Inbox,
+  ReceiptText, FolderOpen, Megaphone,
 } from 'lucide-react';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { VideoLogo } from '../ui/VideoLogo';
+import { useUnreadAnnouncementCount } from '../../features/hrms/hooks/useAnnouncements';
 
 function usePendingRequestCount(enabled: boolean): number {
   const [count, setCount] = useState(0);
@@ -26,13 +28,16 @@ function usePendingRequestCount(enabled: boolean): number {
 type NavEntry = { path: string; label: string; icon: ElementType; live: boolean };
 
 const NAV: NavEntry[] = [
-  { path: '/hrms/dashboard',  label: 'Dashboard',  icon: LayoutDashboard, live: true },
-  { path: '/hrms/employees',  label: 'Employees',  icon: Users,           live: true },
-  { path: '/hrms/attendance', label: 'Attendance', icon: Clock,           live: true },
-  { path: '/hrms/leave',      label: 'Leave',      icon: CalendarOff,     live: true },
-  { path: '/hrms/payslips',   label: 'Payslips',   icon: Receipt,         live: true },
-  { path: '/hrms/holidays',   label: 'Holidays',   icon: CalendarDays,    live: true },
-  { path: '/hrms/settings',   label: 'Settings',   icon: Settings,        live: true },
+  { path: '/hrms/dashboard',      label: 'Dashboard',      icon: LayoutDashboard, live: true },
+  { path: '/hrms/employees',      label: 'Employees',      icon: Users,           live: true },
+  { path: '/hrms/attendance',     label: 'Attendance',     icon: Clock,           live: true },
+  { path: '/hrms/leave',          label: 'Leave',          icon: CalendarOff,     live: true },
+  { path: '/hrms/payslips',       label: 'Payslips',       icon: Receipt,         live: true },
+  { path: '/hrms/holidays',       label: 'Holidays',       icon: CalendarDays,    live: true },
+  { path: '/hrms/claims',         label: 'My Claims',      icon: ReceiptText,     live: true },
+  { path: '/hrms/documents',      label: 'Documents',      icon: FolderOpen,      live: true },
+  { path: '/hrms/announcements',  label: 'Announcements',  icon: Megaphone,       live: true },
+  { path: '/hrms/settings',       label: 'Settings',       icon: Settings,        live: true },
 ];
 
 const ADMIN_NAV: NavEntry[] = [
@@ -43,25 +48,33 @@ const ADMIN_NAV: NavEntry[] = [
   { path: '/hrms/leave/admin',             label: 'Leave Approvals',      icon: ClipboardList, live: true },
   { path: '/hrms/admin/holidays',          label: 'Manage Holidays',      icon: CalendarDays,  live: true },
   { path: '/hrms/admin/payslips',          label: 'Generate Payslips',    icon: FileText,      live: true },
+  { path: '/hrms/admin/claims',            label: 'Claims',               icon: ReceiptText,   live: true },
+  { path: '/hrms/admin/documents',         label: 'Documents',            icon: FolderOpen,    live: true },
+  { path: '/hrms/admin/announcements',     label: 'Announcements',        icon: Megaphone,     live: true },
 ];
 
 const PAGE_TITLES: Record<string, string> = {
-  '/hrms/dashboard':        'Dashboard',
-  '/hrms/employees':        'Employees',
-  // /hrms/employees/:userId resolved by prefix match below
-  '/hrms/attendance':       'Attendance',
-  '/hrms/leave':            'Leave',
-  '/hrms/leave/apply':      'Apply for Leave',
-  '/hrms/payslips':         'Payslips',
-  '/hrms/holidays':         'Holidays',
-  '/hrms/settings':         'Settings',
-  '/hrms/admin/access-requests':   'Access Requests',
-  '/hrms/admin/access':            'Access & Permissions',
-  '/hrms/admin/import-employees':  'Import Employees',
-  '/hrms/admin/attendance': 'Attendance — Admin',
-  '/hrms/leave/admin':      'Leave Approvals',
-  '/hrms/admin/holidays':   'Holidays — Admin',
-  '/hrms/admin/payslips':   'Generate Payslips',
+  '/hrms/dashboard':             'Dashboard',
+  '/hrms/employees':             'Employees',
+  '/hrms/attendance':            'Attendance',
+  '/hrms/leave':                 'Leave',
+  '/hrms/leave/apply':           'Apply for Leave',
+  '/hrms/payslips':              'Payslips',
+  '/hrms/holidays':              'Holidays',
+  '/hrms/claims':                'My Claims',
+  '/hrms/documents':             'Documents',
+  '/hrms/announcements':         'Announcements',
+  '/hrms/settings':              'Settings',
+  '/hrms/admin/access-requests': 'Access Requests',
+  '/hrms/admin/access':          'Access & Permissions',
+  '/hrms/admin/import-employees':'Import Employees',
+  '/hrms/admin/attendance':      'Attendance — Admin',
+  '/hrms/leave/admin':           'Leave Approvals',
+  '/hrms/admin/holidays':        'Holidays — Admin',
+  '/hrms/admin/payslips':        'Generate Payslips',
+  '/hrms/admin/claims':          'Claims — Admin',
+  '/hrms/admin/documents':       'Documents — Admin',
+  '/hrms/admin/announcements':   'Announcements — Admin',
 };
 
 function FullPageLoader() {
@@ -88,6 +101,7 @@ export function HrmsShell() {
   const isHrmsManager = profile?.isHrmsManager === true;
 
   const pendingRequests = usePendingRequestCount(isAdmin);
+  const unreadAnnouncements = useUnreadAnnouncementCount(user?.uid ?? '');
   const onAccessRequestsPage = location.pathname === '/hrms/admin/access-requests';
 
   const handleLogout = async () => {
@@ -124,24 +138,33 @@ export function HrmsShell() {
 
         {/* Nav */}
         <div className="flex-1 px-2 space-y-0.5 overflow-y-auto pb-4">
-          {NAV.map(({ path, label, icon: Icon }) => (
-            <NavLink
-              key={path}
-              to={path}
-              end
-              className={({ isActive }) =>
-                `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3'}`
-              }
-              style={({ isActive }) =>
-                isActive
-                  ? { backgroundColor: '#1B2A4E', color: '#FFFFFF', borderColor: '#C9A961' }
-                  : { color: '#94A3B8' }
-              }
-            >
-              <Icon size={17} className="shrink-0" />
-              <span className="text-sm">{label}</span>
-            </NavLink>
-          ))}
+          {NAV.map(({ path, label, icon: Icon }) => {
+            const badge = path === '/hrms/announcements' ? unreadAnnouncements : 0;
+            return (
+              <NavLink
+                key={path}
+                to={path}
+                end
+                className={({ isActive }) =>
+                  `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3'}`
+                }
+                style={({ isActive }) =>
+                  isActive
+                    ? { backgroundColor: '#1B2A4E', color: '#FFFFFF', borderColor: '#C9A961' }
+                    : { color: '#94A3B8' }
+                }
+              >
+                <Icon size={17} className="shrink-0" />
+                <span className="text-sm flex-1">{label}</span>
+                {badge > 0 && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full mr-1 leading-none"
+                    style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+                    {badge}
+                  </span>
+                )}
+              </NavLink>
+            );
+          })}
 
           {(isAdmin || isHrmsManager) && (
             <>

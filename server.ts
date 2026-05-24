@@ -413,26 +413,47 @@ function validateServerEnv(): void {
 }
 validateServerEnv();
 
-// ─── In-memory rate limiter (sliding window) ──────────────────────────────────
-// Keyed by "identifier:path". Uses IP for unauthenticated paths, userId otherwise.
-// For user-keyed limits: caller passes the verified uid as the identifier.
-const _rlStore = new Map<string, number[]>();
+// ─── Firestore-based rate limiter (sliding window, multi-instance safe) ───────
+// Keyed by "{endpoint}:{userId or IP}" in the /rate_limits collection.
+// Uses Firestore transactions so concurrent requests across Cloud Run instances
+// share the same counter — replaces the previous single-instance in-memory store.
+const HOUR_MS = 60 * 60 * 1000;
 
-function checkRateLimit(identifier: string, path: string, maxRequests: number, windowMs: number): boolean {
-  const key = `${identifier}:${path}`;
+async function checkRateLimit(
+  identifier: string,
+  endpoint: string,
+  maxRequests: number,
+  windowMs: number,
+): Promise<boolean> {
+  const key = `${endpoint}:${identifier}`;
+  const ref = db.collection("rate_limits").doc(key);
   const now = Date.now();
   const windowStart = now - windowMs;
-  const hits = (_rlStore.get(key) ?? []).filter((t) => t > windowStart);
-  if (hits.length >= maxRequests) {
-    _rlStore.set(key, hits);
-    return false;
-  }
-  hits.push(now);
-  _rlStore.set(key, hits);
-  return true;
-}
 
-const HOUR_MS = 60 * 60 * 1000;
+  try {
+    const allowed = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      let count = 0;
+      let wStart = now;
+
+      if (snap.exists) {
+        const data = snap.data()!;
+        wStart = data.windowStart ?? now;
+        count  = data.count ?? 0;
+        // Reset window if it has expired
+        if (wStart < windowStart) { count = 0; wStart = now; }
+      }
+
+      if (count >= maxRequests) return false;
+      tx.set(ref, { count: count + 1, windowStart: wStart, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+      return true;
+    });
+    return allowed;
+  } catch {
+    // On Firestore error, fail open so a transient error doesn't block all uploads.
+    return true;
+  }
+}
 
 async function startServer() {
   const app = express();
@@ -528,7 +549,7 @@ async function startServer() {
   app.post("/api/hrms/leave/sync-calendar", async (req, res) => {
     const uid = await verifyFirebaseToken(req);
     if (!uid) return res.status(401).json({ error: "Unauthorized" });
-    if (!checkRateLimit(uid, "leave-calendar-sync", 20, HOUR_MS)) {
+    if (!(await checkRateLimit(uid, "leave-calendar-sync", 20, HOUR_MS))) {
       return res.status(429).json({ error: "Too many requests. Maximum 20 calendar syncs per hour." });
     }
 
@@ -620,6 +641,46 @@ async function startServer() {
         return res.json({ message: "Admin profile created.", uid, existing: false });
       }
     });
+
+  // ─── Custom Claims Sync ──────────────────────────────────────────────────────
+  // POST /api/admin/users/:uid/sync-claims
+  // Reads the user's Firestore profile and stamps matching Firebase Auth custom claims.
+  // Called by Add Employee and by AccessManagementPage on role/access changes.
+  // Claims set: { role, hrmsAccess, crmAccess, crmRole, isHrmsManager, misAccess }
+  app.post("/api/admin/users/:uid/sync-claims", async (req, res) => {
+    try {
+      const callerUid = await verifyFirebaseToken(req);
+      if (!callerUid) return res.status(401).json({ error: "Unauthorized" });
+      const callerSnap = await db.collection("users").doc(callerUid).get();
+      if (callerSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+
+      const { uid } = req.params;
+      const snap = await db.collection("users").doc(uid).get();
+      if (!snap.exists) return res.status(404).json({ error: "User not found" });
+      const p = snap.data()!;
+
+      await admin.auth().setCustomUserClaims(uid, {
+        role:           p.role          ?? "employee",
+        hrmsAccess:     p.hrmsAccess    ?? true,
+        crmAccess:      p.crmAccess     ?? false,
+        crmRole:        p.crmRole       ?? null,
+        isHrmsManager:  p.isHrmsManager ?? false,
+        misAccess:      p.misAccess     ?? null,
+      });
+
+      await db.collection("audit_logs").add({
+        actor:      callerUid,
+        action:     "sync_custom_claims",
+        targetPath: `/users/${uid}`,
+        at:         admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return res.json({ ok: true, uid });
+    } catch (e) {
+      console.error("sync-claims error:", e);
+      return res.status(500).json({ error: e instanceof Error ? e.message : "Internal error" });
+    }
+  });
 
   // ─── PAN Decryption API ──────────────────────────────────────────────────────
   // POST /api/leads/:leadId/pan — decrypt PAN and log the access.
@@ -804,7 +865,7 @@ async function startServer() {
   app.post("/api/import/run", async (req, res) => {
     const uid = await verifyFirebaseToken(req);
     if (!uid) return res.status(401).json({ error: "Unauthorized" });
-    if (!checkRateLimit(uid, "import-run", 5, HOUR_MS)) {
+    if (!(await checkRateLimit(uid, "import-run", 5, HOUR_MS))) {
       return res.status(429).json({ error: "Too many import jobs. Maximum 5 per hour." });
     }
 
@@ -1216,7 +1277,7 @@ async function startServer() {
     cleanStagedData();
     const uid = await verifyFirebaseToken(req);
     if (!uid) return res.status(401).json({ error: "Unauthorized" });
-    if (!checkRateLimit(uid, "mis-upload", 10, HOUR_MS)) {
+    if (!(await checkRateLimit(uid, "mis-upload", 10, HOUR_MS))) {
       return res.status(429).json({ error: "Too many uploads. Maximum 10 per hour." });
     }
     const userSnap = await db.collection("users").doc(uid).get();
@@ -1412,34 +1473,17 @@ async function startServer() {
         resetLink = await admin.auth().generatePasswordResetLink(email);
       } catch { /* non-fatal — admin can resend later */ }
 
-      // Create Firestore profile
+      // Create Firestore profile — public directory fields only
       await db.collection("users").doc(newUid).set({
         userId:               newUid,
         displayName,
         email,
-        ...(personalEmail        ? { personalEmail }        : {}),
-        ...(phone                ? { phone }                : {}),
-        ...(officialPhone        ? { officialPhone }        : {}),
         ...(location             ? { location }             : {}),
         ...(employeeId           ? { employeeId }           : {}),
         ...(department           ? { department }           : {}),
         ...(designation          ? { designation }          : {}),
         ...(reportingManagerName ? { reportingManagerName } : {}),
         ...(joiningDate          ? { joiningDate }          : {}),
-        ...(lastWorkingDate      ? { lastWorkingDate }      : {}),
-        ...(dateOfBirth          ? { dateOfBirth }          : {}),
-        ...(gender               ? { gender }               : {}),
-        ...(bloodGroup           ? { bloodGroup }           : {}),
-        ...(fatherMotherName     ? { fatherMotherName }     : {}),
-        ...(spouseName           ? { spouseName }           : {}),
-        ...(presentAddress       ? { presentAddress }       : {}),
-        ...(permanentAddress     ? { permanentAddress }     : {}),
-        ...(salaryBasic          ? { salaryBasic }          : {}),
-        ...(salaryHra            ? { salaryHra }            : {}),
-        ...(salaryConveyance     ? { salaryConveyance }     : {}),
-        ...(salaryMedical        ? { salaryMedical }        : {}),
-        ...(salaryOther          ? { salaryOther }          : {}),
-        ...(grossSalary          ? { grossSalary }          : {}),
         role,
         hrmsAccess,
         crmAccess,
@@ -1453,6 +1497,35 @@ async function startServer() {
         photoURL:            null,
         createdAt:           admin.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
+
+      // Write personal details to /user_details/{uid} (admin/HR-only collection)
+      const personalData: Record<string, unknown> = {};
+      if (phone)           personalData.phone          = phone;
+      if (officialPhone)   personalData.officialPhone  = officialPhone;
+      if (personalEmail)   personalData.personalEmail  = personalEmail;
+      if (dateOfBirth)     personalData.dateOfBirth    = dateOfBirth;
+      if (lastWorkingDate) personalData.lastWorkingDate = lastWorkingDate;
+      if (gender)          personalData.gender         = gender;
+      if (bloodGroup)      personalData.bloodGroup     = bloodGroup;
+      if (fatherMotherName) personalData.fatherMotherName = fatherMotherName;
+      if (spouseName)      personalData.spouseName     = spouseName;
+      if (presentAddress)  personalData.presentAddress = presentAddress;
+      if (permanentAddress) personalData.permanentAddress = permanentAddress;
+      if (Object.keys(personalData).length > 0) {
+        await db.collection("user_details").doc(newUid).set(personalData, { merge: true });
+      }
+
+      // Write salary to employee_sensitive (access-controlled; not world-readable)
+      const salaryData: Record<string, unknown> = {};
+      if (salaryBasic)      salaryData.salaryBasic      = salaryBasic;
+      if (salaryHra)        salaryData.salaryHra        = salaryHra;
+      if (salaryConveyance) salaryData.salaryConveyance = salaryConveyance;
+      if (salaryMedical)    salaryData.salaryMedical    = salaryMedical;
+      if (salaryOther)      salaryData.salaryOther      = salaryOther;
+      if (grossSalary)      salaryData.grossSalary      = grossSalary;
+      if (Object.keys(salaryData).length > 0) {
+        await db.collection("employee_sensitive").doc(newUid).set(salaryData, { merge: true });
+      }
 
       // Try to generate a password reset link so employee sets their own password.
       // Fire-and-forget; mustResetPassword flag is the primary enforcement.
@@ -1471,6 +1544,20 @@ async function startServer() {
         targetPath:   `/users/${newUid}`,
         at:           admin.firestore.FieldValue.serverTimestamp(),
       });
+
+      // Stamp custom claims immediately so the new employee's first token has the right role
+      try {
+        await admin.auth().setCustomUserClaims(newUid, {
+          role:          role ?? "employee",
+          hrmsAccess:    hrmsAccess ?? true,
+          crmAccess:     crmAccess ?? false,
+          crmRole:       crmRole ?? null,
+          isHrmsManager: isHrmsManager ?? false,
+          misAccess:     misAccess ?? null,
+        });
+      } catch (e) {
+        console.warn("[create-employee] setCustomUserClaims failed (non-fatal):", e);
+      }
 
       return res.json({ uid: newUid, email, empCode: employeeId ?? null, resetLink });
     } catch (e) {
@@ -1507,36 +1594,34 @@ async function startServer() {
       return p;
     };
 
+    // Public directory fields only — no personal data in /users
     const profileData: Record<string, unknown> = {
       displayName,
       role: "employee",
       photoURL: "",
       employeeStatus,
-      ...(employeeId        ? { employeeId }                          : {}),
-      ...(phone               ? { phone }                                   : {}),
-      ...(officialPhone       ? { officialPhone }                           : {}),
-      ...(personalEmail       ? { personalEmail }                           : {}),
-      ...(department          ? { department }                              : {}),
-      ...(designation         ? { designation }                             : {}),
-      ...(location            ? { location }                                : {}),
-      ...(reportingManagerName ? { reportingManagerName }                  : {}),
-      ...(joiningDate         ? { joiningDate }                            : {}),
-      ...(dateOfBirth         ? { dateOfBirth }                            : {}),
-      ...(gender              ? { gender }                                  : {}),
-      ...(bloodGroup          ? { bloodGroup }                              : {}),
-      ...(fatherMotherName    ? { fatherMotherName }                        : {}),
-      ...(spouseName          ? { spouseName }                              : {}),
-      ...(presentAddress      ? { presentAddress }                          : {}),
-      ...(permanentAddress    ? { permanentAddress }                        : {}),
-      ...(grossSalary         ? { grossSalary: Number(grossSalary) }        : {}),
-      ...(lastWorkingDate     ? { lastWorkingDate }                         : {}),
-      ...(salaryBasic         ? { salaryBasic: Number(salaryBasic) }        : {}),
-      ...(salaryHra           ? { salaryHra: Number(salaryHra) }            : {}),
-      ...(salaryConveyance    ? { salaryConveyance: Number(salaryConveyance) } : {}),
-      ...(salaryMedical       ? { salaryMedical: Number(salaryMedical) }    : {}),
-      ...(salaryOther         ? { salaryOther: Number(salaryOther) }        : {}),
+      ...(employeeId           ? { employeeId }           : {}),
+      ...(department           ? { department }           : {}),
+      ...(designation          ? { designation }          : {}),
+      ...(location             ? { location }             : {}),
+      ...(reportingManagerName ? { reportingManagerName } : {}),
+      ...(joiningDate          ? { joiningDate }          : {}),
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
+
+    // Personal details — goes to /user_details (admin/HR-only)
+    const personalDetails: Record<string, unknown> = {};
+    if (phone)            personalDetails.phone           = phone;
+    if (officialPhone)    personalDetails.officialPhone   = officialPhone;
+    if (personalEmail)    personalDetails.personalEmail   = personalEmail;
+    if (dateOfBirth)      personalDetails.dateOfBirth     = dateOfBirth;
+    if (gender)           personalDetails.gender          = gender;
+    if (bloodGroup)       personalDetails.bloodGroup      = bloodGroup;
+    if (fatherMotherName) personalDetails.fatherMotherName = fatherMotherName;
+    if (spouseName)       personalDetails.spouseName      = spouseName;
+    if (presentAddress)   personalDetails.presentAddress  = presentAddress;
+    if (permanentAddress) personalDetails.permanentAddress = permanentAddress;
+    if (lastWorkingDate)  personalDetails.lastWorkingDate = lastWorkingDate;
 
     let newUid: string;
     let tempPassword: string | null = null;
@@ -1570,10 +1655,27 @@ async function startServer() {
       await docRef.set({ ...profileData, email: "", userId: newUid });
     }
 
-    // Store bank data in /employee_sensitive (admin-only collection)
-    if (bankData) {
+    // Write personal details to /user_details (admin/HR-only collection)
+    if (Object.keys(personalDetails).length > 0) {
+      await db.collection("user_details").doc(newUid).set(
+        { ...personalDetails, updatedAt: admin.firestore.FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+    }
+
+    // Store salary data in /employee_sensitive (admin-only collection)
+    const salaryFields: Record<string, unknown> = {};
+    if (salaryBasic)      salaryFields.salaryBasic      = Number(salaryBasic);
+    if (salaryHra)        salaryFields.salaryHra        = Number(salaryHra);
+    if (salaryConveyance) salaryFields.salaryConveyance = Number(salaryConveyance);
+    if (salaryMedical)    salaryFields.salaryMedical    = Number(salaryMedical);
+    if (salaryOther)      salaryFields.salaryOther      = Number(salaryOther);
+    if (grossSalary)      salaryFields.grossSalary      = Number(grossSalary);
+    const sensitivePayload: Record<string, unknown> = { ...salaryFields };
+    if (bankData) Object.assign(sensitivePayload, bankData as Record<string, unknown>);
+    if (Object.keys(sensitivePayload).length > 0) {
       await db.collection("employee_sensitive").doc(newUid).set(
-        { ...bankData as Record<string, unknown>, updatedAt: admin.firestore.FieldValue.serverTimestamp() },
+        { ...sensitivePayload, updatedAt: admin.firestore.FieldValue.serverTimestamp() },
         { merge: true }
       );
     }
@@ -1632,23 +1734,30 @@ async function startServer() {
       for (const emp of parsed) {
         try {
           const docId     = emp.status === "active" && emp.officialEmail ? null : emp.empCode;
+          // Public directory fields only
           const profileBase: Record<string, unknown> = {
             employeeId:           emp.empCode,
             displayName:          emp.name,
             email:                emp.officialEmail ?? "",
-            personalEmail:        emp.personalEmail,
-            phone:                emp.officialPhone ?? emp.phone,
             department:           emp.department,
             designation:          emp.designation,
             reportingManagerName: emp.reportingManager,
             joiningDate:          emp.doj,
-            lastWorkingDate:      emp.status === "inactive" ? emp.lwd : null,
             employeeStatus:       emp.status,
             needsEmailSetup:      emp.needsEmailSetup,
             photoURL:             null,
             ...emp.roleAttrs,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           };
+
+          // Personal details → /user_details (admin/HR-only)
+          const importUserDetails: Record<string, unknown> = {};
+          if (emp.officialPhone ?? emp.phone) importUserDetails.phone = emp.officialPhone ?? emp.phone;
+          if (emp.personalEmail)              importUserDetails.personalEmail = emp.personalEmail;
+          if (emp.dob)                        importUserDetails.dateOfBirth   = emp.dob;
+          if (emp.presentAddress)             importUserDetails.presentAddress = emp.presentAddress;
+          if (emp.permanentAddress)           importUserDetails.permanentAddress = emp.permanentAddress;
+          if (emp.status === "inactive" && emp.lwd) importUserDetails.lastWorkingDate = emp.lwd;
 
           // Aadhaar column (index 13) is intentionally skipped — UIDAI prohibition.
           const sensitiveDoc: Record<string, unknown> = {
@@ -1687,6 +1796,11 @@ async function startServer() {
               await ref.set({ ...profileBase, userId: emp.empCode, createdAt: admin.firestore.FieldValue.serverTimestamp() });
               created++;
             }
+            if (Object.keys(importUserDetails).length > 0) {
+              await db.collection("user_details").doc(emp.empCode).set(
+                { ...importUserDetails, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true }
+              );
+            }
             await db.collection("employee_profiles").doc(emp.empCode).set(
               { ...sensitiveDoc, createdAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true }
             );
@@ -1722,6 +1836,11 @@ async function startServer() {
             else updated++;
           }
 
+          if (Object.keys(importUserDetails).length > 0) {
+            await db.collection("user_details").doc(authUid).set(
+              { ...importUserDetails, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true }
+            );
+          }
           await db.collection("employee_profiles").doc(emp.empCode).set(
             { ...sensitiveDoc, createdAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true }
           );

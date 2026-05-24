@@ -34,7 +34,6 @@ export interface EmployeeProfile {
   officialBankName: string | null;
   officialBankBranch: string | null;
   officialBankIfsc: string | null;
-  grossSalary: number | null;
   // Encrypted blobs — present server-side only, typed as object client-side
   panEncrypted?: object;
   personalBankAccountEncrypted?: object;
@@ -68,27 +67,8 @@ export interface UserProfile {
   managerId?: string;
   joiningDate?: string;        // YYYY-MM-DD
   location?: string;
-  phone?: string;              // official/personal contact
-  officialPhone?: string;      // office direct number
-  personalEmail?: string;      // personal email (not login)
-  dateOfBirth?: string;        // MM-DD format for celebrations
-  presentAddress?: string;
-  permanentAddress?: string;
-  grossSalary?: number;          // monthly CTC in ₹ — total (Basic+HRA+Conveyance+Other)
-  lastWorkingDate?: string;      // YYYY-MM-DD; set for inactive employees
-  reportingManagerName?: string; // stored as name; resolved to managerId separately
+  reportingManagerName?: string;
   employeeStatus?: EmployeeStatus;
-  // Personal details (from individual employee sheets)
-  gender?: string;
-  bloodGroup?: string;
-  fatherMotherName?: string;
-  spouseName?: string;
-  // Salary structure — monthly components that pre-fill payslip generation
-  salaryBasic?: number;
-  salaryHra?: number;
-  salaryConveyance?: number;
-  salaryMedical?: number;
-  salaryOther?: number; // 'active' | 'inactive'
   // Module access flags. Absent field is treated as the safe default:
   // hrmsAccess absent → true (everyone gets HRMS self-service)
   // crmAccess  absent → false (only RMs explicitly granted access)
@@ -105,6 +85,23 @@ export interface UserProfile {
   crmCanImport?: boolean;     // can trigger bulk Sheet imports (default: only managers; admin can grant individually)
   misAccess?: MisAccess;
   createdAt?: import('firebase/firestore').Timestamp;
+}
+
+// Stored in /user_details/{userId} — readable only by admin, HRMS manager, or the employee themselves.
+// Keeps personal contact info and HR data out of the world-readable /users collection.
+export interface UserDetails {
+  phone?: string;
+  officialPhone?: string;
+  personalEmail?: string;
+  dateOfBirth?: string;        // MM-DD format
+  presentAddress?: string;
+  permanentAddress?: string;
+  lastWorkingDate?: string;    // YYYY-MM-DD
+  gender?: string;
+  bloodGroup?: string;
+  fatherMotherName?: string;
+  spouseName?: string;
+  updatedAt?: import('firebase/firestore').Timestamp;
 }
 
 // ─── Access Requests ─────────────────────────────────────────────────────────
@@ -612,17 +609,88 @@ export interface Notification {
 
 // ─── Announcements ───────────────────────────────────────────────────────────
 
-export type AnnouncementPriority = 'normal' | 'urgent';
+export type AnnouncementPriority = 'normal' | 'important' | 'urgent';
 
 export interface Announcement {
   id: string;
   title: string;
   body: string;
   priority: AnnouncementPriority;
-  createdBy: string;
-  createdByName?: string;
-  createdAt: any;
-  targetAll: boolean;
+  publishedBy: string;
+  publishedByName: string;
+  publishedAt: import('firebase/firestore').Timestamp;
+  expiresAt: import('firebase/firestore').Timestamp | null;
+  isActive: boolean;
+  pinned: boolean;
+  readBy: string[];   // array of userIds who dismissed/read
+}
+
+// ─── Claims & Reimbursements ──────────────────────────────────────────────────
+
+export type ClaimType = 'travel' | 'mobile' | 'medical' | 'petrol' | 'client_entertainment' | 'other';
+export type ClaimStatus = 'pending' | 'approved' | 'rejected' | 'paid';
+
+export interface ClaimTravelDetails {
+  fromLocation: string;
+  toLocation: string;
+  distanceKm: number;
+  modeOfTransport: string;
+}
+
+export interface Claim {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  claimType: ClaimType;
+  amount: number;
+  description: string;
+  travelDetails?: ClaimTravelDetails;
+  receiptUrl: string | null;
+  submittedAt: import('firebase/firestore').Timestamp;
+  status: ClaimStatus;
+  approvedBy: string | null;
+  approvedAt: import('firebase/firestore').Timestamp | null;
+  rejectionReason: string | null;
+  paidAt: import('firebase/firestore').Timestamp | null;
+  paymentReference: string | null;
+  month: string;   // YYYY-MM for easy filtering
+}
+
+// ─── Company Document Library ─────────────────────────────────────────────────
+
+export type CompanyDocumentCategory = 'policy' | 'handbook' | 'circular';
+
+export interface CompanyDocument {
+  id: string;
+  title: string;
+  category: CompanyDocumentCategory;
+  description: string;
+  fileUrl: string;
+  uploadedBy: string;
+  uploadedAt: import('firebase/firestore').Timestamp;
+  isActive: boolean;
+  financialYear: string | null;
+}
+
+export type EmployeeDocumentType =
+  | 'offer_letter'
+  | 'appointment_letter'
+  | 'increment_letter'
+  | 'promotion_letter'
+  | 'experience_letter'
+  | 'relieving_letter'
+  | 'form_16';
+
+export interface EmployeeDocument {
+  id: string;
+  employeeId: string;
+  documentType: EmployeeDocumentType;
+  title: string;
+  fileUrl: string;
+  uploadedBy: string;
+  uploadedAt: import('firebase/firestore').Timestamp;
+  financialYear: string | null;
+  isActive: boolean;
 }
 
 // ─── Holidays ─────────────────────────────────────────────────────────────────

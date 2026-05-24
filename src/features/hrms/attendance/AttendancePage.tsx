@@ -220,64 +220,80 @@ export function AttendancePage() {
       </h2>
       <p className="mb-8 text-sm" style={{ color: '#8B8B85' }}>Your clock-in history and monthly summary.</p>
 
-      {/* ── Today Card ─────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
-        <h3
-          className="text-xs font-bold uppercase tracking-widest mb-4"
-          style={{ color: '#8B8B85' }}
-        >
-          Today — {format(today, 'dd MMM yyyy')}
-        </h3>
-
-        {clockError && (
-          <div className="mb-3 px-3 py-2 rounded-lg text-xs" style={{ backgroundColor: '#FEE2E2', color: '#991B1B' }}>
-            {clockError}
-          </div>
-        )}
-
-        {todayLoading && (
-          <div className="h-10 rounded-lg animate-pulse" style={{ background: '#F2EFE7', width: 180 }} />
-        )}
-
-        {!todayLoading && !todayRecord && (
-          <button
-            onClick={handleCheckIn}
-            disabled={checkingIn}
-            className="px-8 py-3 rounded-xl text-base font-semibold transition-opacity disabled:opacity-50"
-            style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
-          >
-            {checkingIn ? 'Checking in…' : '🕐 Check In'}
-          </button>
-        )}
-
-        {!todayLoading && todayRecord && !todayRecord.checkOut && (
-          <div className="flex flex-wrap items-center gap-6">
-            <div>
-              <p className="text-sm" style={{ color: '#8B8B85' }}>Checked in at</p>
-              <p className="text-xl font-semibold" style={{ color: '#0A0A0A' }}>
-                {formatTime(todayRecord.checkIn)}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm mb-1" style={{ color: '#8B8B85' }}>Duration</p>
-              <p className="text-lg font-mono" style={{ color: '#C9A961' }}>{liveDuration}</p>
-            </div>
-            <button
-              onClick={handleCheckOut}
-              disabled={checkingOut}
-              className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-50"
-              style={{ color: '#2A2A2A' }}
-            >
-              {checkingOut ? 'Checking out…' : 'Check Out'}
-            </button>
-          </div>
-        )}
-
-        {!todayLoading && todayRecord?.checkOut && (
-          <p className="text-base font-medium" style={{ color: '#166534' }}>
-            ✓ Present today — {todayRecord.workingHours.toFixed(1)} hours
+      {/* ── Today Card — mobile-first large clock-in ───────────────────── */}
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6">
+        {/* Dark header strip with live time */}
+        <div className="px-6 pt-5 pb-4" style={{ background: 'linear-gradient(135deg, #0B1538 0%, #1B2A4E 100%)' }}>
+          <p className="text-[10px] font-bold uppercase tracking-[0.3em] mb-2" style={{ color: '#C9A961' }}>
+            Today — {format(today, 'EEEE, dd MMM yyyy')}
           </p>
-        )}
+          <p className="text-3xl font-mono font-semibold" style={{ color: '#FFFFFF', letterSpacing: '0.05em' }}>
+            {format(today, 'HH:mm')}
+          </p>
+        </div>
+
+        <div className="p-6">
+          {clockError && (
+            <div className="mb-4 px-3 py-2 rounded-lg text-xs" style={{ backgroundColor: '#FEE2E2', color: '#991B1B' }}>
+              {clockError}
+            </div>
+          )}
+
+          {todayLoading && (
+            <div className="h-14 rounded-2xl animate-pulse" style={{ background: '#F2EFE7' }} />
+          )}
+
+          {/* Not yet clocked in — big full-width button */}
+          {!todayLoading && !todayRecord && (
+            <button
+              onClick={handleCheckIn}
+              disabled={checkingIn}
+              className="w-full py-4 rounded-2xl font-bold transition-opacity disabled:opacity-50 flex items-center justify-center gap-3"
+              style={{ backgroundColor: '#0B1538', color: '#C9A961', fontSize: '1.1rem' }}
+            >
+              <span style={{ fontSize: '1.4rem' }}>🕐</span>
+              {checkingIn ? 'Checking in…' : 'Clock In'}
+            </button>
+          )}
+
+          {/* Clocked in, not out */}
+          {!todayLoading && todayRecord && !todayRecord.checkOut && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between rounded-xl px-5 py-4" style={{ backgroundColor: '#F0FDF4' }}>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: '#16A34A' }}>Clocked in</p>
+                  <p className="text-2xl font-bold" style={{ color: '#0A0A0A' }}>{formatTime(todayRecord.checkIn)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5 text-mute">Duration</p>
+                  <p className="text-2xl font-mono font-bold" style={{ color: '#C9A961' }}>{liveDuration}</p>
+                </div>
+              </div>
+              <button
+                onClick={handleCheckOut}
+                disabled={checkingOut}
+                className="w-full py-3.5 rounded-2xl font-bold border-2 transition-colors disabled:opacity-50"
+                style={{ borderColor: '#0B1538', color: '#0B1538', fontSize: '1rem' }}
+              >
+                {checkingOut ? 'Checking out…' : 'Clock Out'}
+              </button>
+            </div>
+          )}
+
+          {/* Done for the day */}
+          {!todayLoading && todayRecord?.checkOut && (
+            <div className="rounded-xl px-5 py-4 flex items-center gap-4" style={{ backgroundColor: '#F0FDF4' }}>
+              <span style={{ fontSize: '2rem' }}>✓</span>
+              <div>
+                <p className="text-sm font-semibold" style={{ color: '#166534' }}>Present today</p>
+                <p className="text-xs mt-0.5" style={{ color: '#16A34A' }}>
+                  {formatTime(todayRecord.checkIn)} → {formatTime(todayRecord.checkOut)}
+                  {' · '}{todayRecord.workingHours.toFixed(1)} hours
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Monthly Calendar ───────────────────────────────────────────────── */}

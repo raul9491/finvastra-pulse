@@ -596,7 +596,8 @@ All 18 pre-launch checklist items **must be completed** before running `deploy` 
 | Client env validation | ✅ Added | `src/lib/envValidation.ts` called on startup; throws in PROD if Firebase vars missing or emulator flag on |
 | Server env validation | ✅ Added | `validateServerEnv()` in `server.ts`; throws in `NODE_ENV=production` if any required var absent |
 | CORS allowlist | ✅ Added | `server.ts` middleware; dev = 3 origins, prod = 2 (`pulse.finvastra.com`, `finvastra.com`) |
-| Rate limiting | ✅ Added | In-memory sliding window; upload 10/hr, calendar-sync 20/hr, import 5/hr per user |
+| Rate limiting | ✅ Upgraded | ~~In-memory~~ → Firestore `runTransaction` on `/rate_limits/{endpoint}:{uid}`; multi-instance safe; upload 10/hr, calendar-sync 20/hr, import 5/hr per user |
+| Firebase Custom Claims | ✅ Added | `POST /api/admin/users/:uid/sync-claims` stamps `{role,hrmsAccess,crmAccess,crmRole,isHrmsManager,misAccess}` on Auth tokens; called on Add Employee and from AccessManagementPage on every role/access change |
 | `rm_payout_slabs` read too permissive | ✅ Fixed | Was `isSignedIn()` (any employee); now `isAdmin() || hasMisAccess()` |
 | Firebase Hosting config | ✅ Added | `firebase.json` with rewrites, cache headers, security headers |
 | Build + deploy scripts | ✅ Added | `npm run build:prod` (tsc-gated), `npm run deploy` |
@@ -622,6 +623,59 @@ All 18 pre-launch checklist items **must be completed** before running `deploy` 
 | — | MIS payout delete | ✅ PASS | `allow delete: if false` on rm_payouts |
 | — | Employee reads MIS data | ✅ PASS | `hasMisAccess()` returns false when `misAccess` is absent |
 | — | Employee reads payout slabs | ✅ FIXED | Was FAIL (`isSignedIn()`); now `isAdmin() \|\| hasMisAccess()` |
+
+## Phase A — HRMS Improvements (2026-05-24)
+
+Additional HRMS features built after Phase 5 hardening. All have zero TS errors.
+
+| Feature | Status | Files |
+|---|---|---|
+| **Claims & Reimbursements** | ✅ Complete | `src/features/hrms/claims/ClaimsPage.tsx`, `AdminClaimsPage.tsx`, `src/features/hrms/hooks/useClaims.ts` |
+| **Company Document Library** | ✅ Complete | `src/features/hrms/documents/DocumentsPage.tsx`, `AdminDocumentsPage.tsx`, `src/features/hrms/hooks/useDocuments.ts`; Firebase Storage via `uploadBytesResumable` |
+| **Announcements** | ✅ Complete | `src/features/hrms/announcements/AnnouncementsPage.tsx`, `AdminAnnouncementsPage.tsx`, `src/features/hrms/hooks/useAnnouncements.ts`; `readBy` tracking; unread badge in nav |
+| **Dashboard improvements** | ✅ Complete | AnnouncementBanner strip; TeamTodayCard (admin/manager only); Quick Actions updated |
+| **Attendance Today Card** | ✅ Complete | Dark gradient header with live time; full-width Clock In/Out buttons |
+| **Employee Profile Completion** | ✅ Complete | Progress bar + missing-field chips for own profile in `EmployeeProfilePage.tsx` |
+| **Settings → Contact HR** | ✅ Complete | Removed support ticket form; replaced with Email/Phone/Admin contact cards |
+
+### Firestore collections added (Phase A)
+
+```
+/claims/{claimId}
+  employeeId, employeeName, claimType, amount, description
+  travelDetails?: { fromLocation, toLocation, distanceKm, modeOfTransport }
+  receiptUrl, submittedAt, status: pending|approved|rejected|paid
+  approvedBy, approvedAt, rejectionReason, paidAt, paymentReference, month (YYYY-MM)
+
+/company_documents/{docId}
+  title, category: policy|handbook|circular, description, fileUrl
+  uploadedBy, uploadedAt, isActive, financialYear
+
+/employee_documents/{docId}
+  employeeId, documentType, title, fileUrl
+  uploadedBy, uploadedAt, isActive, financialYear
+
+/announcements/{announcementId}
+  title, body, priority: normal|important|urgent
+  publishedBy, publishedByName, publishedAt, expiresAt, isActive, pinned
+  readBy: string[]   ← employees append their own uid via arrayUnion
+
+/rate_limits/{endpoint}:{uid}   ← server-only (Admin SDK); rules deny all client access
+  count, windowStart, updatedAt
+```
+
+### Firebase Storage (Phase A)
+
+`src/lib/firebase.ts` exports `storage = getStorage(app)`. Document uploads use `uploadBytesResumable` → `getDownloadURL`. Files stored at `company-documents/{uuid}/{filename}` and `employee-documents/{uid}/{uuid}/{filename}`.
+
+### Custom Claims (Phase A security)
+
+`POST /api/admin/users/:uid/sync-claims` (admin-only server endpoint) stamps `{role, hrmsAccess, crmAccess, crmRole, isHrmsManager, misAccess}` as Firebase Auth custom claims. Called automatically:
+- On Add Employee (in `create employee` handler in `server.ts`)
+- On every inline role/access change in `AccessManagementPage.tsx`
+- On every bulk role change in `AccessManagementPage.tsx`
+
+This replaces per-request Firestore `get()` calls for role checks — future milestone: update `firestore.rules` helpers to read from `request.auth.token.*` instead of `get()` once all sessions have refreshed tokens.
 
 ## Authentication rules
 

@@ -240,25 +240,34 @@ export function ImportEmployeesPage() {
       const emp = employees[i];
       setProgress(Math.round(((i + 1) / employees.length) * 100));
 
+      // Public directory fields — safe for all employees to read
       const update: Record<string, unknown> = { updatedAt: serverTimestamp() };
-      if (emp.dob)              update.dateOfBirth    = emp.dob;
-      if (emp.phone)            update.phone          = emp.phone;
-      if (emp.officialPhone)    update.officialPhone  = emp.officialPhone;
-      if (emp.personalEmail)    update.personalEmail  = emp.personalEmail;
-      if (emp.doj)              update.joiningDate    = emp.doj;
-      if (emp.lwd)              update.lastWorkingDate = emp.lwd;
-      if (emp.department)       update.department     = emp.department;
-      if (emp.designation)      update.designation    = emp.designation;
+      if (emp.doj)              update.joiningDate          = emp.doj;
+      if (emp.department)       update.department           = emp.department;
+      if (emp.designation)      update.designation          = emp.designation;
       if (emp.reportingManager) update.reportingManagerName = emp.reportingManager;
-      if (emp.presentAddress)   update.presentAddress   = emp.presentAddress;
-      if (emp.permanentAddress) update.permanentAddress = emp.permanentAddress;
-      if (emp.grossSalary)      update.grossSalary    = emp.grossSalary;
       update.employeeStatus = emp.status;
+
+      // Personal details — goes to /user_details (admin/HR-only)
+      const personalUpdate: Record<string, unknown> = {};
+      if (emp.dob)           personalUpdate.dateOfBirth     = emp.dob;
+      if (emp.phone)         personalUpdate.phone           = emp.phone;
+      if (emp.officialPhone) personalUpdate.officialPhone   = emp.officialPhone;
+      if (emp.personalEmail) personalUpdate.personalEmail   = emp.personalEmail;
+      if (emp.lwd)           personalUpdate.lastWorkingDate = emp.lwd;
+      if (emp.presentAddress)   personalUpdate.presentAddress   = emp.presentAddress;
+      if (emp.permanentAddress) personalUpdate.permanentAddress = emp.permanentAddress;
 
       try {
         const uid = uidMap.get(emp.empCode);
         if (uid) {
           await updateDoc(doc(db, 'users', uid), update);
+          if (Object.keys(personalUpdate).length > 0) {
+            await setDoc(doc(db, 'user_details', uid), personalUpdate, { merge: true });
+          }
+          if (emp.grossSalary) {
+            await setDoc(doc(db, 'employee_sensitive', uid), { grossSalary: emp.grossSalary }, { merge: true });
+          }
           res.push({ empCode: emp.empCode, name: emp.name, action: 'updated' });
         } else {
           // Create a minimal profile doc (no Auth account — that needs the server)
@@ -274,6 +283,12 @@ export function ImportEmployeesPage() {
             needsEmailSetup: !emp.officialEmail,
             ...update,
           });
+          if (Object.keys(personalUpdate).length > 0) {
+            await setDoc(doc(db, 'user_details', newRef.id), personalUpdate, { merge: true });
+          }
+          if (emp.grossSalary) {
+            await setDoc(doc(db, 'employee_sensitive', newRef.id), { grossSalary: emp.grossSalary }, { merge: true });
+          }
           res.push({ empCode: emp.empCode, name: emp.name, action: 'created', detail: 'Profile only — no login account' });
         }
       } catch (e) {

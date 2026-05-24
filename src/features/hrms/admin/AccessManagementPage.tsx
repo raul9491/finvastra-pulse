@@ -2,10 +2,25 @@ import { useState, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
 import { Search, Shield, Users } from 'lucide-react';
 import { updateDoc, doc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
+import { getIdToken } from 'firebase/auth';
+import { auth, db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import type { UserProfile, CrmRole, MisAccess } from '../../../types';
+
+async function syncClaims(targetUid: string): Promise<void> {
+  const currentUser = auth.currentUser;
+  if (!currentUser) return;
+  try {
+    const token = await getIdToken(currentUser);
+    await fetch(`/api/admin/users/${targetUid}/sync-claims`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch (e) {
+    console.warn('[sync-claims] non-fatal:', e);
+  }
+}
 
 // ─── Labels ───────────────────────────────────────────────────────────────────
 
@@ -80,6 +95,7 @@ function AccessRow({
         patch,
         at: serverTimestamp(),
       });
+      await syncClaims(employee.userId);
     } finally {
       setSaving(false);
     }
@@ -208,6 +224,7 @@ function BulkBar({
           actor: adminUserId, action: 'bulk_access_update',
           targetPath: `/users/${uid}`, patch, at: serverTimestamp(),
         });
+        await syncClaims(uid);
       }
       onDone();
     } finally {

@@ -4,7 +4,7 @@ import { ArrowLeft, ExternalLink, CheckCircle2, Clock, Pencil, X, Check } from '
 import { doc, getDoc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
-import type { UserProfile, EmployeeProfile } from '../../../types';
+import type { UserProfile, UserDetails, EmployeeProfile } from '../../../types';
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +41,8 @@ function useEmployeeProfileDoc(empCode: string | undefined) {
 interface SensitiveData {
   bankName?: string; bankBranch?: string;
   bankAccountNo?: string; bankIfsc?: string; uan?: string;
+  salaryBasic?: number; salaryHra?: number; salaryConveyance?: number;
+  salaryMedical?: number; salaryOther?: number; grossSalary?: number;
 }
 
 function useEmployeeSensitive(userId: string | undefined) {
@@ -56,6 +58,21 @@ function useEmployeeSensitive(userId: string | undefined) {
   }, [userId]);
 
   return { sensitive, sensLoading, setSensitive };
+}
+
+function useUserDetails(userId: string | undefined) {
+  const [details,     setDetails]     = useState<UserDetails | null>(null);
+  const [detLoading,  setDetLoading]  = useState(true);
+
+  useEffect(() => {
+    if (!userId) { setDetLoading(false); return; }
+    getDoc(doc(db, 'user_details', userId))
+      .then((snap) => setDetails(snap.exists() ? (snap.data() as UserDetails) : {}))
+      .catch(() => setDetails(null))
+      .finally(() => setDetLoading(false));
+  }, [userId]);
+
+  return { details, detLoading, setDetails };
 }
 
 // ─── Field row ────────────────────────────────────────────────────────────────
@@ -230,11 +247,13 @@ function IdentityVerification({
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
-function EditProfileModal({ profile, userId, sensitiveData, onSave, onSaveSensitive, onClose }: {
+function EditProfileModal({ profile, userId, userDetails, sensitiveData, onSave, onSaveDetails, onSaveSensitive, onClose }: {
   profile: UserProfile;
   userId: string;
+  userDetails: UserDetails | null;
   sensitiveData: SensitiveData | null;
   onSave: (updated: Partial<UserProfile>) => void;
+  onSaveDetails: (updated: UserDetails) => void;
   onSaveSensitive: (updated: SensitiveData) => void;
   onClose: () => void;
 }) {
@@ -248,23 +267,26 @@ function EditProfileModal({ profile, userId, sensitiveData, onSave, onSaveSensit
     return `2000-${mm}-${dd}`;
   };
 
-  const [gender,          setGender]          = useState(profile.gender ?? '');
-  const [bloodGroup,      setBloodGroup]       = useState(profile.bloodGroup ?? '');
-  const [dateOfBirth,     setDateOfBirth]      = useState(dob2input(profile.dateOfBirth));
-  const [fatherMotherName,setFatherMotherName] = useState(profile.fatherMotherName ?? '');
-  const [spouseName,      setSpouseName]       = useState(profile.spouseName ?? '');
-  const [presentAddress,  setPresentAddress]   = useState(profile.presentAddress ?? '');
-  const [permanentAddress,setPermanentAddress] = useState(profile.permanentAddress ?? '');
-  const [bankName,        setBankName]         = useState(sensitiveData?.bankName ?? '');
-  const [bankBranch,      setBankBranch]       = useState(sensitiveData?.bankBranch ?? '');
-  const [bankAccountNo,   setBankAccountNo]    = useState(sensitiveData?.bankAccountNo ?? '');
-  const [bankIfsc,        setBankIfsc]         = useState(sensitiveData?.bankIfsc ?? '');
-  const [uan,             setUan]              = useState(sensitiveData?.uan ?? '');
-  const [salaryBasic,     setSalaryBasic]      = useState(num2str(profile.salaryBasic));
-  const [salaryHra,       setSalaryHra]        = useState(num2str(profile.salaryHra));
-  const [salaryConveyance,setSalaryConveyance] = useState(num2str(profile.salaryConveyance));
-  const [salaryMedical,   setSalaryMedical]    = useState(num2str(profile.salaryMedical));
-  const [salaryOther,     setSalaryOther]      = useState(num2str(profile.salaryOther));
+  const [phone,           setPhone]            = useState(userDetails?.phone ?? '');
+  const [officialPhone,   setOfficialPhone]    = useState(userDetails?.officialPhone ?? '');
+  const [personalEmail,   setPersonalEmail]    = useState(userDetails?.personalEmail ?? '');
+  const [gender,          setGender]           = useState(userDetails?.gender ?? '');
+  const [bloodGroup,      setBloodGroup]        = useState(userDetails?.bloodGroup ?? '');
+  const [dateOfBirth,     setDateOfBirth]       = useState(dob2input(userDetails?.dateOfBirth));
+  const [fatherMotherName,setFatherMotherName]  = useState(userDetails?.fatherMotherName ?? '');
+  const [spouseName,      setSpouseName]        = useState(userDetails?.spouseName ?? '');
+  const [presentAddress,  setPresentAddress]    = useState(userDetails?.presentAddress ?? '');
+  const [permanentAddress,setPermanentAddress]  = useState(userDetails?.permanentAddress ?? '');
+  const [bankName,        setBankName]          = useState(sensitiveData?.bankName ?? '');
+  const [bankBranch,      setBankBranch]        = useState(sensitiveData?.bankBranch ?? '');
+  const [bankAccountNo,   setBankAccountNo]     = useState(sensitiveData?.bankAccountNo ?? '');
+  const [bankIfsc,        setBankIfsc]          = useState(sensitiveData?.bankIfsc ?? '');
+  const [uan,             setUan]               = useState(sensitiveData?.uan ?? '');
+  const [salaryBasic,     setSalaryBasic]       = useState(num2str(sensitiveData?.salaryBasic));
+  const [salaryHra,       setSalaryHra]         = useState(num2str(sensitiveData?.salaryHra));
+  const [salaryConveyance,setSalaryConveyance]  = useState(num2str(sensitiveData?.salaryConveyance));
+  const [salaryMedical,   setSalaryMedical]     = useState(num2str(sensitiveData?.salaryMedical));
+  const [salaryOther,     setSalaryOther]       = useState(num2str(sensitiveData?.salaryOther));
 
   const computedGross =
     (Number(salaryBasic) || 0) + (Number(salaryHra) || 0) +
@@ -282,32 +304,40 @@ function EditProfileModal({ profile, userId, sensitiveData, onSave, onSaveSensit
         dob = `${mm}-${dd}`;
       }
       const num = (s: string) => { const n = Number(s); return isNaN(n) || !s ? undefined : n; };
-      const updates: Partial<UserProfile> & Record<string, unknown> = {
-        ...(gender           ? { gender }           : { gender: null }),
-        ...(bloodGroup       ? { bloodGroup }       : { bloodGroup: null }),
-        ...(dob              ? { dateOfBirth: dob } : { dateOfBirth: null }),
-        ...(fatherMotherName ? { fatherMotherName } : { fatherMotherName: null }),
-        ...(spouseName       ? { spouseName }       : { spouseName: null }),
-        ...(presentAddress   ? { presentAddress }   : { presentAddress: null }),
-        ...(permanentAddress ? { permanentAddress } : { permanentAddress: null }),
-        ...(num(salaryBasic)       != null ? { salaryBasic: num(salaryBasic) }             : { salaryBasic: null }),
-        ...(num(salaryHra)         != null ? { salaryHra: num(salaryHra) }                 : { salaryHra: null }),
-        ...(num(salaryConveyance)  != null ? { salaryConveyance: num(salaryConveyance) }   : { salaryConveyance: null }),
-        ...(num(salaryMedical)     != null ? { salaryMedical: num(salaryMedical) }         : { salaryMedical: null }),
-        ...(num(salaryOther)       != null ? { salaryOther: num(salaryOther) }             : { salaryOther: null }),
-        grossSalary: computedGross > 0 ? computedGross : null,
-        updatedAt: serverTimestamp(),
-      };
-      await updateDoc(doc(db, 'users', userId), updates);
-      onSave(updates as Partial<UserProfile>);
 
-      // Bank details go to employee_sensitive (access-controlled — not world-readable)
+      // User doc update is now minimal — just the updatedAt timestamp if anything changed
+      await updateDoc(doc(db, 'users', userId), { updatedAt: serverTimestamp() });
+      onSave({});
+
+      // Personal details → /user_details (admin/HR-only)
+      const detailsUpdates: UserDetails = {
+        ...(phone           ? { phone }           : {}),
+        ...(officialPhone   ? { officialPhone }   : {}),
+        ...(personalEmail   ? { personalEmail }   : {}),
+        ...(gender          ? { gender }          : { gender: undefined }),
+        ...(bloodGroup      ? { bloodGroup }      : { bloodGroup: undefined }),
+        ...(dob             ? { dateOfBirth: dob }: { dateOfBirth: undefined }),
+        ...(fatherMotherName ? { fatherMotherName } : { fatherMotherName: undefined }),
+        ...(spouseName      ? { spouseName }      : { spouseName: undefined }),
+        ...(presentAddress  ? { presentAddress }  : { presentAddress: undefined }),
+        ...(permanentAddress ? { permanentAddress } : { permanentAddress: undefined }),
+      };
+      await setDoc(doc(db, 'user_details', userId), detailsUpdates, { merge: true });
+      onSaveDetails(detailsUpdates);
+
+      // Bank + salary → /employee_sensitive (admin/HR-only)
       const sensitiveUpdates: SensitiveData = {
         ...(bankName      ? { bankName }      : {}),
         ...(bankBranch    ? { bankBranch }    : {}),
         ...(bankAccountNo ? { bankAccountNo } : {}),
         ...(bankIfsc      ? { bankIfsc }      : {}),
         ...(uan           ? { uan }           : {}),
+        ...(num(salaryBasic)      != null ? { salaryBasic: num(salaryBasic)! }           : {}),
+        ...(num(salaryHra)        != null ? { salaryHra: num(salaryHra)! }               : {}),
+        ...(num(salaryConveyance) != null ? { salaryConveyance: num(salaryConveyance)! } : {}),
+        ...(num(salaryMedical)    != null ? { salaryMedical: num(salaryMedical)! }       : {}),
+        ...(num(salaryOther)      != null ? { salaryOther: num(salaryOther)! }           : {}),
+        ...(computedGross > 0             ? { grossSalary: computedGross }               : {}),
       };
       await setDoc(doc(db, 'employee_sensitive', userId), sensitiveUpdates, { merge: true });
       onSaveSensitive(sensitiveUpdates);
@@ -332,6 +362,22 @@ function EditProfileModal({ profile, userId, sensitiveData, onSave, onSaveSensit
         </div>
 
         <div className="overflow-y-auto px-6 py-4 space-y-3 flex-1">
+          {sHead('Contact')}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Phone</label>
+              <input className={inp} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit number" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Official Phone</label>
+              <input className={inp} value={officialPhone} onChange={(e) => setOfficialPhone(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Personal Email</label>
+              <input type="email" className={inp} value={personalEmail} onChange={(e) => setPersonalEmail(e.target.value)} />
+            </div>
+          </div>
+
           {sHead('Personal Details')}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -433,6 +479,53 @@ function EditProfileModal({ profile, userId, sensitiveData, onSave, onSaveSensit
   );
 }
 
+// ─── Profile completion indicator ────────────────────────────────────────────
+
+function ProfileCompletionBanner({
+  profile, details, onEdit,
+}: {
+  profile: UserProfile;
+  details: UserDetails | null;
+  onEdit: () => void;
+}) {
+  const checks = [
+    { label: 'Upload profile photo', done: !!profile.photoURL },
+    { label: 'Add phone number',     done: !!(details?.phone) },
+    { label: 'Add blood group',      done: !!(details?.bloodGroup) },
+    { label: 'Add date of birth',    done: !!(details?.dateOfBirth) },
+    { label: 'Add gender',           done: !!(details?.gender) },
+  ];
+  const done = checks.filter((c) => c.done).length;
+  const pct  = Math.round((done / checks.length) * 100);
+  const missing = checks.filter((c) => !c.done);
+
+  if (pct === 100) return null;
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#475569' }}>
+          Profile {pct}% complete
+        </p>
+        <button onClick={onEdit} className="text-xs font-medium transition-opacity hover:opacity-70" style={{ color: '#0B1538' }}>
+          Complete now
+        </button>
+      </div>
+      <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden mb-3">
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: '#C9A961' }} />
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {missing.map(({ label }) => (
+          <button key={label} onClick={onEdit}
+            className="text-[11px] px-2.5 py-1 rounded-full border border-dashed border-slate-300 text-mute hover:border-navy transition-colors">
+            + {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── EmployeeProfilePage ──────────────────────────────────────────────────────
 
 export function EmployeeProfilePage() {
@@ -441,6 +534,7 @@ export function EmployeeProfilePage() {
   const { profile: currentUser } = useAuth();
 
   const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.isHrmsManager === true;
+  const isOwnProfile = currentUser?.userId === userId;
 
   const [editingProfile, setEditingProfile] = useState(false);
 
@@ -448,8 +542,9 @@ export function EmployeeProfilePage() {
   const [localProfile, setLocalProfile] = useState<UserProfile | null>(null);
   const displayProfile = localProfile ?? profile;
 
-  const { epDoc, epLoading, setEpDoc }        = useEmployeeProfileDoc(displayProfile?.employeeId);
-  const { sensitive, sensLoading, setSensitive } = useEmployeeSensitive(userId);
+  const { epDoc, epLoading, setEpDoc }              = useEmployeeProfileDoc(displayProfile?.employeeId);
+  const { sensitive, sensLoading, setSensitive }    = useEmployeeSensitive(userId);
+  const { details,   detLoading,  setDetails }      = useUserDetails(userId);
 
   const handleEpUpdate = (updated: Partial<EmployeeProfile>) => {
     setEpDoc((prev) => prev ? { ...prev, ...updated } : null);
@@ -511,6 +606,15 @@ export function EmployeeProfilePage() {
         </div>
       </div>
 
+      {/* Profile completion — own profile only */}
+      {isOwnProfile && !detLoading && (
+        <ProfileCompletionBanner
+          profile={displayProfile}
+          details={details}
+          onEdit={() => setEditingProfile(true)}
+        />
+      )}
+
       {/* General info */}
       <Section title="Work Details">
         <FieldRow label="Employee Code"    value={displayProfile.employeeId} />
@@ -518,8 +622,8 @@ export function EmployeeProfilePage() {
         <FieldRow label="Designation"      value={displayProfile.designation} />
         <FieldRow label="Reporting Manager"value={displayProfile.reportingManagerName} />
         <FieldRow label="Joining Date"     value={displayProfile.joiningDate} />
-        {displayProfile.lastWorkingDate && (
-          <FieldRow label="Last Working Day" value={displayProfile.lastWorkingDate} />
+        {isAdminOrHr && details?.lastWorkingDate && (
+          <FieldRow label="Last Working Day" value={details.lastWorkingDate} />
         )}
         <FieldRow label="Status"           value={
           <span className="inline-flex items-center text-xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"
@@ -531,28 +635,36 @@ export function EmployeeProfilePage() {
         } />
       </Section>
 
+      {/* Contact — official email visible to all; personal contact only for admin/HR */}
       <Section title="Contact">
-        <FieldRow label="Official Email"   value={displayProfile.email || null} />
-        <FieldRow label="Phone"            value={displayProfile.phone} />
-        <FieldRow label="Personal Email"   value={displayProfile.personalEmail} />
+        <FieldRow label="Official Email" value={displayProfile.email || null} />
+        {isAdminOrHr && (
+          <>
+            <FieldRow label="Phone"         value={details?.phone ?? null} />
+            <FieldRow label="Official Phone"value={details?.officialPhone ?? null} />
+            <FieldRow label="Personal Email"value={details?.personalEmail ?? null} />
+          </>
+        )}
       </Section>
 
       {/* Personal Details — admin / HRMS manager only */}
       {isAdminOrHr && (
-        <Section title="Personal Details">
-          <FieldRow label="Date of Birth"      value={displayProfile.dateOfBirth ?? null} />
-          <FieldRow label="Gender"             value={displayProfile.gender ?? null} />
-          <FieldRow label="Blood Group"        value={displayProfile.bloodGroup ?? null} />
-          <FieldRow label="Father / Mother"    value={displayProfile.fatherMotherName ?? null} />
-          <FieldRow label="Spouse"             value={displayProfile.spouseName ?? null} />
-        </Section>
+        detLoading ? <div className="h-36 bg-slate-100 rounded-2xl animate-pulse" /> : (
+          <Section title="Personal Details">
+            <FieldRow label="Date of Birth"   value={details?.dateOfBirth ?? null} />
+            <FieldRow label="Gender"          value={details?.gender ?? null} />
+            <FieldRow label="Blood Group"     value={details?.bloodGroup ?? null} />
+            <FieldRow label="Father / Mother" value={details?.fatherMotherName ?? null} />
+            <FieldRow label="Spouse"          value={details?.spouseName ?? null} />
+          </Section>
+        )
       )}
 
       {/* Address — admin / HRMS manager only */}
-      {isAdminOrHr && (
+      {isAdminOrHr && !detLoading && (
         <Section title="Address">
-          <FieldRow label="Present Address"    value={displayProfile.presentAddress ?? null} />
-          <FieldRow label="Permanent Address"  value={displayProfile.permanentAddress ?? null} />
+          <FieldRow label="Present Address"   value={details?.presentAddress ?? null} />
+          <FieldRow label="Permanent Address" value={details?.permanentAddress ?? null} />
         </Section>
       )}
 
@@ -571,16 +683,20 @@ export function EmployeeProfilePage() {
         )
       )}
 
-      {/* Salary Structure — admin only */}
-      {currentUser?.role === 'admin' && (
-        <Section title="Salary Structure">
-          <FieldRow label="Basic"              value={displayProfile.salaryBasic       != null ? `₹ ${displayProfile.salaryBasic.toLocaleString('en-IN')}` : null} />
-          <FieldRow label="HRA"               value={displayProfile.salaryHra          != null ? `₹ ${displayProfile.salaryHra.toLocaleString('en-IN')}` : null} />
-          <FieldRow label="Conveyance"         value={displayProfile.salaryConveyance  != null ? `₹ ${displayProfile.salaryConveyance.toLocaleString('en-IN')}` : null} />
-          <FieldRow label="Medical"            value={displayProfile.salaryMedical     != null ? `₹ ${displayProfile.salaryMedical.toLocaleString('en-IN')}` : null} />
-          <FieldRow label="Other Allowances"   value={displayProfile.salaryOther       != null ? `₹ ${displayProfile.salaryOther.toLocaleString('en-IN')}` : null} />
-          <FieldRow label="Gross (Monthly CTC)"value={displayProfile.grossSalary       != null ? `₹ ${displayProfile.grossSalary.toLocaleString('en-IN')}` : null} />
-        </Section>
+      {/* Salary Structure — admin and HRMS manager only, from employee_sensitive */}
+      {isAdminOrHr && (
+        sensLoading ? (
+          <div className="h-40 bg-slate-100 rounded-2xl animate-pulse" />
+        ) : (
+          <Section title="Salary Structure">
+            <FieldRow label="Basic"              value={sensitive?.salaryBasic       != null ? `₹ ${sensitive.salaryBasic.toLocaleString('en-IN')}` : null} />
+            <FieldRow label="HRA"               value={sensitive?.salaryHra          != null ? `₹ ${sensitive.salaryHra.toLocaleString('en-IN')}` : null} />
+            <FieldRow label="Conveyance"         value={sensitive?.salaryConveyance  != null ? `₹ ${sensitive.salaryConveyance.toLocaleString('en-IN')}` : null} />
+            <FieldRow label="Medical"            value={sensitive?.salaryMedical     != null ? `₹ ${sensitive.salaryMedical.toLocaleString('en-IN')}` : null} />
+            <FieldRow label="Other Allowances"   value={sensitive?.salaryOther       != null ? `₹ ${sensitive.salaryOther.toLocaleString('en-IN')}` : null} />
+            <FieldRow label="Gross (Monthly CTC)"value={sensitive?.grossSalary       != null ? `₹ ${sensitive.grossSalary.toLocaleString('en-IN')}` : null} />
+          </Section>
+        )
       )}
 
       {/* Identity Verification — admin / HRMS manager only */}
@@ -602,8 +718,10 @@ export function EmployeeProfilePage() {
         <EditProfileModal
           profile={displayProfile}
           userId={userId}
+          userDetails={details}
           sensitiveData={sensitive}
           onSave={(updated) => setLocalProfile((prev) => ({ ...(prev ?? displayProfile), ...updated } as UserProfile))}
+          onSaveDetails={(updated) => setDetails((prev) => ({ ...prev, ...updated }))}
           onSaveSensitive={(updated) => setSensitive((prev) => ({ ...prev, ...updated }))}
           onClose={() => setEditingProfile(false)}
         />

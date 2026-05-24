@@ -94,7 +94,8 @@ service cloud.firestore {
              data.by == request.auth.uid;
     }
 
-    // ─── Users ───────────────────────────────────────────────────────────────────
+    // ─── Users (org directory — readable by all signed-in employees) ────────────
+    // No personal data here. Personal fields live in /user_details/{userId}.
     match /users/{userId} {
       allow get:  if isSignedIn();
       allow list: if isSignedIn();
@@ -106,7 +107,7 @@ service cloud.firestore {
                        incoming().keys().hasOnly([
                          'userId', 'email', 'displayName', 'role', 'photoURL', 'createdAt',
                          'employeeId', 'department', 'designation', 'managerId',
-                         'joiningDate', 'location', 'phone', 'dateOfBirth', 'leaveBalance',
+                         'joiningDate', 'location', 'leaveBalance',
                          'hrmsAccess', 'crmAccess', 'hasCalendarAccess'
                        ]) &&
                        incoming().keys().hasAll(['userId', 'email', 'displayName', 'role', 'photoURL']) &&
@@ -119,13 +120,23 @@ service cloud.firestore {
 
       allow update: if isSignedIn() && (
         (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly([
-          'displayName', 'photoURL', 'phone', 'location', 'department',
-          'designation', 'dateOfBirth', 'leaveBalance', 'hasCalendarAccess',
+          'displayName', 'photoURL', 'location',
+          'leaveBalance', 'hasCalendarAccess',
           'mustResetPassword'   // employee clears this after setting their own password
         ])) ||
         // Admin can update any user field, but crmRole/convertorVertical must be a valid pair
         (isAdmin() && validCrmRolePair(incoming()))
       );
+    }
+
+    // ─── User details (personal data — private) ──────────────────────────────────
+    // Contains phone, personal email, DOB, address, family info, last working date.
+    // Admin + HRMS manager can read all and write. Employee can read their own only.
+    match /user_details/{userId} {
+      allow get:           if isAdmin() || isHrmsManager() || isOwner(userId);
+      allow list:          if isAdmin() || isHrmsManager();
+      allow create, update: if isAdmin() || isHrmsManager();
+      allow delete:         if false;
     }
 
     // ─── Employee profiles (HR data: PAN/bank/aadhaar compliance) ───────────────
@@ -136,11 +147,12 @@ service cloud.firestore {
       allow delete:         if false;
     }
 
-    // ─── Employee sensitive data (bank accounts) ─────────────────────────────────
-    // Admin: full read/write. Employee: read own only. No one else.
+    // ─── Employee sensitive data (bank + salary) ─────────────────────────────────
+    // Admin: full read/write. HRMS Manager: read all (needed for payslips).
+    // Employee: read own only. Salary changes are admin-only (financial decisions).
     match /employee_sensitive/{userId} {
-      allow get:    if isAdmin() || isOwner(userId);
-      allow list:   if isAdmin();
+      allow get:    if isAdmin() || isHrmsManager() || isOwner(userId);
+      allow list:   if isAdmin() || isHrmsManager();
       allow create,
             update: if isAdmin();
       allow delete: if false;
@@ -342,17 +354,52 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ─── Support Requests ────────────────────────────────────────────────────────
-    // Any signed-in employee can raise a ticket. Only admin can read/manage.
-    match /support_requests/{requestId} {
+    // ─── Claims & Reimbursements ─────────────────────────────────────────────────
+    match /claims/{claimId} {
       allow create: if isSignedIn() &&
-                       incoming().submittedBy == request.auth.uid &&
-                       incoming().keys().hasAll(['submittedBy', 'category', 'subject', 'description', 'status', 'submittedAt']) &&
-                       incoming().description.size() <= 2000 &&
-                       incoming().subject.size() <= 120;
-      allow read:   if isAdmin();
-      allow update: if isAdmin();
+                       incoming().employeeId == request.auth.uid &&
+                       incoming().status == 'pending' &&
+                       incoming().keys().hasAll(['employeeId', 'employeeName', 'claimType', 'amount', 'description', 'status', 'submittedAt', 'month']) &&
+                       incoming().amount is number && incoming().amount > 0 && incoming().amount <= 50000;
+      allow read:   if isAdmin() || isHrmsManager() ||
+                       (isSignedIn() && resource.data.get('employeeId', '') == request.auth.uid);
+      allow update: if isAdmin() || isHrmsManager();
       allow delete: if false;
+    }
+
+    // ─── Company Documents ────────────────────────────────────────────────────────
+    match /company_documents/{docId} {
+      allow read:   if isSignedIn();
+      allow create,
+            update: if isAdmin() || isHrmsManager();
+      allow delete: if false;
+    }
+
+    // ─── Employee Documents ───────────────────────────────────────────────────────
+    match /employee_documents/{docId} {
+      allow read:   if isAdmin() || isHrmsManager() ||
+                       (isSignedIn() && resource.data.get('employeeId', '') == request.auth.uid);
+      allow create,
+            update: if isAdmin() || isHrmsManager();
+      allow delete: if false;
+    }
+
+    // ─── Announcements ────────────────────────────────────────────────────────────
+    match /announcements/{announcementId} {
+      allow read:   if isSignedIn();
+      allow create,
+            update: if isAdmin() || isHrmsManager() ||
+                       // Employee can add their own uid to readBy only
+                       (isSignedIn() &&
+                        incoming().diff(existing()).affectedKeys().hasOnly(['readBy']) &&
+                        incoming().readBy.hasAll(existing().readBy));
+      allow delete: if false;
+    }
+
+    // ─── Rate Limits (Firestore-based rate limiting) ─────────────────────────────
+    // Server-only: Admin SDK bypasses rules. Client access denied.
+    match /rate_limits/{key} {
+      allow read, write: if false;
     }
 
     // ─── Audit Logs ──────────────────────────────────────────────────────────────

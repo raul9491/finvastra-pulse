@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { CustomerTrackerPage }    from './features/public/CustomerTrackerPage';
 import { LoginPage }              from './features/auth/LoginPage';
 import { ResetPasswordPage }      from './features/auth/ResetPasswordPage';
+import { AuthActionPage }         from './features/auth/AuthActionPage';
 import { RequestAccessPage }      from './features/auth/RequestAccessPage';
 import { LauncherPage }           from './features/home/LauncherPage';
 
@@ -81,6 +82,12 @@ export const router = createBrowserRouter([
   {
     path: '/reset-password',
     element: <ResetPasswordPage />,
+  },
+  {
+    // Handles branded password-reset links: /auth-action?mode=resetPassword&oobCode=xxx
+    // DOB verification → new password form → success
+    path: '/auth-action',
+    element: <AuthActionPage />,
   },
   {
     path: '/request-access',

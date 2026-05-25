@@ -70,7 +70,8 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
   const { employees } = useAllEmployees();
   const [form, setForm] = useState<AddEmployeeForm>(EMPTY);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [serverError, setServerError] = useState('');          // API / network errors
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});  // inline field errors
   const [result, setResult] = useState<Result | null>(null);
   const [sameAddress, setSameAddress] = useState(false);
 
@@ -96,8 +97,11 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
     return `${empPrefix}-${padded}`;
   })();
 
-  const set = (k: keyof AddEmployeeForm, v: string) =>
+  const set = (k: keyof AddEmployeeForm, v: string) => {
     setForm((f) => ({ ...f, [k]: v }));
+    // Clear the field error as soon as the user starts correcting it
+    if (fieldErrors[k]) setFieldErrors((prev) => { const n = { ...prev }; delete n[k]; return n; });
+  };
 
   // Auto-compute gross when components change
   const computedGross =
@@ -113,16 +117,21 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
   };
 
   const handleSubmit = async () => {
-    if (!form.displayName.trim()) { setError('Full name is required.'); return; }
-    if (!form.officialEmail.trim()) {
-      setError('Official email (@finvastra.com) is required — this is the employee\'s login address.');
+    // ── Field-level validation ─────────────────────────────────────────────────
+    const errs: Record<string, string> = {};
+    if (!form.displayName.trim())
+      errs.displayName = 'Full name is required';
+    if (!form.officialEmail.trim())
+      errs.officialEmail = 'Required — this is the employee\'s login address';
+    else if (!form.officialEmail.trim().endsWith('@finvastra.com'))
+      errs.officialEmail = 'Must be a @finvastra.com address';
+
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
       return;
     }
-    if (!form.officialEmail.trim().endsWith('@finvastra.com')) {
-      setError('Official email must be a @finvastra.com address (e.g. name@finvastra.com).');
-      return;
-    }
-    setSaving(true); setError('');
+    setFieldErrors({});
+    setSaving(true); setServerError('');
     try {
       const token = await user?.getIdToken();
       const num = (s: string) => { const n = Number(s.replace(/,/g, '')); return n || undefined; };
@@ -192,22 +201,29 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
       // Show success screen first — onCreated is called when user clicks Done
       setResult(data as Result);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed');
-      // Scroll to error
-      setTimeout(() => {
-        document.querySelector('[data-form-error]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 50);
+      setServerError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
-  const inp = 'w-full text-sm px-3.5 py-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-navy bg-white';
-  const sel = `${inp} bg-white`;
+  // ── Style helpers ─────────────────────────────────────────────────────────
+  const baseInp = 'w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-white transition-colors';
+  const inp     = (field?: string) =>
+    `${baseInp} ${field && fieldErrors[field]
+      ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30'
+      : 'border-slate-200 focus:ring-navy'}`;
+  const sel     = (field?: string) => `${inp(field)}`;
 
-  const fLabel = (text: string, required = false) => (
-    <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>
+  const fLabel = (text: string, field?: string, required = false) => (
+    <label className="block text-xs font-semibold uppercase tracking-wider mb-1"
+      style={{ color: field && fieldErrors[field] ? '#DC2626' : '#8B8B85' }}>
       {text}{required && <span className="text-red-500 ml-0.5">*</span>}
+      {field && fieldErrors[field] && (
+        <span className="ml-2 text-red-500 font-medium normal-case tracking-normal">
+          — {fieldErrors[field]}
+        </span>
+      )}
     </label>
   );
   const sectionHead = (title: string) => (
@@ -260,12 +276,12 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
       }>
       <div className="space-y-4">
 
-        {/* Error banner — shown at top so it's always visible */}
-        {error && (
-          <div data-form-error className="flex items-start gap-2 px-4 py-3 rounded-xl text-sm"
+        {/* Server/network error banner — validation errors are shown inline on each field */}
+        {serverError && (
+          <div className="flex items-start gap-2 px-4 py-3 rounded-xl text-sm"
             style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626' }}>
             <span className="shrink-0 font-bold">⚠</span>
-            <span>{error}</span>
+            <span>{serverError}</span>
           </div>
         )}
 
@@ -273,14 +289,14 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
         {sectionHead('Basic Information')}
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
-            {fLabel('Full Name', true)}
-            <input className={inp} value={form.displayName} onChange={(e) => set('displayName', e.target.value)} placeholder="e.g. Rahul Vijay Wargia" />
+            {fLabel('Full Name', 'displayName', true)}
+            <input className={inp('displayName')} value={form.displayName} onChange={(e) => set('displayName', e.target.value)} placeholder="e.g. Rahul Vijay Wargia" />
           </div>
           <div className="col-span-2">
             {fLabel('Emp Code')}
             <div className="flex items-center gap-2">
               <select
-                className={`${sel} flex-none`}
+                className={`${sel()} flex-none`}
                 style={{ width: 110 }}
                 value={empPrefix}
                 onChange={(e) => setEmpPrefix(e.target.value as EmpPrefix)}
@@ -291,7 +307,7 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
               <input
                 type="number"
                 min={1}
-                className={`${inp} flex-none`}
+                className={`${inp()} flex-none`}
                 style={{ width: 90 }}
                 value={empNumber}
                 onChange={(e) => setEmpNumber(e.target.value)}
@@ -308,18 +324,18 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
           </div>
           <div>
             {fLabel('Status')}
-            <select className={sel} value={form.employeeStatus} onChange={(e) => set('employeeStatus', e.target.value as EmployeeStatus)}>
+            <select className={sel()} value={form.employeeStatus} onChange={(e) => set('employeeStatus', e.target.value as EmployeeStatus)}>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
           </div>
           <div>
             {fLabel('Date of Joining')}
-            <input type="date" className={inp} value={form.joiningDate} onChange={(e) => set('joiningDate', e.target.value)} />
+            <input type="date" className={inp()} value={form.joiningDate} onChange={(e) => set('joiningDate', e.target.value)} />
           </div>
           <div>
             {fLabel('Last Working Date')}
-            <input type="date" className={inp} value={form.lastWorkingDate} onChange={(e) => set('lastWorkingDate', e.target.value)} placeholder="Only for inactive" />
+            <input type="date" className={inp()} value={form.lastWorkingDate} onChange={(e) => set('lastWorkingDate', e.target.value)} placeholder="Only for inactive" />
           </div>
         </div>
 
@@ -328,11 +344,11 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
         <div className="grid grid-cols-2 gap-3">
           <div>
             {fLabel('Date of Birth')}
-            <input type="date" className={inp} value={form.dateOfBirth} onChange={(e) => set('dateOfBirth', e.target.value)} />
+            <input type="date" className={inp()} value={form.dateOfBirth} onChange={(e) => set('dateOfBirth', e.target.value)} />
           </div>
           <div>
             {fLabel('Gender')}
-            <select className={sel} value={form.gender} onChange={(e) => set('gender', e.target.value)}>
+            <select className={sel()} value={form.gender} onChange={(e) => set('gender', e.target.value)}>
               <option value="">— Select —</option>
               <option value="Male">Male</option>
               <option value="Female">Female</option>
@@ -341,18 +357,18 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
           </div>
           <div>
             {fLabel('Blood Group')}
-            <select className={sel} value={form.bloodGroup} onChange={(e) => set('bloodGroup', e.target.value)}>
+            <select className={sel()} value={form.bloodGroup} onChange={(e) => set('bloodGroup', e.target.value)}>
               <option value="">— Select —</option>
               {BLOOD_GROUPS.map((bg) => <option key={bg} value={bg}>{bg}</option>)}
             </select>
           </div>
           <div>
             {fLabel("Father's / Mother's Name")}
-            <input className={inp} value={form.fatherMotherName} onChange={(e) => set('fatherMotherName', e.target.value)} placeholder="Parent's full name" />
+            <input className={inp()} value={form.fatherMotherName} onChange={(e) => set('fatherMotherName', e.target.value)} placeholder="Parent's full name" />
           </div>
           <div>
             {fLabel("Spouse's Name")}
-            <input className={inp} value={form.spouseName} onChange={(e) => set('spouseName', e.target.value)} placeholder="If applicable" />
+            <input className={inp()} value={form.spouseName} onChange={(e) => set('spouseName', e.target.value)} placeholder="If applicable" />
           </div>
         </div>
 
@@ -361,19 +377,19 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
         <div className="grid grid-cols-2 gap-3">
           <div>
             {fLabel('Personal Mobile')}
-            <input className={inp} value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="10-digit mobile" />
+            <input className={inp()} value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="10-digit mobile" />
           </div>
           <div>
             {fLabel('Personal Email')}
-            <input type="email" className={inp} value={form.personalEmail} onChange={(e) => set('personalEmail', e.target.value)} placeholder="name@gmail.com" />
+            <input type="email" className={inp()} value={form.personalEmail} onChange={(e) => set('personalEmail', e.target.value)} placeholder="name@gmail.com" />
           </div>
           <div>
-            {fLabel('Official Email — login address', true)}
-            <input type="email" className={inp} value={form.officialEmail} onChange={(e) => set('officialEmail', e.target.value)} placeholder="name@finvastra.com" />
+            {fLabel('Official Email — login address', 'officialEmail', true)}
+            <input type="email" className={inp('officialEmail')} value={form.officialEmail} onChange={(e) => set('officialEmail', e.target.value)} placeholder="name@finvastra.com" />
           </div>
           <div>
             {fLabel('Official Phone')}
-            <input className={inp} value={form.officialPhone} onChange={(e) => set('officialPhone', e.target.value)} placeholder="Office direct number" />
+            <input className={inp()} value={form.officialPhone} onChange={(e) => set('officialPhone', e.target.value)} placeholder="Office direct number" />
           </div>
         </div>
 
@@ -382,19 +398,19 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
         <div className="grid grid-cols-2 gap-3">
           <div>
             {fLabel('Department')}
-            <input className={inp} value={form.department} onChange={(e) => set('department', e.target.value)} placeholder="e.g. BD & Client Relations" />
+            <input className={inp()} value={form.department} onChange={(e) => set('department', e.target.value)} placeholder="e.g. BD & Client Relations" />
           </div>
           <div>
             {fLabel('Designation')}
-            <input className={inp} value={form.designation} onChange={(e) => set('designation', e.target.value)} placeholder="e.g. Sales Manager" />
+            <input className={inp()} value={form.designation} onChange={(e) => set('designation', e.target.value)} placeholder="e.g. Sales Manager" />
           </div>
           <div>
             {fLabel('Location')}
-            <input className={inp} value={form.location} onChange={(e) => set('location', e.target.value)} placeholder="e.g. Ameerpet, Hyderabad" />
+            <input className={inp()} value={form.location} onChange={(e) => set('location', e.target.value)} placeholder="e.g. Ameerpet, Hyderabad" />
           </div>
           <div>
             {fLabel('Reporting Manager')}
-            <select className={sel} value={form.reportingManagerName} onChange={(e) => set('reportingManagerName', e.target.value)}>
+            <select className={sel()} value={form.reportingManagerName} onChange={(e) => set('reportingManagerName', e.target.value)}>
               <option value="">— Select —</option>
               {employees.map((e) => (
                 <option key={e.userId} value={e.displayName}>{e.displayName}{e.designation ? ` (${e.designation})` : ''}</option>
@@ -408,23 +424,23 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
         <div className="grid grid-cols-3 gap-3">
           <div>
             {fLabel('Basic Salary')}
-            <input className={inp} value={form.salaryBasic} onChange={(e) => set('salaryBasic', e.target.value)} placeholder="e.g. 75000" />
+            <input className={inp()} value={form.salaryBasic} onChange={(e) => set('salaryBasic', e.target.value)} placeholder="e.g. 75000" />
           </div>
           <div>
             {fLabel('HRA')}
-            <input className={inp} value={form.salaryHra} onChange={(e) => set('salaryHra', e.target.value)} placeholder="e.g. 37500" />
+            <input className={inp()} value={form.salaryHra} onChange={(e) => set('salaryHra', e.target.value)} placeholder="e.g. 37500" />
           </div>
           <div>
             {fLabel('Conveyance Allowance')}
-            <input className={inp} value={form.salaryConveyance} onChange={(e) => set('salaryConveyance', e.target.value)} placeholder="e.g. 1600" />
+            <input className={inp()} value={form.salaryConveyance} onChange={(e) => set('salaryConveyance', e.target.value)} placeholder="e.g. 1600" />
           </div>
           <div>
             {fLabel('Medical Allowance')}
-            <input className={inp} value={form.salaryMedical} onChange={(e) => set('salaryMedical', e.target.value)} placeholder="e.g. 1250" />
+            <input className={inp()} value={form.salaryMedical} onChange={(e) => set('salaryMedical', e.target.value)} placeholder="e.g. 1250" />
           </div>
           <div>
             {fLabel('Other Allowances')}
-            <input className={inp} value={form.salaryOther} onChange={(e) => set('salaryOther', e.target.value)} placeholder="e.g. 35900" />
+            <input className={inp()} value={form.salaryOther} onChange={(e) => set('salaryOther', e.target.value)} placeholder="e.g. 35900" />
           </div>
           <div>
             {fLabel('Gross (auto-computed)')}
@@ -443,7 +459,7 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
         <div className="space-y-3">
           <div>
             {fLabel('Present Address')}
-            <textarea className={`${inp} resize-none`} rows={2} value={form.presentAddress}
+            <textarea className={`${inp()} resize-none`} rows={2} value={form.presentAddress}
               onChange={(e) => { set('presentAddress', e.target.value); if (sameAddress) set('permanentAddress', e.target.value); }}
               placeholder="Current residential address" />
           </div>
@@ -454,7 +470,7 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
           {!sameAddress && (
             <div>
               {fLabel('Permanent Address')}
-              <textarea className={`${inp} resize-none`} rows={2} value={form.permanentAddress}
+              <textarea className={`${inp()} resize-none`} rows={2} value={form.permanentAddress}
                 onChange={(e) => set('permanentAddress', e.target.value)}
                 placeholder="Permanent / hometown address" />
             </div>
@@ -471,19 +487,19 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
           <div className="grid grid-cols-2 gap-3">
             <div>
               {fLabel('Bank Name')}
-              <input className={inp} value={form.personalBankName} onChange={(e) => set('personalBankName', e.target.value)} placeholder="e.g. HDFC Bank" />
+              <input className={inp()} value={form.personalBankName} onChange={(e) => set('personalBankName', e.target.value)} placeholder="e.g. HDFC Bank" />
             </div>
             <div>
               {fLabel('Branch')}
-              <input className={inp} value={form.personalBankBranch} onChange={(e) => set('personalBankBranch', e.target.value)} placeholder="e.g. Somajiguda" />
+              <input className={inp()} value={form.personalBankBranch} onChange={(e) => set('personalBankBranch', e.target.value)} placeholder="e.g. Somajiguda" />
             </div>
             <div>
               {fLabel('Account Number')}
-              <input className={inp} value={form.personalBankAcct} onChange={(e) => set('personalBankAcct', e.target.value)} placeholder="Account number" />
+              <input className={inp()} value={form.personalBankAcct} onChange={(e) => set('personalBankAcct', e.target.value)} placeholder="Account number" />
             </div>
             <div>
               {fLabel('IFSC Code')}
-              <input className={`${inp} uppercase`} value={form.personalBankIfsc} onChange={(e) => set('personalBankIfsc', e.target.value.toUpperCase())} placeholder="e.g. HDFC0000512" />
+              <input className={`${inp()} uppercase`} value={form.personalBankIfsc} onChange={(e) => set('personalBankIfsc', e.target.value.toUpperCase())} placeholder="e.g. HDFC0000512" />
             </div>
           </div>
 
@@ -491,19 +507,19 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
           <div className="grid grid-cols-2 gap-3">
             <div>
               {fLabel('Bank Name')}
-              <input className={inp} value={form.officialBankName} onChange={(e) => set('officialBankName', e.target.value)} placeholder="e.g. Indian Overseas Bank" />
+              <input className={inp()} value={form.officialBankName} onChange={(e) => set('officialBankName', e.target.value)} placeholder="e.g. Indian Overseas Bank" />
             </div>
             <div>
               {fLabel('Branch')}
-              <input className={inp} value={form.officialBankBranch} onChange={(e) => set('officialBankBranch', e.target.value)} placeholder="e.g. Koti" />
+              <input className={inp()} value={form.officialBankBranch} onChange={(e) => set('officialBankBranch', e.target.value)} placeholder="e.g. Koti" />
             </div>
             <div>
               {fLabel('Account Number')}
-              <input className={inp} value={form.officialBankAcct} onChange={(e) => set('officialBankAcct', e.target.value)} placeholder="Account number" />
+              <input className={inp()} value={form.officialBankAcct} onChange={(e) => set('officialBankAcct', e.target.value)} placeholder="Account number" />
             </div>
             <div>
               {fLabel('IFSC Code')}
-              <input className={`${inp} uppercase`} value={form.officialBankIfsc} onChange={(e) => set('officialBankIfsc', e.target.value.toUpperCase())} placeholder="e.g. IOBA0002757" />
+              <input className={`${inp()} uppercase`} value={form.officialBankIfsc} onChange={(e) => set('officialBankIfsc', e.target.value.toUpperCase())} placeholder="e.g. IOBA0002757" />
             </div>
           </div>
         </div>

@@ -409,6 +409,75 @@ If a request implies something on this list, **stop and confirm with me** before
 ## Coding conventions
 
 - **TypeScript strict everywhere**. Run `npm run lint` (which is `tsc --noEmit`) after non-trivial changes.
+
+### Form validation standard — field-level inline errors (ALL forms)
+
+Every form in the platform must highlight invalid or missing required fields **in red directly on the field** when the user submits without filling them in. A single error banner at the top is **not** sufficient on its own — the banner is reserved for server/network errors only.
+
+**Implementation pattern** (use this in every new form):
+
+```typescript
+// 1. State
+const [serverError, setServerError] = useState('');            // API / network errors only
+const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+// 2. Clear a field's error the moment the user starts correcting it
+const set = (k: keyof MyForm, v: string) => {
+  setFormValue(k, v);
+  if (fieldErrors[k]) setFieldErrors(prev => { const n = { ...prev }; delete n[k]; return n; });
+};
+
+// 3. On submit — collect ALL errors first, then bail if any
+const handleSubmit = async () => {
+  const errs: Record<string, string> = {};
+  if (!form.requiredField.trim()) errs.requiredField = 'Required';
+  if (!form.email.trim()) errs.email = 'Email is required';
+  else if (!form.email.endsWith('@finvastra.com')) errs.email = 'Must be @finvastra.com';
+  if (Object.keys(errs).length > 0) { setFieldErrors(errs); return; }
+  setFieldErrors({});
+  // ... proceed with API call
+};
+
+// 4. Style helpers — inp() / sel() take an optional field key
+const baseInp = 'w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-white transition-colors';
+const inp = (field?: string) =>
+  `${baseInp} ${field && fieldErrors[field]
+    ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30'
+    : 'border-slate-200 focus:ring-navy'}`;
+const sel = (field?: string) => inp(field);   // same styling, different element
+
+// 5. Label helper — shows red label text + inline error message
+const fLabel = (text: string, field?: string, required = false) => (
+  <label className="block text-xs font-semibold uppercase tracking-wider mb-1"
+    style={{ color: field && fieldErrors[field] ? '#DC2626' : '#8B8B85' }}>
+    {text}{required && <span className="text-red-500 ml-0.5">*</span>}
+    {field && fieldErrors[field] && (
+      <span className="ml-2 text-red-500 font-medium normal-case tracking-normal">
+        — {fieldErrors[field]}
+      </span>
+    )}
+  </label>
+);
+```
+
+**Usage**:
+```tsx
+{fLabel('Full Name', 'displayName', true)}
+<input className={inp('displayName')} value={form.displayName} onChange={e => set('displayName', e.target.value)} />
+
+{fLabel('Status')}   {/* no validation — optional field */}
+<select className={sel()} ...>
+
+{/* Server/network error only — not for validation */}
+{serverError && <div className="...error banner...">{serverError}</div>}
+```
+
+**Rules**:
+- Required fields: pass `field` key to both `fLabel()` and `inp()`/`sel()` — they turn red together
+- Optional fields: call `inp()` / `sel()` with no argument (gets default border style)
+- Template literals: `` className={`${inp()} resize-none`} `` — always call as function
+- Never show a validation error inside the server error banner — keep them separate
+
 ## Routing architecture
 
 The app has three modules behind a post-login launcher. **Never add features from one module into another module's shell.**

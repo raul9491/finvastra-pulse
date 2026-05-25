@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signInWithEmailAndPassword, sendPasswordResetEmail, type AuthError } from 'firebase/auth';
+import { signInWithEmailAndPassword, type AuthError } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 import { useAuth, SESSION_EXPIRED_KEY } from './AuthContext';
 import { VideoLogo } from '../../components/ui/VideoLogo';
@@ -55,7 +55,13 @@ export function LoginPage() {
     setResetState('sending');
     setResetError('');
     try {
-      await sendPasswordResetEmail(auth, email);
+      // Server generates the branded Gmail email via Google Workspace (DWD).
+      // Always returns { ok: true } even if the email doesn't exist — prevents enumeration.
+      await fetch('/api/auth/forgot-password', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email }),
+      });
       setResetState('sent');
     } catch {
       setResetState('error');

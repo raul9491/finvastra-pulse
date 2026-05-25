@@ -5,6 +5,7 @@ import fs from "fs";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { google } from "googleapis";
+import { JWT } from "google-auth-library";
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import cookieParser from "cookie-parser";
@@ -976,6 +977,219 @@ async function startServer() {
     }
 
     return res.json({ ok: true });
+  });
+
+  // ─── Gmail helper ─────────────────────────────────────────────────────────────
+  // Builds a Gmail API client using domain-wide delegation so the server can send
+  // email as admin@finvastra.com without storing a password.
+  // Local dev:  uses the service-account JSON key found by getServiceAccountPath()
+  // Cloud Run:  uses GOOGLE_SA_JSON_BASE64 env var (base64 of the same JSON key)
+  async function getGmailClient() {
+    const senderEmail = process.env.GMAIL_SENDER ?? "admin@finvastra.com";
+    let authClient: JWT;
+
+    if (process.env.GOOGLE_SA_JSON_BASE64) {
+      const keyData = JSON.parse(
+        Buffer.from(process.env.GOOGLE_SA_JSON_BASE64, "base64").toString("utf-8")
+      ) as { client_email: string; private_key: string };
+      authClient = new JWT({
+        email:   keyData.client_email,
+        key:     keyData.private_key,
+        scopes:  ["https://www.googleapis.com/auth/gmail.send"],
+        subject: senderEmail,
+      });
+    } else {
+      const keyFile = getServiceAccountPath();
+      if (!keyFile) throw new Error("No service-account key available for Gmail DWD");
+      const keyData = JSON.parse(fs.readFileSync(keyFile, "utf-8")) as { client_email: string; private_key: string };
+      authClient = new JWT({
+        email:   keyData.client_email,
+        key:     keyData.private_key,
+        scopes:  ["https://www.googleapis.com/auth/gmail.send"],
+        subject: senderEmail,
+      });
+    }
+    return google.gmail({ version: "v1", auth: authClient });
+  }
+
+  // Sends an HTML email via the Gmail API (domain-wide delegation).
+  // Falls back to console.log when the SA key is not configured (emulator mode).
+  async function sendGmailMessage(to: string, subject: string, htmlBody: string) {
+    const senderEmail  = process.env.GMAIL_SENDER ?? "admin@finvastra.com";
+    const senderName   = "Finvastra Pulse";
+
+    if (useEmulator && !process.env.GOOGLE_SA_JSON_BASE64 && !getServiceAccountPath()) {
+      console.log(`[Gmail stub] To: ${to} | Subject: ${subject}`);
+      return;
+    }
+
+    const raw = [
+      `From: ${senderName} <${senderEmail}>`,
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      "MIME-Version: 1.0",
+      "Content-Type: text/html; charset=UTF-8",
+      "",
+      htmlBody,
+    ].join("\r\n");
+
+    const encoded = Buffer.from(raw)
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+
+    const gmail = await getGmailClient();
+    await gmail.users.messages.send({ userId: "me", requestBody: { raw: encoded } });
+  }
+
+  // Branded HTML email template for password reset.
+  function buildPasswordResetEmail(displayName: string, resetLink: string): string {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#F2EFE7;font-family:'DM Sans',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F2EFE7;padding:32px 0;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+
+      <!-- Header -->
+      <tr><td style="background:linear-gradient(135deg,#0B1538 0%,#1B2A4E 100%);border-radius:16px 16px 0 0;padding:32px 40px;text-align:center;">
+        <img src="https://pulse.finvastra.com/favicon.png" alt="Finvastra" width="64" height="64"
+          style="border-radius:12px;object-fit:contain;display:block;margin:0 auto 12px;" />
+        <div style="color:#C9A961;font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;">FINVASTRA PULSE</div>
+      </td></tr>
+
+      <!-- Body -->
+      <tr><td style="background:#ffffff;padding:40px;">
+        <h1 style="font-family:Georgia,serif;font-size:26px;font-weight:700;color:#0A0A0A;margin:0 0 8px 0;">
+          Reset your password
+        </h1>
+        <p style="font-size:15px;color:#2A2A2A;line-height:1.7;margin:0 0 8px 0;">Hi ${displayName},</p>
+        <p style="font-size:15px;color:#2A2A2A;line-height:1.7;margin:0 0 28px 0;">
+          We received a request to reset your Finvastra Pulse password. Click the button below —
+          you'll be asked to verify your date of birth before setting a new password.
+        </p>
+
+        <!-- CTA -->
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td align="center" style="padding:0 0 32px 0;">
+            <a href="${resetLink}"
+              style="display:inline-block;background:linear-gradient(135deg,#0B1538,#1B2A4E);color:#C9A961;
+                     padding:14px 44px;border-radius:12px;text-decoration:none;font-weight:700;
+                     font-size:15px;letter-spacing:0.5px;">
+              Reset my password &rarr;
+            </a>
+          </td></tr>
+        </table>
+
+        <div style="border-top:1px solid #E2E8F0;padding-top:20px;">
+          <p style="font-size:13px;color:#8B8B85;line-height:1.6;margin:0 0 8px 0;">
+            &#9200; This link expires in <strong>1 hour</strong>.
+          </p>
+          <p style="font-size:13px;color:#8B8B85;line-height:1.6;margin:0;">
+            If you didn&rsquo;t request a password reset, you can safely ignore this email &mdash; your password won&rsquo;t change.
+          </p>
+        </div>
+      </td></tr>
+
+      <!-- Footer -->
+      <tr><td style="background:#F2EFE7;border-radius:0 0 16px 16px;padding:24px 40px;text-align:center;">
+        <p style="font-size:12px;color:#8B8B85;margin:0 0 4px 0;">Finvastra Financial Services Pvt. Ltd.</p>
+        <p style="font-size:11px;color:#8B8B85;margin:0;">Access restricted to Finvastra team members only.</p>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+  }
+
+  // ─── Password Reset (custom flow with DOB verification) ───────────────────────
+
+  // Step 1 — Employee clicks "Forgot password" on login page.
+  // Generates a Firebase reset link, extracts the oobCode, builds our own
+  // pulse.finvastra.com/auth-action URL, and sends a branded Gmail.
+  // Always returns { ok: true } regardless of whether the email exists — prevents
+  // email enumeration attacks.
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    const { email } = req.body as { email?: string };
+    const ok = () => res.json({ ok: true });
+
+    if (!email || !email.trim().endsWith("@finvastra.com")) return ok();
+
+    try {
+      let userRecord: admin.auth.UserRecord;
+      try {
+        userRecord = await admin.auth().getUserByEmail(email.trim());
+      } catch {
+        return ok(); // user not found — don't leak
+      }
+
+      // Block deactivated employees — their Auth account is disabled; reset would
+      // succeed but sign-in would still fail, which is confusing.
+      if (userRecord.disabled) return ok();
+
+      // generatePasswordResetLink issues a valid Firebase oobCode we can reuse
+      const firebaseLink = await admin.auth().generatePasswordResetLink(email.trim(), {
+        url: "https://pulse.finvastra.com/login",
+      });
+
+      const oobCode = new URL(firebaseLink).searchParams.get("oobCode");
+      if (!oobCode) throw new Error("oobCode missing from Firebase link");
+
+      const resetLink =
+        `https://pulse.finvastra.com/auth-action?mode=resetPassword` +
+        `&oobCode=${encodeURIComponent(oobCode)}`;
+
+      const displayName =
+        userRecord.displayName ?? email.split("@")[0];
+
+      await sendGmailMessage(
+        email.trim(),
+        "Reset your Finvastra Pulse password",
+        buildPasswordResetEmail(displayName, resetLink),
+      );
+    } catch (e) {
+      // Log but still return ok — never surface internals to unauthenticated callers
+      console.error("[forgot-password]", e);
+    }
+
+    return ok();
+  });
+
+  // Step 2 — /auth-action page verifies DOB before showing the new-password form.
+  // Accepts { email, dob } where dob is "YYYY-MM-DD" (browser date-input format).
+  // Compares the MM-DD portion against /user_details/{uid}.dateOfBirth (stored MM-DD).
+  // Returns { dobRequired: false } when no DOB is on file (skip the check gracefully).
+  app.post("/api/auth/verify-reset-dob", async (req, res) => {
+    const { email, dob } = req.body as { email?: string; dob?: string };
+    if (!email || !dob) return res.status(400).json({ error: "Missing fields" });
+
+    try {
+      const userRecord = await admin.auth().getUserByEmail(email);
+      const uid        = userRecord.uid;
+
+      const snap = await db.collection("user_details").doc(uid).get();
+      const storedDob = (snap.data()?.dateOfBirth as string | undefined) ?? null;
+
+      if (!storedDob) {
+        // No DOB on file — let the employee proceed without the check
+        return res.json({ dobRequired: false });
+      }
+
+      // storedDob: "MM-DD"   submitted dob: "YYYY-MM-DD" — compare only the MM-DD part
+      const submittedMMDD = dob.substring(5); // e.g. "1990-03-15" → "03-15"
+      if (submittedMMDD !== storedDob) {
+        return res.status(400).json({ error: "Date of birth does not match our records." });
+      }
+
+      return res.json({ ok: true });
+    } catch (e) {
+      console.error("[verify-reset-dob]", e);
+      return res.status(400).json({ error: "Could not verify. Please try again." });
+    }
   });
 
   // ─── Support Tickets ─────────────────────────────────────────────────────────

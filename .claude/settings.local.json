@@ -113,7 +113,10 @@
       "PowerShell(Invoke-RestMethod -Uri \"https://pulse-api-787616231546.asia-south1.run.app/api/health\" -Method GET 2>&1)",
       "PowerShell(try { $r = Invoke-WebRequest -Uri \"https://pulse-api-787616231546.asia-south1.run.app/api/auth/google/url\" -Method GET -UseBasicParsing; Write-Output \"Status: $\\($r.StatusCode\\)\"; Write-Output $r.Content } catch { Write-Output \"Error: $\\($_.Exception.Message\\)\"; Write-Output \"Status: $\\($_.Exception.Response.StatusCode.value__\\)\" })",
       "Bash(gcloud auth *)",
-      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(k,':',v\\) for k,v in d.get\\('scripts',{}\\).items\\(\\)]\")"
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(k,':',v\\) for k,v in d.get\\('scripts',{}\\).items\\(\\)]\")",
+      "Bash(grep -v \"//.*if\")",
+      "Bash(grep -v \"//.*if\\\\|{.*if\\\\|&&\\\\|>\\\\|<\\\\|??\")",
+      "Bash(grep -v \"^--$\")"
     ]
   }
 }

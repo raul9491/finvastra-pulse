@@ -375,10 +375,9 @@ export function useOverdueComplianceCount(enabled: boolean): number {
 export function ComplianceCalendarPage() {
   const { user, profile } = useAuth();
 
-  if (profile?.role !== 'admin' && !profile?.isHrmsManager) {
-    return <Navigate to="/hrms/dashboard" replace />;
-  }
-
+  // ── All hooks unconditionally at the top — Rules of Hooks ───────────────────
+  // The auth guard comes AFTER this block. useState/useCallback/useEffect must
+  // never appear after an early return or React throws Error #300.
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [records,     setRecords]     = useState<ComplianceRecord[]>([]);
   const [loading,     setLoading]     = useState(true);
@@ -430,6 +429,13 @@ export function ComplianceCalendarPage() {
   }, [monthStr, year, month]);
 
   useEffect(() => { loadRecords(); }, [loadRecords]);
+
+  // ── Auth guard (after all hooks) ─────────────────────────────────────────────
+  // Only redirect once profile has loaded. While profile===null the app is still
+  // initialising — redirecting then would break the hook count on the next render.
+  if (profile && profile.role !== 'admin' && !profile.isHrmsManager) {
+    return <Navigate to="/hrms/dashboard" replace />;
+  }
 
   // ── Summary counts (computed live from dueDate, not stored status) ───────────
 

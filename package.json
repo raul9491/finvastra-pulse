@@ -20,7 +20,8 @@
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "build:prod": "tsc --noEmit && vite build",
-    "deploy": "npm run build:prod && firebase target:apply hosting pulse gen-lang-client-0643641184 && firebase deploy --only hosting"
+    "deploy": "npm run build:prod && firebase target:apply hosting pulse gen-lang-client-0643641184 && firebase deploy --only hosting",
+    "test:email": "tsx scripts/test/testEmail.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

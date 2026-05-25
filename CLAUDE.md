@@ -819,6 +819,25 @@ PDF (`payslipPdf.ts`): PT row is suppressed entirely when `professionalTax === 0
   allow delete:        false
 ```
 
+## Add Employee Modal — known issues fixed (2026-05-25)
+
+| Bug | Fix |
+|---|---|
+| **`officialEmail` sent as wrong field name** — server expects `email`, client was sending `officialEmail`, causing "email is required" even when filled | Changed body key to `email` in `AddEmployeeModal.tsx` |
+| **Success screen never showed** — `onCreated()` closed the modal before `setResult()` could render the success UI; user saw nothing | Removed `onCreated()` from `handleSubmit`; Done button in success screen now calls both `onCreated` and `onClose` |
+| **Error message below scroll fold** — error appeared at bottom of long form, outside viewport | Moved error to a red banner at the **top** of the form |
+| **Emp code row caused horizontal scroll** — four `shrink-0` items in a half-width column overflowed the modal | Emp code section now spans full width (`col-span-2`); preview shown inline without overflow |
+| **Official email not marked required** — label gave no indication it was mandatory | Added `*` required marker; client validates presence and `@finvastra.com` suffix before sending |
+
+### Add Employee — required fields
+- **Full Name** — required
+- **Official Email (`@finvastra.com`)** — required; this becomes the Firebase Auth login address and temp password `Finvastra@2026` is set
+
+### Add Employee — field-to-server mapping
+The server endpoint `POST /api/admin/employees/create` expects the official login email as the field **`email`** (not `officialEmail`). All other optional fields are passed through as-is.
+
+---
+
 ## Phase D — Employee Lifecycle, Assets & Access Fixes (2026-05-25)
 
 Full lifecycle management: asset tracking, onboarding/offboarding checklists, FnF settlement, and employee UI access hardening.

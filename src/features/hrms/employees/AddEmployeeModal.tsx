@@ -114,8 +114,12 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
 
   const handleSubmit = async () => {
     if (!form.displayName.trim()) { setError('Full name is required.'); return; }
-    if (form.officialEmail.trim() && !form.officialEmail.trim().endsWith('@finvastra.com')) {
-      setError('Official email must be a @finvastra.com address.');
+    if (!form.officialEmail.trim()) {
+      setError('Official email (@finvastra.com) is required — this is the employee\'s login address.');
+      return;
+    }
+    if (!form.officialEmail.trim().endsWith('@finvastra.com')) {
+      setError('Official email must be a @finvastra.com address (e.g. name@finvastra.com).');
       return;
     }
     setSaving(true); setError('');
@@ -136,7 +140,8 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
         employeeStatus: form.employeeStatus,
         ...(form.joiningDate                ? { joiningDate: form.joiningDate }                      : {}),
         ...(form.lastWorkingDate            ? { lastWorkingDate: form.lastWorkingDate }              : {}),
-        ...(form.officialEmail.trim()       ? { officialEmail: form.officialEmail.trim() }           : {}),
+        // Server reads this as `email` (the @finvastra.com login address)
+        ...(form.officialEmail.trim()       ? { email: form.officialEmail.trim() }                  : {}),
         ...(form.officialPhone.trim()       ? { officialPhone: form.officialPhone.trim() }           : {}),
         ...(form.phone.trim()               ? { phone: form.phone.trim() }                           : {}),
         ...(form.personalEmail.trim()       ? { personalEmail: form.personalEmail.trim() }           : {}),
@@ -271,32 +276,35 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
             {fLabel('Full Name', true)}
             <input className={inp} value={form.displayName} onChange={(e) => set('displayName', e.target.value)} placeholder="e.g. Rahul Vijay Wargia" />
           </div>
-          <div>
+          <div className="col-span-2">
             {fLabel('Emp Code')}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <select
-                className={`${sel} w-28 shrink-0`}
+                className={`${sel} flex-none`}
+                style={{ width: 110 }}
                 value={empPrefix}
                 onChange={(e) => setEmpPrefix(e.target.value as EmpPrefix)}
               >
                 {EMP_PREFIXES.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>
-              <span className="text-slate-400 font-mono text-sm shrink-0">—</span>
+              <span className="text-slate-400 font-mono text-sm">—</span>
               <input
                 type="number"
                 min={1}
-                className={`${inp} w-20 shrink-0`}
+                className={`${inp} flex-none`}
+                style={{ width: 90 }}
                 value={empNumber}
                 onChange={(e) => setEmpNumber(e.target.value)}
                 placeholder={nextForPrefix}
               />
-              <span className="text-xs shrink-0 font-mono font-semibold" style={{ color: '#0A0A0A' }}>
+              <span className="text-sm font-mono font-semibold px-3 py-2 rounded-lg flex-none"
+                style={{ backgroundColor: '#F1F5F9', color: '#0A0A0A' }}>
                 {computedEmpId || `${empPrefix}-${nextForPrefix}`}
               </span>
+              <span className="text-xs ml-1" style={{ color: '#8B8B85' }}>
+                (next available)
+              </span>
             </div>
-            <p className="mt-1 text-xs" style={{ color: '#8B8B85' }}>
-              Next available for {empPrefix}: <span className="font-mono">{empPrefix}-{nextForPrefix}</span>
-            </p>
           </div>
           <div>
             {fLabel('Status')}
@@ -360,7 +368,7 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
             <input type="email" className={inp} value={form.personalEmail} onChange={(e) => set('personalEmail', e.target.value)} placeholder="name@gmail.com" />
           </div>
           <div>
-            {fLabel('Official Email (login)')}
+            {fLabel('Official Email — login address', true)}
             <input type="email" className={inp} value={form.officialEmail} onChange={(e) => set('officialEmail', e.target.value)} placeholder="name@finvastra.com" />
           </div>
           <div>

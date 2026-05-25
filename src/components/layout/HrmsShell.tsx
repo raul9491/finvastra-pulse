@@ -7,6 +7,7 @@ import {
   LayoutDashboard, Users, Clock, CalendarOff, Receipt, CalendarDays,
   Settings, LogOut, LayoutGrid, ClipboardList, FileText, ShieldCheck, UserPlus, Inbox,
   ReceiptText, FolderOpen, Megaphone, Building2, Calculator,
+  Laptop, UserMinus,
 } from 'lucide-react';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -21,6 +22,41 @@ function usePendingRequestCount(enabled: boolean): number {
     if (!enabled) return;
     return onSnapshot(
       query(collection(db, 'access_requests'), where('status', '==', 'pending')),
+      (snap) => setCount(snap.size),
+      () => setCount(0),
+    );
+  }, [enabled]);
+  return count;
+}
+
+/** Count onboarding checklists that are still pending or in_progress */
+function useOnboardingBadge(enabled: boolean): number {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    return onSnapshot(
+      query(
+        collection(db, 'onboarding_checklists'),
+        where('status', 'in', ['pending', 'in_progress']),
+      ),
+      (snap) => setCount(snap.size),
+      () => setCount(0),
+    );
+  }, [enabled]);
+  return count;
+}
+
+/** Count offboarding checklists where checklist is not completed OR fnfStatus is not settled */
+function useOffboardingBadge(enabled: boolean): number {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    // Show badge for open checklists OR unsettled FnF
+    return onSnapshot(
+      query(
+        collection(db, 'offboarding_checklists'),
+        where('fnfStatus', 'in', ['pending', 'calculated']),
+      ),
       (snap) => setCount(snap.size),
       () => setCount(0),
     );
@@ -56,6 +92,12 @@ const ADMIN_NAV: NavEntry[] = [
   { path: '/hrms/admin/announcements',     label: 'Announcements',        icon: Megaphone,     live: true },
 ];
 
+const LIFECYCLE_NAV: NavEntry[] = [
+  { path: '/hrms/admin/assets',       label: 'Assets',       icon: Laptop,    live: true },
+  { path: '/hrms/admin/onboarding',   label: 'Onboarding',   icon: UserPlus,  live: true },
+  { path: '/hrms/admin/offboarding',  label: 'Offboarding',  icon: UserMinus, live: true },
+];
+
 const COMPLIANCE_NAV: NavEntry[] = [
   { path: '/hrms/admin/compliance',  label: 'Compliance Calendar', icon: Building2,   live: true },
   { path: '/hrms/admin/pf-tracker',  label: 'PF Tracker',          icon: Calculator,  live: true },
@@ -85,6 +127,9 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/admin/announcements':   'Announcements — Admin',
   '/hrms/admin/compliance':      'Compliance Calendar',
   '/hrms/admin/pf-tracker':      'PF Tracker',
+  '/hrms/admin/assets':          'Asset Management',
+  '/hrms/admin/onboarding':      'Onboarding',
+  '/hrms/admin/offboarding':     'Offboarding & FnF',
 };
 
 function FullPageLoader() {
@@ -111,6 +156,8 @@ export function HrmsShell() {
   const pendingRequests     = usePendingRequestCount(isAdmin);
   const unreadAnnouncements = useUnreadAnnouncementCount(user?.uid ?? '');
   const overdueCompliance   = useOverdueComplianceCount(isAdmin || isHrmsManager);
+  const onboardingBadge     = useOnboardingBadge(isAdmin || isHrmsManager);
+  const offboardingBadge    = useOffboardingBadge(isAdmin || isHrmsManager);
 
   // Birthday employees (admin/manager only — silently empty for regular employees)
   const { birthdayEmployees } = useBirthdayEmployees(isAdmin || isHrmsManager);
@@ -258,6 +305,42 @@ export function HrmsShell() {
                   <span className="text-sm flex-1">{label}</span>
                 </NavLink>
               ))}
+
+              {/* Lifecycle section */}
+              <div className="px-3 pt-4 pb-2">
+                <p className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: '#475569' }}>
+                  Lifecycle
+                </p>
+              </div>
+              {LIFECYCLE_NAV.map(({ path, label, icon: Icon }) => {
+                const badge =
+                  path === '/hrms/admin/onboarding'  ? onboardingBadge  :
+                  path === '/hrms/admin/offboarding' ? offboardingBadge : 0;
+                return (
+                  <NavLink key={path} to={path} end
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3'}`
+                    }
+                    style={({ isActive }) =>
+                      isActive
+                        ? { backgroundColor: '#1B2A4E', color: '#FFFFFF', borderColor: '#C9A961' }
+                        : { color: '#94A3B8' }
+                    }
+                  >
+                    <Icon size={17} className="shrink-0" />
+                    <span className="text-sm flex-1">{label}</span>
+                    {badge > 0 && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full mr-1 leading-none"
+                        style={{
+                          backgroundColor: path === '/hrms/admin/offboarding' ? '#DC2626' : '#C9A961',
+                          color: path === '/hrms/admin/offboarding' ? '#FFFFFF' : '#0B1538',
+                        }}>
+                        {badge}
+                      </span>
+                    )}
+                  </NavLink>
+                );
+              })}
             </>
           )}
         </div>

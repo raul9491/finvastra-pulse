@@ -819,6 +819,164 @@ PDF (`payslipPdf.ts`): PT row is suppressed entirely when `professionalTax === 0
   allow delete:        false
 ```
 
+## Phase D — Employee Lifecycle, Assets & Access Fixes (2026-05-25)
+
+Full lifecycle management: asset tracking, onboarding/offboarding checklists, FnF settlement, and employee UI access hardening.
+
+| Feature | Status | Files |
+|---|---|---|
+| **EmployeesPage access fixes** | ✅ Complete | `src/features/hrms/employees/EmployeesPage.tsx` |
+| **Employee exit / reactivation flow** | ✅ Complete | `server.ts` (deactivate + reactivate endpoints), `EmployeesPage.tsx` |
+| **Asset Management** | ✅ Complete | `src/features/hrms/assets/AssetsPage.tsx` |
+| **Employee profile assets section** | ✅ Complete | `src/features/hrms/employees/EmployeeProfilePage.tsx` |
+| **Onboarding Checklist** | ✅ Complete | `src/features/hrms/onboarding/OnboardingPage.tsx` |
+| **Offboarding Checklist + FnF** | ✅ Complete | `src/features/hrms/offboarding/OffboardingPage.tsx` |
+| **HrmsShell: Lifecycle nav section + badges** | ✅ Complete | `src/components/layout/HrmsShell.tsx` |
+| **Router: 3 new routes** | ✅ Complete | `src/router.tsx` |
+
+### EmployeesPage access changes
+
+- **Login Status column**: hidden for regular employees; only visible to admin or `isHrmsManager`
+- **Employee list filter**: regular employees see only `status === 'active'` employees; admin/HR manager sees All / Active / Inactive (default: All)
+- **Inactive rows**: shown at `opacity-0.5` with red "Inactive" badge inline in the name cell
+- `canManage` flag: `isAdmin || isHrmsManager` — gates all admin actions and the Login Status column
+
+### Employee exit flow (server-side, requires admin token)
+
+**`POST /api/admin/employees/:uid/deactivate`** — body: `{ lwd, exitReason, notes }`
+1. Validates `exitReason` is a valid `ExitReason` literal
+2. `admin.auth().updateUser(uid, { disabled: true })`
+3. `admin.auth().revokeRefreshTokens(uid)` — immediate session invalidation
+4. Updates `/users/{uid}`: `status=inactive`, `lwd`, `exitReason`, `deactivatedAt`, `deactivatedBy`
+5. Calls `createOffboardingChecklist(uid, ...)` — creates `/offboarding_checklists/{uid}` with 16 items
+6. Writes audit log entry
+
+**`POST /api/admin/employees/:uid/reactivate`** — body: `{ newJoiningDate?, notes? }`
+1. `admin.auth().updateUser(uid, { disabled: false })`
+2. Updates `/users/{uid}`: `status=active`, clears `lwd`/`exitReason`, sets `reactivatedAt`, `reactivatedBy`, `mustResetPassword=true`
+3. Calls `createOnboardingChecklist(uid, ...)` — creates `/onboarding_checklists/{uid}` with 20 items
+4. Writes audit log entry
+
+**Auto-create on new employee**: The `/api/admin/employees/create` endpoint calls `createOnboardingChecklist` in a non-fatal `try/catch` after claims sync.
+
+### Checklist item defaults
+
+**Onboarding (20 items, 4 categories):**
+- `documents` (8): offer letter, appointment letter, POSH acknowledgement, NDA, ID proof, address proof, educational certificates, bank account details
+- `system_access` (4): Google Workspace account, Pulse access, email signature, shared drives
+- `assets` (3): laptop + accessories, SIM card / phone if applicable, access card
+- `induction` (5): office tour, team introduction, HR policy walkthrough, benefits and leave policy, buddy assignment
+
+**Offboarding (16 items, 4 categories):**
+- `knowledge_transfer` (4): handover document, active leads/tasks briefed, credentials transferred, client introductions
+- `assets` (4): laptop return, SIM card return, access card return, any other assets
+- `system_access` (4): Pulse access disabled (auto-completed=true on creation), Google Workspace disabled, email forwarding set, Drive files transferred
+- `documents` (4): resignation acceptance letter, experience letter, NOC, relieving letter
+
+### Asset Management
+
+**Firestore collection**: `/assets/{assetId}`
+
+```
+assetType: 'laptop' | 'sim_card' | 'mobile_phone' | 'access_card' | 'other'
+assetName: string
+serialNumber: string | null
+imei: string | null          ← only for mobile_phone
+simNumber: string | null     ← only for sim_card
+phoneNumber: string | null   ← only for sim_card
+purchaseDate: string | null  (YYYY-MM-DD)
+purchaseValue: number | null
+currentStatus: 'available' | 'assigned' | 'under_repair' | 'retired'
+assignedTo: string | null    ← uid
+assignedToName: string | null
+assignedDate: string | null
+returnedDate: string | null
+condition: 'good' | 'fair' | 'damaged' | null
+notes: string | null
+addedBy: string              ← uid
+addedAt: Timestamp
+updatedAt: Timestamp
+```
+
+**Page** (`/hrms/admin/assets`, admin + isHrmsManager):
+- Summary strip: Total / Assigned / Available / Under Repair counts
+- Filter by type and status; free-text search by name/serial
+- Add/Edit modal: conditional IMEI field (mobile_phone only); conditional SIM/phone fields (sim_card only)
+- Assign modal: `SearchableSelect` for active employees, assign date, condition picker
+- Return modal: return date, condition on return, notes
+- **EmployeeProfilePage** shows currently assigned assets (admin/HR only, live Firestore subscription)
+
+**Firestore rules**:
+```
+/assets/{assetId}
+  allow read:          isAdmin() || isHrmsManager()
+  allow create,update: isAdmin() || isHrmsManager()
+  allow delete:        false
+```
+
+### Onboarding Page
+
+**Path**: `/hrms/admin/onboarding`  
+**Access**: admin + isHrmsManager  
+**Collection**: `/onboarding_checklists/{uid}` (keyed by employee uid)
+
+- List view with gold status strip (Pending / In Progress / Completed) — click strip card to filter
+- Free-text search by employee name
+- Click row → detail view with overall progress bar and items grouped by category
+- Click any item → tick modal: optional notes; toggle complete/incomplete
+- Status auto-advances: `pending → in_progress → completed` as items are ticked; rolls back if items are unticked
+- **HrmsShell badge** (gold): count of pending + in_progress checklists
+
+### Offboarding Page
+
+**Path**: `/hrms/admin/offboarding`  
+**Access**: admin + isHrmsManager  
+**Collection**: `/offboarding_checklists/{uid}` (keyed by employee uid)
+
+- List view with 5 filter cards: All / Pending / In Progress / Completed / FnF Pending
+- **HrmsShell badge** (red): count of checklists with `fnfStatus !== 'settled'`
+- Click row → detail view with checklist (same tick pattern as onboarding) plus FnF panel
+
+**FnF Calculator (all deterministic arithmetic — no AI/LLM)**:
+
+```
+Daily rate          = grossSalary / workingDaysInLastMonth      (default 26)
+Salary for days     = dailyRate × daysWorked
+Leave encashment    = min(earnedLeaveBalance, 30) × dailyRate   (earned leave only, capped 30)
+Gratuity            = (basic / 26) × 15 × tenureYears           (only if tenure ≥ 5 years)
+                      basic ≈ grossSalary × 0.4 (approximation when separate basic not provided)
+Notice deduction    = max(0, noticePeriodDays − noticePeriodServed) × dailyRate
+Net payable         = salary + encashment + gratuity − noticeDeduction − otherDeductions
+```
+
+Joining date and LWD entered as `DD-MM-YYYY` or `YYYY-MM-DD`. Tenure computed with `differenceInYears(lwd, joiningDate)`.
+
+**FnF PDF** (jsPDF + autotable):
+- Navy letterhead, gold "FINVASTRA" wordmark
+- Employee name, LWD, exit reason, generation date
+- Earnings table (salary, leave encashment, gratuity) + Deductions table (notice, other)
+- Green total-payable row
+- Signature line for employee + HR/Management
+- Filename: `FnF_{empCode}_{Name}_{YYYY-MM}.pdf`
+
+**Mark FnF as Settled** modal: payment date (required) + UTR reference (required) → sets `fnfStatus: 'settled'`, `fnfSettledAt`, `fnfSettledBy`.
+
+**`fnfStatus` lifecycle**: `pending → calculated` (after FnF calculator saved) → `settled` (after mark-settled).
+
+### Firestore rules added (Phase D)
+
+```
+/onboarding_checklists/{docId}
+  allow read:          isAdmin() || isHrmsManager()
+  allow create,update: isAdmin() || isHrmsManager()
+  allow delete:        false
+
+/offboarding_checklists/{docId}
+  allow read:          isAdmin() || isHrmsManager()
+  allow create,update: isAdmin() || isHrmsManager()
+  allow delete:        false
+```
+
 ## Authentication rules
 
 - **Only `@finvastra.com` Google Workspace accounts** may log in. Enforced in `onAuthStateChanged` (hard block) — not just the Google picker hint. Personal Gmail addresses are blocked even if they somehow reach the auth flow.

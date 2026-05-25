@@ -1,10 +1,79 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, CheckCircle2, Clock, Pencil, X, Check } from 'lucide-react';
-import { doc, getDoc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { ArrowLeft, ExternalLink, CheckCircle2, Clock, Pencil, X, Check, Laptop, Smartphone, Wifi, CreditCard, Package } from 'lucide-react';
+import { doc, getDoc, updateDoc, setDoc, serverTimestamp, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
-import type { UserProfile, UserDetails, EmployeeProfile } from '../../../types';
+import type { UserProfile, UserDetails, EmployeeProfile, Asset, AssetType } from '../../../types';
+
+// ─── Employee Assets Section ──────────────────────────────────────────────────
+
+const ASSET_TYPE_LABELS: Record<AssetType, string> = {
+  laptop:       'Laptop',
+  sim_card:     'SIM Card',
+  mobile_phone: 'Mobile Phone',
+  access_card:  'Access Card',
+  other:        'Other',
+};
+
+function AssetTypeIcon({ type }: { type: AssetType }) {
+  switch (type) {
+    case 'laptop':       return <Laptop       size={14} />;
+    case 'mobile_phone': return <Smartphone   size={14} />;
+    case 'sim_card':     return <Wifi         size={14} />;
+    case 'access_card':  return <CreditCard   size={14} />;
+    default:             return <Package      size={14} />;
+  }
+}
+
+function EmployeeAssetsSection({ employeeUid }: { employeeUid: string }) {
+  const [assets,  setAssets]  = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'assets'),
+      where('assignedTo', '==', employeeUid),
+      where('currentStatus', '==', 'assigned'),
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setAssets(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Asset));
+      setLoading(false);
+    }, () => setLoading(false));
+    return unsub;
+  }, [employeeUid]);
+
+  if (loading) return <div className="h-20 bg-slate-100 rounded-2xl animate-pulse" />;
+  if (assets.length === 0) return null;
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 p-6">
+      <h3 className="text-sm font-semibold uppercase tracking-widest mb-4" style={{ color: '#8B8B85' }}>
+        Assigned Assets
+      </h3>
+      <div className="space-y-2">
+        {assets.map((asset) => (
+          <div key={asset.id} className="flex items-center gap-3 py-2 border-b border-slate-100 last:border-0">
+            <span style={{ color: '#0B1538' }}>
+              <AssetTypeIcon type={asset.assetType} />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate" style={{ color: '#0A0A0A' }}>{asset.assetName}</p>
+              <p className="text-xs" style={{ color: '#8B8B85' }}>
+                {ASSET_TYPE_LABELS[asset.assetType]}
+                {asset.serialNumber && ` · ${asset.serialNumber}`}
+                {asset.imei && ` · IMEI: ${asset.imei}`}
+              </p>
+            </div>
+            {asset.assignedDate && (
+              <span className="text-xs shrink-0" style={{ color: '#8B8B85' }}>Since {asset.assignedDate}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 
@@ -712,6 +781,9 @@ export function EmployeeProfilePage() {
           />
         )
       )}
+
+      {/* Assigned Assets — admin/HR manager only */}
+      {isAdminOrHr && userId && <EmployeeAssetsSection employeeUid={userId} />}
 
       {/* Edit personal & salary modal */}
       {editingProfile && userId && displayProfile && (

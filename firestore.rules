@@ -576,5 +576,32 @@ service cloud.firestore {
             update: if isAdmin() || isHrmsManager();
       allow delete: if false;
     }
+
+    // ─── HRMS: Asset Management ───────────────────────────────────────────────────
+    // Admin and HRMS managers only — employees do not see the asset inventory.
+    match /assets/{assetId} {
+      allow read:   if isAdmin() || isHrmsManager();
+      allow create,
+            update: if isAdmin() || isHrmsManager();
+      allow delete: if false;
+    }
+
+    // ─── HRMS: Onboarding Checklists ──────────────────────────────────────────────
+    // Admin and HRMS managers only — created on employee add / reactivation.
+    match /onboarding_checklists/{docId} {
+      allow read:   if isAdmin() || isHrmsManager();
+      allow create,
+            update: if isAdmin() || isHrmsManager();
+      allow delete: if false;
+    }
+
+    // ─── HRMS: Offboarding Checklists ─────────────────────────────────────────────
+    // Admin and HRMS managers only — created on employee deactivation.
+    match /offboarding_checklists/{docId} {
+      allow read:   if isAdmin() || isHrmsManager();
+      allow create,
+            update: if isAdmin() || isHrmsManager();
+      allow delete: if false;
+    }
   }
 }

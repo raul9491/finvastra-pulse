@@ -775,6 +775,118 @@ export interface LostDetails {
   capturedBy: string;
 }
 
+// ─── Asset Management ────────────────────────────────────────────────────────
+
+export type AssetType = 'laptop' | 'sim_card' | 'mobile_phone' | 'access_card' | 'other';
+export type AssetStatus = 'available' | 'assigned' | 'under_repair' | 'retired';
+export type AssetCondition = 'good' | 'fair' | 'damaged';
+
+export interface Asset {
+  id: string;
+  assetType: AssetType;
+  assetName: string;
+  serialNumber: string | null;
+  imei: string | null;          // mobile_phone only
+  simNumber: string | null;     // sim_card only
+  phoneNumber: string | null;   // sim_card only
+  purchaseDate: string | null;  // YYYY-MM-DD
+  purchaseValue: number | null;
+  currentStatus: AssetStatus;
+  assignedTo: string | null;    // uid
+  assignedToName: string | null;
+  assignedDate: string | null;  // YYYY-MM-DD
+  returnedDate: string | null;  // YYYY-MM-DD
+  condition: AssetCondition;
+  notes: string | null;
+  addedBy: string;
+  addedAt: import('firebase/firestore').Timestamp;
+  updatedAt: import('firebase/firestore').Timestamp;
+}
+
+// ─── Employee Lifecycle ───────────────────────────────────────────────────────
+
+export type ExitReason =
+  | 'resignation' | 'termination' | 'contract_end'
+  | 'retirement' | 'absconding' | 'other';
+
+export const EXIT_REASON_LABELS: Record<ExitReason, string> = {
+  resignation:   'Resignation',
+  termination:   'Termination',
+  contract_end:  'Contract End',
+  retirement:    'Retirement',
+  absconding:    'Absconding',
+  other:         'Other',
+};
+
+// ─── Onboarding / Offboarding Checklists ─────────────────────────────────────
+
+export type ChecklistItemCategory =
+  | 'documents' | 'system_access' | 'assets' | 'induction' | 'other'
+  | 'knowledge_transfer';
+
+export interface ChecklistItem {
+  id: string;
+  category: ChecklistItemCategory;
+  task: string;
+  completed: boolean;
+  completedAt: import('firebase/firestore').Timestamp | null;
+  completedBy: string | null;   // uid
+  notes: string | null;
+}
+
+export type ChecklistStatus = 'pending' | 'in_progress' | 'completed';
+export type FnFStatus = 'pending' | 'calculated' | 'settled';
+
+export interface FnFDetails {
+  grossSalary: number;
+  workingDaysInLastMonth: number;
+  daysWorked: number;
+  dailyRate: number;
+  salaryForDaysWorked: number;
+  earnedLeaveBalance: number;
+  leaveEncashmentAmount: number;
+  gratuityApplicable: boolean;
+  gratuityAmount: number;
+  noticePeriodDays: number;
+  noticePeriodServed: number;
+  noticePeriodDeduction: number;
+  otherDeductions: number;
+  otherDeductionNotes: string;
+  totalPayable: number;
+  finalizedAt: import('firebase/firestore').Timestamp | null;
+  finalizedBy: string | null;
+  statementGeneratedAt: import('firebase/firestore').Timestamp | null;
+}
+
+export interface OnboardingChecklist {
+  id: string;             // = employeeId (uid)
+  employeeId: string;
+  employeeName: string;
+  joiningDate: string | null;
+  createdAt: import('firebase/firestore').Timestamp;
+  createdBy: string;
+  status: ChecklistStatus;
+  completedAt: import('firebase/firestore').Timestamp | null;
+  items: ChecklistItem[];
+}
+
+export interface OffboardingChecklist {
+  id: string;             // = employeeId (uid)
+  employeeId: string;
+  employeeName: string;
+  lastWorkingDate: string | null;
+  exitReason: ExitReason | null;
+  createdAt: import('firebase/firestore').Timestamp;
+  createdBy: string;
+  status: ChecklistStatus;
+  completedAt: import('firebase/firestore').Timestamp | null;
+  fnfStatus: FnFStatus;
+  fnfSettledAt: import('firebase/firestore').Timestamp | null;
+  fnfSettledBy: string | null;
+  items: ChecklistItem[];
+  fnfDetails: FnFDetails | null;
+}
+
 // ─── Toast ─────────────────────────────────────────────────────────────────
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';

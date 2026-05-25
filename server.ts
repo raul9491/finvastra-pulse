@@ -1559,9 +1559,212 @@ async function startServer() {
         console.warn("[create-employee] setCustomUserClaims failed (non-fatal):", e);
       }
 
+      // Auto-create onboarding checklist (non-fatal — HR can create manually if this fails)
+      try {
+        await createOnboardingChecklist(
+          newUid,
+          typeof displayName === "string" ? displayName : String(displayName),
+          typeof joiningDate === "string" ? joiningDate : null,
+          uid,
+        );
+      } catch (e) {
+        console.warn("[create-employee] createOnboardingChecklist failed (non-fatal):", e);
+      }
+
       return res.json({ uid: newUid, email, empCode: employeeId ?? null, resetLink });
     } catch (e) {
       console.error("create employee error:", e);
+      return res.status(500).json({ error: e instanceof Error ? e.message : "Internal error" });
+    }
+  });
+
+  // ─── Checklist helpers ────────────────────────────────────────────────────────
+
+  function buildOnboardingItems() {
+    return [
+      // Documents
+      { id: "ob_doc_offer",       category: "documents",      task: "Offer letter signed and collected",             completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "ob_doc_appoint",     category: "documents",      task: "Appointment letter issued",                     completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "ob_doc_pan",         category: "documents",      task: "PAN card copy collected",                       completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "ob_doc_aadhaar",     category: "documents",      task: "Aadhaar copy collected (do not store number)",  completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "ob_doc_bank",        category: "documents",      task: "Bank account details collected",                completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "ob_doc_emergency",   category: "documents",      task: "Emergency contact details collected",           completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "ob_doc_edu",         category: "documents",      task: "Educational certificates verified",             completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "ob_doc_prevexp",     category: "documents",      task: "Previous employment documents verified",        completed: false, completedAt: null, completedBy: null, notes: null },
+      // System Access
+      { id: "ob_sys_email",       category: "system_access",  task: "@finvastra.com email created in Google Workspace", completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "ob_sys_pulse",       category: "system_access",  task: "Added to Finvastra Pulse (this system)",       completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "ob_sys_whatsapp",    category: "system_access",  task: "Added to relevant WhatsApp groups",            completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "ob_sys_drive",       category: "system_access",  task: "Added to Google Drive shared folders",         completed: false, completedAt: null, completedBy: null, notes: null },
+      // Assets
+      { id: "ob_asset_laptop",    category: "assets",         task: "Laptop issued (update asset management)",      completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "ob_asset_sim",       category: "assets",         task: "SIM card issued (update asset management)",    completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "ob_asset_card",      category: "assets",         task: "Access card issued (if applicable)",           completed: false, completedAt: null, completedBy: null, notes: null },
+      // Induction
+      { id: "ob_ind_policy",      category: "induction",      task: "HR policy walkthrough done",                   completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "ob_ind_posh",        category: "induction",      task: "POSH policy acknowledged",                     completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "ob_ind_manager",     category: "induction",      task: "Reporting manager introduction done",          completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "ob_ind_team",        category: "induction",      task: "Team introduction done",                       completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "ob_ind_kpi",         category: "induction",      task: "Role and KPIs explained",                      completed: false, completedAt: null, completedBy: null, notes: null },
+    ];
+  }
+
+  function buildOffboardingItems() {
+    return [
+      // Knowledge Transfer
+      { id: "off_kt_handover",   category: "knowledge_transfer", task: "Handover document prepared",                     completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "off_kt_wip",        category: "knowledge_transfer", task: "Work-in-progress handed over to manager",        completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "off_kt_clients",    category: "knowledge_transfer", task: "Client contacts handed over",                    completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "off_kt_creds",      category: "knowledge_transfer", task: "Passwords and credentials handed over",          completed: false, completedAt: null, completedBy: null, notes: null },
+      // Assets
+      { id: "off_asset_laptop",  category: "assets",             task: "Laptop returned and condition checked",          completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "off_asset_sim",     category: "assets",             task: "SIM card returned",                              completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "off_asset_card",    category: "assets",             task: "Access card returned",                           completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "off_asset_other",   category: "assets",             task: "Any other company property returned",            completed: false, completedAt: null, completedBy: null, notes: null },
+      // System Access
+      { id: "off_sys_pulse",     category: "system_access",      task: "Pulse access disabled (auto — done on deactivation)", completed: true,  completedAt: null, completedBy: null, notes: "Auto-completed on deactivation" },
+      { id: "off_sys_email",     category: "system_access",      task: "Google Workspace email disabled",                completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "off_sys_whatsapp",  category: "system_access",      task: "Removed from WhatsApp groups",                   completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "off_sys_drive",     category: "system_access",      task: "Removed from shared Google Drive folders",       completed: false, completedAt: null, completedBy: null, notes: null },
+      // Documents
+      { id: "off_doc_resign",    category: "documents",          task: "Resignation letter received and filed",          completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "off_doc_exp",       category: "documents",          task: "Experience letter issued",                       completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "off_doc_relieve",   category: "documents",          task: "Relieving letter issued",                        completed: false, completedAt: null, completedBy: null, notes: null },
+      { id: "off_doc_form16",    category: "documents",          task: "Form 16 issued (if applicable)",                 completed: false, completedAt: null, completedBy: null, notes: null },
+    ];
+  }
+
+  async function createOnboardingChecklist(
+    uid: string, employeeName: string, joiningDate: string | null, createdBy: string
+  ) {
+    await db.collection("onboarding_checklists").doc(uid).set({
+      employeeId:  uid,
+      employeeName,
+      joiningDate: joiningDate ?? null,
+      createdAt:   admin.firestore.FieldValue.serverTimestamp(),
+      createdBy,
+      status:      "pending",
+      completedAt: null,
+      items:       buildOnboardingItems(),
+    });
+  }
+
+  async function createOffboardingChecklist(
+    uid: string, employeeName: string,
+    lastWorkingDate: string | null, exitReason: string | null, createdBy: string
+  ) {
+    await db.collection("offboarding_checklists").doc(uid).set({
+      employeeId:      uid,
+      employeeName,
+      lastWorkingDate: lastWorkingDate ?? null,
+      exitReason:      exitReason ?? null,
+      createdAt:       admin.firestore.FieldValue.serverTimestamp(),
+      createdBy,
+      status:          "pending",
+      completedAt:     null,
+      fnfStatus:       "pending",
+      fnfSettledAt:    null,
+      fnfSettledBy:    null,
+      items:           buildOffboardingItems(),
+      fnfDetails:      null,
+    });
+  }
+
+  // ─── Deactivate employee ──────────────────────────────────────────────────────
+  // Disables Firebase Auth account, revokes sessions, updates Firestore,
+  // creates offboarding checklist doc, writes audit log.
+  app.post("/api/admin/employees/:uid/deactivate", async (req, res) => {
+    try {
+      const callerUid = await verifyFirebaseToken(req);
+      if (!callerUid) return res.status(401).json({ error: "Unauthorized" });
+      const callerSnap = await db.collection("users").doc(callerUid).get();
+      if (callerSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+
+      const { uid } = req.params;
+      const { lastWorkingDate, exitReason, notes } = req.body as Record<string, string>;
+
+      if (!lastWorkingDate) return res.status(400).json({ error: "lastWorkingDate is required" });
+      if (!exitReason)       return res.status(400).json({ error: "exitReason is required" });
+
+      // 1. Disable Firebase Auth account — employee cannot log in immediately
+      await admin.auth().updateUser(uid, { disabled: true });
+
+      // 2. Revoke all existing sessions — forces token invalidation
+      await admin.auth().revokeRefreshTokens(uid);
+
+      // 3. Update Firestore /users doc
+      const empSnap = await db.collection("users").doc(uid).get();
+      const empName = empSnap.data()?.displayName ?? uid;
+      await db.collection("users").doc(uid).update({
+        employeeStatus: "inactive",
+        lwd:            lastWorkingDate,
+        exitReason,
+        deactivatedAt:  admin.firestore.FieldValue.serverTimestamp(),
+        deactivatedBy:  callerUid,
+      });
+
+      // 4. Create offboarding checklist
+      await createOffboardingChecklist(uid, empName, lastWorkingDate, exitReason, callerUid);
+
+      // 5. Audit log
+      await db.collection("audit_logs").add({
+        actor:      callerUid,
+        action:     "employee_deactivated",
+        targetPath: `/users/${uid}`,
+        after:      { employeeStatus: "inactive", lwd: lastWorkingDate, exitReason, notes: notes ?? null },
+        at:         admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return res.json({ ok: true });
+    } catch (e) {
+      console.error("[deactivate-employee]", e);
+      return res.status(500).json({ error: e instanceof Error ? e.message : "Internal error" });
+    }
+  });
+
+  // ─── Reactivate employee ──────────────────────────────────────────────────────
+  // Re-enables Firebase Auth account, updates Firestore, creates onboarding checklist.
+  app.post("/api/admin/employees/:uid/reactivate", async (req, res) => {
+    try {
+      const callerUid = await verifyFirebaseToken(req);
+      if (!callerUid) return res.status(401).json({ error: "Unauthorized" });
+      const callerSnap = await db.collection("users").doc(callerUid).get();
+      if (callerSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+
+      const { uid } = req.params;
+      const { newJoiningDate, notes } = req.body as Record<string, string>;
+
+      // 1. Re-enable Firebase Auth account
+      await admin.auth().updateUser(uid, { disabled: false });
+
+      // 2. Update Firestore /users doc
+      const empSnap = await db.collection("users").doc(uid).get();
+      const empName = empSnap.data()?.displayName ?? uid;
+      const joiningDate = newJoiningDate || (empSnap.data()?.joiningDate ?? null);
+      await db.collection("users").doc(uid).update({
+        employeeStatus:  "active",
+        lwd:             null,
+        exitReason:      null,
+        reactivatedAt:   admin.firestore.FieldValue.serverTimestamp(),
+        reactivatedBy:   callerUid,
+        mustResetPassword: true,   // fresh login required
+      });
+
+      // 3. Create new onboarding checklist (fresh start)
+      await createOnboardingChecklist(uid, empName, joiningDate, callerUid);
+
+      // 4. Audit log
+      await db.collection("audit_logs").add({
+        actor:      callerUid,
+        action:     "employee_reactivated",
+        targetPath: `/users/${uid}`,
+        after:      { employeeStatus: "active", newJoiningDate: newJoiningDate ?? null, notes: notes ?? null },
+        at:         admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return res.json({ ok: true });
+    } catch (e) {
+      console.error("[reactivate-employee]", e);
       return res.status(500).json({ error: e instanceof Error ? e.message : "Internal error" });
     }
   });

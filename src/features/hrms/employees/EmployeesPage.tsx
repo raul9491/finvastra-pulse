@@ -337,12 +337,16 @@ export function EmployeesPage() {
   const [reactivatingEmp,    setReactivatingEmp]    = useState<UserProfile | null>(null);
   const [showAddModal,       setShowAddModal]       = useState(false);
 
-  // Regular employees only see active employees
+  // Regular employees only see active employees; everyone sorted by emp code
   const visibleEmployees = useMemo(() => {
-    if (!canManage) return employees.filter((e) => (e.employeeStatus ?? 'active') === 'active');
-    if (statusFilter === 'active')   return employees.filter((e) => (e.employeeStatus ?? 'active') === 'active');
-    if (statusFilter === 'inactive') return employees.filter((e) => e.employeeStatus === 'inactive');
-    return employees;
+    // Numeric-aware sort: FAPL-002 < FAPL-010 < FAPL-022
+    const byEmpCode = (a: typeof employees[0], b: typeof employees[0]) =>
+      (a.employeeId ?? '').localeCompare(b.employeeId ?? '', undefined, { numeric: true, sensitivity: 'base' });
+
+    if (!canManage) return employees.filter((e) => (e.employeeStatus ?? 'active') === 'active').sort(byEmpCode);
+    if (statusFilter === 'active')   return employees.filter((e) => (e.employeeStatus ?? 'active') === 'active').sort(byEmpCode);
+    if (statusFilter === 'inactive') return employees.filter((e) => e.employeeStatus === 'inactive').sort(byEmpCode);
+    return [...employees].sort(byEmpCode);
   }, [employees, canManage, statusFilter]);
 
   const filtered = useMemo(() =>

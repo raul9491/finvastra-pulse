@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signInWithEmailAndPassword, type AuthError } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendPasswordResetEmail, type AuthError } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 import { useAuth, SESSION_EXPIRED_KEY } from './AuthContext';
 import { VideoLogo } from '../../components/ui/VideoLogo';
@@ -26,6 +26,8 @@ export function LoginPage() {
   const [submitting,     setSubmitting]     = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [btnHover,       setBtnHover]       = useState(false);
+  const [resetState,     setResetState]     = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [resetError,     setResetError]     = useState('');
 
   useEffect(() => {
     if (sessionStorage.getItem(SESSION_EXPIRED_KEY)) {
@@ -44,6 +46,22 @@ export function LoginPage() {
   const emailValid        = email.endsWith('@finvastra.com');
   const showDomainWarning = emailTouched && email.length > 0 && !emailValid;
   const displayError      = domainError || localError;
+
+  const handleForgotPassword = async () => {
+    if (!emailValid) {
+      setResetError('Enter your @finvastra.com email above first.');
+      return;
+    }
+    setResetState('sending');
+    setResetError('');
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setResetState('sent');
+    } catch {
+      setResetState('error');
+      setResetError('Could not send reset email. Try again or contact your admin.');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,9 +173,20 @@ export function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+                  Password
+                </label>
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={resetState === 'sending' || resetState === 'sent'}
+                  className="text-[11px] font-medium transition-opacity hover:opacity-70 disabled:opacity-40"
+                  style={{ color: '#C9A961' }}
+                >
+                  {resetState === 'sending' ? 'Sending…' : resetState === 'sent' ? 'Email sent ✓' : 'Forgot password?'}
+                </button>
+              </div>
               <input
                 type="password"
                 autoComplete="current-password"
@@ -167,6 +196,14 @@ export function LoginPage() {
                 className={`${inp} border-slate-200`}
                 style={{ color: '#0A0A0A' }}
               />
+              {resetState === 'sent' && (
+                <p className="mt-1.5 text-xs text-green-700 bg-green-50 rounded-lg px-3 py-2">
+                  Password reset link sent to <strong>{email}</strong>. Check your inbox.
+                </p>
+              )}
+              {(resetError || resetState === 'error') && (
+                <p className="mt-1.5 text-xs text-red-600">{resetError}</p>
+              )}
             </div>
 
             <button

@@ -29,6 +29,26 @@ service cloud.firestore {
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
 
+    // ─── Super admin protection ──────────────────────────────────────────────────
+    // These UIDs match SUPER_ADMIN_UIDS in src/config/hrmsConfig.ts.
+    // Hardcoded because rules cannot read env vars.
+    // isSuperAdminUid()    → is the CALLER a super admin?
+    // isSuperAdminTarget() → is the TARGET userId a super admin?
+    function isSuperAdminUid() {
+      return request.auth.uid in [
+        '3zdX5QBnTbQAcTdLzUjfXxefP8r2',  // Ajay Newatia (FAPL-000)
+        'ZmZaciATPDYBb1O2blYWBjjbzMv1',  // Kumar Mangalam (FAPL-003)
+        '5lAbJ4CZ5uM0LbU4gUYItNRAlEn2'   // Rahul Vijay Wargia (FAPL-022)
+      ];
+    }
+    function isSuperAdminTarget(userId) {
+      return userId in [
+        '3zdX5QBnTbQAcTdLzUjfXxefP8r2',
+        'ZmZaciATPDYBb1O2blYWBjjbzMv1',
+        '5lAbJ4CZ5uM0LbU4gUYItNRAlEn2'
+      ];
+    }
+
     // ─── Validation helpers ──────────────────────────────────────────────────────
     // isValidAttendance / isValidLeave removed — Phase 1 helpers superseded by Phase 3
     // HRMS rules at the bottom of this file (use Timestamp-based validation there).
@@ -124,8 +144,11 @@ service cloud.firestore {
           'leaveBalance', 'hasCalendarAccess',
           'mustResetPassword'   // employee clears this after setting their own password
         ])) ||
-        // Admin can update any user field, but crmRole/convertorVertical must be a valid pair
-        (isAdmin() && validCrmRolePair(incoming()))
+        // Admin can update any user field, but:
+        // (a) crmRole/convertorVertical must be a valid pair
+        // (b) super admin accounts can only be updated by another super admin
+        (isAdmin() && validCrmRolePair(incoming()) &&
+         (!isSuperAdminTarget(userId) || isSuperAdminUid()))
       );
     }
 

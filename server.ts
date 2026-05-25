@@ -414,6 +414,15 @@ function validateServerEnv(): void {
 }
 validateServerEnv();
 
+// ─── Super admin protection ───────────────────────────────────────────────────
+// These three accounts cannot be deactivated or have their roles changed by
+// non-super-admins — enforced here and in firestore.rules.
+const SUPER_ADMIN_UIDS_LIST = (process.env.SUPER_ADMIN_UIDS || '')
+  .split(',').map((u: string) => u.trim()).filter(Boolean);
+function isSuperAdmin(uid: string): boolean {
+  return SUPER_ADMIN_UIDS_LIST.includes(uid);
+}
+
 // ─── Firestore-based rate limiter (sliding window, multi-instance safe) ───────
 // Keyed by "{endpoint}:{userId or IP}" in the /rate_limits collection.
 // Uses Firestore transactions so concurrent requests across Cloud Run instances
@@ -656,6 +665,12 @@ async function startServer() {
       if (callerSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
 
       const { uid } = req.params;
+
+      // Protect super admin accounts: only another super admin can sync their claims
+      if (isSuperAdmin(uid) && !isSuperAdmin(callerUid)) {
+        return res.status(403).json({ error: "Only a super admin can modify another super admin's claims." });
+      }
+
       const snap = await db.collection("users").doc(uid).get();
       if (!snap.exists) return res.status(404).json({ error: "User not found" });
       const p = snap.data()!;
@@ -1897,6 +1912,12 @@ async function startServer() {
       if (callerSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
 
       const { uid } = req.params;
+
+      // Super admin accounts are permanently protected — cannot be deactivated by anyone
+      if (isSuperAdmin(uid)) {
+        return res.status(403).json({ error: "Super admin accounts cannot be deactivated." });
+      }
+
       const { lastWorkingDate, exitReason, notes } = req.body as Record<string, string>;
 
       if (!lastWorkingDate) return res.status(400).json({ error: "lastWorkingDate is required" });

@@ -1,7 +1,12 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Modal } from '../../../components/ui/Modal';
+import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
+import {
+  DEPARTMENTS, DESIGNATION_GROUPS,
+  SUPER_ADMIN_UIDS, isSuperAdmin,
+} from '../../../config/hrmsConfig';
 import type { EmployeeStatus } from '../../../types';
 
 const EMP_PREFIXES = ['FAPL', 'FWPL', 'HK', 'CL'] as const;
@@ -22,7 +27,8 @@ interface AddEmployeeForm {
   department: string;
   designation: string;
   location: string;
-  reportingManagerName: string;
+  reportingManagerUid: string;   // stored in Firestore as uid
+  reportingManagerName: string;  // resolved display name, stored alongside
   // Personal
   dateOfBirth: string;
   gender: string;
@@ -53,7 +59,8 @@ const EMPTY: AddEmployeeForm = {
   displayName: '', employeeStatus: 'active',
   joiningDate: '', lastWorkingDate: '',
   phone: '', personalEmail: '', officialEmail: '', officialPhone: '',
-  department: '', designation: '', location: '', reportingManagerName: '',
+  department: '', designation: '', location: '',
+  reportingManagerUid: '', reportingManagerName: '',
   dateOfBirth: '', gender: '', bloodGroup: '', fatherMotherName: '', spouseName: '',
   presentAddress: '', permanentAddress: '',
   salaryBasic: '', salaryHra: '', salaryConveyance: '', salaryMedical: '', salaryOther: '',
@@ -65,13 +72,33 @@ const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
 interface Result { uid: string; tempPassword: string | null }
 
+// Grouped designation <select> with <optgroup> sections
+function DesignationSelect({ value, onChange, className }: {
+  value: string;
+  onChange: (v: string) => void;
+  className?: string;
+}) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} className={className}>
+      <option value="">— Select —</option>
+      {DESIGNATION_GROUPS.map((g) => (
+        <optgroup key={g.group} label={g.group}>
+          {g.designations.map((d) => (
+            <option key={d} value={d}>{d}</option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
+
 export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; onCreated?: () => void }) {
   const { user } = useAuth();
   const { employees } = useAllEmployees();
   const [form, setForm] = useState<AddEmployeeForm>(EMPTY);
   const [saving, setSaving] = useState(false);
-  const [serverError, setServerError] = useState('');          // API / network errors
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});  // inline field errors
+  const [serverError, setServerError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [result, setResult] = useState<Result | null>(null);
   const [sameAddress, setSameAddress] = useState(false);
 
@@ -97,13 +124,38 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
     return `${empPrefix}-${padded}`;
   })();
 
+  // Reporting manager options — super admins first, then admins, then employees.
+  // Format: "[Name] — [Designation]"
+  const managerOptions = useMemo(() => {
+    const sorted = [...employees].sort((a, b) => {
+      const aSuper = isSuperAdmin(a.userId) ? 0 : a.role === 'admin' ? 1 : 2;
+      const bSuper = isSuperAdmin(b.userId) ? 0 : b.role === 'admin' ? 1 : 2;
+      if (aSuper !== bSuper) return aSuper - bSuper;
+      return a.displayName.localeCompare(b.displayName);
+    });
+    return sorted.map((e) => ({
+      value: e.userId,
+      label: `${e.displayName}${e.designation ? ` — ${e.designation}` : ''}`,
+    }));
+  }, [employees]);
+
   const set = (k: keyof AddEmployeeForm, v: string) => {
     setForm((f) => ({ ...f, [k]: v }));
-    // Clear the field error as soon as the user starts correcting it
     if (fieldErrors[k]) setFieldErrors((prev) => { const n = { ...prev }; delete n[k]; return n; });
   };
 
-  // Auto-compute gross when components change
+  // When reporting manager UID is selected, also resolve and store their name
+  const setReportingManager = (uid: string) => {
+    const emp = employees.find((e) => e.userId === uid);
+    setForm((f) => ({
+      ...f,
+      reportingManagerUid:  uid,
+      reportingManagerName: emp?.displayName ?? '',
+    }));
+    if (fieldErrors.reportingManagerUid)
+      setFieldErrors((prev) => { const n = { ...prev }; delete n.reportingManagerUid; return n; });
+  };
+
   const computedGross =
     (Number(form.salaryBasic) || 0) +
     (Number(form.salaryHra) || 0) +
@@ -117,7 +169,6 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
   };
 
   const handleSubmit = async () => {
-    // ── Field-level validation ─────────────────────────────────────────────────
     const errs: Record<string, string> = {};
     if (!form.displayName.trim())
       errs.displayName = 'Full name is required';
@@ -149,7 +200,6 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
         employeeStatus: form.employeeStatus,
         ...(form.joiningDate                ? { joiningDate: form.joiningDate }                      : {}),
         ...(form.lastWorkingDate            ? { lastWorkingDate: form.lastWorkingDate }              : {}),
-        // Server reads this as `email` (the @finvastra.com login address)
         ...(form.officialEmail.trim()       ? { email: form.officialEmail.trim() }                  : {}),
         ...(form.officialPhone.trim()       ? { officialPhone: form.officialPhone.trim() }           : {}),
         ...(form.phone.trim()               ? { phone: form.phone.trim() }                           : {}),
@@ -157,6 +207,7 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
         ...(form.department.trim()          ? { department: form.department.trim() }                 : {}),
         ...(form.designation.trim()         ? { designation: form.designation.trim() }               : {}),
         ...(form.location.trim()            ? { location: form.location.trim() }                     : {}),
+        ...(form.reportingManagerUid        ? { reportingManagerUid: form.reportingManagerUid }      : {}),
         ...(form.reportingManagerName       ? { reportingManagerName: form.reportingManagerName }    : {}),
         ...(dob                             ? { dateOfBirth: dob }                                   : {}),
         ...(form.gender                     ? { gender: form.gender }                                : {}),
@@ -173,7 +224,6 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
         ...(computedGross > 0               ? { grossSalary: computedGross }                         : {}),
       };
 
-      // Bank accounts sent separately so server stores in /employee_sensitive
       const bankData = {
         personalBank: {
           name: form.personalBankName.trim() || null,
@@ -198,7 +248,6 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to create employee');
-      // Show success screen first — onCreated is called when user clicks Done
       setResult(data as Result);
     } catch (e) {
       setServerError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
@@ -207,13 +256,12 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
     }
   };
 
-  // ── Style helpers ─────────────────────────────────────────────────────────
   const baseInp = 'w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-white transition-colors';
-  const inp     = (field?: string) =>
+  const inp = (field?: string) =>
     `${baseInp} ${field && fieldErrors[field]
       ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30'
       : 'border-slate-200 focus:ring-navy'}`;
-  const sel     = (field?: string) => `${inp(field)}`;
+  const sel = (field?: string) => `${inp(field)}`;
 
   const fLabel = (text: string, field?: string, required = false) => (
     <label className="block text-xs font-semibold uppercase tracking-wider mb-1"
@@ -232,7 +280,6 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
     </div>
   );
 
-  // Success state
   if (result) {
     const handleDone = () => { onCreated?.(); onClose(); };
     return (
@@ -276,7 +323,6 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
       }>
       <div className="space-y-4">
 
-        {/* Server/network error banner — validation errors are shown inline on each field */}
         {serverError && (
           <div className="flex items-start gap-2 px-4 py-3 rounded-xl text-sm"
             style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626' }}>
@@ -295,31 +341,17 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
           <div className="col-span-2">
             {fLabel('Emp Code')}
             <div className="flex items-center gap-2">
-              <select
-                className={`${sel()} flex-none`}
-                style={{ width: 110 }}
-                value={empPrefix}
-                onChange={(e) => setEmpPrefix(e.target.value as EmpPrefix)}
-              >
+              <select className={`${sel()} flex-none`} style={{ width: 110 }} value={empPrefix} onChange={(e) => setEmpPrefix(e.target.value as EmpPrefix)}>
                 {EMP_PREFIXES.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>
               <span className="text-slate-400 font-mono text-sm">—</span>
-              <input
-                type="number"
-                min={1}
-                className={`${inp()} flex-none`}
-                style={{ width: 90 }}
-                value={empNumber}
-                onChange={(e) => setEmpNumber(e.target.value)}
-                placeholder={nextForPrefix}
-              />
+              <input type="number" min={1} className={`${inp()} flex-none`} style={{ width: 90 }}
+                value={empNumber} onChange={(e) => setEmpNumber(e.target.value)} placeholder={nextForPrefix} />
               <span className="text-sm font-mono font-semibold px-3 py-2 rounded-lg flex-none"
                 style={{ backgroundColor: '#F1F5F9', color: '#0A0A0A' }}>
                 {computedEmpId || `${empPrefix}-${nextForPrefix}`}
               </span>
-              <span className="text-xs ml-1" style={{ color: '#8B8B85' }}>
-                (next available)
-              </span>
+              <span className="text-xs ml-1" style={{ color: '#8B8B85' }}>(next available)</span>
             </div>
           </div>
           <div>
@@ -398,11 +430,14 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
         <div className="grid grid-cols-2 gap-3">
           <div>
             {fLabel('Department')}
-            <input className={inp()} value={form.department} onChange={(e) => set('department', e.target.value)} placeholder="e.g. BD & Client Relations" />
+            <select className={sel()} value={form.department} onChange={(e) => set('department', e.target.value)}>
+              <option value="">— Select —</option>
+              {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
           </div>
           <div>
             {fLabel('Designation')}
-            <input className={inp()} value={form.designation} onChange={(e) => set('designation', e.target.value)} placeholder="e.g. Sales Manager" />
+            <DesignationSelect value={form.designation} onChange={(v) => set('designation', v)} className={sel()} />
           </div>
           <div>
             {fLabel('Location')}
@@ -410,12 +445,14 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
           </div>
           <div>
             {fLabel('Reporting Manager')}
-            <select className={sel()} value={form.reportingManagerName} onChange={(e) => set('reportingManagerName', e.target.value)}>
-              <option value="">— Select —</option>
-              {employees.map((e) => (
-                <option key={e.userId} value={e.displayName}>{e.displayName}{e.designation ? ` (${e.designation})` : ''}</option>
-              ))}
-            </select>
+            {/* SearchableSelect — super admins shown first, then admins, then employees */}
+            <SearchableSelect
+              options={managerOptions}
+              value={form.reportingManagerUid}
+              onChange={setReportingManager}
+              placeholder="Search and select manager…"
+              emptyMessage="No employees found"
+            />
           </div>
         </div>
 
@@ -477,7 +514,7 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
           )}
         </div>
 
-        {/* ── Bank Accounts (admin-only storage) ── */}
+        {/* ── Bank Accounts ── */}
         {sectionHead('Bank Accounts')}
         <div className="rounded-lg px-3.5 py-2.5 text-xs mb-2" style={{ backgroundColor: '#DBEAFE', color: '#1D4ED8' }}>
           Stored in a restricted collection — readable only by admin and the employee themselves.
@@ -485,42 +522,17 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
         <div className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#8B8B85' }}>Personal Account</p>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              {fLabel('Bank Name')}
-              <input className={inp()} value={form.personalBankName} onChange={(e) => set('personalBankName', e.target.value)} placeholder="e.g. HDFC Bank" />
-            </div>
-            <div>
-              {fLabel('Branch')}
-              <input className={inp()} value={form.personalBankBranch} onChange={(e) => set('personalBankBranch', e.target.value)} placeholder="e.g. Somajiguda" />
-            </div>
-            <div>
-              {fLabel('Account Number')}
-              <input className={inp()} value={form.personalBankAcct} onChange={(e) => set('personalBankAcct', e.target.value)} placeholder="Account number" />
-            </div>
-            <div>
-              {fLabel('IFSC Code')}
-              <input className={`${inp()} uppercase`} value={form.personalBankIfsc} onChange={(e) => set('personalBankIfsc', e.target.value.toUpperCase())} placeholder="e.g. HDFC0000512" />
-            </div>
+            <div>{fLabel('Bank Name')}<input className={inp()} value={form.personalBankName} onChange={(e) => set('personalBankName', e.target.value)} placeholder="e.g. HDFC Bank" /></div>
+            <div>{fLabel('Branch')}<input className={inp()} value={form.personalBankBranch} onChange={(e) => set('personalBankBranch', e.target.value)} placeholder="e.g. Somajiguda" /></div>
+            <div>{fLabel('Account Number')}<input className={inp()} value={form.personalBankAcct} onChange={(e) => set('personalBankAcct', e.target.value)} placeholder="Account number" /></div>
+            <div>{fLabel('IFSC Code')}<input className={`${inp()} uppercase`} value={form.personalBankIfsc} onChange={(e) => set('personalBankIfsc', e.target.value.toUpperCase())} placeholder="e.g. HDFC0000512" /></div>
           </div>
-
           <p className="text-xs font-semibold uppercase tracking-wider pt-1" style={{ color: '#8B8B85' }}>Official / Salary Account</p>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              {fLabel('Bank Name')}
-              <input className={inp()} value={form.officialBankName} onChange={(e) => set('officialBankName', e.target.value)} placeholder="e.g. Indian Overseas Bank" />
-            </div>
-            <div>
-              {fLabel('Branch')}
-              <input className={inp()} value={form.officialBankBranch} onChange={(e) => set('officialBankBranch', e.target.value)} placeholder="e.g. Koti" />
-            </div>
-            <div>
-              {fLabel('Account Number')}
-              <input className={inp()} value={form.officialBankAcct} onChange={(e) => set('officialBankAcct', e.target.value)} placeholder="Account number" />
-            </div>
-            <div>
-              {fLabel('IFSC Code')}
-              <input className={`${inp()} uppercase`} value={form.officialBankIfsc} onChange={(e) => set('officialBankIfsc', e.target.value.toUpperCase())} placeholder="e.g. IOBA0002757" />
-            </div>
+            <div>{fLabel('Bank Name')}<input className={inp()} value={form.officialBankName} onChange={(e) => set('officialBankName', e.target.value)} placeholder="e.g. Indian Overseas Bank" /></div>
+            <div>{fLabel('Branch')}<input className={inp()} value={form.officialBankBranch} onChange={(e) => set('officialBankBranch', e.target.value)} placeholder="e.g. Koti" /></div>
+            <div>{fLabel('Account Number')}<input className={inp()} value={form.officialBankAcct} onChange={(e) => set('officialBankAcct', e.target.value)} placeholder="Account number" /></div>
+            <div>{fLabel('IFSC Code')}<input className={`${inp()} uppercase`} value={form.officialBankIfsc} onChange={(e) => set('officialBankIfsc', e.target.value.toUpperCase())} placeholder="e.g. IOBA0002757" /></div>
           </div>
         </div>
 

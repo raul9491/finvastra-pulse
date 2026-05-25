@@ -7,6 +7,7 @@ import { auth, db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import type { UserProfile, CrmRole, MisAccess } from '../../../types';
+import { isSuperAdmin, SUPER_ADMIN_LABELS } from '../../../config/hrmsConfig';
 
 async function syncClaims(targetUid: string): Promise<void> {
   const currentUser = auth.currentUser;
@@ -81,6 +82,7 @@ function AccessRow({
   onSelect: (checked: boolean) => void;
 }) {
   const [saving, setSaving] = useState(false);
+  const isSA = isSuperAdmin(employee.userId);
 
   const sel = 'text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white outline-none focus:ring-2 focus:ring-navy/10';
 
@@ -103,6 +105,51 @@ function AccessRow({
 
   const initials = employee.displayName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
 
+  // ── Super admin row: show protected badge, no editable controls ──────────────
+  if (isSA) {
+    return (
+      <tr className="border-b border-slate-100"
+        style={{ backgroundColor: 'rgba(201,169,97,0.04)' }}>
+        {/* Checkbox — disabled for super admins */}
+        <td className="px-4 py-3">
+          <input type="checkbox" disabled className="w-4 h-4 rounded opacity-25 cursor-not-allowed" />
+        </td>
+
+        {/* Employee */}
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-3">
+            {employee.photoURL ? (
+              <img src={employee.photoURL} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+            ) : (
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
+                {initials}
+              </div>
+            )}
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium text-ink">{employee.displayName}</p>
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#9A7E3F' }}>
+                  ★ Super Admin
+                </span>
+              </div>
+              <p className="text-xs text-mute">{employee.email}</p>
+            </div>
+          </div>
+        </td>
+
+        {/* All 5 control columns merged — shows hierarchy label */}
+        <td colSpan={5} className="px-4 py-3">
+          <span className="text-xs font-medium" style={{ color: '#9A7E3F' }}>
+            {SUPER_ADMIN_LABELS[employee.userId] ?? 'Super Admin'} — permissions are permanently protected and cannot be changed from this UI.
+          </span>
+        </td>
+      </tr>
+    );
+  }
+
+  // ── Regular employee row ─────────────────────────────────────────────────────
   return (
     <tr className={`border-b border-slate-100 transition-colors ${saving ? 'opacity-60' : 'hover:bg-slate-50/60'}`}>
       {/* Checkbox */}
@@ -312,10 +359,12 @@ export function AccessManagementPage() {
   // ── Guard (after all hooks) ─────────────────────────────────────────────────
   if (profile && profile.role !== 'admin') return <Navigate to="/hrms/dashboard" replace />;
 
-  const allSelected = filtered.length > 0 && filtered.every((e) => selectedIds.has(e.userId));
+  // Super admins are never selectable for bulk actions
+  const selectableFiltered = filtered.filter((e) => !isSuperAdmin(e.userId));
+  const allSelected = selectableFiltered.length > 0 && selectableFiltered.every((e) => selectedIds.has(e.userId));
 
   function toggleAll(checked: boolean) {
-    setSelectedIds(checked ? new Set(filtered.map((e) => e.userId)) : new Set());
+    setSelectedIds(checked ? new Set(selectableFiltered.map((e) => e.userId)) : new Set());
   }
 
   const filterChips: Array<{ key: typeof filter; label: string; count: number }> = [

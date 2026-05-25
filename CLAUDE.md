@@ -276,6 +276,51 @@ Four Firestore collections. Access gated by `misAccess: 'admin' | 'viewer'` on t
 Requires: `.env` file with `GOOGLE_SA_KEY_PATH` and `MIS_REPORT_SHEET_ID`.
 See `scripts/python/README.md` for full setup and scheduling instructions.
 
+## Platform Hierarchy & Super Admins
+
+Three accounts have permanent, elevated protection. They cannot be deactivated, and their permissions cannot be changed by non-super-admins — enforced in `server.ts`, `firestore.rules`, `AccessManagementPage.tsx`, and `EmployeesPage.tsx`.
+
+| # | Name | Emp Code | Firebase UID | Hierarchy Label |
+|---|------|----------|--------------|-----------------|
+| 1 | Ajay Newatia | FAPL-000 | `3zdX5QBnTbQAcTdLzUjfXxefP8r2` | Co-Founder & Owner |
+| 2 | Kumar Mangalam | FAPL-003 | `ZmZaciATPDYBb1O2blYWBjjbzMv1` | Director — Operations |
+| 3 | Rahul Vijay Wargia | FAPL-022 | `5lAbJ4CZ5uM0LbU4gUYItNRAlEn2` | Tech & Builder |
+
+**Single source of truth**: `src/config/hrmsConfig.ts` — `SUPER_ADMIN_UIDS`, `SUPER_ADMIN_LABELS`, `isSuperAdmin()`.
+
+**Enforcement points**:
+- **`server.ts`** — `SUPER_ADMIN_UIDS_LIST` parsed from `process.env.SUPER_ADMIN_UIDS`. Deactivate endpoint returns 403 for super admin targets. Sync-claims endpoint requires caller to also be a super admin to modify a super admin.
+- **`firestore.rules`** — `isSuperAdminUid()` (is caller protected?) and `isSuperAdminTarget(userId)` (is target protected?) with UIDs hardcoded. `/users/{uid}` update rule: admin cannot modify a super admin doc unless the caller is also a super admin.
+- **`AccessManagementPage.tsx`** — Super admin rows show a gold "★ Super Admin" badge + hierarchy label. All permission controls are hidden. Rows are excluded from bulk selection.
+- **`EmployeesPage.tsx`** — Super admin rows show "★ Super Admin" badge. "Mark as Exited" button is hidden. Rows are excluded from bulk edit selection.
+
+**Cloud Run env var**: `SUPER_ADMIN_UIDS=3zdX5QBnTbQAcTdLzUjfXxefP8r2,ZmZaciATPDYBb1O2blYWBjjbzMv1,5lAbJ4CZ5uM0LbU4gUYItNRAlEn2`
+
+### Standard Departments
+
+```
+Management · Business Development & Client Relations · Digital Marketing · Human Resources
+Finance & Accounts · Technology · Operations · Admin & Facilities · Housekeeping · Consultant
+```
+
+Defined in `src/config/hrmsConfig.ts` as `DEPARTMENTS` const array. Used as `<select>` in all department dropdowns (AddEmployeeModal, employee edit modals).
+
+### Standard Designations (grouped for `<optgroup>`)
+
+| Group | Designations |
+|-------|-------------|
+| Founder | Co-Founder & Director |
+| Senior Management | Director — Operations, Director — Finance, Director — Technology |
+| Mid Management | Vice President, Assistant Vice President |
+| Team Lead | Senior Manager |
+| Executive | Manager |
+| Junior | Sales Manager, Relationship Manager |
+| Entry Level | Jr. Relationship Manager, Telesales Officer |
+| Support | Digital Content Manager, Accountant Officer, Office Assistant |
+| Non-Staff | Consultant, Housekeeping |
+
+Defined in `DESIGNATIONS` (flat TypeScript const) and `DESIGNATION_GROUPS` (grouped for `<optgroup>`) in `src/config/hrmsConfig.ts`.
+
 ## HRMS Data Model (Phase 3)
 
 Five Firestore collections. All timestamps are `serverTimestamp()` — no client-clock dates.

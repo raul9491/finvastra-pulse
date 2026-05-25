@@ -1,0 +1,130 @@
+// ─── Standard departments ─────────────────────────────────────────────────────
+// Single source of truth for all department dropdowns across the platform.
+// Keep sorted by org chart level (management → functional → support).
+
+export const DEPARTMENTS = [
+  'Management',
+  'Business Development & Client Relations',
+  'Digital Marketing',
+  'Human Resources',
+  'Finance & Accounts',
+  'Technology',
+  'Operations',
+  'Admin & Facilities',
+  'Housekeeping',
+  'Consultant',
+] as const;
+
+export type Department = (typeof DEPARTMENTS)[number];
+
+// ─── Standard designations ────────────────────────────────────────────────────
+// Flat list for TypeScript typing. Use DESIGNATION_GROUPS for <select> rendering.
+
+export const DESIGNATIONS = [
+  // Founder level
+  'Co-Founder & Director',
+  // Senior Management
+  'Director — Operations',
+  'Director — Finance',
+  'Director — Technology',
+  // Management
+  'Vice President',
+  'Assistant Vice President',
+  'Senior Manager',
+  'Manager',
+  // Executive
+  'Sales Manager',
+  'Relationship Manager',
+  // Junior
+  'Jr. Relationship Manager',
+  'Telesales Officer',
+  // Specialist / Support
+  'Digital Content Manager',
+  'Accountant Officer',
+  'Office Assistant',
+  // Non-staff
+  'Consultant',
+  'Housekeeping',
+] as const;
+
+export type Designation = (typeof DESIGNATIONS)[number];
+
+// ─── Grouped designation options for <select> with <optgroup> ─────────────────
+// HR sees visually separated tiers in every designation dropdown.
+
+export const DESIGNATION_GROUPS = [
+  {
+    group: 'Founder',
+    designations: ['Co-Founder & Director'],
+  },
+  {
+    group: 'Senior Management',
+    designations: [
+      'Director — Operations',
+      'Director — Finance',
+      'Director — Technology',
+    ],
+  },
+  {
+    group: 'Mid Management',
+    designations: ['Vice President', 'Assistant Vice President'],
+  },
+  {
+    group: 'Team Lead',
+    designations: ['Senior Manager'],
+  },
+  {
+    group: 'Executive',
+    designations: ['Manager'],
+  },
+  {
+    group: 'Junior',
+    designations: [
+      'Sales Manager',
+      'Relationship Manager',
+    ],
+  },
+  {
+    group: 'Entry Level',
+    designations: [
+      'Jr. Relationship Manager',
+      'Telesales Officer',
+    ],
+  },
+  {
+    group: 'Support',
+    designations: [
+      'Digital Content Manager',
+      'Accountant Officer',
+      'Office Assistant',
+    ],
+  },
+  {
+    group: 'Non-Staff',
+    designations: ['Consultant', 'Housekeeping'],
+  },
+] as const;
+
+// ─── Super admin UIDs ─────────────────────────────────────────────────────────
+// In authority order. These accounts cannot be deactivated or have their roles
+// changed by non-super-admins — enforced in both server.ts and firestore.rules.
+// UIDs are stable Firebase Auth identifiers, not editable via the UI.
+
+export const SUPER_ADMIN_UIDS = [
+  '3zdX5QBnTbQAcTdLzUjfXxefP8r2', // Ajay Newatia     (FAPL-000) — Co-Founder & Owner
+  'ZmZaciATPDYBb1O2blYWBjjbzMv1', // Kumar Mangalam   (FAPL-003) — Director Operations
+  '5lAbJ4CZ5uM0LbU4gUYItNRAlEn2', // Rahul Vijay Wargia (FAPL-022) — Tech & Builder
+] as const;
+
+export type SuperAdminUid = (typeof SUPER_ADMIN_UIDS)[number];
+
+// Hierarchy label shown in the Access Management "Super Admin" badge.
+export const SUPER_ADMIN_LABELS: Record<string, string> = {
+  '3zdX5QBnTbQAcTdLzUjfXxefP8r2': 'Co-Founder & Owner',
+  'ZmZaciATPDYBb1O2blYWBjjbzMv1': 'Director — Operations',
+  '5lAbJ4CZ5uM0LbU4gUYItNRAlEn2': 'Tech & Builder',
+};
+
+export function isSuperAdmin(uid: string): boolean {
+  return (SUPER_ADMIN_UIDS as readonly string[]).includes(uid);
+}

@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import {
   collection, onSnapshot, doc, updateDoc, serverTimestamp,
-  query, orderBy, getDoc,
+  query, orderBy, getDoc, getDocs, setDoc, where,
 } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import {
   UserPlus, ChevronLeft, Check, Clock, CheckCircle2,
-  FileText, Monitor, Package, BookOpen, Circle,
+  FileText, Monitor, Package, BookOpen, Circle, Zap,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import type {
@@ -268,6 +268,37 @@ function ChecklistDetail({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
+// ─── Default checklist items (mirrors server.ts buildOnboardingItems) ──────────
+
+function buildDefaultOnboardingItems(): ChecklistItem[] {
+  return [
+    // Documents
+    { id: 'ob_doc_offer',     category: 'documents',     task: 'Offer letter signed and collected',                  completed: false, completedAt: null, completedBy: null, notes: null },
+    { id: 'ob_doc_appoint',   category: 'documents',     task: 'Appointment letter issued',                          completed: false, completedAt: null, completedBy: null, notes: null },
+    { id: 'ob_doc_pan',       category: 'documents',     task: 'PAN card copy collected',                            completed: false, completedAt: null, completedBy: null, notes: null },
+    { id: 'ob_doc_aadhaar',   category: 'documents',     task: 'Aadhaar copy collected (do not store number)',       completed: false, completedAt: null, completedBy: null, notes: null },
+    { id: 'ob_doc_bank',      category: 'documents',     task: 'Bank account details collected',                     completed: false, completedAt: null, completedBy: null, notes: null },
+    { id: 'ob_doc_emergency', category: 'documents',     task: 'Emergency contact details collected',                completed: false, completedAt: null, completedBy: null, notes: null },
+    { id: 'ob_doc_edu',       category: 'documents',     task: 'Educational certificates verified',                  completed: false, completedAt: null, completedBy: null, notes: null },
+    { id: 'ob_doc_prevexp',   category: 'documents',     task: 'Previous employment documents verified',             completed: false, completedAt: null, completedBy: null, notes: null },
+    // System Access
+    { id: 'ob_sys_email',     category: 'system_access', task: '@finvastra.com email created in Google Workspace',   completed: false, completedAt: null, completedBy: null, notes: null },
+    { id: 'ob_sys_pulse',     category: 'system_access', task: 'Added to Finvastra Pulse (this system)',             completed: false, completedAt: null, completedBy: null, notes: null },
+    { id: 'ob_sys_whatsapp',  category: 'system_access', task: 'Added to relevant WhatsApp groups',                  completed: false, completedAt: null, completedBy: null, notes: null },
+    { id: 'ob_sys_drive',     category: 'system_access', task: 'Added to Google Drive shared folders',               completed: false, completedAt: null, completedBy: null, notes: null },
+    // Assets
+    { id: 'ob_asset_laptop',  category: 'assets',        task: 'Laptop issued (update asset management)',            completed: false, completedAt: null, completedBy: null, notes: null },
+    { id: 'ob_asset_sim',     category: 'assets',        task: 'SIM card issued (update asset management)',          completed: false, completedAt: null, completedBy: null, notes: null },
+    { id: 'ob_asset_card',    category: 'assets',        task: 'Access card issued (if applicable)',                 completed: false, completedAt: null, completedBy: null, notes: null },
+    // Induction
+    { id: 'ob_ind_policy',    category: 'induction',     task: 'HR policy walkthrough done',                         completed: false, completedAt: null, completedBy: null, notes: null },
+    { id: 'ob_ind_posh',      category: 'induction',     task: 'POSH policy acknowledged',                           completed: false, completedAt: null, completedBy: null, notes: null },
+    { id: 'ob_ind_manager',   category: 'induction',     task: 'Reporting manager introduction done',                completed: false, completedAt: null, completedBy: null, notes: null },
+    { id: 'ob_ind_team',      category: 'induction',     task: 'Team introduction done',                             completed: false, completedAt: null, completedBy: null, notes: null },
+    { id: 'ob_ind_kpi',       category: 'induction',     task: 'Role and KPIs explained',                            completed: false, completedAt: null, completedBy: null, notes: null },
+  ];
+}
+
 export function OnboardingPage() {
   const { profile, user } = useAuth();
 
@@ -277,10 +308,57 @@ export function OnboardingPage() {
   const [statusFilter, setStatusFilter] = useState<ChecklistStatus | 'all'>('all');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<OnboardingChecklist | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [generateResult, setGenerateResult] = useState<string | null>(null);
 
   const isAdmin = profile?.role === 'admin';
   const isHrmsManager = !!profile?.isHrmsManager;
   const canAccess = isAdmin || isHrmsManager;
+
+  // ── Bulk generate for all active employees ─────────────────────────────────
+  const handleGenerateAll = async () => {
+    if (!user?.uid) return;
+    setGenerating(true);
+    setGenerateResult(null);
+    try {
+      // Fetch all active employees
+      const usersSnap = await getDocs(
+        query(collection(db, 'users'), where('employeeStatus', '!=', 'inactive'))
+      );
+      // IDs that already have a checklist
+      const existingIds = new Set(checklists.map(c => c.id));
+
+      let created = 0;
+      const writes = usersSnap.docs
+        .filter(d => !existingIds.has(d.id))
+        .map(async d => {
+          const u = d.data();
+          await setDoc(doc(db, 'onboarding_checklists', d.id), {
+            employeeId:   d.id,
+            employeeName: u.displayName ?? 'Unknown',
+            joiningDate:  u.joiningDate ?? null,
+            createdAt:    serverTimestamp(),
+            createdBy:    user.uid,
+            status:       'pending',
+            completedAt:  null,
+            items:        buildDefaultOnboardingItems(),
+          });
+          created++;
+        });
+
+      await Promise.all(writes);
+      setGenerateResult(
+        created === 0
+          ? 'All active employees already have checklists.'
+          : `Created ${created} onboarding checklist${created !== 1 ? 's' : ''}.`
+      );
+    } catch (e) {
+      setGenerateResult('Error generating checklists — please try again.');
+      console.error(e);
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   useEffect(() => {
     if (!canAccess) return;
@@ -322,7 +400,7 @@ export function OnboardingPage() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl" style={{ background: '#EFF6FF' }}>
             <UserPlus size={20} style={{ color: '#1D4ED8' }} />
@@ -331,6 +409,28 @@ export function OnboardingPage() {
             <h1 className="text-xl font-semibold text-ink">Onboarding</h1>
             <p className="text-sm text-muted">{checklists.length} checklist{checklists.length !== 1 ? 's' : ''}</p>
           </div>
+        </div>
+        <div className="flex flex-col items-end gap-1.5">
+          <button
+            onClick={handleGenerateAll}
+            disabled={generating}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
+            style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
+          >
+            <Zap size={14} />
+            {generating ? 'Generating…' : 'Generate for all active employees'}
+          </button>
+          {generateResult && (
+            <p className={`text-xs px-3 py-1.5 rounded-lg ${
+              generateResult.startsWith('Error')
+                ? 'bg-red-50 text-red-600'
+                : generateResult.includes('already')
+                ? 'bg-slate-100 text-muted'
+                : 'bg-green-50 text-green-700'
+            }`}>
+              {generateResult}
+            </p>
+          )}
         </div>
       </div>
 

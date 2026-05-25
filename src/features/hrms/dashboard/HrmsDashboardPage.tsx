@@ -1,8 +1,8 @@
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
-  isWeekend, parseISO, isAfter,
+  isWeekend, parseISO,
 } from 'date-fns';
 import {
   Clock, CalendarOff, CalendarDays, Receipt, ChevronRight,
@@ -16,7 +16,8 @@ import { useMyLeaveBalance, usePendingApprovals } from '../hooks/useLeave';
 import { useHolidays, seedHolidays2026 } from '../hooks/useHolidays';
 import { useMyPayslips } from '../hooks/usePayslips';
 import { useAnnouncements, markAnnouncementRead, useUnreadAnnouncementCount } from '../hooks/useAnnouncements';
-import type { UserProfile } from '../../../types';
+import { useBirthdayEmployees, type BirthdayEmployee, type UpcomingBirthdayEmployee } from '../hooks/useBirthdayEmployees';
+import type { UserProfile, Attendance, Announcement } from '../../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,6 +34,21 @@ function workingDaysInMonth(year: number, month: number, holidays: string[]): nu
   return eachDayOfInterval({ start, end })
     .filter((d) => !isWeekend(d) && !holidaySet.has(format(d, 'yyyy-MM-dd')))
     .length;
+}
+
+// localStorage helpers for birthday dismissal
+const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+function birthdayDismissKey(userId: string) {
+  return `dismissed_birthday_${userId}_${todayStr}`;
+}
+
+function isBirthdayDismissed(userId: string): boolean {
+  try { return !!localStorage.getItem(birthdayDismissKey(userId)); } catch { return false; }
+}
+
+function dismissBirthdayInStorage(userId: string) {
+  try { localStorage.setItem(birthdayDismissKey(userId), '1'); } catch { /* storage unavailable */ }
 }
 
 // ─── Team Today hook (manager/admin only) ─────────────────────────────────────
@@ -60,17 +76,140 @@ function useTeamToday(enabled: boolean): { present: number; leave: number; absen
   return { ...stats, loading };
 }
 
+// ─── Birthday Cards ───────────────────────────────────────────────────────────
+
+function BirthdaySection({
+  employees,
+  onDismiss,
+}: {
+  employees: BirthdayEmployee[];
+  onDismiss: (userId: string) => void;
+}) {
+  if (employees.length === 0) return null;
+
+  return (
+    <div className="mb-6">
+      {employees.length > 1 && (
+        <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#8B8B85' }}>
+          {employees.length} birthdays today 🎉
+        </p>
+      )}
+      <div className="space-y-2">
+        {employees.map((emp) => (
+          <div
+            key={emp.userId}
+            className="flex items-center gap-4 rounded-xl px-5 py-4"
+            style={{
+              borderLeft: '4px solid #C9A961',
+              backgroundColor: 'rgba(201, 169, 97, 0.06)',
+              border: '1px solid rgba(201, 169, 97, 0.25)',
+              borderLeftWidth: '4px',
+              borderLeftColor: '#C9A961',
+            }}
+          >
+            {/* Cake icon */}
+            <span className="text-2xl shrink-0 select-none" aria-hidden>🎂</span>
+
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold" style={{ color: '#0B1538' }}>
+                Happy Birthday, {emp.displayName}! 🎉
+              </p>
+              {(emp.department || emp.designation) && (
+                <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>
+                  {[emp.department, emp.designation].filter(Boolean).join(' · ')}
+                </p>
+              )}
+            </div>
+
+            {/* Right: confetti star */}
+            <span className="text-xl shrink-0 select-none" aria-hidden>⭐</span>
+
+            {/* Dismiss */}
+            <button
+              onClick={() => onDismiss(emp.userId)}
+              className="shrink-0 p-1.5 rounded-lg hover:bg-black/5 transition-colors"
+              title="Dismiss"
+              aria-label={`Dismiss birthday card for ${emp.displayName}`}
+            >
+              <X size={14} style={{ color: '#8B8B85' }} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Upcoming Birthdays section ───────────────────────────────────────────────
+
+function UpcomingBirthdaysSection({ employees }: { employees: UpcomingBirthdayEmployee[] }) {
+  if (employees.length === 0) return null;
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-6">
+      <p className="text-[10px] font-bold uppercase tracking-widest mb-4" style={{ color: '#8B8B85' }}>
+        Upcoming Birthdays
+      </p>
+      <div className="space-y-3">
+        {employees.map((emp) => {
+          const initials = emp.displayName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+          return (
+            <div key={emp.userId} className="flex items-center gap-3">
+              {/* Avatar initial */}
+              {emp.photoURL ? (
+                <img
+                  src={emp.photoURL}
+                  alt={emp.displayName}
+                  className="w-7 h-7 rounded-full object-cover shrink-0"
+                />
+              ) : (
+                <div
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                  style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#9A7E3F' }}
+                >
+                  {initials}
+                </div>
+              )}
+
+              {/* Name + dept */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate" style={{ color: '#0A0A0A' }}>
+                  {emp.displayName}
+                </p>
+                {emp.designation && (
+                  <p className="text-xs truncate" style={{ color: '#8B8B85' }}>{emp.designation}</p>
+                )}
+              </div>
+
+              {/* Days until */}
+              <span className="text-xs font-semibold whitespace-nowrap" style={{ color: '#C9A961' }}>
+                in {emp.daysUntil} day{emp.daysUntil !== 1 ? 's' : ''} 🎂
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Announcements Banner ─────────────────────────────────────────────────────
 
-function AnnouncementBanner({ userId }: { userId: string }) {
-  const { announcements } = useAnnouncements();
+function AnnouncementBanner({
+  userId,
+  announcements,
+}: {
+  userId: string;
+  announcements: Announcement[];
+}) {
   const unread = announcements.filter((a) => !(a.readBy ?? []).includes(userId));
   const pinned = unread.filter((a) => a.pinned || a.priority !== 'normal');
 
   if (pinned.length === 0) return null;
 
   const top = pinned[0];
-  const isUrgent = top.priority === 'urgent';
+  const isUrgent    = top.priority === 'urgent';
   const isImportant = top.priority === 'important';
 
   return (
@@ -78,7 +217,7 @@ function AnnouncementBanner({ userId }: { userId: string }) {
       className="rounded-2xl border px-5 py-4 flex items-center gap-4 mb-6"
       style={{
         backgroundColor: isUrgent ? '#FFF1F2' : isImportant ? '#FFFBEB' : '#EFF6FF',
-        borderColor: isUrgent ? '#FECDD3' : isImportant ? '#FCD34D' : '#BFDBFE',
+        borderColor:     isUrgent ? '#FECDD3' : isImportant ? '#FCD34D' : '#BFDBFE',
       }}
     >
       <div className="shrink-0">
@@ -275,11 +414,11 @@ function TeamTodayCard({ present, leave, absent, loading }: { present: number; l
 export function HrmsDashboardPage() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
-  const isAdmin = profile?.role === 'admin';
+  const isAdmin   = profile?.role === 'admin';
   const isManager = isAdmin || profile?.isHrmsManager === true;
 
   const uid = user?.uid ?? '';
-  const today = new Date();
+  const today       = new Date();
   const currentMonth = format(today, 'yyyy-MM');
   const currentYear  = today.getFullYear();
 
@@ -291,6 +430,58 @@ export function HrmsDashboardPage() {
   const unreadCount = useUnreadAnnouncementCount(uid);
 
   const teamToday = useTeamToday(isManager);
+
+  // Hoist announcements so we can drive the auto-read effect + banner in one subscription
+  const { announcements, loading: announcementsLoading } = useAnnouncements();
+
+  // Birthday data — only fetched for admin/manager (employee_profiles is restricted)
+  const { birthdayEmployees: allBirthdays, upcomingBirthdays } = useBirthdayEmployees(isManager);
+
+  // Dismissal state for today's birthday cards
+  const [dismissedBirthdays, setDismissedBirthdays] = useState<Set<string>>(new Set());
+
+  // When birthday list loads, read dismissal flags from localStorage
+  useEffect(() => {
+    if (allBirthdays.length === 0) return;
+    const dismissed = new Set<string>();
+    for (const emp of allBirthdays) {
+      if (isBirthdayDismissed(emp.userId)) dismissed.add(emp.userId);
+    }
+    setDismissedBirthdays(dismissed);
+  }, [allBirthdays]);
+
+  const visibleBirthdays = allBirthdays.filter((emp) => !dismissedBirthdays.has(emp.userId));
+
+  function handleDismissBirthday(userId: string) {
+    dismissBirthdayInStorage(userId);
+    setDismissedBirthdays((prev) => new Set([...prev, userId]));
+  }
+
+  // ── Auto-read: mark all unread announcements as read after 3 s ───────────────
+  // Only fires once per page load (ref guard). Gives the user time to actually see it.
+  const autoReadFired = useRef(false);
+
+  useEffect(() => {
+    if (autoReadFired.current || announcementsLoading || !uid) return;
+
+    const unread = announcements.filter(
+      (a) => a.isActive && !(a.readBy ?? []).includes(uid),
+    );
+    if (unread.length === 0) {
+      autoReadFired.current = true;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      autoReadFired.current = true;
+      for (const a of unread) {
+        markAnnouncementRead(a.id, uid).catch(() => {});
+      }
+    }, 3000);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [announcements, announcementsLoading, uid]);
 
   // Auto-seed 2026 holidays if collection is empty (non-blocking)
   useEffect(() => { seedHolidays2026().catch((e) => console.error('[seedHolidays2026]', e)); }, []);
@@ -305,7 +496,7 @@ export function HrmsDashboardPage() {
     };
   }, [attendanceRecords, holidays]);
 
-  const latestPayslip = payslips[0] ?? null;
+  const latestPayslip  = payslips[0] ?? null;
   const myPendingLeave = pendingApprovals.filter((a) => a.employeeId === uid).length;
 
   return (
@@ -326,8 +517,11 @@ export function HrmsDashboardPage() {
         </p>
       </div>
 
+      {/* Birthday cards — admin/manager only; hidden when all dismissed */}
+      <BirthdaySection employees={visibleBirthdays} onDismiss={handleDismissBirthday} />
+
       {/* Announcements banner — pinned/urgent only */}
-      <AnnouncementBanner userId={uid} />
+      <AnnouncementBanner userId={uid} announcements={announcements} />
 
       {/* 4-card grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
@@ -383,6 +577,9 @@ export function HrmsDashboardPage() {
           />
         </div>
       )}
+
+      {/* Upcoming Birthdays — admin/manager only; hidden when none in next 7 days */}
+      <UpcomingBirthdaysSection employees={upcomingBirthdays} />
 
       {/* Quick Actions */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6">

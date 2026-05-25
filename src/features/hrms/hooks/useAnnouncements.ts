@@ -45,6 +45,7 @@ export function useAllAnnouncements() {
 }
 
 // ─── Unread count (for nav badge) ────────────────────────────────────────────
+// Counts active, non-expired announcements not yet read by this user.
 
 export function useUnreadAnnouncementCount(userId: string): number {
   const [count, setCount] = useState(0);
@@ -56,10 +57,19 @@ export function useUnreadAnnouncementCount(userId: string): number {
       where('isActive', '==', true),
     );
     return onSnapshot(q, (snap) => {
+      const now = new Date();
       setCount(
         snap.docs.filter((d) => {
-          const readBy: string[] = d.data().readBy ?? [];
-          return !readBy.includes(userId);
+          const data = d.data();
+          const readBy: string[] = data.readBy ?? [];
+          if (readBy.includes(userId)) return false;
+          // Exclude expired announcements from the badge count
+          if (data.expiresAt) {
+            try {
+              if (data.expiresAt.toDate() <= now) return false;
+            } catch { /* if toDate() fails treat as non-expired */ }
+          }
+          return true;
         }).length,
       );
     }, () => setCount(0));

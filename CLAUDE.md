@@ -677,6 +677,68 @@ Additional HRMS features built after Phase 5 hardening. All have zero TS errors.
 
 This replaces per-request Firestore `get()` calls for role checks — future milestone: update `firestore.rules` helpers to read from `request.auth.token.*` instead of `get()` once all sessions have refreshed tokens.
 
+## Phase C — Birthday Announcements + Active Count Badge (2026-05-25)
+
+Birthday logic is pure client-side date comparison — no scheduler, no AI.
+
+| Feature | Status | Files |
+|---|---|---|
+| **Birthday hook** | ✅ Complete | `src/features/hrms/hooks/useBirthdayEmployees.ts` |
+| **Birthday cards on Dashboard** | ✅ Complete | `src/features/hrms/dashboard/HrmsDashboardPage.tsx` |
+| **Upcoming Birthdays section** | ✅ Complete | `src/features/hrms/dashboard/HrmsDashboardPage.tsx` |
+| **Auto-read tracking (3s delay)** | ✅ Complete | `src/features/hrms/dashboard/HrmsDashboardPage.tsx` |
+| **Dashboard nav badge** | ✅ Complete | `src/components/layout/HrmsShell.tsx` |
+| **readBy rule hardened** | ✅ Complete | `firestore.rules` |
+| **Unread count excludes expired** | ✅ Complete | `src/features/hrms/hooks/useAnnouncements.ts` |
+
+### Birthday hook (`useBirthdayEmployees`)
+
+- **Data source**: `/users` (all employees) + `/employee_profiles/{empCode}` (DOB)
+- **DOB format**: `"DD-MM-YYYY"` stored in `employee_profiles.dob`
+- **Year ignored**: only `day + month` compared against today's date
+- **Silently empty for non-admin**: `/employee_profiles` is admin/hrmsManager-only; regular employees see no birthday section (Firestore `permission-denied` is caught)
+- Returns `birthdayEmployees` (today) and `upcomingBirthdays` (next 1–7 days, max 5, sorted ascending)
+- `enabled` param: pass `false` to skip fetching entirely (shell passes `isAdmin || isHrmsManager`)
+
+### Birthday cards on Dashboard
+
+- Shown above the AnnouncementBanner, admin/manager only
+- Gold left border (`4px solid #C9A961`), gold-tinted background
+- Cake emoji 🎂 + "Happy Birthday, [Name]! 🎉" + department/designation subtitle
+- Dismiss button (×) stores key in `localStorage`: `dismissed_birthday_{uid}_{YYYY-MM-DD}`
+- Dismissed cards reappear the next day (date-scoped key)
+- Multiple birthdays: "N birthdays today 🎉" header above stacked cards
+
+### Upcoming Birthdays section
+
+- Below Team Today card; hidden if no birthdays in next 7 days
+- Shows avatar initial (or photo), name, designation, "in N days 🎂"
+- Sorted ascending by daysUntil; capped at 5 entries
+
+### Auto-read tracking
+
+On `HrmsDashboardPage` mount, after **3 seconds** on the page:
+- Captures the list of unread announcements at that moment
+- Calls `markAnnouncementRead(id, uid)` for each (Firestore `arrayUnion`)
+- Uses a `useRef` guard so it fires exactly once per page load, not on every subscription update
+- Badge count drops in real-time as the writes propagate back
+
+### Dashboard nav badge
+
+`dashboardBadge = unreadAnnouncements + undismissedBirthdays`
+
+- Unread announcements: live Firestore subscription (now also filters expired by `expiresAt`)
+- Undismissed birthdays: read from `localStorage` at shell render time; refreshes on each navigation
+- Announcements nav item retains its own `unreadAnnouncements` badge (unchanged)
+
+### Firestore rule — announcements readBy
+
+Employee self-service `arrayUnion` is now hardened with four guards:
+1. Only `readBy` field changes (`.affectedKeys().hasOnly(['readBy'])`)
+2. No entries removed (`incoming().readBy.hasAll(existing().readBy)`)
+3. Exactly one uid added (`size() == existing().size() + 1`)
+4. The added uid is the requesting user's own (`hasAll([request.auth.uid])`)
+
 ## Phase B — Statutory Compliance (2026-05-25)
 
 Deterministic compliance tracking and PF calculation. All logic is rule-based — no AI/LLM anywhere.

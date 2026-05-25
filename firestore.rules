@@ -387,12 +387,16 @@ service cloud.firestore {
     // ─── Announcements ────────────────────────────────────────────────────────────
     match /announcements/{announcementId} {
       allow read:   if isSignedIn();
-      allow create,
-            update: if isAdmin() || isHrmsManager() ||
-                       // Employee can add their own uid to readBy only
+      allow create: if isAdmin() || isHrmsManager();
+      allow update: if isAdmin() || isHrmsManager() ||
+                       // Any signed-in employee may append their own uid to readBy.
+                       // Constraints ensure: only readBy changes, no entries removed,
+                       // exactly one uid added, and that uid is the requesting user's own.
                        (isSignedIn() &&
                         incoming().diff(existing()).affectedKeys().hasOnly(['readBy']) &&
-                        incoming().readBy.hasAll(existing().readBy));
+                        incoming().readBy.hasAll(existing().readBy) &&
+                        incoming().readBy.size() == existing().readBy.size() + 1 &&
+                        incoming().readBy.hasAll([request.auth.uid]));
       allow delete: if false;
     }
 

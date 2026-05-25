@@ -1,6 +1,7 @@
 import { type ElementType, useState, useEffect } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
+import { format } from 'date-fns';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import {
   LayoutDashboard, Users, Clock, CalendarOff, Receipt, CalendarDays,
@@ -12,6 +13,7 @@ import { useAuth } from '../../features/auth/AuthContext';
 import { VideoLogo } from '../ui/VideoLogo';
 import { useUnreadAnnouncementCount } from '../../features/hrms/hooks/useAnnouncements';
 import { useOverdueComplianceCount } from '../../features/hrms/compliance/ComplianceCalendarPage';
+import { useBirthdayEmployees } from '../../features/hrms/hooks/useBirthdayEmployees';
 
 function usePendingRequestCount(enabled: boolean): number {
   const [count, setCount] = useState(0);
@@ -108,9 +110,24 @@ export function HrmsShell() {
   const isAdmin = profile?.role === 'admin';
   const isHrmsManager = profile?.isHrmsManager === true;
 
-  const pendingRequests = usePendingRequestCount(isAdmin);
+  const pendingRequests     = usePendingRequestCount(isAdmin);
   const unreadAnnouncements = useUnreadAnnouncementCount(user?.uid ?? '');
-  const overdueCompliance = useOverdueComplianceCount(isAdmin || isHrmsManager);
+  const overdueCompliance   = useOverdueComplianceCount(isAdmin || isHrmsManager);
+
+  // Birthday employees (admin/manager only — silently empty for regular employees)
+  const { birthdayEmployees } = useBirthdayEmployees(isAdmin || isHrmsManager);
+
+  // Undismissed birthdays today: read localStorage — refreshes on each navigation
+  const _todayStr = format(new Date(), 'yyyy-MM-dd');
+  const undismissedBirthdays = birthdayEmployees.filter(
+    (emp) => {
+      try { return !localStorage.getItem(`dismissed_birthday_${emp.userId}_${_todayStr}`); }
+      catch { return true; }
+    },
+  ).length;
+
+  // Dashboard badge = unread announcements + undismissed birthday cards
+  const dashboardBadge = unreadAnnouncements + undismissedBirthdays;
   const onAccessRequestsPage = location.pathname === '/hrms/admin/access-requests';
 
   const handleLogout = async () => {
@@ -148,7 +165,9 @@ export function HrmsShell() {
         {/* Nav */}
         <div className="flex-1 px-2 space-y-0.5 overflow-y-auto pb-4">
           {NAV.map(({ path, label, icon: Icon }) => {
-            const badge = path === '/hrms/announcements' ? unreadAnnouncements : 0;
+            const badge =
+              path === '/hrms/dashboard'     ? dashboardBadge      :
+              path === '/hrms/announcements' ? unreadAnnouncements  : 0;
             return (
               <NavLink
                 key={path}

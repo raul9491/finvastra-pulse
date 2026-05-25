@@ -295,8 +295,7 @@ export function AccessManagementPage() {
   const [filter, setFilter]         = useState<'all' | 'crm' | 'mis' | 'hrms_admin'>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  if (profile?.role !== 'admin') return <Navigate to="/hrms/dashboard" replace />;
-
+  // useMemo must come BEFORE the guard — Rules of Hooks
   const filtered = useMemo(() => {
     return employees.filter((e) => {
       if (search) {
@@ -309,6 +308,9 @@ export function AccessManagementPage() {
       return true;
     });
   }, [employees, search, filter]);
+
+  // ── Guard (after all hooks) ─────────────────────────────────────────────────
+  if (profile && profile.role !== 'admin') return <Navigate to="/hrms/dashboard" replace />;
 
   const allSelected = filtered.length > 0 && filtered.every((e) => selectedIds.has(e.userId));
 

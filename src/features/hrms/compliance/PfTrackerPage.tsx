@@ -113,10 +113,9 @@ function fmt(n: number) { return `₹${n.toLocaleString('en-IN')}`; }
 export function PfTrackerPage() {
   const { profile } = useAuth();
 
-  if (profile?.role !== 'admin' && !profile?.isHrmsManager) {
-    return <Navigate to="/hrms/dashboard" replace />;
-  }
-
+  // ── All hooks unconditionally at the top — Rules of Hooks ───────────────────
+  // The guard below comes AFTER hooks. When profile is null (still loading),
+  // isAdmin/isHrmsManager are false → hooks run safely with no-op behaviour.
   const [selectedMonth, setSelectedMonth] = useState(() => format(new Date(), 'yyyy-MM'));
   const [rows,    setRows]    = useState<PfRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -172,6 +171,13 @@ export function PfTrackerPage() {
     }),
     { empContrib: 0, employerTotal: 0, totalContrib: 0 },
   ), [rows]);
+
+  // ── Guard (after all hooks) ─────────────────────────────────────────────────
+  // Only redirect once profile has loaded (profile !== null). When profile is
+  // still null (first render), we fall through and render nothing below.
+  if (profile && profile.role !== 'admin' && !profile.isHrmsManager) {
+    return <Navigate to="/hrms/dashboard" replace />;
+  }
 
   const missingUAN = rows.filter((r) => !r.uan).length;
   const monthLabel = (() => {

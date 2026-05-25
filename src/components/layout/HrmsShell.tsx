@@ -100,22 +100,28 @@ export function HrmsShell() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  if (loading) return <FullPageLoader />;
-  if (!user) return <Navigate to="/login" replace />;
-  if (profile?.mustResetPassword) return <Navigate to="/reset-password" replace />;
-
-  const canAccess = profile?.role === 'admin' || profile?.hrmsAccess !== false;
-  if (!canAccess) return <Navigate to="/" replace />;
-
-  const isAdmin = profile?.role === 'admin';
+  // Derive roles before hooks so `enabled` flags are correct from the first render.
+  // Safe when profile is null (still loading): all flags default to false.
+  const isAdmin      = profile?.role === 'admin';
   const isHrmsManager = profile?.isHrmsManager === true;
 
+  // ── All hooks unconditionally at the top — Rules of Hooks ───────────────────
+  // Early returns come AFTER this block. Hooks with `enabled=false` return safe
+  // defaults and set up no subscriptions, so they're cheap when not needed.
   const pendingRequests     = usePendingRequestCount(isAdmin);
   const unreadAnnouncements = useUnreadAnnouncementCount(user?.uid ?? '');
   const overdueCompliance   = useOverdueComplianceCount(isAdmin || isHrmsManager);
 
   // Birthday employees (admin/manager only — silently empty for regular employees)
   const { birthdayEmployees } = useBirthdayEmployees(isAdmin || isHrmsManager);
+
+  // ── Guards (after all hooks) ────────────────────────────────────────────────
+  if (loading) return <FullPageLoader />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (profile?.mustResetPassword) return <Navigate to="/reset-password" replace />;
+
+  const canAccess = profile?.role === 'admin' || profile?.hrmsAccess !== false;
+  if (!canAccess) return <Navigate to="/" replace />;
 
   // Undismissed birthdays today: read localStorage — refreshes on each navigation
   const _todayStr = format(new Date(), 'yyyy-MM-dd');

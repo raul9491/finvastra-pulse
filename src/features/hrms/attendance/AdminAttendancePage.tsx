@@ -199,17 +199,20 @@ function ExportMonthButton({ employees, month }: MonthExportProps) {
 export function AdminAttendancePage() {
   const { profile } = useAuth();
 
-  // Guard: only admin or HRMS manager
-  if (profile?.role !== 'admin' && !profile?.isHrmsManager) {
-    return <Navigate to="/hrms/dashboard" replace />;
-  }
-
+  // ── All hooks unconditionally at the top — Rules of Hooks ───────────────────
+  // Guard comes AFTER hooks. When profile is null (still loading), we skip
+  // the guard and render nothing until profile resolves.
   const today = format(new Date(), 'yyyy-MM-dd');
   const [selectedDate, setSelectedDate] = useState<string>(today);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
 
   const { records, loading } = useTeamAttendance(selectedDate);
   const { employees } = useAllEmployees();
+
+  // ── Guard (after all hooks) ─────────────────────────────────────────────────
+  if (profile && profile.role !== 'admin' && !profile.isHrmsManager) {
+    return <Navigate to="/hrms/dashboard" replace />;
+  }
 
   // Build a map: userId → attendance record for the selected date
   const recordByUser = new Map<string, Attendance>(records.map((r) => [r.userId, r]));

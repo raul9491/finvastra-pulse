@@ -273,8 +273,7 @@ export function CommissionSlabsPage() {
   const [filterBank,    setFilterBank]    = useState('');
   const [showInactive,  setShowInactive]  = useState(false);
 
-  if (profile?.role !== 'admin') return <Navigate to="/crm/dashboard" replace />;
-
+  // useMemo must come BEFORE the guard — Rules of Hooks
   const banks = providers.filter((p) => p.type === 'bank');
   const providerMap = useMemo(() => new Map(providers.map((p) => [p.id, p.name])), [providers]);
 
@@ -284,6 +283,9 @@ export function CommissionSlabsPage() {
       if (!showInactive && !s.active)                    return false;
       return true;
     }), [slabs, filterBank, showInactive]);
+
+  // ── Guard (after all hooks) ─────────────────────────────────────────────────
+  if (profile && profile.role !== 'admin') return <Navigate to="/crm/dashboard" replace />;
 
   const openCreate = () => { setEditingSlab(null); setSlabModalOpen(true); };
   const openEdit   = (s: CommissionSlab) => { setEditingSlab(s); setSlabModalOpen(true); };

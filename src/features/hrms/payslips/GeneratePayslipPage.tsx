@@ -167,11 +167,9 @@ function ConfirmModal({ count, onConfirm, onCancel }: ConfirmModalProps) {
 export function GeneratePayslipPage() {
   const { user, profile } = useAuth();
 
-  // Admin guard
-  if (profile?.role !== 'admin') {
-    return <Navigate to="/hrms/dashboard" replace />;
-  }
-
+  // ── All hooks unconditionally at the top — Rules of Hooks ───────────────────
+  // Guard comes AFTER hooks. When profile is null (still loading) the guard
+  // is skipped and the page renders nothing meaningful, which is correct.
   const currentMonth = format(new Date(), 'yyyy-MM');
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth);
 
@@ -318,6 +316,11 @@ export function GeneratePayslipPage() {
     () => employees.filter((e) => !generatedSet.has(e.userId)),
     [employees, generatedSet],
   );
+
+  // ── Guard (after all hooks) ─────────────────────────────────────────────────
+  if (profile && profile.role !== 'admin') {
+    return <Navigate to="/hrms/dashboard" replace />;
+  }
 
   async function handleGenerateAll() {
     setShowConfirm(false);

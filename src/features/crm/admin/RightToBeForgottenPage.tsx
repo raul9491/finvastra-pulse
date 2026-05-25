@@ -24,9 +24,7 @@ const ERASURE_REASONS = [
 export function RightToBeForgottenPage() {
   const { profile } = useAuth();
 
-  // Guard — admin only
-  if (profile?.role !== 'admin') return <Navigate to="/crm/dashboard" replace />;
-
+  // ── All hooks unconditionally at the top — Rules of Hooks ───────────────────
   const [pageState, setPageState] = useState<PageState>({ step: 'search' });
 
   // Search state
@@ -41,6 +39,9 @@ export function RightToBeForgottenPage() {
   const [reasonNotes, setReasonNotes] = useState('');
   const [processing, setProcessing] = useState(false);
   const [confirmError, setConfirmError] = useState('');
+
+  // ── Guard (after all hooks) ─────────────────────────────────────────────────
+  if (profile && profile.role !== 'admin') return <Navigate to="/crm/dashboard" replace />;
 
   async function handleSearch() {
     const trimmed = searchInput.trim();

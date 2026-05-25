@@ -184,10 +184,14 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to create employee');
+      // Show success screen first — onCreated is called when user clicks Done
       setResult(data as Result);
-      onCreated?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed');
+      // Scroll to error
+      setTimeout(() => {
+        document.querySelector('[data-form-error]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
     } finally {
       setSaving(false);
     }
@@ -209,9 +213,10 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
 
   // Success state
   if (result) {
+    const handleDone = () => { onCreated?.(); onClose(); };
     return (
-      <Modal isOpen onClose={onClose} title="Employee Added" size="sm"
-        footer={<button onClick={onClose} className="px-6 py-2.5 text-sm font-semibold rounded-xl" style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>Done</button>}>
+      <Modal isOpen onClose={handleDone} title="Employee Added" size="sm"
+        footer={<button onClick={handleDone} className="px-6 py-2.5 text-sm font-semibold rounded-xl" style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>Done</button>}>
         <div className="space-y-4">
           <div className="rounded-xl p-4 text-sm space-y-1" style={{ backgroundColor: '#D1FAE5', border: '1px solid #6EE7B7' }}>
             <p className="font-semibold" style={{ color: '#065F46' }}>Employee created successfully</p>
@@ -236,13 +241,28 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
         <>
           <button onClick={onClose} className="px-5 py-2.5 text-sm border border-slate-200 rounded-xl" style={{ color: '#2A2A2A' }}>Cancel</button>
           <button onClick={handleSubmit} disabled={saving}
-            className="px-7 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-50"
+            className="px-7 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-60 flex items-center gap-2"
             style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
-            {saving ? 'Creating…' : 'Create employee'}
+            {saving && (
+              <svg className="animate-spin w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 11-8 8z" />
+              </svg>
+            )}
+            {saving ? 'Creating employee…' : 'Create employee'}
           </button>
         </>
       }>
       <div className="space-y-4">
+
+        {/* Error banner — shown at top so it's always visible */}
+        {error && (
+          <div data-form-error className="flex items-start gap-2 px-4 py-3 rounded-xl text-sm"
+            style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626' }}>
+            <span className="shrink-0 font-bold">⚠</span>
+            <span>{error}</span>
+          </div>
+        )}
 
         {/* ── Basic ── */}
         {sectionHead('Basic Information')}
@@ -484,7 +504,6 @@ export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; 
           <strong>Not collected here:</strong> Aadhaar (UIDAI prohibition) · PAN (encryption required — add later) · UAN / PF Account (statutory payroll, out of scope)
         </div>
 
-        {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
     </Modal>
   );

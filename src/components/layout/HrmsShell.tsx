@@ -7,10 +7,11 @@ import {
   LayoutDashboard, Users, Clock, CalendarOff, Receipt, CalendarDays,
   Settings, LogOut, LayoutGrid, ClipboardList, FileText, ShieldCheck, UserPlus, Inbox,
   ReceiptText, FolderOpen, Megaphone, Building2, Calculator,
-  Laptop, UserMinus,
+  Laptop, UserMinus, Lock,
 } from 'lucide-react';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
+import { isSuperAdmin } from '../../config/hrmsConfig';
 import { VideoLogo } from '../ui/VideoLogo';
 import { useUnreadAnnouncementCount } from '../../features/hrms/hooks/useAnnouncements';
 import { useOverdueComplianceCount } from '../../features/hrms/compliance/ComplianceCalendarPage';
@@ -130,6 +131,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/admin/assets':          'Asset Management',
   '/hrms/admin/onboarding':      'Onboarding',
   '/hrms/admin/offboarding':     'Offboarding & FnF',
+  '/hrms/admin/permissions':     'Permission Manager',
 };
 
 function FullPageLoader() {
@@ -147,8 +149,9 @@ export function HrmsShell() {
 
   // Derive roles before hooks so `enabled` flags are correct from the first render.
   // Safe when profile is null (still loading): all flags default to false.
-  const isAdmin      = profile?.role === 'admin';
-  const isHrmsManager = profile?.isHrmsManager === true;
+  const isAdmin        = profile?.role === 'admin';
+  const isHrmsManager  = profile?.isHrmsManager === true;
+  const isSA           = isSuperAdmin(user?.uid ?? '');
 
   // ── All hooks unconditionally at the top — Rules of Hooks ───────────────────
   // Early returns come AFTER this block. Hooks with `enabled=false` return safe
@@ -252,6 +255,26 @@ export function HrmsShell() {
               <div className="px-3 pt-4 pb-2">
                 <p className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: '#475569' }}>Admin</p>
               </div>
+
+              {/* Super Admin: Permission Manager — only visible to the 3 protected accounts */}
+              {isSA && (
+                <NavLink
+                  to="/hrms/admin/permissions"
+                  end
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 py-2.5 rounded-lg transition-colors mb-0.5 ${isActive ? 'pl-2.5 border-l-2' : 'pl-3'}`
+                  }
+                  style={({ isActive }) =>
+                    isActive
+                      ? { backgroundColor: '#1B2A4E', color: '#FFFFFF', borderColor: '#C9A961' }
+                      : { color: '#C9A961' }
+                  }
+                >
+                  <Lock size={17} className="shrink-0" />
+                  <span className="text-sm flex-1 font-medium">Permission Manager</span>
+                </NavLink>
+              )}
+
               {ADMIN_NAV.map(({ path, label, icon: Icon }) => {
                 const badge = path === '/hrms/admin/access-requests' && !onAccessRequestsPage
                   ? pendingRequests : 0;

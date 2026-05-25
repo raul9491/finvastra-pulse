@@ -21,12 +21,13 @@
     "lint": "tsc --noEmit",
     "build:prod": "tsc --noEmit && vite build",
     "deploy": "npm run build:prod && firebase target:apply hosting pulse gen-lang-client-0643641184 && firebase deploy --only hosting",
-    "test:email": "tsx scripts/test/testEmail.ts"
+    "test:email": "tsx scripts/test/testSmtp.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@tailwindcss/vite": "^4.1.14",
     "@types/cookie-parser": "^1.4.10",
+    "@types/nodemailer": "^8.0.0",
     "@vitejs/plugin-react": "^5.0.4",
     "clsx": "^2.1.1",
     "cookie-parser": "^1.4.7",
@@ -41,6 +42,7 @@
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
+    "nodemailer": "^8.0.8",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-hook-form": "^7.75.0",

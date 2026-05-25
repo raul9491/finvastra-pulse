@@ -14,7 +14,7 @@
 | Auth | Firebase Auth + Google OAuth | 5 senior users via Workspace; 20 employees via email/password |
 | Hosting | Firebase Hosting + Cloud Run for Express | Or fully Cloud Run with Express serving static |
 | PDF | jsPDF + jspdf-autotable | Payslip generation only |
-| Email | Resend (free tier) | System notifications |
+| Email | Google Workspace SMTP via nodemailer | System notifications. No third-party email service. Env vars: `SMTP_USER`, `SMTP_APP_PASSWORD` (Google App Password). |
 
 ### Architecture principles
 
@@ -661,7 +661,7 @@ Items that **must be resolved before any production traffic hits the app**. Each
 | 7 | **Service account email for Sheets API** — production ADC email must be confirmed and the template Sheet shared with it before enabling bulk import | 🟠 Config | Pre-launch | `server.ts` `TEMPLATE_SHEET_URL` + Cloud Run SA email |
 | 8 | **CLAUDE.md `TEMPLATE_SHEET_URL` placeholder** — replace with the real published template Sheet URL | 🟢 Docs | Pre-launch | `server.ts` line 1 |
 | 9 | **Generate and set `PAN_ENCRYPTION_KEY`** — generate a 64-char hex key (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) and add to `.env.local` (dev) and Cloud Run env (prod). Then run the "Migrate PAN Encryption" button from the admin dashboard once. | 🔴 Security | Pre-launch | `server.ts` `/api/admin/migrate-pan-encryption` |
-| 10 | **Configure `RESEND_API_KEY`** — add to Cloud Run env vars for new-device login alert emails to work | 🟠 Config | Pre-launch | `server.ts` `/api/auth/login-alert` |
+| 10 | **Configure SMTP credentials** — add `SMTP_USER` (sender@finvastra.com) and `SMTP_APP_PASSWORD` (16-char Google App Password) to Cloud Run env vars for new-device login alerts and support ticket emails | 🟠 Config | Pre-launch | `server.ts` `/api/auth/login-alert`, `/api/support/raise` |
 | 11 | **Schedule daily Cloud Scheduler HTTP jobs** — set up three cron HTTP targets pointing to: `/api/admin/run-document-expiry-check`, `/api/admin/run-bank-sla-check`, `/api/admin/run-commission-leakage-check` (all admin-authed via a service-account ID token) | 🟠 Config | Pre-launch | `server.ts` |
 | 12 | **Review eligibility rules** — defaults in `/crm/admin/eligibility-rules` are empty; add real bank eligibility criteria before going live | 🟠 Config | Pre-launch | `ProvidersPage` + `EligibilityRulesPage` |
 | 13 | **Add `expiryDays` to document types** — go to `/crm/admin/document-types` and set expiry windows per doc type (bank statements: 90 days, Form 16: 365 days, etc.) | 🟢 Admin | Pre-launch | `DocumentTypesPage` |

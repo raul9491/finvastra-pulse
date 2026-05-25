@@ -951,7 +951,7 @@ async function startServer() {
 
   // ─── Auth Alerts API ─────────────────────────────────────────────────────────
   // Called by the client after detecting a new device login.
-  // Sends email notification via Resend (or logs if RESEND_API_KEY not set).
+  // Sends email notification via Google Workspace SMTP (nodemailer).
   app.post("/api/auth/login-alert", async (req, res) => {
     const uid = await verifyFirebaseToken(req);
     if (!uid) return res.status(401).json({ error: "Unauthorized" });
@@ -968,27 +968,27 @@ async function startServer() {
 
     const message = `New login to Finvastra from ${(userAgent as string).slice(0, 60)} at ${timestamp} (IP: ${ipAddress})`;
 
-    // Send email if Resend API key is configured
-    if (process.env.RESEND_API_KEY) {
+    // Send email via Google Workspace SMTP if credentials are configured
+    if (process.env.SMTP_USER && process.env.SMTP_APP_PASSWORD) {
       try {
-        await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-          },
-          body: JSON.stringify({
-            from: "security@finvastra.com",
-            to: [userData.email as string],
-            subject: "New device login — Finvastra",
-            text: `Hello ${userData.displayName as string},\n\n${message}\n\nIf this wasn't you, change your password immediately.\n\nFinvastra Security`,
-          }),
+        const nodemailer = await import("nodemailer");
+        const transporter = nodemailer.default.createTransport({
+          host: "smtp.gmail.com",
+          port: 465,
+          secure: true,
+          auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_APP_PASSWORD },
+        });
+        await transporter.sendMail({
+          from: `"Finvastra Security" <${process.env.SMTP_USER}>`,
+          to: userData.email as string,
+          subject: "New device login — Finvastra",
+          text: `Hello ${userData.displayName as string},\n\n${message}\n\nIf this wasn't you, change your password immediately.\n\nFinvastra Security`,
         });
       } catch (e) {
         console.error("Login alert email failed:", e);
       }
     } else {
-      console.log(`[Login Alert - no RESEND_API_KEY] ${userData.email as string}: ${message}`);
+      console.log(`[Login Alert - no SMTP config] ${userData.email as string}: ${message}`);
     }
 
     return res.json({ ok: true });
@@ -1229,38 +1229,39 @@ async function startServer() {
     const senderEmail = (userData?.email       as string | undefined) ?? "";
     const empId       = (userData?.employeeId  as string | undefined) ?? "";
 
-    if (process.env.RESEND_API_KEY) {
+    // Send email via Google Workspace SMTP if credentials are configured
+    if (process.env.SMTP_USER && process.env.SMTP_APP_PASSWORD) {
       try {
-        await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-          },
-          body: JSON.stringify({
-            from:    "pulse@finvastra.com",
-            to:      ["rahulv@finvastra.com"],
-            subject: `[Support] ${category}: ${subject}`,
-            text: [
-              `Support ticket raised on Finvastra Pulse`,
-              ``,
-              `From     : ${senderName} (${empId}) <${senderEmail}>`,
-              `Category : ${category}`,
-              `Subject  : ${subject}`,
-              ``,
-              `Details`,
-              `───────`,
-              description,
-              ``,
-              `View all tickets in the Firestore /support_requests collection.`,
-            ].join("\n"),
-          }),
+        const nodemailer = await import("nodemailer");
+        const transporter = nodemailer.default.createTransport({
+          host: "smtp.gmail.com",
+          port: 465,
+          secure: true,
+          auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_APP_PASSWORD },
+        });
+        await transporter.sendMail({
+          from: `"Finvastra Pulse" <${process.env.SMTP_USER}>`,
+          to: "rahulv@finvastra.com",
+          subject: `[Support] ${category}: ${subject}`,
+          text: [
+            `Support ticket raised on Finvastra Pulse`,
+            ``,
+            `From     : ${senderName} (${empId}) <${senderEmail}>`,
+            `Category : ${category}`,
+            `Subject  : ${subject}`,
+            ``,
+            `Details`,
+            `───────`,
+            description,
+            ``,
+            `View all tickets in the Firestore /support_requests collection.`,
+          ].join("\n"),
         });
       } catch (e) {
         console.error("[support/raise] email failed:", e);
       }
     } else {
-      console.log(`[Support Ticket - no RESEND_API_KEY] From: ${senderEmail} | ${category}: ${subject}`);
+      console.log(`[Support Ticket - no SMTP config] From: ${senderEmail} | ${category}: ${subject}`);
     }
 
     return res.json({ ok: true });

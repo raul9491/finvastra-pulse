@@ -530,7 +530,16 @@ service cloud.firestore {
     match /leave_balances/{docId} {
       allow read:   if isAdmin() || isHrmsManager() ||
                        (isSignedIn() && docId == request.auth.uid);
-      allow write:  if isAdmin();
+      allow write:  if isAdmin() || isHrmsManager();
+    }
+
+    // ─── HRMS: Leave Balance Adjustments (audit trail) ───────────────────────────
+    // Immutable audit log — create-only. No updates or deletes ever permitted.
+    match /leave_balance_adjustments/{id} {
+      allow read:   if isAdmin() || isHrmsManager();
+      allow create: if isAdmin() || isHrmsManager();
+      allow update: if false;
+      allow delete: if false;
     }
 
     // ─── HRMS: Holidays ───────────────────────────────────────────────────────────

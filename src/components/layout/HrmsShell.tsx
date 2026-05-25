@@ -5,12 +5,13 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import {
   LayoutDashboard, Users, Clock, CalendarOff, Receipt, CalendarDays,
   Settings, LogOut, LayoutGrid, ClipboardList, FileText, ShieldCheck, UserPlus, Inbox,
-  ReceiptText, FolderOpen, Megaphone,
+  ReceiptText, FolderOpen, Megaphone, Building2, Calculator,
 } from 'lucide-react';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { VideoLogo } from '../ui/VideoLogo';
 import { useUnreadAnnouncementCount } from '../../features/hrms/hooks/useAnnouncements';
+import { useOverdueComplianceCount } from '../../features/hrms/compliance/ComplianceCalendarPage';
 
 function usePendingRequestCount(enabled: boolean): number {
   const [count, setCount] = useState(0);
@@ -53,6 +54,11 @@ const ADMIN_NAV: NavEntry[] = [
   { path: '/hrms/admin/announcements',     label: 'Announcements',        icon: Megaphone,     live: true },
 ];
 
+const COMPLIANCE_NAV: NavEntry[] = [
+  { path: '/hrms/admin/compliance',  label: 'Compliance Calendar', icon: Building2,   live: true },
+  { path: '/hrms/admin/pf-tracker',  label: 'PF Tracker',          icon: Calculator,  live: true },
+];
+
 const PAGE_TITLES: Record<string, string> = {
   '/hrms/dashboard':             'Dashboard',
   '/hrms/employees':             'Employees',
@@ -75,6 +81,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/admin/claims':          'Claims — Admin',
   '/hrms/admin/documents':       'Documents — Admin',
   '/hrms/admin/announcements':   'Announcements — Admin',
+  '/hrms/admin/compliance':      'Compliance Calendar',
+  '/hrms/admin/pf-tracker':      'PF Tracker',
 };
 
 function FullPageLoader() {
@@ -102,6 +110,7 @@ export function HrmsShell() {
 
   const pendingRequests = usePendingRequestCount(isAdmin);
   const unreadAnnouncements = useUnreadAnnouncementCount(user?.uid ?? '');
+  const overdueCompliance = useOverdueComplianceCount(isAdmin || isHrmsManager);
   const onAccessRequestsPage = location.pathname === '/hrms/admin/access-requests';
 
   const handleLogout = async () => {
@@ -196,6 +205,34 @@ export function HrmsShell() {
                   </NavLink>
                 );
               })}
+
+              {/* Compliance section */}
+              <div className="px-3 pt-4 pb-2 flex items-center gap-2">
+                <p className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: '#475569' }}>
+                  Statutory
+                </p>
+                {overdueCompliance > 0 && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none"
+                    style={{ backgroundColor: '#DC2626', color: '#FFFFFF' }}>
+                    {overdueCompliance}
+                  </span>
+                )}
+              </div>
+              {COMPLIANCE_NAV.map(({ path, label, icon: Icon }) => (
+                <NavLink key={path} to={path} end
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3'}`
+                  }
+                  style={({ isActive }) =>
+                    isActive
+                      ? { backgroundColor: '#1B2A4E', color: '#FFFFFF', borderColor: '#C9A961' }
+                      : { color: '#94A3B8' }
+                  }
+                >
+                  <Icon size={17} className="shrink-0" />
+                  <span className="text-sm flex-1">{label}</span>
+                </NavLink>
+              ))}
             </>
           )}
         </div>

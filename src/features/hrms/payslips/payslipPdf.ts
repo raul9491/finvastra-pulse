@@ -82,9 +82,14 @@ export function generatePayslipPdf(payslip: Payslip, employee: UserProfile): voi
   // Deductions column
   let rY = sectionHeader(rightX, 'Deductions', y);
   rY = row(rightX, 'Provident Fund',                    payslip.pf,               rY);
-  rY = row(rightX, 'Professional Tax',                  payslip.professionalTax,  rY);
+  // Only render PT row if non-zero (employees below ₹15,000 gross are exempt)
+  if (payslip.professionalTax > 0) {
+    rY = row(rightX, 'Professional Tax (PT)',           payslip.professionalTax,  rY);
+  }
   rY = row(rightX, 'TDS',                               payslip.tds,              rY);
-  rY = row(rightX, `LOP (${payslip.lopDays} days)`,    payslip.otherDeductions,  rY);
+  if (payslip.lopDays > 0) {
+    rY = row(rightX, `LOP (${payslip.lopDays} days)`,  payslip.otherDeductions,  rY);
+  }
   rY = row(rightX, 'Other Deductions',                  payslip.otherDeductions,  rY);
   rY += 2;
   doc.line(rightX, rY, rightX + colW, rY);

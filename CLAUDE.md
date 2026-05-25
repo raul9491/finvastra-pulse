@@ -677,6 +677,86 @@ Additional HRMS features built after Phase 5 hardening. All have zero TS errors.
 
 This replaces per-request Firestore `get()` calls for role checks — future milestone: update `firestore.rules` helpers to read from `request.auth.token.*` instead of `get()` once all sessions have refreshed tokens.
 
+## Phase B — Statutory Compliance (2026-05-25)
+
+Deterministic compliance tracking and PF calculation. All logic is rule-based — no AI/LLM anywhere.
+
+| Feature | Status | Files |
+|---|---|---|
+| **Compliance Calendar** | ✅ Complete | `src/features/hrms/compliance/ComplianceCalendarPage.tsx` |
+| **PF Tracker + ECR export** | ✅ Complete | `src/features/hrms/compliance/PfTrackerPage.tsx` |
+| **PT auto-calculation in payslip generator** | ✅ Complete | `src/features/hrms/payslips/GeneratePayslipPage.tsx` |
+| **PDF hides PT row when zero** | ✅ Complete | `src/features/hrms/payslips/payslipPdf.ts` |
+| **HrmsShell: Statutory nav section + overdue badge** | ✅ Complete | `src/components/layout/HrmsShell.tsx` |
+| **Router: compliance routes** | ✅ Complete | `src/router.tsx` |
+
+### Compliance Calendar
+
+**Path**: `/hrms/admin/compliance`  
+**Access**: admin + isHrmsManager  
+**Collection**: `/compliance_records/{recordId}`
+
+Auto-seeds the current month when no records exist. Items seeded per month:
+- TDS deposit — 7th of following month (e.g. June TDS due 7 July)
+- PF deposit — 15th of following month
+- PT deposit — last day of the month (Feb = 28/29)
+- ESIC deposit — 21st of following month
+- Quarterly TDS return — last month of each quarter (June/Sep/Dec/Mar)
+- Annual PF return — March
+- Annual PT return — March
+
+Status computation:
+- `filed` — `filedAt` is non-null
+- `overdue` — `dueDate < today` and not filed
+- `due_soon` — due within 7 days and not filed
+- `upcoming` — more than 7 days away
+
+`useOverdueComplianceCount(enabled)` — exported hook; HrmsShell uses it to show a red badge on the "Statutory" nav section header when overdue items exist.
+
+Mark-as-Filed modal collects: reference number (required), amount (optional), notes (optional).
+
+### PF Tracker
+
+**Path**: `/hrms/admin/pf-tracker`  
+**Access**: admin + isHrmsManager  
+**Data source**: `/payslips/{id}` for the selected month + `/users/{uid}` + `/employee_profiles/{uid}` (for UAN)
+
+PF calculation rules (wage ceiling ₹15,000):
+```
+pfWages          = min(basicSalary, 15000)
+empContrib       = round(pfWages × 12%)          ← employee share
+epsContrib       = min(round(pfWages × 8.33%), 1250)   ← Pension Scheme (employer)
+epfDiff          = round(pfWages × 12%) − epsContrib   ← EPF proper (employer)
+employerTotal    = epsContrib + epfDiff
+totalContrib     = empContrib + employerTotal
+```
+
+**ECR export** (`exportECR()`): Tilde-delimited TXT in EPFO ECR v2 format. Filename: `ECR_Finvastra_YYYY-MM.txt`.  
+**Summary CSV** (`exportSummaryCSV()`): Human-readable columns (Name, EmpCode, UAN, Basic, PF wages, all contribution columns). Filename: `PF_Summary_Finvastra_YYYY-MM.csv`.
+
+Amber warning banner shown if any employee is missing a UAN number.
+
+### Professional Tax (Telangana slabs)
+
+`computePT(grossSalary, monthStr)` in `GeneratePayslipPage.tsx`:
+- ≤₹15,000 gross → ₹0
+- ₹15,001–₹20,000 → ₹150
+- >₹20,000 → ₹200
+- February surcharge: +₹100 if PT > 0 (annual adjustment under the Telangana PT Act)
+
+Auto-recalculated whenever any earning field (basic, HRA, conveyance, medical, other allowances) changes. Admin can override the computed value manually. Hint text shown below the PT cell: "Auto-calc · TG PT Act".
+
+PDF (`payslipPdf.ts`): PT row is suppressed entirely when `professionalTax === 0`. Label updated to `'Professional Tax (PT)'`. LOP row similarly suppressed when `lopDays === 0`.
+
+### Firestore rules added (Phase B)
+
+```
+/compliance_records/{recordId}
+  allow read:          isAdmin() || isHrmsManager()
+  allow create,update: isAdmin() || isHrmsManager()
+  allow delete:        false
+```
+
 ## Authentication rules
 
 - **Only `@finvastra.com` Google Workspace accounts** may log in. Enforced in `onAuthStateChanged` (hard block) — not just the Google picker hint. Personal Gmail addresses are blocked even if they somehow reach the auth flow.

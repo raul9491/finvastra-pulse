@@ -563,5 +563,14 @@ service cloud.firestore {
       allow update: if isAdmin() || isMisAdmin();
       allow delete: if false;
     }
+
+    // ─── HRMS: Compliance Records ─────────────────────────────────────────────────
+    // Admin and HRMS managers read and write; no deletes — permanent audit trail.
+    match /compliance_records/{recordId} {
+      allow read:   if isAdmin() || isHrmsManager();
+      allow create,
+            update: if isAdmin() || isHrmsManager();
+      allow delete: if false;
+    }
   }
 }

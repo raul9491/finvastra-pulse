@@ -28,6 +28,8 @@ import { DocumentsPage }          from './features/hrms/documents/DocumentsPage'
 import { AdminDocumentsPage }     from './features/hrms/documents/AdminDocumentsPage';
 import { AnnouncementsPage }      from './features/hrms/announcements/AnnouncementsPage';
 import { AdminAnnouncementsPage } from './features/hrms/announcements/AdminAnnouncementsPage';
+import { ComplianceCalendarPage } from './features/hrms/compliance/ComplianceCalendarPage';
+import { PfTrackerPage }          from './features/hrms/compliance/PfTrackerPage';
 
 import { CrmShell }               from './components/layout/CrmShell';
 import { CrmDashboardPage }       from './features/crm/dashboard/CrmDashboardPage';
@@ -108,6 +110,8 @@ export const router = createBrowserRouter([
       { path: 'admin/claims',        element: <AdminClaimsPage /> },
       { path: 'admin/documents',     element: <AdminDocumentsPage /> },
       { path: 'admin/announcements', element: <AdminAnnouncementsPage /> },
+      { path: 'admin/compliance',    element: <ComplianceCalendarPage /> },
+      { path: 'admin/pf-tracker',    element: <PfTrackerPage /> },
       { path: 'claims',              element: <ClaimsPage /> },
       { path: 'documents',           element: <DocumentsPage /> },
       { path: 'announcements',       element: <AnnouncementsPage /> },

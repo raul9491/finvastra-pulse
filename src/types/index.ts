@@ -693,6 +693,30 @@ export interface EmployeeDocument {
   isActive: boolean;
 }
 
+// ─── Statutory Compliance ─────────────────────────────────────────────────────
+
+export type ComplianceType =
+  | 'tds_deposit' | 'pf_deposit' | 'esic_deposit' | 'pt_deposit'
+  | 'tds_quarterly_return' | 'pf_annual_return' | 'pt_annual_return';
+
+export type ComplianceStatus = 'upcoming' | 'due_soon' | 'overdue' | 'filed';
+
+export interface ComplianceRecord {
+  id: string;
+  type: ComplianceType;
+  month: string;               // YYYY-MM
+  year: number;
+  dueDate: string;             // YYYY-MM-DD
+  description: string;
+  amount: number | null;
+  status: ComplianceStatus;
+  filedAt: import('firebase/firestore').Timestamp | null;
+  filedBy: string | null;
+  referenceNumber: string | null;
+  notes: string | null;
+  createdAt: import('firebase/firestore').Timestamp;
+}
+
 // ─── Holidays ─────────────────────────────────────────────────────────────────
 
 export interface Holiday {

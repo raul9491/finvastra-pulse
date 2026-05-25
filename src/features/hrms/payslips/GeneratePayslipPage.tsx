@@ -29,6 +29,20 @@ interface PayslipFormValues {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/** Telangana Professional Tax slabs (Financial Year 2025-26 and onwards).
+ *  ≤₹15,000: ₹0  |  ₹15,001–₹20,000: ₹150  |  >₹20,000: ₹200
+ *  February surcharge: +₹100 if PT > 0 (annual adjustment per the PT Act).
+ */
+function computePT(grossSalary: number, monthStr: string): number {
+  const monthNum = parseInt(monthStr.split('-')[1], 10);
+  let pt = 0;
+  if (grossSalary <= 15000) pt = 0;
+  else if (grossSalary <= 20000) pt = 150;
+  else pt = 200;
+  if (monthNum === 2 && pt > 0) pt += 100;
+  return pt;
+}
+
 function defaultValues(): PayslipFormValues {
   return {
     basicSalary: 0,
@@ -233,6 +247,10 @@ export function GeneratePayslipPage() {
 
   // ─── Field update helper ──────────────────────────────────────────────────
 
+  const EARNING_FIELDS: (keyof PayslipFormValues)[] = [
+    'basicSalary', 'hra', 'conveyanceAllowance', 'medicalAllowance', 'otherAllowances',
+  ];
+
   function updateField<K extends keyof PayslipFormValues>(
     userId: string,
     field: K,
@@ -241,7 +259,15 @@ export function GeneratePayslipPage() {
     setFormState((prev) => {
       const next = new Map(prev);
       const current = next.get(userId) ?? defaultValues();
-      next.set(userId, { ...current, [field]: value });
+      const updated = { ...current, [field]: value };
+      // Auto-recompute PT when any earning field changes
+      if (EARNING_FIELDS.includes(field)) {
+        const grossSalary =
+          updated.basicSalary + updated.hra + updated.conveyanceAllowance +
+          updated.medicalAllowance + updated.otherAllowances;
+        updated.professionalTax = computePT(grossSalary, selectedMonth);
+      }
+      next.set(userId, updated);
       return next;
     });
   }
@@ -522,6 +548,9 @@ export function GeneratePayslipPage() {
                             value={values.professionalTax}
                             onChange={(v) => updateField(emp.userId, 'professionalTax', v)}
                           />
+                          <p className="text-[9px] mt-0.5 leading-tight" style={{ color: '#8B8B85' }}>
+                            Auto-calc · TG PT Act
+                          </p>
                         </td>
                         <td className="px-3 py-3">
                           <NumberInput

@@ -807,7 +807,7 @@ Birthday logic is pure client-side date comparison — no scheduler, no AI.
 
 ### Birthday hook (`useBirthdayEmployees`)
 
-- **Data source**: `/users` (all employees) + `/employee_profiles/{empCode}` (DOB)
+- **Data source**: `/users` (all employees) + `/employee_profiles/{employeeId}` (DOB)
 - **DOB format**: `"DD-MM-YYYY"` stored in `employee_profiles.dob`
 - **Year ignored**: only `day + month` compared against today's date
 - **Silently empty for non-admin**: `/employee_profiles` is admin/hrmsManager-only; regular employees see no birthday section (Firestore `permission-denied` is caught)

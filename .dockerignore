@@ -1,0 +1,41 @@
+# Dependencies — will be installed fresh inside the image
+node_modules/
+
+# Build output — server.ts runs from source via tsx
+dist/
+
+# Git metadata
+.git/
+.gitignore
+
+# Local environment secrets — NEVER include these
+.env
+.env.local
+.env.*.local
+
+# Firebase emulator data — not needed in production image
+emulator-data/
+.firebase/
+
+# Test scripts — not needed in production image
+scripts/test/
+scripts/python/
+
+# Editor / IDE artifacts
+.vscode/
+.idea/
+*.DS_Store
+
+# Documentation
+*.md
+!CLAUDE.md
+
+# TypeScript compilation cache
+tsconfig.tsbuildinfo
+
+# Firebase CLI files not needed at runtime
+firebase.json
+.firebaserc
+firestore.rules
+firestore.indexes.json
+storage.rules

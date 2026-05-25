@@ -1131,10 +1131,11 @@ async function startServer() {
       // succeed but sign-in would still fail, which is confusing.
       if (userRecord.disabled) return ok();
 
-      // generatePasswordResetLink issues a valid Firebase oobCode we can reuse
-      const firebaseLink = await admin.auth().generatePasswordResetLink(email.trim(), {
-        url: "https://pulse.finvastra.com/login",
-      });
+      // generatePasswordResetLink issues a valid Firebase oobCode we can reuse.
+      // No continueUrl — we extract the oobCode and build our own pulse.finvastra.com/auth-action
+      // URL, so continueUrl is irrelevant. Passing it requires the domain to be in Firebase's
+      // authorized-domains list, which was the root cause of the "unauthorized-continue-uri" error.
+      const firebaseLink = await admin.auth().generatePasswordResetLink(email.trim());
 
       const oobCode = new URL(firebaseLink).searchParams.get("oobCode");
       if (!oobCode) throw new Error("oobCode missing from Firebase link");
@@ -1158,6 +1159,7 @@ async function startServer() {
 
     return ok();
   });
+
 
   // Step 2 — /auth-action page verifies DOB before showing the new-password form.
   // Accepts { email, dob } where dob is "YYYY-MM-DD" (browser date-input format).

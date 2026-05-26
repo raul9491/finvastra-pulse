@@ -278,7 +278,9 @@ See `scripts/python/README.md` for full setup and scheduling instructions.
 
 ## Platform Hierarchy & Super Admins
 
-Three accounts have permanent, elevated protection. They cannot be deactivated, and their permissions cannot be changed by non-super-admins — enforced in `server.ts`, `firestore.rules`, `AccessManagementPage.tsx`, and `EmployeesPage.tsx`.
+Three accounts have permanent, elevated protection. They cannot be deactivated, and their permissions cannot be changed by non-super-admins — enforced in `server.ts`, `firestore.rules`, `SuperAdminPermissionsPage.tsx`, and `EmployeesPage.tsx`.
+
+> **Note**: `AccessManagementPage.tsx` (`/hrms/admin/access`) has been **removed**. It is fully superseded by the Permission Manager at `/hrms/admin/permissions` (`SuperAdminPermissionsPage.tsx`).
 
 | # | Name | Emp Code | Firebase UID | Hierarchy Label |
 |---|------|----------|--------------|-----------------|
@@ -291,7 +293,7 @@ Three accounts have permanent, elevated protection. They cannot be deactivated, 
 **Enforcement points**:
 - **`server.ts`** — `SUPER_ADMIN_UIDS_LIST` parsed from `process.env.SUPER_ADMIN_UIDS`. Deactivate endpoint returns 403 for super admin targets. Sync-claims endpoint requires caller to also be a super admin to modify a super admin.
 - **`firestore.rules`** — `isSuperAdminUid()` (is caller protected?) and `isSuperAdminTarget(userId)` (is target protected?) with UIDs hardcoded. `/users/{uid}` update rule: admin cannot modify a super admin doc unless the caller is also a super admin.
-- **`AccessManagementPage.tsx`** — Super admin rows show a gold "★ Super Admin" badge + hierarchy label. All permission controls are hidden. Rows are excluded from bulk selection.
+- **`SuperAdminPermissionsPage.tsx`** — Super admin rows shown read-only at top of table with gold "★ Super Admin" badge + hierarchy label. All dropdowns/toggles locked. Ajay's permission fix button shown when `crmRole`/`crmAccess`/`misAccess` mismatch canonical values.
 - **`EmployeesPage.tsx`** — Super admin rows show "★ Super Admin" badge. "Mark as Exited" button is hidden. Rows are excluded from bulk edit selection.
 
 **Cloud Run env var**: `SUPER_ADMIN_UIDS=3zdX5QBnTbQAcTdLzUjfXxefP8r2,ZmZaciATPDYBb1O2blYWBjjbzMv1,5lAbJ4CZ5uM0LbU4gUYItNRAlEn2`
@@ -711,7 +713,7 @@ All 18 pre-launch checklist items **must be completed** before running `deploy` 
 | Server env validation | ✅ Added | `validateServerEnv()` in `server.ts`; throws in `NODE_ENV=production` if any required var absent |
 | CORS allowlist | ✅ Added | `server.ts` middleware; dev = 3 origins, prod = 2 (`pulse.finvastra.com`, `finvastra.com`) |
 | Rate limiting | ✅ Upgraded | ~~In-memory~~ → Firestore `runTransaction` on `/rate_limits/{endpoint}:{uid}`; multi-instance safe; upload 10/hr, calendar-sync 20/hr, import 5/hr per user |
-| Firebase Custom Claims | ✅ Added | `POST /api/admin/users/:uid/sync-claims` stamps `{role,hrmsAccess,crmAccess,crmRole,isHrmsManager,misAccess}` on Auth tokens; called on Add Employee and from AccessManagementPage on every role/access change |
+| Firebase Custom Claims | ✅ Added | `POST /api/admin/users/:uid/sync-claims` stamps `{role,hrmsAccess,crmAccess,crmRole,isHrmsManager,misAccess}` on Auth tokens; called on Add Employee and from SuperAdminPermissionsPage on every role/access change |
 | `rm_payout_slabs` read too permissive | ✅ Fixed | Was `isSignedIn()` (any employee); now `isAdmin() || hasMisAccess()` |
 | Firebase Hosting config | ✅ Added | `firebase.json` with rewrites, cache headers, security headers |
 | Build + deploy scripts | ✅ Added | `npm run build:prod` (tsc-gated), `npm run deploy` |
@@ -786,8 +788,7 @@ Additional HRMS features built after Phase 5 hardening. All have zero TS errors.
 
 `POST /api/admin/users/:uid/sync-claims` (admin-only server endpoint) stamps `{role, hrmsAccess, crmAccess, crmRole, isHrmsManager, misAccess}` as Firebase Auth custom claims. Called automatically:
 - On Add Employee (in `create employee` handler in `server.ts`)
-- On every inline role/access change in `AccessManagementPage.tsx`
-- On every bulk role change in `AccessManagementPage.tsx`
+- On every role/access change in `SuperAdminPermissionsPage.tsx` (replaces old AccessManagementPage)
 
 This replaces per-request Firestore `get()` calls for role checks — future milestone: update `firestore.rules` helpers to read from `request.auth.token.*` instead of `get()` once all sessions have refreshed tokens.
 
@@ -966,6 +967,7 @@ Full lifecycle management: asset tracking, onboarding/offboarding checklists, Fn
 | **Offboarding Checklist + FnF** | ✅ Complete | `src/features/hrms/offboarding/OffboardingPage.tsx` |
 | **HrmsShell: Lifecycle nav section + badges** | ✅ Complete | `src/components/layout/HrmsShell.tsx` |
 | **Router: 3 new routes** | ✅ Complete | `src/router.tsx` |
+| **ResetPasswordPage — `auth/requires-recent-login` fix** | ✅ Complete | `src/features/auth/ResetPasswordPage.tsx` — `signOut` on stale session; "Sign out and sign in again" button on error; permanent "Having trouble? Sign out" footer escape |
 
 ### EmployeesPage access changes
 

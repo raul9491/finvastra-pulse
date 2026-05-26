@@ -1,8 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
 import {
-  Search, Save, RotateCcw, CheckCircle2, Lock,
-  AlertCircle, ChevronDown,
+  Search, Save, RotateCcw, CheckCircle2, Lock, AlertCircle,
 } from 'lucide-react';
 import { updateDoc, doc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { getIdToken } from 'firebase/auth';
@@ -10,7 +9,20 @@ import { auth, db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import type { UserProfile, CrmRole, MisAccess } from '../../../types';
-import { isSuperAdmin } from '../../../config/hrmsConfig';
+import { isSuperAdmin, SUPER_ADMIN_UIDS, SUPER_ADMIN_LABELS } from '../../../config/hrmsConfig';
+
+// Ajay is the first super admin UID — his permissions need a one-time fix
+const AJAY_UID: string = SUPER_ADMIN_UIDS[0];
+
+// ─── CRM role display labels ───────────────────────────────────────────────────
+// 'viewer' kept for read-only display of legacy data; not offered as a new option
+const CRM_ROLE_DISPLAY: Record<NonNullable<CrmRole>, string> = {
+  admin:          'Admin',
+  manager:        'Manager',
+  lead_generator: 'Generator',
+  lead_convertor: 'Convertor',
+  viewer:         'Viewer',
+};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -64,7 +76,93 @@ async function syncClaims(targetUid: string): Promise<void> {
 const SEL = 'text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white outline-none ' +
             'focus:ring-2 focus:ring-navy/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed';
 
-// ─── Single employee permission row ──────────────────────────────────────────
+// ─── Read-only super admin row ────────────────────────────────────────────────
+
+function SuperAdminRow({ employee }: { employee: UserProfile }) {
+  const initials = employee.displayName
+    .split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+  const hierarchyLabel = SUPER_ADMIN_LABELS[employee.userId] ?? '';
+  const crmRoleDisplay = employee.crmRole
+    ? (CRM_ROLE_DISPLAY[employee.crmRole] ?? employee.crmRole)
+    : '—';
+
+  return (
+    <tr
+      className="border-b"
+      style={{ backgroundColor: 'rgba(201,169,97,0.04)', borderColor: 'rgba(201,169,97,0.15)' }}
+    >
+      {/* Employee */}
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-3 min-w-0">
+          {employee.photoURL ? (
+            <img src={employee.photoURL} alt=""
+              className="w-8 h-8 rounded-full object-cover shrink-0" />
+          ) : (
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+              style={{ backgroundColor: '#9A7E3F', color: '#FAFAF7' }}>
+              {initials}
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-semibold text-ink">{employee.displayName}</p>
+              <span
+                className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                style={{ backgroundColor: 'rgba(201,169,97,0.2)', color: '#9A7E3F' }}
+              >
+                ★ Super Admin
+              </span>
+            </div>
+            <p className="text-xs truncate" style={{ color: '#8B8B85' }}>{hierarchyLabel}</p>
+          </div>
+        </div>
+      </td>
+
+      {/* Role — read-only badge */}
+      <td className="px-3 py-3">
+        <span
+          className="text-xs font-semibold px-2 py-1 rounded-lg"
+          style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#7A6030' }}
+        >
+          {employee.role === 'admin' ? 'Admin' : 'Employee'}
+        </span>
+      </td>
+
+      {/* HRMS — always accessible */}
+      <td className="px-3 py-3 text-center">
+        <span className="text-base" style={{ color: '#059669' }}>✓</span>
+      </td>
+
+      {/* HR Mgr */}
+      <td className="px-3 py-3 text-center">
+        <span className="text-base" style={{ color: employee.isHrmsManager ? '#059669' : '#CBD5E1' }}>
+          {employee.isHrmsManager ? '✓' : '—'}
+        </span>
+      </td>
+
+      {/* CRM On */}
+      <td className="px-3 py-3 text-center">
+        <span className="text-base" style={{ color: employee.crmAccess ? '#059669' : '#CBD5E1' }}>
+          {employee.crmAccess ? '✓' : '—'}
+        </span>
+      </td>
+
+      {/* CRM Role */}
+      <td className="px-3 py-3">
+        <span className="text-xs" style={{ color: '#475569' }}>{crmRoleDisplay}</span>
+      </td>
+
+      {/* MIS Access */}
+      <td className="px-3 py-3">
+        <span className="text-xs capitalize" style={{ color: '#475569' }}>
+          {employee.misAccess ?? '—'}
+        </span>
+      </td>
+    </tr>
+  );
+}
+
+// ─── Editable employee row ────────────────────────────────────────────────────
 
 function PermRow({
   employee,
@@ -80,7 +178,7 @@ function PermRow({
   const initials = employee.displayName
     .split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
 
-  const rowBg  = dirty ? 'rgba(201,169,97,0.05)' : '';
+  const rowBg     = dirty ? 'rgba(201,169,97,0.05)' : '';
   const rowShadow = dirty ? 'inset 3px 0 0 #C9A961' : 'inset 3px 0 0 transparent';
 
   return (
@@ -162,7 +260,7 @@ function PermRow({
         </label>
       </td>
 
-      {/* CRM Role */}
+      {/* CRM Role — "Viewer" removed; only valid roles shown */}
       <td className="px-3 py-3">
         <select
           value={draft.crmRole ?? ''}
@@ -171,7 +269,6 @@ function PermRow({
           className={SEL}
         >
           <option value="">— none —</option>
-          <option value="viewer">Viewer</option>
           <option value="lead_generator">Generator</option>
           <option value="lead_convertor">Convertor</option>
           <option value="manager">Manager</option>
@@ -205,6 +302,7 @@ export function SuperAdminPermissionsPage() {
   const [originals,  setOriginals]  = useState<Record<string, PermDraft>>({});
   const [drafts,     setDrafts]     = useState<Record<string, PermDraft>>({});
   const [saving,     setSaving]     = useState(false);
+  const [syncingSA,  setSyncingSA]  = useState(false);
   const [showSaved,  setShowSaved]  = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [search,     setSearch]     = useState('');
@@ -230,6 +328,17 @@ export function SuperAdminPermissionsPage() {
       return orig && draft && isDirty(draft, orig);
     }),
     [drafts, originals],
+  );
+
+  // ── Super admin accounts (read-only rows at top of table) ─────────────────
+  const superAdminEmployees = useMemo(() =>
+    employees
+      .filter((e) => isSuperAdmin(e.userId))
+      .sort((a, b) =>
+        (SUPER_ADMIN_UIDS as readonly string[]).indexOf(a.userId) -
+        (SUPER_ADMIN_UIDS as readonly string[]).indexOf(b.userId),
+      ),
+    [employees],
   );
 
   // ── Editable employees list (non-super-admin, sorted alphabetically) ─────
@@ -261,6 +370,16 @@ export function SuperAdminPermissionsPage() {
 
   // ── All hooks declared — guard comes after ────────────────────────────────
   if (!isSuperAdmin(user?.uid ?? '')) return <Navigate to="/hrms/dashboard" replace />;
+
+  // ── Ajay permission check (after guard) ──────────────────────────────────
+  // FAPL-000 needs: role=admin, crmAccess=true, crmRole=admin, misAccess=admin
+  const ajayProfile  = superAdminEmployees.find((e) => e.userId === AJAY_UID);
+  const ajayNeedsFix = !loading && ajayProfile != null && (
+    ajayProfile.crmRole !== 'admin' ||
+    ajayProfile.crmAccess !== true  ||
+    ajayProfile.misAccess !== 'admin' ||
+    ajayProfile.role !== 'admin'
+  );
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -313,6 +432,34 @@ export function SuperAdminPermissionsPage() {
       setTimeout(() => setShowSaved(false), 5000);
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Fix Ajay's missing CRM/MIS permissions (one-time correction, idempotent)
+  const handleSyncAjayPerms = async () => {
+    setSyncingSA(true);
+    try {
+      const patch = {
+        role:      'admin'  as const,
+        crmAccess: true,
+        crmRole:   'admin'  as CrmRole,
+        misAccess: 'admin'  as MisAccess,
+      };
+      await updateDoc(doc(db, 'users', AJAY_UID), patch);
+      await addDoc(collection(db, 'audit_logs'), {
+        actor:      user!.uid,
+        action:     'super_admin_perm_fix',
+        targetPath: `/users/${AJAY_UID}`,
+        patch,
+        at:         serverTimestamp(),
+      });
+      await syncClaims(AJAY_UID);
+      // useAllEmployees is onSnapshot — the row will auto-update and
+      // ajayNeedsFix will become false without any extra state
+    } catch (e) {
+      console.error('[sync-ajay-perms]', e);
+    } finally {
+      setSyncingSA(false);
     }
   };
 
@@ -374,7 +521,8 @@ export function SuperAdminPermissionsPage() {
       {/* ── Legend / column guide ─────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4 text-xs text-mute">
         <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded border-l-2 inline-block" style={{ borderColor: '#C9A961', backgroundColor: 'rgba(201,169,97,0.1)' }} />
+          <span className="w-3 h-3 rounded border-l-2 inline-block"
+            style={{ borderColor: '#C9A961', backgroundColor: 'rgba(201,169,97,0.1)' }} />
           Row highlighted = unsaved change
         </span>
         <span>HRMS = can access HR module</span>
@@ -406,9 +554,7 @@ export function SuperAdminPermissionsPage() {
             }}
           >
             {label}
-            {(key !== 'all' || true) && (
-              <span className="ml-1.5 opacity-70">{count}</span>
-            )}
+            <span className="ml-1.5 opacity-70">{count}</span>
           </button>
         ))}
       </div>
@@ -418,7 +564,7 @@ export function SuperAdminPermissionsPage() {
         {loading ? (
           <div className="animate-pulse divide-y divide-slate-100">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-[56px] bg-slate-50" />
+              <div key={i} className="h-14 bg-slate-50" />
             ))}
           </div>
         ) : (
@@ -436,6 +582,71 @@ export function SuperAdminPermissionsPage() {
                 </tr>
               </thead>
               <tbody>
+                {/* ── Super admin accounts — always shown, always locked ── */}
+                {superAdminEmployees.length > 0 && (
+                  <>
+                    {/* Super admin section header */}
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="px-4 py-2"
+                        style={{
+                          backgroundColor: 'rgba(201,169,97,0.08)',
+                          borderBottom: '1px solid rgba(201,169,97,0.2)',
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span
+                            className="text-[10px] font-bold uppercase tracking-widest"
+                            style={{ color: '#9A7E3F' }}
+                          >
+                            ★ Super Admin Accounts — Protected · Read Only
+                          </span>
+                          {/* Ajay fix button — shown only if his permissions are incorrect */}
+                          {ajayNeedsFix && (
+                            <button
+                              onClick={handleSyncAjayPerms}
+                              disabled={syncingSA}
+                              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg
+                                transition-colors disabled:opacity-50"
+                              style={{
+                                backgroundColor: '#FEF3C7',
+                                color: '#92400E',
+                                border: '1px solid #FDE68A',
+                              }}
+                            >
+                              <AlertCircle size={11} />
+                              {syncingSA ? 'Fixing…' : "Fix Ajay's Permissions"}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* One read-only row per super admin */}
+                    {superAdminEmployees.map((emp) => (
+                      <SuperAdminRow key={emp.userId} employee={emp} />
+                    ))}
+
+                    {/* Divider before regular employees */}
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="px-4 py-1.5"
+                        style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}
+                      >
+                        <span
+                          className="text-[10px] font-bold uppercase tracking-widest"
+                          style={{ color: '#8B8B85' }}
+                        >
+                          All Employees
+                        </span>
+                      </td>
+                    </tr>
+                  </>
+                )}
+
+                {/* ── Regular editable rows ── */}
                 {filteredRows.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-16 text-center text-sm text-mute">

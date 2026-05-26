@@ -22,7 +22,6 @@ import { PayslipsPage }           from './features/hrms/payslips/PayslipsPage';
 import { GeneratePayslipPage }    from './features/hrms/payslips/GeneratePayslipPage';
 import { HolidaysPage }           from './features/hrms/holidays/HolidaysPage';
 import { HrmsSettingsPage }        from './features/hrms/settings/SettingsPage';
-import { AccessManagementPage }        from './features/hrms/admin/AccessManagementPage';
 import { SuperAdminPermissionsPage }   from './features/hrms/admin/SuperAdminPermissionsPage';
 import { ClaimsPage }             from './features/hrms/claims/ClaimsPage';
 import { AdminClaimsPage }        from './features/hrms/claims/AdminClaimsPage';
@@ -114,7 +113,6 @@ export const router = createBrowserRouter([
       { path: 'leave/admin',         element: <AdminLeavePage /> },
       { path: 'payslips',            element: <PayslipsPage /> },
       { path: 'holidays',            element: <HolidaysPage /> },
-      { path: 'admin/access',         element: <AccessManagementPage /> },
       { path: 'admin/permissions',    element: <SuperAdminPermissionsPage /> },
       { path: 'admin/attendance',    element: <AdminAttendancePage /> },
       { path: 'admin/payslips',      element: <GeneratePayslipPage /> },

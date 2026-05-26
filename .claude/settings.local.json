@@ -163,7 +163,8 @@
       "PowerShell(gcloud run services update pulse-api --region asia-south1 --project gen-lang-client-0643641184 --max-instances 3 --min-instances 0 2>&1)",
       "PowerShell(gcloud artifacts repositories set-cleanup-policies pulse --project gen-lang-client-0643641184 --location asia-south1 --policy C:\\\\tmp\\\\ar_cleanup.json --no-dry-run 2>&1)",
       "PowerShell(gcloud artifacts docker images list asia-south1-docker.pkg.dev/gen-lang-client-0643641184/pulse/pulse-api --project gen-lang-client-0643641184 --include-tags --format \"table\\(version,tags,createTime,updateTime\\)\" 2>&1)",
-      "PowerShell(Copy-Item \"C:\\\\tmp\\\\check_sa_uids.ts\" \"C:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\\\\scripts\\\\test\\\\check_sa_uids.ts\" -Force 2>&1)"
+      "PowerShell(Copy-Item \"C:\\\\tmp\\\\check_sa_uids.ts\" \"C:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\\\\scripts\\\\test\\\\check_sa_uids.ts\" -Force 2>&1)",
+      "Bash(Remove-Item \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\\\\src\\\\features\\\\hrms\\\\admin\\\\AccessManagementPage.tsx\" -Force)"
     ],
     "additionalDirectories": [
       "\\tmp"

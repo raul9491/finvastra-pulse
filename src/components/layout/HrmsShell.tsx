@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import {
   LayoutDashboard, Users, Clock, CalendarOff, Receipt, CalendarDays,
-  Settings, LogOut, LayoutGrid, ClipboardList, FileText, ShieldCheck, UserPlus, Inbox,
+  Settings, LogOut, LayoutGrid, ClipboardList, FileText, UserPlus, Inbox,
   ReceiptText, FolderOpen, Megaphone, Building2, Calculator,
   Laptop, UserMinus, Lock,
 } from 'lucide-react';
@@ -82,7 +82,6 @@ const NAV: NavEntry[] = [
 
 const ADMIN_NAV: NavEntry[] = [
   { path: '/hrms/admin/access-requests',   label: 'Access Requests',      icon: Inbox,         live: true },
-  { path: '/hrms/admin/access',            label: 'Access & Permissions', icon: ShieldCheck,   live: true },
   { path: '/hrms/admin/import-employees',  label: 'Import Employees',     icon: UserPlus,      live: true },
   { path: '/hrms/admin/attendance',        label: 'Attendance',           icon: Clock,         live: true },
   { path: '/hrms/leave/admin',             label: 'Leave Approvals',      icon: ClipboardList, live: true },
@@ -117,7 +116,6 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/announcements':         'Announcements',
   '/hrms/settings':              'Settings',
   '/hrms/admin/access-requests': 'Access Requests',
-  '/hrms/admin/access':          'Access & Permissions',
   '/hrms/admin/import-employees':'Import Employees',
   '/hrms/admin/attendance':      'Attendance — Admin',
   '/hrms/leave/admin':           'Leave Approvals',

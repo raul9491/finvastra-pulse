@@ -890,6 +890,81 @@ export interface OffboardingChecklist {
   fnfDetails: FnFDetails | null;
 }
 
+// ─── IT Declaration ──────────────────────────────────────────────────────────
+// Financial year: April to March. `year` stores the start year (e.g. 2025 for FY 2025-26).
+// Document ID: {employeeId}_{year}
+
+export interface ItDeclSection80C {
+  lifeInsurance:    number;
+  ppf:              number;
+  elss:             number;
+  nsc:              number;
+  homeLoanPrincipal:number;
+  tuitionFees:      number;
+  epfVoluntary:     number;
+  nps80CCD1:        number;
+  other80C:         number;
+  total80C:         number;  // min(sum, 150000) — computed on save
+}
+
+export interface ItDeclSection80D {
+  selfFamilyPremium: number;
+  parentsPremium:    number;
+  parentsSenior:     boolean;
+  total80D:          number;  // computed on save
+}
+
+export interface ItDeclHra {
+  claimingHra:  boolean;
+  monthlyRent:  number;
+  landlordName: string;
+  landlordPan:  string | null;  // required if annual rent > ₹1,00,000
+  cityType:     'metro' | 'non_metro';
+  annualRent:   number;         // monthlyRent × 12 — computed on save
+}
+
+export interface ItDeclHomeLoan {
+  claimingHomeLoan: boolean;
+  annualInterest:   number;   // deduction capped at ₹2,00,000
+  propertyAddress:  string;
+  lenderName:       string;
+}
+
+export interface ItDeclLta {
+  claimingLta:   boolean;
+  travelAmount:  number;
+  travelDetails: string;
+}
+
+export interface ItDeclSection80E {
+  claimingEducationLoan: boolean;
+  annualInterest:        number;  // no upper limit
+}
+
+export type ItDeclarationStatus = 'draft' | 'submitted' | 'accepted';
+
+export interface ItDeclaration {
+  id:           string;  // {employeeId}_{year}
+  employeeId:   string;
+  year:         number;
+  status:       ItDeclarationStatus;
+  submittedAt:  import('firebase/firestore').Timestamp | null;
+  acceptedBy:   string | null;
+  acceptedAt:   import('firebase/firestore').Timestamp | null;
+  reopenRequested?: boolean;
+  revisionNote?:    string | null;
+  section80C:   ItDeclSection80C;
+  section80D:   ItDeclSection80D;
+  hra:          ItDeclHra;
+  homeLoan:     ItDeclHomeLoan;
+  lta:          ItDeclLta;
+  section80E:   ItDeclSection80E;
+  totalDeductions:    number;
+  estimatedTaxSaving: number;
+  createdAt: import('firebase/firestore').Timestamp;
+  updatedAt: import('firebase/firestore').Timestamp;
+}
+
 // ─── Toast ─────────────────────────────────────────────────────────────────
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';

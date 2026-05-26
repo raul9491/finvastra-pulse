@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, Clock, CalendarOff, Receipt, CalendarDays,
   Settings, LogOut, LayoutGrid, ClipboardList, FileText, UserPlus, Inbox,
   ReceiptText, FolderOpen, Megaphone, Building2, Calculator,
-  Laptop, UserMinus, Lock,
+  Laptop, UserMinus, Lock, FileSearch2,
 } from 'lucide-react';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -15,6 +15,7 @@ import { isSuperAdmin } from '../../config/hrmsConfig';
 import { VideoLogo } from '../ui/VideoLogo';
 import { useUnreadAnnouncementCount, getUnseenHolidayCount } from '../../features/hrms/hooks/useAnnouncements';
 import { useHolidays } from '../../features/hrms/hooks/useHolidays';
+import { useMyItDeclaration, usePendingItDeclarationCount, currentFinancialYear } from '../../features/hrms/hooks/useItDeclarations';
 import { useOverdueComplianceCount } from '../../features/hrms/compliance/ComplianceCalendarPage';
 import { useBirthdayEmployees } from '../../features/hrms/hooks/useBirthdayEmployees';
 
@@ -77,8 +78,9 @@ const NAV: NavEntry[] = [
   { path: '/hrms/holidays',       label: 'Holidays',       icon: CalendarDays,    live: true },
   { path: '/hrms/claims',         label: 'My Claims',      icon: ReceiptText,     live: true },
   { path: '/hrms/documents',      label: 'Documents',      icon: FolderOpen,      live: true },
-  { path: '/hrms/announcements',  label: 'Announcements',  icon: Megaphone,       live: true },
-  { path: '/hrms/settings',       label: 'Settings',       icon: Settings,        live: true },
+  { path: '/hrms/announcements',   label: 'Announcements',  icon: Megaphone,       live: true },
+  { path: '/hrms/it-declaration',  label: 'IT Declaration', icon: FileSearch2,     live: true },
+  { path: '/hrms/settings',        label: 'Settings',       icon: Settings,        live: true },
 ];
 
 const ADMIN_NAV: NavEntry[] = [
@@ -91,6 +93,7 @@ const ADMIN_NAV: NavEntry[] = [
   { path: '/hrms/admin/claims',            label: 'Claims',               icon: ReceiptText,   live: true },
   { path: '/hrms/admin/documents',         label: 'Documents',            icon: FolderOpen,    live: true },
   { path: '/hrms/admin/announcements',     label: 'Announcements',        icon: Megaphone,     live: true },
+  { path: '/hrms/admin/it-declarations',  label: 'IT Declarations',      icon: FileSearch2,   live: true },
 ];
 
 const LIFECYCLE_NAV: NavEntry[] = [
@@ -125,7 +128,9 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/admin/claims':          'Claims — Admin',
   '/hrms/admin/documents':       'Documents — Admin',
   '/hrms/admin/announcements':   'Announcements — Admin',
-  '/hrms/admin/compliance':      'Compliance Calendar',
+  '/hrms/it-declaration':         'IT Declaration',
+  '/hrms/admin/it-declarations':  'IT Declarations — Admin',
+  '/hrms/admin/compliance':       'Compliance Calendar',
   '/hrms/admin/pf-tracker':      'PF Tracker',
   '/hrms/admin/assets':          'Asset Management',
   '/hrms/admin/onboarding':      'Onboarding',
@@ -165,6 +170,13 @@ export function HrmsShell() {
   const _now = new Date();
   const { holidays: _holidays } = useHolidays(_now.getFullYear());
   const holidayBadge = getUnseenHolidayCount(_holidays);
+
+  // IT Declaration: employee badge (1 if current-FY declaration not yet submitted)
+  const _currentFY = currentFinancialYear();
+  const { declaration: _myItDecl, loading: _itDeclLoading } = useMyItDeclaration(user?.uid ?? '', _currentFY);
+  const itDeclEmployeeBadge = !_itDeclLoading && (_myItDecl === null || _myItDecl.status === 'draft') ? 1 : 0;
+  // IT Declaration: admin badge (count of submitted-but-not-accepted across all years)
+  const itDeclAdminBadge = usePendingItDeclarationCount(isAdmin || isHrmsManager);
 
   // Birthday employees (admin/manager only — silently empty for regular employees)
   const { birthdayEmployees } = useBirthdayEmployees(isAdmin || isHrmsManager);
@@ -226,8 +238,9 @@ export function HrmsShell() {
         <div className="flex-1 px-2 space-y-0.5 overflow-y-auto pb-4">
           {NAV.map(({ path, label, icon: Icon }) => {
             const badge =
-              path === '/hrms/dashboard'     ? dashboardBadge                         :
-              path === '/hrms/announcements' ? unreadAnnouncements + holidayBadge : 0;
+              path === '/hrms/dashboard'      ? dashboardBadge                      :
+              path === '/hrms/announcements'  ? unreadAnnouncements + holidayBadge  :
+              path === '/hrms/it-declaration' ? itDeclEmployeeBadge                 : 0;
             return (
               <NavLink
                 key={path}
@@ -280,8 +293,9 @@ export function HrmsShell() {
               )}
 
               {ADMIN_NAV.map(({ path, label, icon: Icon }) => {
-                const badge = path === '/hrms/admin/access-requests' && !onAccessRequestsPage
-                  ? pendingRequests : 0;
+                const badge =
+                  path === '/hrms/admin/access-requests' && !onAccessRequestsPage ? pendingRequests :
+                  path === '/hrms/admin/it-declarations'                           ? itDeclAdminBadge : 0;
                 return (
                   <NavLink key={path} to={path} end
                     className={({ isActive }) =>

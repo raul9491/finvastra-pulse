@@ -1173,6 +1173,79 @@ When the admin selects a payslip month, the page checks `/rm_payouts` for approv
 
 Both links navigate to `/hrms/employees/{uid}`.
 
+## Phase E — IT Declaration Module (2026-05-26)
+
+Allows employees to declare investments and exemptions for TDS computation. All calculations are deterministic rule-based code — no AI/LLM anywhere.
+
+| Feature | Status | Files |
+|---|---|---|
+| **Employee IT Declaration form** | ✅ Complete | `src/features/hrms/itdeclaration/ItDeclarationPage.tsx` |
+| **Admin IT Declarations review** | ✅ Complete | `src/features/hrms/itdeclaration/AdminItDeclarationsPage.tsx` |
+| **Hook + tax computations** | ✅ Complete | `src/features/hrms/hooks/useItDeclarations.ts` |
+| **HrmsShell nav + badges** | ✅ Complete | `src/components/layout/HrmsShell.tsx` |
+
+### Tax Rules (Indian Income Tax Act — deterministic code)
+
+| Component | Cap | Notes |
+|---|---|---|
+| **Section 80C** | ₹1,50,000 total | LI + PPF + ELSS + NSC + home loan principal + tuition + EPF voluntary + NPS 80CCD(1) + other |
+| **Section 80D self/family** | ₹25,000 | Medical insurance premium |
+| **Section 80D parents** | ₹25,000 / ₹50,000 if senior (60+) | `parentsSenior` flag on form |
+| **Home Loan Interest Sec 24(b)** | ₹2,00,000 | Self-occupied property |
+| **Section 80E education loan** | No limit | Full interest paid |
+| **LTA** | As per company policy | Travel receipts required |
+| **Estimated tax saving** | Indicative only | `totalDeductions × 0.30` (30% bracket) — not used for actual TDS computation |
+
+### Financial Year
+
+- April → March cycle. `year` stored as start year (2025 = FY 2025-26).
+- Document ID: `{employeeId}_{year}`
+- `currentFinancialYear()`: `month >= 4 ? year : year - 1`
+
+### Declaration Lifecycle
+
+```
+Employee fills form → Save as Draft (status: 'draft')
+       ↓
+Employee submits → status: 'submitted', submittedAt set
+       ↓
+HR reviews:
+  Accept   → status: 'accepted', acceptedBy, acceptedAt
+  Revise   → status: 'draft', revisionNote written, employee notified
+       ↓
+Employee reopens → sets reopenRequested: true (HR sees flag in admin panel)
+```
+
+### Firestore collection
+
+```
+/it_declarations/{employeeId}_{year}
+  employeeId, year, status: draft|submitted|accepted
+  submittedAt, acceptedBy, acceptedAt
+  reopenRequested: boolean, revisionNote: string|null
+  section80C: { lifeInsurance, ppf, elss, nsc, homeLoanPrincipal, tuitionFees,
+                epfVoluntary, nps80CCD1, other80C, total80C }
+  section80D: { selfFamilyPremium, parentsPremium, parentsSenior, total80D }
+  hra: { claimingHra, monthlyRent, landlordName, landlordPan, cityType, annualRent }
+  homeLoan: { claimingHomeLoan, annualInterest, propertyAddress, lenderName }
+  lta: { claimingLta, travelAmount, travelDetails }
+  section80E: { claimingEducationLoan, annualInterest }
+  totalDeductions, estimatedTaxSaving
+  createdAt, updatedAt
+```
+
+### Nav badges
+
+- **Employee nav** (IT Declaration): `1` (amber) if current FY declaration is null or `status === 'draft'`
+- **Admin nav** (IT Declarations): count of `status === 'submitted'` across all years — single-field query, no composite index needed
+
+### Key computation functions (all in `useItDeclarations.ts`)
+
+- `compute80C(c)` → `min(sum of all 80C fields, 150000)`
+- `compute80D(d)` → `min(self, 25000) + min(parents, parentsSenior ? 50000 : 25000)`
+- `computeTotalDeductions(c80, d80, homeLoan, edu, lta)` → sum of all applicable deductions
+- `computeTaxSaving(total)` → `round(total × 0.30)` — indicative only
+
 ## Authentication rules
 
 - **Only `@finvastra.com` Google Workspace accounts** may log in. Enforced in `onAuthStateChanged` (hard block) — not just the Google picker hint. Personal Gmail addresses are blocked even if they somehow reach the auth flow.

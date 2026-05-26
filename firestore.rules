@@ -462,6 +462,23 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ─── IT Declarations ─────────────────────────────────────────────────────────
+    // Doc ID: {employeeId}_{year}
+    match /it_declarations/{docId} {
+      allow read:   if isAdmin()
+                    || isHrmsManager()
+                    || (isSignedIn() && resource.data.employeeId == request.auth.uid);
+      allow create: if isSignedIn()
+                    && request.resource.data.employeeId == request.auth.uid
+                    && request.resource.data.status == 'draft';
+      allow update: if (isSignedIn()
+                        && resource.data.employeeId == request.auth.uid
+                        && resource.data.status != 'accepted')
+                    || isAdmin()
+                    || isHrmsManager();
+      allow delete: if false;
+    }
+
     // ─── Announcements ────────────────────────────────────────────────────────────
     match /announcements/{announcementId} {
       allow read:   if isSignedIn();

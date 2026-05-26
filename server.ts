@@ -506,7 +506,13 @@ async function startServer() {
     next();
   });
 
-  app.use(express.json({ limit: "10mb" }));
+  // Capture raw body bytes before JSON parsing — required for Meta webhook HMAC verification.
+  app.use(express.json({
+    limit: "10mb",
+    verify: (req: express.Request & { rawBody?: Buffer }, _res: express.Response, buf: Buffer) => {
+      req.rawBody = buf;
+    },
+  }));
   app.use(cookieParser());
 
   // Google OAuth Configuration
@@ -2577,6 +2583,337 @@ async function startServer() {
       console.error("Import-from-sheet fatal error:", e);
       return res.status(500).json({ error: e instanceof Error ? e.message : "Internal server error" });
     }
+  });
+
+  // ─── Webhook Intake: helpers ────────────────────────────────────────────────────
+
+  // Strips +91, spaces, dashes and validates a 10-digit Indian mobile number.
+  // Returns the normalised 10-digit string or null if invalid.
+  function normaliseIndianPhone(raw: string): string | null {
+    let s = raw.replace(/[\s\-\.\(\)]/g, "");
+    if (s.startsWith("+91"))             s = s.slice(3);
+    else if (s.startsWith("91") && s.length === 12) s = s.slice(2);
+    return /^[6-9]\d{9}$/.test(s) ? s : null;
+  }
+
+  // Assigns the webhook lead to the active lead_generator with the fewest open leads.
+  // Falls back to 'UNASSIGNED' when no generators are available.
+  async function workloadAwareAssign(): Promise<string> {
+    const snap = await db.collection("users")
+      .where("crmRole", "==", "lead_generator")
+      .where("crmAccess", "==", true)
+      .get();
+
+    // Filter active generators in-memory (avoids composite index on crmRole + crmAccess + employeeStatus)
+    const generators = snap.docs
+      .filter((d) => (d.data().employeeStatus ?? "active") === "active")
+      .map((d) => d.id);
+
+    if (generators.length === 0) return "UNASSIGNED";
+
+    // Count open (non-deleted) leads per generator in parallel — dataset small at ≤25 employees
+    const counts = await Promise.all(
+      generators.map(async (gid) => {
+        const ls = await db.collection("leads")
+          .where("primaryOwnerId", "==", gid)
+          .limit(500)
+          .get();
+        const open = ls.docs.filter((d) => d.data().deleted !== true).length;
+        return { gid, open };
+      })
+    );
+
+    counts.sort((a, b) => a.open - b.open);
+    return counts[0].gid;
+  }
+
+  // Writes a log entry to /webhook_logs (Admin SDK — bypasses Firestore rules).
+  async function writeWebhookLog(
+    source: "website" | "social_meta",
+    result: "success" | "duplicate" | "invalid" | "error",
+    leadId: string | null,
+    errorMessage: string | null,
+    assignedTo: string | null,
+  ): Promise<void> {
+    await db.collection("webhook_logs").add({
+      source,
+      result,
+      leadId,
+      errorMessage,
+      assignedTo,
+      receivedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }).catch((e) => console.error("[webhook_log write failed]", e));
+  }
+
+  // Shared lead-creation logic for website + Meta intake (steps 1–7 from spec).
+  // Validates, deduplicates, assigns, writes to Firestore and sends an in-app notification.
+  // Returns { result, leadId, errorMessage, assignedTo } — caller decides HTTP status code.
+  async function processInboundLead(payload: {
+    name:         string;
+    phone:        string;
+    email?:       string;
+    loanProduct?: string;
+    loanAmount?:  number;
+    city?:        string;
+    utmSource?:   string;
+    utmCampaign?: string;
+    formId?:      string;
+    source:       "website" | "social_meta";
+    metaLeadgenId?: string;
+  }): Promise<{
+    result: "success" | "duplicate" | "invalid" | "error";
+    leadId: string | null;
+    errorMessage: string | null;
+    assignedTo: string | null;
+  }> {
+    const { name, phone, email, loanProduct, loanAmount, source } = payload;
+
+    // Step 1: Validate name
+    if (!name || name.trim().length < 2) {
+      return { result: "invalid", leadId: null, errorMessage: "name must be at least 2 characters", assignedTo: null };
+    }
+
+    // Step 2: Normalise and validate phone
+    const normPhone = normaliseIndianPhone(phone ?? "");
+    if (!normPhone) {
+      return { result: "invalid", leadId: null, errorMessage: `invalid Indian mobile: '${phone}'`, assignedTo: null };
+    }
+
+    // Step 3: Duplicate check — match on normalised phone among non-deleted leads
+    const dupSnap = await db.collection("leads")
+      .where("phone", "==", normPhone)
+      .where("deleted", "==", false)
+      .limit(1)
+      .get();
+    if (!dupSnap.empty) {
+      console.log(`[webhook ${source}] Duplicate lead skipped: ${normPhone}`);
+      return { result: "duplicate", leadId: dupSnap.docs[0].id, errorMessage: null, assignedTo: null };
+    }
+
+    // Step 4: Workload-aware assignment
+    const assignedTo = await workloadAwareAssign();
+
+    // Step 5: Create /leads doc
+    // SLA: 30 minutes for website/social_meta leads
+    const slaDeadline = new Date(Date.now() + 30 * 60 * 1000);
+    const leadRef = db.collection("leads").doc();
+    const leadData: Record<string, unknown> = {
+      displayName:      name.trim(),
+      phone:            normPhone,
+      email:            email?.trim() || null,
+      source,
+      tags:             loanProduct ? [loanProduct] : [],
+      primaryOwnerId:   assignedTo,
+      consentGiven:     true,
+      consentMethod:    "digital",
+      consentTimestamp: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt:        admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt:        admin.firestore.FieldValue.serverTimestamp(),
+      createdBy:        `webhook:${source}`,
+      deleted:          false,
+      slaDeadline:      admin.firestore.Timestamp.fromDate(slaDeadline),
+    };
+    if (loanAmount)               leadData.loanAmount   = loanAmount;
+    if (payload.city?.trim())     leadData.city         = payload.city.trim();
+    if (payload.utmSource?.trim()) leadData.utmSource   = payload.utmSource.trim();
+    if (payload.utmCampaign?.trim()) leadData.utmCampaign = payload.utmCampaign.trim();
+    if (payload.formId?.trim())   leadData.formId       = payload.formId.trim();
+    if (payload.metaLeadgenId)    leadData.metaLeadgenId = payload.metaLeadgenId;
+
+    await leadRef.set(leadData);
+
+    // Step 6: Write in-app notification to assigned generator (fire-and-forget)
+    if (assignedTo !== "UNASSIGNED") {
+      db.collection("notifications").doc(assignedTo).collection("items").add({
+        type:        "new_lead",
+        source,
+        leadId:      leadRef.id,
+        leadName:    name.trim(),
+        slaDeadline: admin.firestore.Timestamp.fromDate(slaDeadline),
+        createdAt:   admin.firestore.FieldValue.serverTimestamp(),
+        read:        false,
+      }).catch((e) => console.error("[notification write failed]", e));
+    }
+
+    return { result: "success", leadId: leadRef.id, errorMessage: null, assignedTo };
+  }
+
+  // ─── POST /api/leads/intake/website — Website form webhook ────────────────────
+  // Called by the Finvastra website contact/enquiry form.
+  // Auth: X-Finvastra-Webhook-Secret header must match WEBSITE_WEBHOOK_SECRET env var.
+  // Always returns 200 on duplicate so the website doesn't retry unnecessarily.
+  app.post("/api/leads/intake/website", async (req, res) => {
+    const secret = process.env.WEBSITE_WEBHOOK_SECRET;
+    if (!secret || req.headers["x-finvastra-webhook-secret"] !== secret) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { name, phone, email, loanProduct, loanAmount, city, utmSource, utmCampaign, formId } =
+      req.body as Record<string, unknown>;
+
+    if (!name || typeof name !== "string") {
+      await writeWebhookLog("website", "invalid", null, "name missing", null);
+      return res.status(400).json({ error: "name is required" });
+    }
+    if (!phone || typeof phone !== "string") {
+      await writeWebhookLog("website", "invalid", null, "phone missing", null);
+      return res.status(400).json({ error: "phone is required" });
+    }
+
+    // Kick off processing async — respond quickly, then write Firestore
+    res.json({ success: true });
+
+    try {
+      const outcome = await processInboundLead({
+        name:        String(name),
+        phone:       String(phone),
+        email:       email   ? String(email)   : undefined,
+        loanProduct: loanProduct ? String(loanProduct) : undefined,
+        loanAmount:  typeof loanAmount === "number" ? loanAmount : undefined,
+        city:        city   ? String(city)   : undefined,
+        utmSource:   utmSource   ? String(utmSource)   : undefined,
+        utmCampaign: utmCampaign ? String(utmCampaign) : undefined,
+        formId:      formId ? String(formId) : undefined,
+        source:      "website",
+      });
+      await writeWebhookLog("website", outcome.result, outcome.leadId, outcome.errorMessage, outcome.assignedTo);
+    } catch (e) {
+      console.error("[webhook/website] processing error:", e);
+      await writeWebhookLog("website", "error", null, String(e), null);
+    }
+  });
+
+  // ─── GET /api/leads/intake/meta — Meta webhook verification handshake ─────────
+  // Meta sends this request when the webhook URL is first configured in Meta Business Suite.
+  app.get("/api/leads/intake/meta", (req, res) => {
+    const mode      = req.query["hub.mode"];
+    const token     = req.query["hub.verify_token"];
+    const challenge = req.query["hub.challenge"];
+    const secret    = process.env.META_WEBHOOK_SECRET;
+
+    if (mode === "subscribe" && token === secret) {
+      console.log("[webhook/meta] Webhook verified by Meta");
+      return res.status(200).send(challenge);
+    }
+    return res.status(403).json({ error: "Verification failed" });
+  });
+
+  // ─── POST /api/leads/intake/meta — Meta Lead Ads webhook intake ───────────────
+  // Receives new lead form submissions from Meta Lead Ads.
+  // Auth: X-Hub-Signature-256 HMAC verification using META_WEBHOOK_SECRET.
+  // Always returns 200 — Meta retries on any non-200 response.
+  app.post("/api/leads/intake/meta", async (req, res) => {
+    const secret = process.env.META_WEBHOOK_SECRET;
+
+    // HMAC verification — uses rawBody captured by express.json verify option
+    if (secret) {
+      const sig = req.headers["x-hub-signature-256"] as string | undefined;
+      const rawBuf = (req as express.Request & { rawBody?: Buffer }).rawBody ?? Buffer.alloc(0);
+      const expected = "sha256=" + crypto.createHmac("sha256", secret).update(rawBuf).digest("hex");
+      if (!sig || sig !== expected) {
+        console.warn("[webhook/meta] HMAC mismatch — rejected");
+        return res.status(403).json({ error: "Signature mismatch" });
+      }
+    } else {
+      console.warn("[webhook/meta] META_WEBHOOK_SECRET not set — skipping HMAC check (dev mode)");
+    }
+
+    // Always ACK immediately — Meta retries on non-200
+    res.status(200).json({ ok: true });
+
+    // Parse Meta payload structure
+    const body = req.body as {
+      object?: string;
+      entry?: Array<{
+        changes?: Array<{
+          value?: {
+            leadgen_id?: string;
+            page_id?:   string;
+            form_id?:   string;
+            field_data?: Array<{ name: string; values: string[] }>;
+          };
+        }>;
+      }>;
+    };
+
+    if (body.object !== "page" || !Array.isArray(body.entry)) {
+      await writeWebhookLog("social_meta", "invalid", null, "unexpected payload structure", null);
+      return;
+    }
+
+    for (const entry of body.entry) {
+      for (const change of entry.changes ?? []) {
+        const val = change.value;
+        if (!val?.field_data) continue;
+
+        // Extract fields — Meta form field names vary; check common variants
+        const get = (keys: string[]) => {
+          for (const key of keys) {
+            const found = val.field_data!.find((f) => f.name.toLowerCase() === key.toLowerCase());
+            if (found?.values?.[0]) return found.values[0];
+          }
+          return undefined;
+        };
+
+        const name        = get(["full_name", "name", "first_name"]);
+        const phone       = get(["phone_number", "phone", "mobile"]);
+        const email       = get(["email"]);
+        const loanProduct = get(["loan_type", "product", "loan_product"]);
+        const loanAmtRaw  = get(["loan_amount", "amount"]);
+        const loanAmount  = loanAmtRaw ? parseFloat(loanAmtRaw.replace(/[^0-9.]/g, "")) || undefined : undefined;
+
+        if (!name || !phone) {
+          await writeWebhookLog("social_meta", "invalid", null,
+            `missing name or phone in leadgen_id=${val.leadgen_id}`, null);
+          continue;
+        }
+
+        try {
+          const outcome = await processInboundLead({
+            name, phone, email,
+            loanProduct, loanAmount,
+            formId:        val.form_id,
+            metaLeadgenId: val.leadgen_id,
+            source:        "social_meta",
+          });
+          await writeWebhookLog("social_meta", outcome.result, outcome.leadId,
+            outcome.errorMessage, outcome.assignedTo);
+        } catch (e) {
+          console.error("[webhook/meta] processing error:", e);
+          await writeWebhookLog("social_meta", "error", null, String(e), null);
+        }
+      }
+    }
+  });
+
+  // ─── Webhook logs read API ────────────────────────────────────────────────────
+  // GET /api/admin/webhook-logs — returns latest 20 entries, admin only.
+  // Firestore rules deny client access; this endpoint acts as the proxy.
+  app.get("/api/admin/webhook-logs", async (req, res) => {
+    const uid = await verifyFirebaseToken(req);
+    if (!uid) return res.status(401).json({ error: "Unauthorized" });
+    const userSnap = await db.collection("users").doc(uid).get();
+    if (userSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+
+    const snap = await db.collection("webhook_logs")
+      .orderBy("receivedAt", "desc")
+      .limit(20)
+      .get();
+
+    const logs = snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id:           d.id,
+        source:       data.source,
+        result:       data.result,
+        leadId:       data.leadId,
+        errorMessage: data.errorMessage,
+        assignedTo:   data.assignedTo,
+        receivedAt:   data.receivedAt?.toDate?.()?.toISOString() ?? null,
+      };
+    });
+
+    return res.json({ logs });
   });
 
   // ─── Vite / static serving ───────────────────────────────────────────────────

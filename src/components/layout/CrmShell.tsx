@@ -3,7 +3,7 @@ import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-route
 import { signOut } from 'firebase/auth';
 import {
   LayoutDashboard, TrendingUp, GitBranch, IndianRupee,
-  Upload, Settings, LogOut, LayoutGrid, Inbox, Clock, Bookmark, Plus,
+  Upload, Settings, LogOut, LayoutGrid, Inbox, Clock, Bookmark, Plus, Webhook,
 } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -33,6 +33,7 @@ const ADMIN_NAV: NavEntry[] = [
   { path: '/crm/admin/rate-memory',            label: 'Rate Memory',         icon: Settings, live: true, end: true },
   { path: '/crm/admin/access-logs',            label: 'Access Logs',         icon: Settings, live: true, end: true },
   { path: '/crm/admin/right-to-be-forgotten',  label: 'Right to Erasure',    icon: Settings, live: true, end: true },
+  { path: '/crm/admin/webhooks',               label: 'Webhooks',            icon: Webhook,  live: true, end: true },
 ];
 
 function resolveCrmTitle(pathname: string): string {
@@ -65,6 +66,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/crm/admin/rate-memory':              'Rate Memory',
   '/crm/admin/access-logs':              'Access Logs',
   '/crm/admin/right-to-be-forgotten':    'Right to Erasure',
+  '/crm/admin/webhooks':                 'Webhook Configuration',
 };
 
 function FullPageLoader() {

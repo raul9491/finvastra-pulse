@@ -495,6 +495,15 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ─── Webhook Logs ────────────────────────────────────────────────────────────
+    // Written exclusively by the server (Admin SDK bypasses rules).
+    // Admin read-only for the WebhookConfigPage — client-side reads go via
+    // GET /api/admin/webhook-logs proxy endpoint which handles auth.
+    match /webhook_logs/{logId} {
+      allow read:  if isAdmin();
+      allow write: if false;
+    }
+
     // ─── Rate Limits (Firestore-based rate limiting) ─────────────────────────────
     // Server-only: Admin SDK bypasses rules. Client access denied.
     match /rate_limits/{key} {

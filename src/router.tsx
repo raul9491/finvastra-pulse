@@ -50,6 +50,7 @@ import { CommissionRecordsPage }    from './features/crm/commissions/CommissionR
 import { CommissionSlabsPage }           from './features/crm/admin/CommissionSlabsPage';
 import { AccessLogsPage }               from './features/crm/admin/AccessLogsPage';
 import { RightToBeForgottenPage }       from './features/crm/admin/RightToBeForgottenPage';
+import { WebhookConfigPage }            from './features/crm/admin/WebhookConfigPage';
 import { DocumentTypesPage }            from './features/crm/admin/DocumentTypesPage';
 import { CommissionLeakagePage }        from './features/crm/admin/CommissionLeakagePage';
 import { ProvidersPage }                from './features/crm/admin/ProvidersPage';
@@ -157,6 +158,7 @@ export const router = createBrowserRouter([
       { path: 'admin/commission-slabs',      element: <CommissionSlabsPage /> },
       { path: 'admin/access-logs',           element: <AccessLogsPage /> },
       { path: 'admin/right-to-be-forgotten', element: <RightToBeForgottenPage /> },
+      { path: 'admin/webhooks',              element: <WebhookConfigPage /> },
       { path: 'admin/document-types',        element: <DocumentTypesPage /> },
       { path: 'admin/commission-leakage',    element: <CommissionLeakagePage /> },
       { path: 'admin/providers',             element: <ProvidersPage /> },

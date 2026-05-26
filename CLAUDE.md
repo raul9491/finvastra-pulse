@@ -92,11 +92,67 @@ Production target: **end of October 2026.** *(Phase 4 MIS may push this — revi
 | Post-2.6 Operational Analytics | **✅ Complete** | Document expiry engine (threshold-based); duplicate lead detection; bank SLA breach alerts (day-count threshold); commission leakage detection (rules-based); lost-reason capture; competitor/referral/rate analysis pages |
 | Post-2.6 Differentiators | **✅ Complete** | Public customer tracker (/track/:token); application packet PDF (jsPDF, 5-page, watermarked); FOIR pre-qualifier; bank eligibility cards; eligibility rules admin |
 | 2.8 Transaction cleanup | ⬜ Pending — before prod | `setPrimarySubmission` + all multi-step writes wrapped in `runTransaction`; seed buttons removed from prod |
-| 2.5b Social/website webhook intake | ⬜ Pending | Real-time webhook for Meta Ads + website form leads; working-day SLA |
+| 2.5b Social/website webhook intake | **✅ Complete** | `POST /api/leads/intake/website` (X-Finvastra-Webhook-Secret header) + `GET/POST /api/leads/intake/meta` (X-Hub-Signature-256 HMAC); workload-aware assignment; `/webhook_logs`; admin config page at `/crm/admin/webhooks` |
 | 2.5c Lead queue + transfer UI | **✅ Complete** | My Queue page; urgency-sorted queue; inline log-call; transfer-to-specialist modal; QuickContactBar on LeadDetailPage; overdue badge in nav |
 | 2.5d Drive doc vault | ⬜ Pending | Google Drive integration per opportunity |
 | 2.7 Wealth investments | ⬜ Pending | Investment tracking subcollection on wealth opportunities |
 | 2.8b Insurance policies | ⬜ Pending | Policy management subcollection on insurance opportunities |
+
+## Phase 2.5b — Website + Meta Lead Ads Webhook Intake (2026-05-26)
+
+Real-time lead intake without manual import. Both sources use the same shared processing pipeline.
+
+| Feature | Status | Files |
+|---|---|---|
+| **Website form webhook** | ✅ Complete | `server.ts` — `POST /api/leads/intake/website` |
+| **Meta Lead Ads webhook** | ✅ Complete | `server.ts` — `GET/POST /api/leads/intake/meta` |
+| **Webhook logs** | ✅ Complete | `/webhook_logs` Firestore collection; `GET /api/admin/webhook-logs` proxy |
+| **Admin config page** | ✅ Complete | `src/features/crm/admin/WebhookConfigPage.tsx` at `/crm/admin/webhooks` |
+
+### Shared processing pipeline (`processInboundLead`)
+
+1. **Validate name** — required, min 2 chars
+2. **Normalise + validate phone** — strips `+91`, spaces, dashes; checks 10-digit Indian mobile regex
+3. **Duplicate check** — `where('phone', '==', normPhone).where('deleted', '==', false)` → skip silently on match (return 200 so callers don't retry)
+4. **Workload-aware assignment** — queries active `lead_generator` users, counts open leads per generator in parallel, assigns the one with fewest; falls back to `'UNASSIGNED'`
+5. **Create `/leads` doc** — `source: 'website'|'social_meta'`, `consentMethod: 'digital'`, `slaDeadline: now + 30 min`, `createdBy: 'webhook:{source}'`
+6. **In-app notification** — writes to `/notifications/{uid}/items/{id}` with `type: 'new_lead'` (Admin SDK, bypasses rules)
+7. **Webhook log** — writes to `/webhook_logs` regardless of outcome
+
+### Authentication
+
+| Endpoint | Auth mechanism |
+|---|---|
+| `POST /api/leads/intake/website` | `X-Finvastra-Webhook-Secret` header must match `WEBSITE_WEBHOOK_SECRET` env var |
+| `GET /api/leads/intake/meta` | `hub.verify_token` query param must match `META_WEBHOOK_SECRET` |
+| `POST /api/leads/intake/meta` | `X-Hub-Signature-256: sha256=HMAC(rawBody, META_WEBHOOK_SECRET)` |
+
+### Raw body capture
+
+`express.json()` is configured with a `verify` callback that stores the raw `Buffer` on `req.rawBody`. The Meta endpoint reads `req.rawBody` for HMAC verification before the parsed `req.body` is used.
+
+### Firestore collection
+
+```
+/webhook_logs/{logId}
+  source:       'website' | 'social_meta'
+  result:       'success' | 'duplicate' | 'invalid' | 'error'
+  leadId:       string | null
+  errorMessage: string | null
+  assignedTo:   string | null
+  receivedAt:   Timestamp
+```
+
+Rules: `allow read: if isAdmin()` · `allow write: if false` (server-only via Admin SDK).
+
+### Env vars required before go-live
+
+```bash
+gcloud run services update pulse-api \
+  --set-env-vars \
+  "WEBSITE_WEBHOOK_SECRET=<strong-random-secret>,META_WEBHOOK_SECRET=<meta-verify-token>" \
+  --region asia-south1
+```
 
 **Schema decisions (2.1):**
 - PAN stored as raw field `pan` in Firestore. `maskPan()` in `panUtils.ts` is the ONLY place rendering happens. Never pass raw PAN to any UI component.

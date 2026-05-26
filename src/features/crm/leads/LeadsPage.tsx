@@ -19,6 +19,7 @@ const SOURCE_LABELS: Record<LeadSource, string> = {
   website: 'Website', instagram: 'Instagram', facebook: 'Facebook',
   walkin: 'Walk-in', referral: 'Referral', broker: 'Broker',
   offline_bulk: 'Offline Bulk', social_meta: 'Social Meta',
+  employee_referral: 'Employee Referral',
 };
 
 function TableSkeleton() {
@@ -224,6 +225,22 @@ export function LeadsPage() {
           onChange={(v) => setFilterRm(v)}
           label="Filter by RM"
         />
+        {/* Referrals quick-filter chip — visible to admin and CRM-role employees */}
+        {(isAdmin || !!profile?.crmRole) && (
+          <button
+            onClick={() =>
+              setFilterSource((prev) => (prev === 'employee_referral' ? '' : 'employee_referral'))
+            }
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-full border transition-colors"
+            style={
+              filterSource === 'employee_referral'
+                ? { backgroundColor: '#C9A961', color: '#0B1538', borderColor: '#C9A961' }
+                : { backgroundColor: '#FFFFFF', color: '#2A2A2A', borderColor: '#E2E8F0' }
+            }
+          >
+            🔖 Referrals
+          </button>
+        )}
       </div>
 
       {/* Table */}

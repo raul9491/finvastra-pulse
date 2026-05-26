@@ -40,22 +40,23 @@ export async function deleteHoliday(id: string): Promise<void> {
 }
 
 // Official Finvastra 2026 holiday calendar (Hyderabad)
+// Keep in sync with scripts/seed/syncHolidays2026.ts — run `npm run sync:holidays` after editing.
 const HOLIDAYS_2026: Omit<Holiday, 'id'>[] = [
-  { date: '2026-01-01', name: 'New Year',                    type: 'national', year: 2026 },
-  { date: '2026-01-14', name: 'Makar Sankranti',             type: 'regional', year: 2026 },
-  { date: '2026-01-26', name: 'Republic Day',                type: 'national', year: 2026 },
-  { date: '2026-03-04', name: 'Holi',                        type: 'national', year: 2026 },
-  { date: '2026-03-19', name: 'Ugadi',                       type: 'regional', year: 2026 },
-  { date: '2026-03-21', name: 'Eid-ul-Fitr (Ramzan)',        type: 'national', year: 2026 },
-  { date: '2026-04-03', name: 'Good Friday',                 type: 'national', year: 2026 },
-  { date: '2026-05-01', name: 'May Day / Labour Day',        type: 'national', year: 2026 },
-  { date: '2026-05-27', name: 'Bakrid / Eid-al-Adha',        type: 'national', year: 2026 },
-  { date: '2026-08-15', name: 'Independence Day',            type: 'national', year: 2026 },
-  { date: '2026-09-14', name: 'Vinayaka Chaturthi',          type: 'regional', year: 2026 },
-  { date: '2026-10-02', name: 'Mahatma Gandhi Jayanti',      type: 'national', year: 2026 },
-  { date: '2026-10-20', name: 'Vijaya Dashami / Dussehra',   type: 'national', year: 2026 },
-  { date: '2026-11-09', name: 'Diwali / Deepavali',          type: 'national', year: 2026 },
-  { date: '2026-12-25', name: 'Christmas',                   type: 'national', year: 2026 },
+  { date: '2026-01-26', name: 'Republic Day',              type: 'national', year: 2026 },
+  { date: '2026-02-26', name: 'Maha Shivaratri',           type: 'national', year: 2026 },
+  { date: '2026-03-14', name: 'Holi',                      type: 'national', year: 2026 },
+  { date: '2026-03-19', name: 'Ugadi',                     type: 'regional', year: 2026 },
+  { date: '2026-03-31', name: 'Eid ul-Fitr',               type: 'national', year: 2026 },
+  { date: '2026-04-03', name: 'Good Friday',               type: 'national', year: 2026 },
+  { date: '2026-04-14', name: 'Ambedkar Jayanti',          type: 'national', year: 2026 },
+  { date: '2026-04-22', name: 'Ram Navami',                type: 'national', year: 2026 },
+  { date: '2026-05-28', name: 'Bakrid (Eid ul-Adha)',      type: 'national', year: 2026 },
+  { date: '2026-08-15', name: 'Independence Day',          type: 'national', year: 2026 },
+  { date: '2026-08-23', name: 'Ganesh Chaturthi',          type: 'regional', year: 2026 },
+  { date: '2026-10-02', name: 'Gandhi Jayanti',            type: 'national', year: 2026 },
+  { date: '2026-10-20', name: 'Dussehra (Vijaya Dashami)', type: 'national', year: 2026 },
+  { date: '2026-11-08', name: 'Diwali',                    type: 'national', year: 2026 },
+  { date: '2026-12-25', name: 'Christmas',                 type: 'national', year: 2026 },
 ];
 
 // ─── seedHolidays2026 ─────────────────────────────────────────────────────────

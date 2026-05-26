@@ -5,7 +5,7 @@ import fs from "fs";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { google } from "googleapis";
-import { JWT } from "google-auth-library";
+import { JWT, OAuth2Client } from "google-auth-library";
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import cookieParser from "cookie-parser";
@@ -393,6 +393,25 @@ async function verifyFirebaseToken(req: express.Request): Promise<string | null>
     return decoded.uid;
   } catch {
     return null;
+  }
+}
+
+// ─── Cloud Scheduler OIDC auth ────────────────────────────────────────────────
+// Cloud Scheduler sends an OIDC token, not a Firebase ID token.
+// Verify it with google-auth-library and confirm the issuing service account
+// matches the one attached to the pulse-api Cloud Run service.
+const _schedulerOidcClient = new OAuth2Client();
+const SCHEDULER_SA_EMAIL = "787616231546-compute@developer.gserviceaccount.com";
+
+async function verifySchedulerOIDC(req: express.Request): Promise<boolean> {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return false;
+  try {
+    const ticket = await _schedulerOidcClient.verifyIdToken({ idToken: authHeader.slice(7) });
+    const payload = ticket.getPayload();
+    return payload?.email === SCHEDULER_SA_EMAIL && payload?.email_verified === true;
+  } catch {
+    return false;
   }
 }
 
@@ -1272,11 +1291,15 @@ async function startServer() {
   // Manual admin trigger also available from the dashboard.
 
   // POST /api/admin/run-bank-sla-check
+  // Accepts: Firebase admin token (dashboard) OR Cloud Scheduler OIDC token.
   app.post("/api/admin/run-bank-sla-check", async (req, res) => {
-    const uid = await verifyFirebaseToken(req);
-    if (!uid) return res.status(401).json({ error: "Unauthorized" });
-    const userSnap = await db.collection("users").doc(uid).get();
-    if (userSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+    const fromScheduler = await verifySchedulerOIDC(req);
+    if (!fromScheduler) {
+      const uid = await verifyFirebaseToken(req);
+      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+      const userSnap = await db.collection("users").doc(uid).get();
+      if (userSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+    }
     try {
       const { runBankSLACheck } = await import("./src/lib/bankSLAJob");
       const result = await runBankSLACheck(db);
@@ -1285,11 +1308,15 @@ async function startServer() {
   });
 
   // POST /api/admin/run-commission-leakage-check
+  // Accepts: Firebase admin token (dashboard) OR Cloud Scheduler OIDC token.
   app.post("/api/admin/run-commission-leakage-check", async (req, res) => {
-    const uid = await verifyFirebaseToken(req);
-    if (!uid) return res.status(401).json({ error: "Unauthorized" });
-    const userSnap = await db.collection("users").doc(uid).get();
-    if (userSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+    const fromScheduler = await verifySchedulerOIDC(req);
+    if (!fromScheduler) {
+      const uid = await verifyFirebaseToken(req);
+      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+      const userSnap = await db.collection("users").doc(uid).get();
+      if (userSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+    }
     try {
       const { runCommissionLeakageCheck } = await import("./src/lib/commissionLeakageJob");
       const result = await runCommissionLeakageCheck(db);
@@ -1298,13 +1325,16 @@ async function startServer() {
   });
 
   // POST /api/admin/run-document-expiry-check
-  // Intended to be triggered by Cloud Scheduler (HTTP target) daily.
-  // Manual trigger available from admin dashboard.
+  // Triggered daily by Cloud Scheduler (HTTP + OIDC). Manual trigger from admin dashboard.
+  // Accepts: Firebase admin token (dashboard) OR Cloud Scheduler OIDC token.
   app.post("/api/admin/run-document-expiry-check", async (req, res) => {
-    const uid = await verifyFirebaseToken(req);
-    if (!uid) return res.status(401).json({ error: "Unauthorized" });
-    const userSnap = await db.collection("users").doc(uid).get();
-    if (userSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+    const fromScheduler = await verifySchedulerOIDC(req);
+    if (!fromScheduler) {
+      const uid = await verifyFirebaseToken(req);
+      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+      const userSnap = await db.collection("users").doc(uid).get();
+      if (userSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+    }
     try {
       const { runDocumentExpiryCheck } = await import("./src/lib/documentExpiryJob");
       const result = await runDocumentExpiryCheck(db);

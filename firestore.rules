@@ -26,6 +26,13 @@ service cloud.firestore {
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('crmAccess', false) == true;
     }
+    // Any employee with HRMS self-service access (hrmsAccess absent = true by default).
+    // Used to allow HRMS-only employees to submit employee_referral leads.
+    function hasHrmsAccess() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('hrmsAccess', true) == true;
+    }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
 
@@ -65,11 +72,37 @@ service cloud.firestore {
                'source', 'tags', 'primaryOwnerId', 'consentGiven', 'consentTimestamp',
                'consentMethod', 'createdBy', 'createdAt', 'updatedAt', 'deleted',
                'deletedAt', 'slaDeadline', 'triagePriority', 'importBatchId',
-               'importHash', 'importedBy', 'importedAt'
+               'importHash', 'importedBy', 'importedAt', 'referredBy'
              ]) &&
              data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 200 &&
              data.phone is string && data.phone.size() == 10 &&
-             data.source in ['website', 'instagram', 'facebook', 'walkin', 'referral', 'broker', 'offline_bulk', 'social_meta'] &&
+             data.source in ['website', 'instagram', 'facebook', 'walkin', 'referral', 'broker', 'offline_bulk', 'social_meta', 'employee_referral'] &&
+             data.createdBy == request.auth.uid &&
+             data.consentGiven == true &&
+             data.consentMethod in ['verbal', 'written', 'digital', 'offline_collection'] &&
+             data.deleted == false;
+    }
+
+    // Stricter variant for HRMS-employee referral submissions.
+    // Deliberately limited field set — no PAN, no import fields, no triage.
+    // The submitter's uid must be both referredBy and primaryOwnerId at creation time.
+    function isValidReferralLead(data) {
+      return data.keys().hasAll([
+               'displayName', 'phone', 'source', 'primaryOwnerId', 'referredBy',
+               'consentGiven', 'consentTimestamp', 'consentMethod',
+               'createdBy', 'createdAt', 'tags', 'deleted'
+             ]) &&
+             data.keys().hasOnly([
+               'displayName', 'phone', 'email',
+               'source', 'tags', 'primaryOwnerId', 'referredBy',
+               'consentGiven', 'consentTimestamp', 'consentMethod',
+               'createdBy', 'createdAt', 'updatedAt', 'deleted'
+             ]) &&
+             data.displayName is string && data.displayName.size() >= 2 && data.displayName.size() <= 200 &&
+             data.phone is string && data.phone.size() == 10 &&
+             data.source == 'employee_referral' &&
+             data.referredBy == request.auth.uid &&
+             data.primaryOwnerId == request.auth.uid &&
              data.createdBy == request.auth.uid &&
              data.consentGiven == true &&
              data.consentMethod in ['verbal', 'written', 'digital', 'offline_collection'] &&
@@ -187,7 +220,7 @@ service cloud.firestore {
     // /leave_balances/{docId}, /holidays/{holidayId}, /payslips/{payslipId}.
     // The old /leaves and /payroll collections are superseded by the Phase 3 schema.
 
-    // ─── Notifications ───────────────────────────────────────────────────────────
+    // ─── Notifications (flat — legacy) ───────────────────────────────────────────
     match /notifications/{notifId} {
       allow get:    if isOwner(existing().get('userId', '')) || isAdmin();
       allow list:   if isSignedIn();
@@ -197,15 +230,37 @@ service cloud.firestore {
       allow delete: if isAdmin() || isOwner(existing().get('userId', ''));
     }
 
+    // ─── Notifications (per-user subcollection — employee referral alerts) ────────
+    // Any signed-in user may push a new_referral notification to a generator's inbox.
+    // Only the target user may read or mark read their own items.
+    match /notifications/{uid}/items/{itemId} {
+      allow create: if isSignedIn() &&
+                       incoming().keys().hasOnly([
+                         'type', 'leadId', 'leadName', 'submittedBy', 'createdAt', 'read'
+                       ]) &&
+                       incoming().type == 'new_referral';
+      allow get,
+            list:   if request.auth.uid == uid;
+      allow update: if request.auth.uid == uid &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+      allow delete: if false;
+    }
+
     // ─── CRM: Leads (person record) ──────────────────────────────────────────────
     match /leads/{leadId} {
-      // Admin sees all; RM sees leads where they are the primary owner
-      allow get:  if isAdmin() || (hasCrmAccess() && resource.data.primaryOwnerId == request.auth.uid);
-      allow list: if isAdmin() || (hasCrmAccess() && resource.data.primaryOwnerId == request.auth.uid);
+      // Admin sees all; RM sees their primary leads; HRMS employee tracks their own referrals.
+      allow get:  if isAdmin() ||
+                     (hasCrmAccess() && resource.data.primaryOwnerId == request.auth.uid) ||
+                     resource.data.get('referredBy', null) == request.auth.uid;
+      allow list: if isAdmin() ||
+                     (hasCrmAccess() && resource.data.primaryOwnerId == request.auth.uid) ||
+                     resource.data.get('referredBy', null) == request.auth.uid;
 
       // Admin always bypasses crmAccess — needed when the user doc was bootstrapped
       // with crmAccess:false on first emulator sign-in before admin role was set.
-      allow create: if (hasCrmAccess() || isAdmin()) && isValidLead(incoming());
+      // HRMS-only employees may submit employee_referral leads via isValidReferralLead().
+      allow create: if ((hasCrmAccess() || isAdmin()) && isValidLead(incoming()))
+                       || (hasHrmsAccess() && isValidReferralLead(incoming()));
 
       // Admin updates any field; primary owner can update non-consent, non-PAN fields
       allow update: if isAdmin() ||

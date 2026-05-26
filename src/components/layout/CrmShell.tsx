@@ -3,7 +3,7 @@ import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-route
 import { signOut } from 'firebase/auth';
 import {
   LayoutDashboard, TrendingUp, GitBranch, IndianRupee,
-  Upload, Settings, LogOut, LayoutGrid, Inbox, Clock,
+  Upload, Settings, LogOut, LayoutGrid, Inbox, Clock, Bookmark, Plus,
 } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -45,6 +45,9 @@ function resolveCrmTitle(pathname: string): string {
 }
 
 const PAGE_TITLES: Record<string, string> = {
+  '/crm/referrals':                       'My Referrals',
+  '/crm/referrals/new':                   'Submit a Lead',
+  '/crm/referrals/import':                'Import from CSV',
   '/crm/dashboard':                      'Dashboard',
   '/crm/import/history':                 'Import History',
   '/crm/my-queue':                       'My Queue',
@@ -127,8 +130,17 @@ export function CrmShell() {
   if (!user) return <Navigate to="/login" replace />;
   if (profile?.mustResetPassword) return <Navigate to="/reset-password" replace />;
 
-  const canAccess = profile?.role === 'admin' || profile?.crmAccess === true;
-  if (!canAccess) return <Navigate to="/" replace />;
+  // Full CRM access: admin or explicit crmAccess flag.
+  // Referral-only access: any HRMS employee (hrmsAccess absent = true by default) without full CRM.
+  const canFullAccess  = profile?.role === 'admin' || profile?.crmAccess === true;
+  const isReferralOnly = !canFullAccess && (profile?.hrmsAccess !== false);
+  const canEnter       = canFullAccess || isReferralOnly;
+  if (!canEnter) return <Navigate to="/" replace />;
+
+  // Redirect referral-only users away from full-CRM pages they can't see
+  if (isReferralOnly && !location.pathname.startsWith('/crm/referrals')) {
+    return <Navigate to="/crm/referrals" replace />;
+  }
 
   const isAdmin   = profile?.role === 'admin';
   const isViewer  = profile?.crmRole === 'viewer' && !isAdmin;
@@ -158,38 +170,55 @@ export function CrmShell() {
 
         <div className="px-5 pt-5 pb-3">
           <p className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: '#C9A961' }}>
-            CRM &amp; Leads
+            {isReferralOnly ? 'Referrals' : 'CRM & Leads'}
           </p>
         </div>
 
         {/* Main nav */}
         <div className="flex-1 px-2 space-y-0.5 overflow-y-auto pb-4">
-          {NAV
-            // Hide Import from viewers and from users without import access
-            .filter((entry) => {
-              if (entry.path === '/crm/import') return canImport;
-              if (entry.path === '/crm/my-queue') return isGenerator || isAdmin;
-              return true;
-            })
-            .map((entry) => {
-              const enriched: NavEntry =
-                entry.path === '/crm/my-queue' && isGenerator
-                  ? { ...entry, badge: queueOverdue }
-                  : entry;
-              return enriched.live
-                ? <NavItemLive key={enriched.path} entry={enriched} isActive={location.pathname.startsWith(enriched.path)} />
-                : <NavItemSoon key={enriched.path} entry={enriched} />;
-            })}
-
-          {/* Admin-only section */}
-          {isAdmin && (
+          {isReferralOnly ? (
+            /* Referral-mode minimal nav */
             <>
-              <div className="px-3 pt-4 pb-2">
-                <p className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: '#475569' }}>Admin</p>
-              </div>
-              {ADMIN_NAV.map((entry) => (
-                <NavItemLive key={entry.path} entry={entry} isActive={location.pathname === entry.path} />
-              ))}
+              <NavItemLive
+                entry={{ path: '/crm/referrals', label: 'My Referrals', icon: Bookmark, live: true, end: true }}
+                isActive={location.pathname === '/crm/referrals'}
+              />
+              <NavItemLive
+                entry={{ path: '/crm/referrals/new', label: 'Submit a Lead', icon: Plus, live: true, end: true }}
+                isActive={location.pathname === '/crm/referrals/new'}
+              />
+            </>
+          ) : (
+            /* Full CRM nav */
+            <>
+              {NAV
+                // Hide Import from viewers and from users without import access
+                .filter((entry) => {
+                  if (entry.path === '/crm/import') return canImport;
+                  if (entry.path === '/crm/my-queue') return isGenerator || isAdmin;
+                  return true;
+                })
+                .map((entry) => {
+                  const enriched: NavEntry =
+                    entry.path === '/crm/my-queue' && isGenerator
+                      ? { ...entry, badge: queueOverdue }
+                      : entry;
+                  return enriched.live
+                    ? <NavItemLive key={enriched.path} entry={enriched} isActive={location.pathname.startsWith(enriched.path)} />
+                    : <NavItemSoon key={enriched.path} entry={enriched} />;
+                })}
+
+              {/* Admin-only section */}
+              {isAdmin && (
+                <>
+                  <div className="px-3 pt-4 pb-2">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: '#475569' }}>Admin</p>
+                  </div>
+                  {ADMIN_NAV.map((entry) => (
+                    <NavItemLive key={entry.path} entry={entry} isActive={location.pathname === entry.path} />
+                  ))}
+                </>
+              )}
             </>
           )}
         </div>
@@ -250,8 +279,18 @@ export function CrmShell() {
         </header>
 
         <main className="flex-1 overflow-y-auto" style={{ backgroundColor: '#FAFAF7' }}>
+          {/* Referral mode info banner */}
+          {isReferralOnly && (
+            <div className="px-8 pt-4">
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm"
+                style={{ backgroundColor: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A' }}>
+                🔖 <strong>Referral Mode</strong> — submit leads and track their progress through the pipeline.
+                Contact your admin to request full CRM access.
+              </div>
+            </div>
+          )}
           {/* View-only banner for CRM viewers */}
-          {isViewer && (
+          {isViewer && !isReferralOnly && (
             <div className="px-8 pt-4">
               <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm"
                 style={{ backgroundColor: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A' }}>

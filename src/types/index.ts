@@ -298,7 +298,7 @@ export interface Payslip {
 
 // ─── CRM: Leads (person record) ──────────────────────────────────────────────
 
-export type LeadSource = 'website' | 'instagram' | 'facebook' | 'walkin' | 'referral' | 'broker' | 'offline_bulk' | 'social_meta';
+export type LeadSource = 'website' | 'instagram' | 'facebook' | 'walkin' | 'referral' | 'broker' | 'offline_bulk' | 'social_meta' | 'employee_referral';
 export type ConsentMethod = 'verbal' | 'written' | 'digital' | 'offline_collection';
 export type TriagePriority = 'high' | 'medium' | 'low';
 
@@ -328,6 +328,9 @@ export interface Lead {
   // SLA & triage — set at creation; slaDeadline is a Firestore Timestamp
   slaDeadline?: any;
   triagePriority?: TriagePriority;
+  // Employee referral provenance — UID of HRMS employee who submitted this lead.
+  // Preserved after primaryOwnerId is reassigned; drives read access in Firestore rules.
+  referredBy?: string;
   // Bulk import provenance fields
   importBatchId?: string;
   importHash?: string;    // SHA256(phone|email|displayName) for idempotency

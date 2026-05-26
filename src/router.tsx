@@ -58,6 +58,9 @@ import { EligibilityRulesPage }         from './features/crm/admin/EligibilityRu
 import { MyQueuePage }                  from './features/crm/leads/MyQueuePage';
 import { ImportPage }                   from './features/crm/import/ImportPage';
 import { ImportHistoryPage }            from './features/crm/import/ImportHistoryPage';
+import { MyReferralsPage }             from './features/crm/referrals/MyReferralsPage';
+import { SubmitReferralPage }          from './features/crm/referrals/SubmitReferralPage';
+import { ImportReferralsPage }         from './features/crm/referrals/ImportReferralsPage';
 
 import { MisShell }                 from './components/layout/MisShell';
 import { MisOverviewPage }          from './features/mis/overview/MisOverviewPage';
@@ -159,6 +162,10 @@ export const router = createBrowserRouter([
       { path: 'admin/eligibility-rules',     element: <EligibilityRulesPage /> },
       { path: 'import',                      element: <ImportPage /> },
       { path: 'import/history',          element: <ImportHistoryPage /> },
+      // Employee referral pages — accessible to all HRMS employees (referral mode)
+      { path: 'referrals',               element: <MyReferralsPage /> },
+      { path: 'referrals/new',           element: <SubmitReferralPage /> },
+      { path: 'referrals/import',        element: <ImportReferralsPage /> },
     ],
   },
   {

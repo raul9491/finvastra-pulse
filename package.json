@@ -14,6 +14,7 @@
     "cleanup:duplicates": "tsx scripts/seed/cleanupDuplicates.ts",
     "migrate:profiles": "tsx scripts/seed/migrateProfileDocs.ts",
     "fix:ajay-role": "tsx scripts/seed/fixAjayRole.ts",
+    "sync:holidays": "tsx scripts/seed/syncHolidays2026.ts",
     "kill:emulators": "npx kill-port 8080 9099 4000 4400 4500 9150 || true",
     "start": "node server.ts",
     "build": "vite build",

@@ -14,25 +14,27 @@ interface Props {
 
 // ─── Source pill styles ───────────────────────────────────────────────────────
 const SOURCE_STYLES: Record<LeadSource, { bg: string; text: string }> = {
-  website:      { bg: '#EFF6FF', text: '#1D4ED8' },
-  social_meta:  { bg: '#1B2A4E20', text: '#C9A961' },
-  instagram:    { bg: '#1B2A4E20', text: '#C9A961' },
-  facebook:     { bg: '#1B2A4E20', text: '#C9A961' },
-  offline_bulk: { bg: '#F1F5F9', text: '#475569' },
-  walkin:       { bg: '#F0FDF4', text: '#166534' },
-  referral:     { bg: '#F0FDF4', text: '#166534' },
-  broker:       { bg: '#F1F5F9', text: '#475569' },
+  website:           { bg: '#EFF6FF', text: '#1D4ED8' },
+  social_meta:       { bg: '#1B2A4E20', text: '#C9A961' },
+  instagram:         { bg: '#1B2A4E20', text: '#C9A961' },
+  facebook:          { bg: '#1B2A4E20', text: '#C9A961' },
+  offline_bulk:      { bg: '#F1F5F9', text: '#475569' },
+  walkin:            { bg: '#F0FDF4', text: '#166534' },
+  referral:          { bg: '#F0FDF4', text: '#166534' },
+  broker:            { bg: '#F1F5F9', text: '#475569' },
+  employee_referral: { bg: '#FEF3C7', text: '#92400E' },
 };
 
 const SOURCE_LABELS: Record<LeadSource, string> = {
-  website:      'Website',
-  social_meta:  'Social',
-  instagram:    'Instagram',
-  facebook:     'Facebook',
-  offline_bulk: 'Offline',
-  walkin:       'Walk-in',
-  referral:     'Referral',
-  broker:       'Broker',
+  website:           'Website',
+  social_meta:       'Social',
+  instagram:         'Instagram',
+  facebook:          'Facebook',
+  offline_bulk:      'Offline',
+  walkin:            'Walk-in',
+  referral:          'Referral',
+  broker:            'Broker',
+  employee_referral: 'Employee Ref',
 };
 
 const CALL_OUTCOMES = [

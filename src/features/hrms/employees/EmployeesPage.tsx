@@ -407,7 +407,7 @@ function BulkEditBar({ selectedIds, onApply, onClear }: {
   const sel = 'text-xs bg-[#0B1538] border border-[#1B2A4E] text-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-gold/30';
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl"
+    <div className="fixed bottom-6 left-[calc(50%+7.5rem)] -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl"
       style={{ backgroundColor: '#0A0A0A', border: '1px solid #1B2A4E', minWidth: 560 }}>
       <CheckSquare size={14} style={{ color: '#C9A961' }} />
       <span className="text-sm font-semibold shrink-0" style={{ color: '#C9A961' }}>

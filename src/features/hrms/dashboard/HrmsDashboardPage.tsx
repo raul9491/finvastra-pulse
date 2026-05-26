@@ -2,7 +2,7 @@ import { useMemo, useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
-  isWeekend, parseISO,
+  isWeekend, parseISO, differenceInCalendarDays,
 } from 'date-fns';
 import {
   Clock, CalendarOff, CalendarDays, Receipt, ChevronRight,
@@ -190,6 +190,98 @@ function UpcomingBirthdaysSection({ employees }: { employees: UpcomingBirthdayEm
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ─── Holiday Banner ───────────────────────────────────────────────────────────
+// Shows for ALL employees when a public holiday is within 3 calendar days.
+// Pure date logic — no admin action needed. Dismiss per-holiday per-day via localStorage.
+
+function HolidayBanner({ holidays }: { holidays: Array<{ id: string; date: string; name: string }> }) {
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+
+  // Read dismissal flags from localStorage whenever the holidays list changes
+  useEffect(() => {
+    if (holidays.length === 0) return;
+    const todayKey = format(new Date(), 'yyyy-MM-dd');
+    const dis = new Set<string>();
+    try {
+      for (const h of holidays) {
+        if (localStorage.getItem(`dismissed_holiday_${h.date}_${todayKey}`)) {
+          dis.add(h.date);
+        }
+      }
+    } catch { /* localStorage unavailable */ }
+    setDismissed(dis);
+  }, [holidays]);
+
+  const today = new Date();
+  const imminent = holidays
+    .map((h) => ({ ...h, daysUntil: differenceInCalendarDays(parseISO(h.date), today) }))
+    .filter(({ daysUntil, date }) => daysUntil >= 0 && daysUntil <= 3 && !dismissed.has(date))
+    .sort((a, b) => a.daysUntil - b.daysUntil);
+
+  if (imminent.length === 0) return null;
+
+  function dismiss(date: string) {
+    const todayKey = format(new Date(), 'yyyy-MM-dd');
+    try { localStorage.setItem(`dismissed_holiday_${date}_${todayKey}`, '1'); } catch { /* storage unavailable */ }
+    setDismissed((prev) => new Set([...prev, date]));
+  }
+
+  return (
+    <div className="space-y-3 mb-6">
+      {imminent.map(({ id, date, name, daysUntil }) => {
+        const hDate = parseISO(date);
+
+        const pill =
+          daysUntil === 0
+            ? { bg: '#FEE2E2', color: '#991B1B', label: 'Today' }
+            : daysUntil === 1
+            ? { bg: '#FEF3C7', color: '#92400E', label: 'Tomorrow' }
+            : { bg: 'rgba(201,169,97,0.15)', color: '#9A7E3F', label: `In ${daysUntil} days` };
+
+        const subtext =
+          daysUntil === 0
+            ? `Today — Office closed. Wishing everyone a wonderful ${name}!`
+            : daysUntil === 1
+            ? `Tomorrow, ${format(hDate, 'EEE d MMM')} — Office closed.`
+            : `This ${format(hDate, 'EEEE')}, ${format(hDate, 'd MMM')} — Office closed.`;
+
+        return (
+          <div
+            key={id}
+            className="flex items-center gap-4 rounded-xl px-5 py-4"
+            style={{
+              backgroundColor: 'rgba(201,169,97,0.08)',
+              border: '1px solid rgba(201,169,97,0.3)',
+              borderLeftWidth: '4px',
+              borderLeftColor: '#C9A961',
+            }}
+          >
+            <span className="text-2xl shrink-0 select-none" aria-hidden>🎉</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold" style={{ color: '#0B1538' }}>{name}</p>
+              <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>{subtext}</p>
+            </div>
+            <span
+              className="text-xs font-bold px-2.5 py-1 rounded-full shrink-0"
+              style={{ backgroundColor: pill.bg, color: pill.color }}
+            >
+              {pill.label}
+            </span>
+            <button
+              onClick={() => dismiss(date)}
+              className="shrink-0 p-1.5 rounded-lg hover:bg-black/5 transition-colors"
+              title="Dismiss"
+              aria-label={`Dismiss ${name} notification`}
+            >
+              <X size={14} style={{ color: '#8B8B85' }} />
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -517,6 +609,9 @@ export function HrmsDashboardPage() {
         </p>
       </div>
 
+      {/* Holiday banner — all employees; shows when a holiday is within 3 days */}
+      <HolidayBanner holidays={holidays} />
+
       {/* Birthday cards — admin/manager only; hidden when all dismissed */}
       <BirthdaySection employees={visibleBirthdays} onDismiss={handleDismissBirthday} />
 
@@ -584,12 +679,13 @@ export function HrmsDashboardPage() {
       {/* Quick Actions */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6">
         <p className="text-[10px] font-bold uppercase tracking-widest mb-4 text-mute">Quick Actions</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {[
-            { label: 'Apply for Leave',  path: '/hrms/leave/apply',   color: '#1D4ED8' },
-            { label: 'Clock In / Out',   path: '/hrms/attendance',    color: '#0B1538' },
-            { label: 'Submit Claim',     path: '/hrms/claims',        color: '#C9A961' },
-            { label: 'View Payslips',    path: '/hrms/payslips',      color: '#166534' },
+            { label: 'Apply for Leave',  path: '/hrms/leave/apply',       color: '#1D4ED8' },
+            { label: 'Clock In / Out',   path: '/hrms/attendance',        color: '#0B1538' },
+            { label: 'Submit Claim',     path: '/hrms/claims',            color: '#7C3AED' },
+            { label: 'View Payslips',    path: '/hrms/payslips',          color: '#166534' },
+            { label: 'Refer a Lead',     path: '/crm/referrals/new',      color: '#C9A961' },
           ].map(({ label, path, color }) => (
             <button key={path} onClick={() => navigate(path)}
               className="px-4 py-3 rounded-xl text-sm font-semibold text-center transition-opacity hover:opacity-80"

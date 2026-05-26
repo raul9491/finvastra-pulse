@@ -785,7 +785,7 @@ export function SuperAdminPermissionsPage() {
       {/* ── Fixed save bar — appears when there are unsaved changes ──────── */}
       {(dirtyUids.length > 0 || saving) && (
         <div
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4
+          className="fixed bottom-6 left-[calc(50%+7.5rem)] -translate-x-1/2 z-50 flex items-center gap-4
             px-5 py-3.5 rounded-2xl shadow-2xl"
           style={{ backgroundColor: '#0B1538', border: '1px solid #C9A961', minWidth: '340px' }}
         >

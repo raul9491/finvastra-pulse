@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, Clock, CalendarOff, Receipt, CalendarDays,
   Settings, LogOut, LayoutGrid, ClipboardList, FileText, UserPlus, Inbox,
   ReceiptText, FolderOpen, Megaphone, Building2, Calculator,
-  Laptop, UserMinus, Lock, FileSearch2,
+  Laptop, UserMinus, Lock, FileSearch2, GraduationCap,
 } from 'lucide-react';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -18,6 +18,7 @@ import { useHolidays } from '../../features/hrms/hooks/useHolidays';
 import { useMyItDeclaration, usePendingItDeclarationCount, currentFinancialYear } from '../../features/hrms/hooks/useItDeclarations';
 import { useOverdueComplianceCount } from '../../features/hrms/compliance/ComplianceCalendarPage';
 import { useBirthdayEmployees } from '../../features/hrms/hooks/useBirthdayEmployees';
+import { useProbationBadge } from '../../features/hrms/hooks/useProbation';
 
 function usePendingRequestCount(enabled: boolean): number {
   const [count, setCount] = useState(0);
@@ -97,9 +98,10 @@ const ADMIN_NAV: NavEntry[] = [
 ];
 
 const LIFECYCLE_NAV: NavEntry[] = [
-  { path: '/hrms/admin/assets',       label: 'Assets',       icon: Laptop,    live: true },
-  { path: '/hrms/admin/onboarding',   label: 'Onboarding',   icon: UserPlus,  live: true },
-  { path: '/hrms/admin/offboarding',  label: 'Offboarding',  icon: UserMinus, live: true },
+  { path: '/hrms/admin/assets',       label: 'Assets',       icon: Laptop,         live: true },
+  { path: '/hrms/admin/onboarding',   label: 'Onboarding',   icon: UserPlus,       live: true },
+  { path: '/hrms/admin/probation',    label: 'Probation',    icon: GraduationCap,  live: true },
+  { path: '/hrms/admin/offboarding',  label: 'Offboarding',  icon: UserMinus,      live: true },
 ];
 
 const COMPLIANCE_NAV: NavEntry[] = [
@@ -134,6 +136,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/admin/pf-tracker':      'PF Tracker',
   '/hrms/admin/assets':          'Asset Management',
   '/hrms/admin/onboarding':      'Onboarding',
+  '/hrms/admin/probation':       'Probation Management',
   '/hrms/admin/offboarding':     'Offboarding & FnF',
   '/hrms/admin/permissions':     'Permission Manager',
 };
@@ -165,6 +168,7 @@ export function HrmsShell() {
   const overdueCompliance   = useOverdueComplianceCount(isAdmin || isHrmsManager);
   const onboardingBadge     = useOnboardingBadge(isAdmin || isHrmsManager);
   const offboardingBadge    = useOffboardingBadge(isAdmin || isHrmsManager);
+  const probationBadge      = useProbationBadge(isAdmin || isHrmsManager);
 
   // Holidays for current year — used to compute unseen holiday badge on Announcements nav item
   const _now = new Date();
@@ -356,6 +360,7 @@ export function HrmsShell() {
               {LIFECYCLE_NAV.map(({ path, label, icon: Icon }) => {
                 const badge =
                   path === '/hrms/admin/onboarding'  ? onboardingBadge  :
+                  path === '/hrms/admin/probation'   ? probationBadge   :
                   path === '/hrms/admin/offboarding' ? offboardingBadge : 0;
                 return (
                   <NavLink key={path} to={path} end
@@ -373,8 +378,12 @@ export function HrmsShell() {
                     {badge > 0 && (
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full mr-1 leading-none"
                         style={{
-                          backgroundColor: path === '/hrms/admin/offboarding' ? '#DC2626' : '#C9A961',
-                          color: path === '/hrms/admin/offboarding' ? '#FFFFFF' : '#0B1538',
+                          backgroundColor: path === '/hrms/admin/offboarding' ? '#DC2626'
+                                         : path === '/hrms/admin/probation'   ? '#D97706'
+                                         : '#C9A961',
+                          color: path === '/hrms/admin/offboarding' ? '#FFFFFF'
+                               : path === '/hrms/admin/probation'   ? '#FFFFFF'
+                               : '#0B1538',
                         }}>
                         {badge}
                       </span>

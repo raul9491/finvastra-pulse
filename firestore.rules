@@ -716,5 +716,15 @@ service cloud.firestore {
             update: if isAdmin() || isHrmsManager();
       allow delete: if false;
     }
+
+    // ─── HRMS: Probation Records ────────────────────────────────────────────────
+    // Admin and HRMS managers only. Auto-created on employee join; updated as
+    // HR reviews, confirms, or extends. No deletes — permanent audit trail.
+    match /probation_records/{docId} {
+      allow read:   if isAdmin() || isHrmsManager();
+      allow create,
+            update: if isAdmin() || isHrmsManager();
+      allow delete: if false;
+    }
   }
 }

@@ -968,6 +968,52 @@ export interface ItDeclaration {
   updatedAt: import('firebase/firestore').Timestamp;
 }
 
+// ─── Probation Management ────────────────────────────────────────────────────
+// Collection: /probation_records/{userId}
+// Created on employee hire; updated as HR reviews and confirms/extends.
+
+export type ProbationStatus = 'on_probation' | 'confirmed' | 'extended' | 'terminated';
+
+export interface ProbationEvaluation {
+  submittedAt: import('firebase/firestore').Timestamp;
+  submittedBy: string;                        // uid of evaluator
+  reportingManagerName: string;
+  // Competency ratings — 1 (Poor) to 5 (Excellent)
+  workQuality: number;
+  communication: number;
+  attendance: number;
+  teamwork: number;
+  learning: number;
+  overallRating: number;                      // average of the five, rounded to 1dp
+  recommendation: 'confirm' | 'extend' | 'terminate';
+  notes: string | null;
+}
+
+export interface ProbationRecord {
+  id: string;                                 // = userId
+  employeeId: string;                         // userId / Firebase uid
+  employeeName: string;
+  employeeCode: string | null;                // FAPL-xxx
+  department: string | null;
+  designation: string | null;
+  joiningDate: string;                        // YYYY-MM-DD
+  probationStartDate: string;                 // YYYY-MM-DD (= joiningDate)
+  probationEndDate: string;                   // YYYY-MM-DD (joiningDate + 6 months)
+  status: ProbationStatus;
+  evaluation?: ProbationEvaluation;
+  // Confirmation
+  confirmedAt?: import('firebase/firestore').Timestamp;
+  confirmedBy?: string;
+  confirmationNotes?: string | null;
+  // Extension
+  extensionReason?: string;
+  extensionEndDate?: string;                  // YYYY-MM-DD — the new end date after extension
+  extendedAt?: import('firebase/firestore').Timestamp;
+  extendedBy?: string;
+  createdAt: import('firebase/firestore').Timestamp;
+  updatedAt: import('firebase/firestore').Timestamp;
+}
+
 // ─── Toast ─────────────────────────────────────────────────────────────────
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';

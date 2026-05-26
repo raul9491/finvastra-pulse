@@ -36,6 +36,7 @@ import { OnboardingPage }         from './features/hrms/onboarding/OnboardingPag
 import { OffboardingPage }        from './features/hrms/offboarding/OffboardingPage';
 import { ItDeclarationPage }      from './features/hrms/itdeclaration/ItDeclarationPage';
 import { AdminItDeclarationsPage } from './features/hrms/itdeclaration/AdminItDeclarationsPage';
+import { ProbationPage }          from './features/hrms/probation/ProbationPage';
 
 import { CrmShell }               from './components/layout/CrmShell';
 import { CrmDashboardPage }       from './features/crm/dashboard/CrmDashboardPage';
@@ -130,6 +131,7 @@ export const router = createBrowserRouter([
       { path: 'admin/pf-tracker',   element: <PfTrackerPage /> },
       { path: 'admin/assets',        element: <AssetsPage /> },
       { path: 'admin/onboarding',      element: <OnboardingPage /> },
+      { path: 'admin/probation',       element: <ProbationPage /> },
       { path: 'admin/offboarding',     element: <OffboardingPage /> },
       { path: 'it-declaration',        element: <ItDeclarationPage /> },
       { path: 'admin/it-declarations', element: <AdminItDeclarationsPage /> },

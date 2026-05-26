@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { serverTimestamp } from 'firebase/firestore';
+import { serverTimestamp, getDoc, doc } from 'firebase/firestore';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
@@ -246,6 +246,59 @@ export function GeneratePayslipPage() {
     prefillAttendance().catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth, employees.length]);
+
+  // Pre-fill salary components from employee_sensitive — admin can always override.
+  // Only fills fields that are still at their default (0) so existing edits are preserved.
+  useEffect(() => {
+    if (employees.length === 0) return;
+    let cancelled = false;
+
+    async function prefillSalary() {
+      try {
+        const results = await Promise.all(
+          employees.map((emp) =>
+            getDoc(doc(db, 'employee_sensitive', emp.userId)).then((snap) => ({
+              userId: emp.userId,
+              data: snap.exists() ? (snap.data() as {
+                salaryBasic?: number; salaryHra?: number; salaryConveyance?: number;
+                salaryMedical?: number; salaryOther?: number; grossSalary?: number;
+              }) : null,
+            })),
+          ),
+        );
+        if (cancelled) return;
+        setFormState((prev) => {
+          const next = new Map(prev);
+          for (const { userId, data } of results) {
+            if (!data?.grossSalary) continue; // no salary on file — skip
+            const existing = next.get(userId) ?? defaultValues();
+            // Only fill if all earning fields are still at 0 (untouched by admin)
+            const untouched =
+              existing.basicSalary === 0 && existing.hra === 0 &&
+              existing.conveyanceAllowance === 0 && existing.medicalAllowance === 0 &&
+              existing.otherAllowances === 0;
+            if (!untouched) continue;
+            const gross = (data.salaryBasic ?? 0) + (data.salaryHra ?? 0) +
+              (data.salaryConveyance ?? 0) + (data.salaryMedical ?? 0) + (data.salaryOther ?? 0);
+            next.set(userId, {
+              ...existing,
+              basicSalary:         data.salaryBasic      ?? 0,
+              hra:                 data.salaryHra         ?? 0,
+              conveyanceAllowance: data.salaryConveyance  ?? 0,
+              medicalAllowance:    data.salaryMedical     ?? 0,
+              otherAllowances:     data.salaryOther       ?? 0,
+              professionalTax:     computePT(gross, selectedMonth),
+            });
+          }
+          return next;
+        });
+      } catch { /* salary pre-fill is non-fatal — admin can still enter manually */ }
+    }
+
+    prefillSalary();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employees.length, selectedMonth]);
 
   // Fetch MIS payouts for the selected month — suggestion only, admin can override
   useEffect(() => {

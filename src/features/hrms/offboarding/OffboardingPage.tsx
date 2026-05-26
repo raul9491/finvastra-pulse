@@ -410,6 +410,20 @@ function FnFCalculatorModal({
   });
   const [saving, setSaving] = useState(false);
 
+  // Auto-fill grossSalary from employee_sensitive when opening a fresh FnF (no existing data).
+  // Admin can override. Only runs once on mount when no fnfDetails yet.
+  useEffect(() => {
+    if (existing) return; // already has saved data — don't overwrite
+    getDoc(doc(db, 'employee_sensitive', checklist.id)).then((snap) => {
+      if (!snap.exists()) return;
+      const d = snap.data() as { grossSalary?: number };
+      if (d.grossSalary) {
+        setInputs((prev) => ({ ...prev, grossSalary: String(d.grossSalary) }));
+      }
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const result = useMemo(() => computeFnF(inputs), [inputs]);
 
   const set = (k: keyof FnFInputs) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>

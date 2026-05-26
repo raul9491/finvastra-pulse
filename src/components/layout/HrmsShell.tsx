@@ -13,7 +13,8 @@ import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { isSuperAdmin } from '../../config/hrmsConfig';
 import { VideoLogo } from '../ui/VideoLogo';
-import { useUnreadAnnouncementCount } from '../../features/hrms/hooks/useAnnouncements';
+import { useUnreadAnnouncementCount, getUnseenHolidayCount } from '../../features/hrms/hooks/useAnnouncements';
+import { useHolidays } from '../../features/hrms/hooks/useHolidays';
 import { useOverdueComplianceCount } from '../../features/hrms/compliance/ComplianceCalendarPage';
 import { useBirthdayEmployees } from '../../features/hrms/hooks/useBirthdayEmployees';
 
@@ -160,6 +161,11 @@ export function HrmsShell() {
   const onboardingBadge     = useOnboardingBadge(isAdmin || isHrmsManager);
   const offboardingBadge    = useOffboardingBadge(isAdmin || isHrmsManager);
 
+  // Holidays for current year — used to compute unseen holiday badge on Announcements nav item
+  const _now = new Date();
+  const { holidays: _holidays } = useHolidays(_now.getFullYear());
+  const holidayBadge = getUnseenHolidayCount(_holidays);
+
   // Birthday employees (admin/manager only — silently empty for regular employees)
   const { birthdayEmployees } = useBirthdayEmployees(isAdmin || isHrmsManager);
 
@@ -220,8 +226,8 @@ export function HrmsShell() {
         <div className="flex-1 px-2 space-y-0.5 overflow-y-auto pb-4">
           {NAV.map(({ path, label, icon: Icon }) => {
             const badge =
-              path === '/hrms/dashboard'     ? dashboardBadge      :
-              path === '/hrms/announcements' ? unreadAnnouncements  : 0;
+              path === '/hrms/dashboard'     ? dashboardBadge                         :
+              path === '/hrms/announcements' ? unreadAnnouncements + holidayBadge : 0;
             return (
               <NavLink
                 key={path}

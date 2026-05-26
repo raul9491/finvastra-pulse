@@ -3,8 +3,9 @@ import {
   collection, query, where, orderBy, onSnapshot,
   addDoc, updateDoc, doc, serverTimestamp, arrayUnion,
 } from 'firebase/firestore';
+import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { db } from '../../../lib/firebase';
-import type { Announcement, AnnouncementPriority } from '../../../types';
+import type { Announcement, AnnouncementPriority, Holiday } from '../../../types';
 
 // ─── Live announcements (for employees) ──────────────────────────────────────
 
@@ -114,4 +115,18 @@ export async function toggleAnnouncementActive(id: string, isActive: boolean) {
 
 export async function updateAnnouncementPinned(id: string, pinned: boolean) {
   await updateDoc(doc(db, 'announcements', id), { pinned });
+}
+
+// ─── Unseen holiday count (for nav badge) ────────────────────────────────────
+// Returns the number of holidays in the next 0–6 days that have not been marked
+// seen in localStorage (key set when the user opens AnnouncementsPage).
+// Pure synchronous function — safe to call on every render.
+export function getUnseenHolidayCount(holidays: Holiday[]): number {
+  const today = new Date();
+  return holidays.filter((h) => {
+    const diff = differenceInCalendarDays(parseISO(h.date), today);
+    if (diff < 0 || diff > 6) return false;
+    try { return !localStorage.getItem(`holiday_seen_${h.date}`); }
+    catch { return false; }
+  }).length;
 }

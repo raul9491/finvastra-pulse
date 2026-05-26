@@ -30,12 +30,13 @@ const STATUS_META: Record<ChecklistStatus, { label: string; bg: string; color: s
 };
 
 const CATEGORY_META: Record<ChecklistItemCategory, { label: string; icon: typeof FileText; color: string }> = {
-  documents:        { label: 'Documents',      icon: FileText,  color: '#3B82F6' },
-  system_access:    { label: 'System Access',  icon: Monitor,   color: '#8B5CF6' },
-  assets:           { label: 'Assets',         icon: Package,   color: '#F59E0B' },
-  induction:        { label: 'Induction',      icon: BookOpen,  color: '#10B981' },
-  knowledge_transfer: { label: 'Knowledge Transfer', icon: BookOpen, color: '#0EA5E9' },
-  other:            { label: 'Other',          icon: Circle,    color: '#8B8B85' },
+  documents:          { label: 'Documents',          icon: FileText,  color: '#3B82F6' },
+  system_access:      { label: 'System Access',      icon: Monitor,   color: '#8B5CF6' },
+  assets:             { label: 'Assets',             icon: Package,   color: '#F59E0B' },
+  induction:          { label: 'Induction',          icon: BookOpen,  color: '#10B981' },
+  knowledge_transfer: { label: 'Knowledge Transfer', icon: BookOpen,  color: '#0EA5E9' },
+  crm:                { label: 'CRM',                icon: Zap,       color: '#DC2626' },
+  other:              { label: 'Other',              icon: Circle,    color: '#8B8B85' },
 };
 
 function statusBadge(status: ChecklistStatus) {

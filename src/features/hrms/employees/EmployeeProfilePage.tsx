@@ -4,6 +4,7 @@ import { ArrowLeft, ExternalLink, CheckCircle2, Clock, Pencil, X, Check, Laptop,
 import { doc, getDoc, updateDoc, setDoc, serverTimestamp, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
+import { CrmPerformanceWidget } from './CrmPerformanceWidget';
 import type { UserProfile, UserDetails, EmployeeProfile, Asset, AssetType } from '../../../types';
 
 // ─── Employee Assets Section ──────────────────────────────────────────────────
@@ -780,6 +781,11 @@ export function EmployeeProfilePage() {
             verifierEmpCode={currentUser?.employeeId ?? currentUser?.userId ?? ''}
           />
         )
+      )}
+
+      {/* CRM Performance — admin/HR manager only, shown when employee has CRM access */}
+      {isAdminOrHr && userId && displayProfile.crmAccess === true && (
+        <CrmPerformanceWidget employeeUid={userId} employeeName={displayProfile.displayName} />
       )}
 
       {/* Assigned Assets — admin/HR manager only */}

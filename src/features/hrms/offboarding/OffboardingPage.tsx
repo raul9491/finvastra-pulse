@@ -9,7 +9,7 @@ import { useAuth } from '../../auth/AuthContext';
 import {
   UserMinus, ChevronLeft, Check, Clock, CheckCircle2, FileText,
   Monitor, Package, BookOpen, Circle, Calculator, Download,
-  IndianRupee, AlertCircle,
+  IndianRupee, AlertCircle, ExternalLink,
 } from 'lucide-react';
 import { format, differenceInYears } from 'date-fns';
 import jsPDF from 'jspdf';
@@ -45,12 +45,13 @@ const FNF_STATUS_META: Record<FnFStatus, { label: string; bg: string; color: str
 };
 
 const CATEGORY_META: Record<ChecklistItemCategory, { label: string; icon: typeof FileText; color: string }> = {
-  documents:          { label: 'Documents',          icon: FileText,  color: '#3B82F6' },
-  system_access:      { label: 'System Access',      icon: Monitor,   color: '#8B5CF6' },
-  assets:             { label: 'Assets',             icon: Package,   color: '#F59E0B' },
-  induction:          { label: 'Induction',          icon: BookOpen,  color: '#10B981' },
-  knowledge_transfer: { label: 'Knowledge Transfer', icon: BookOpen,  color: '#0EA5E9' },
-  other:              { label: 'Other',              icon: Circle,    color: '#8B8B85' },
+  documents:          { label: 'Documents',          icon: FileText,    color: '#3B82F6' },
+  system_access:      { label: 'System Access',      icon: Monitor,     color: '#8B5CF6' },
+  assets:             { label: 'Assets',             icon: Package,     color: '#F59E0B' },
+  induction:          { label: 'Induction',          icon: BookOpen,    color: '#10B981' },
+  knowledge_transfer: { label: 'Knowledge Transfer', icon: BookOpen,    color: '#0EA5E9' },
+  crm:                { label: 'CRM Reassignment',   icon: AlertCircle, color: '#DC2626' },
+  other:              { label: 'Other',              icon: Circle,      color: '#8B8B85' },
 };
 
 function statusBadge(status: ChecklistStatus) {
@@ -638,8 +639,13 @@ function ChecklistDetail({
     return unsub;
   }, [checklist.id]);
 
+  // CRM reassignment item is rendered separately at the top if present
+  const crmItem = live.items.find((i) => i.id === 'crm_reassignment');
+  const crmReassigned = !crmItem || crmItem.completed;
+  const nonCrmItems = live.items.filter((i) => i.id !== 'crm_reassignment');
+
   const grouped = Object.entries(
-    live.items.reduce<Record<string, ChecklistItem[]>>((acc, item) => {
+    nonCrmItems.reduce<Record<string, ChecklistItem[]>>((acc, item) => {
       if (!acc[item.category]) acc[item.category] = [];
       acc[item.category].push(item);
       return acc;
@@ -669,6 +675,43 @@ function ChecklistDetail({
           </div>
         </div>
       </div>
+
+      {/* CRM Reassignment — shown at top when present and not yet done */}
+      {crmItem && (
+        <div className={`rounded-2xl border-2 p-5 shadow-sm ${crmItem.completed ? 'border-green-400 bg-green-50' : 'border-red-400 bg-red-50'}`}>
+          <div className="flex items-start gap-3">
+            <AlertCircle size={20} className="shrink-0 mt-0.5" style={{ color: crmItem.completed ? '#166534' : '#DC2626' }} />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold" style={{ color: crmItem.completed ? '#166534' : '#DC2626' }}>
+                {crmItem.completed ? 'CRM Reassignment Complete ✓' : 'Action Required: CRM Reassignment'}
+              </p>
+              <p className="text-sm mt-1" style={{ color: crmItem.completed ? '#166534' : '#991B1B' }}>
+                {crmItem.task}
+              </p>
+              {!crmItem.completed && (
+                <div className="flex items-center gap-3 mt-3">
+                  <a
+                    href={(crmItem as ChecklistItem & { metadata?: { reassignUrl?: string } }).metadata?.reassignUrl ?? '/crm/leads'}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                    style={{ backgroundColor: '#DC2626', color: '#FFFFFF' }}
+                  >
+                    <ExternalLink size={12} />
+                    Go to CRM to reassign →
+                  </a>
+                  <button
+                    onClick={() => setTickingItem(crmItem)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-red-300 transition-colors hover:bg-red-100"
+                    style={{ color: '#DC2626' }}
+                  >
+                    <Check size={12} />
+                    Mark as done
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Progress */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
@@ -715,10 +758,26 @@ function ChecklistDetail({
             {live.fnfDetails ? 'Recalculate FnF' : 'Calculate FnF'}
           </button>
           {live.fnfDetails && live.fnfStatus !== 'settled' && (
-            <button onClick={() => setShowSettle(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition-colors">
-              <Check size={13} />Mark FnF as Settled
-            </button>
+            <div className="relative group inline-flex">
+              <button
+                onClick={() => crmReassigned && setShowSettle(true)}
+                disabled={!crmReassigned}
+                title={!crmReassigned ? 'Reassign all open CRM items before settling FnF.' : undefined}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors"
+                style={{
+                  backgroundColor: crmReassigned ? '#16a34a' : '#D1FAE5',
+                  color: crmReassigned ? '#FFFFFF' : '#6B7280',
+                  cursor: crmReassigned ? 'pointer' : 'not-allowed',
+                }}
+              >
+                <Check size={13} />Mark FnF as Settled
+              </button>
+              {!crmReassigned && (
+                <span className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs bg-slate-800 text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                  Reassign all open CRM items before settling FnF.
+                </span>
+              )}
+            </div>
           )}
           {live.fnfDetails && (
             <button

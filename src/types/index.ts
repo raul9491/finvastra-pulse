@@ -822,7 +822,7 @@ export const EXIT_REASON_LABELS: Record<ExitReason, string> = {
 
 export type ChecklistItemCategory =
   | 'documents' | 'system_access' | 'assets' | 'induction' | 'other'
-  | 'knowledge_transfer';
+  | 'knowledge_transfer' | 'crm';
 
 export interface ChecklistItem {
   id: string;

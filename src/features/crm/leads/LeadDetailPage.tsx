@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ArrowLeft, Plus, TrendingUp, Briefcase, ShieldCheck, ChevronRight } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
@@ -232,8 +232,17 @@ export function LeadDetailPage() {
             <h2 className="text-2xl" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
               {lead.displayName}
             </h2>
-            <p className="text-sm mt-0.5" style={{ color: '#8B8B85' }}>
-              {SOURCE_LABELS[lead.source] ?? lead.source} · Primary RM: {ownerName(lead.primaryOwnerId)}
+            <p className="text-sm mt-0.5 flex items-center gap-2 flex-wrap" style={{ color: '#8B8B85' }}>
+              <span>{SOURCE_LABELS[lead.source] ?? lead.source} · Primary RM: {ownerName(lead.primaryOwnerId)}</span>
+              {isAdmin && lead.primaryOwnerId && (
+                <Link
+                  to={`/hrms/employees/${lead.primaryOwnerId}`}
+                  className="inline-flex items-center gap-0.5 text-xs font-medium transition-opacity hover:opacity-70"
+                  style={{ color: '#C9A961' }}
+                >
+                  View HR Profile →
+                </Link>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-2">

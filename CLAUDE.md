@@ -1110,6 +1110,63 @@ Joining date and LWD entered as `DD-MM-YYYY` or `YYYY-MM-DD`. Tenure computed wi
   allow delete:        false
 ```
 
+## HRMS ↔ CRM ↔ MIS Integration (2026-05-26)
+
+Cross-module integration points. All data flows are **read-only from the source module**. No writes cross module boundaries — each module remains the single authoritative writer for its own data.
+
+### 1. Exit Flow — Open Lead Reassignment
+
+**Trigger**: `POST /api/admin/employees/:uid/deactivate` in `server.ts`
+
+After disabling the Firebase Auth account, the deactivate endpoint now:
+1. Queries `/leads` where `primaryOwnerId === uid` — counts non-deleted leads
+2. Queries `collectionGroup('opportunities')` where `ownerId === uid` — counts open opportunities
+3. If either count > 0, adds a `crm_reassignment` item (category: `'crm'`) to the offboarding checklist
+4. Returns `{ ok, warning, openLeads, openOpportunities }` in the response
+5. `EmployeesPage.tsx` shows a `toast.warning` if `warning` is present
+
+**OffboardingPage.tsx enforcement:**
+- `crm_reassignment` item is rendered at the **top** of the checklist with a red border when present
+- "Go to CRM to reassign →" button links to `/crm/leads?ownerId=uid`
+- "Mark FnF as Settled" button is **disabled** until `crm_reassignment.completed === true`
+- Tooltip: "Reassign all open CRM items before settling FnF."
+
+**Type**: `ChecklistItemCategory` now includes `'crm'`. `CATEGORY_META` in `OffboardingPage.tsx` has `crm: { label: 'CRM Reassignment', icon: AlertCircle, color: '#DC2626' }`.
+
+### 2. CRM Performance Widget on Employee Profile
+
+**File**: `src/features/hrms/employees/CrmPerformanceWidget.tsx`
+
+Shown on `EmployeeProfilePage` (admin + isHrmsManager only) when `profile.crmAccess === true`.
+
+**Data reads** (on mount, one-time):
+- `/leads` where `primaryOwnerId === employeeUid` + `deleted === false` → total lead count
+- Iterates each lead's `/opportunities` subcollection → counts `won` and `open` opportunities owned by this employee
+- `/commission_records` where `rmOwnerId === employeeUid` + `status === 'paid'` → filters in-memory to current month → sums `calculatedCommission`
+
+**Widget layout:** 3 stat cards (Active Leads / Disbursals ₹ / Open Opportunities) + conversion rate % + "View in CRM →" link.
+
+No collection group index required — uses per-lead subcollection iteration (small dataset at 25 employees).
+
+### 3. MIS Payout → Payslip Performance Incentive Suggestion
+
+**File**: `src/features/hrms/payslips/GeneratePayslipPage.tsx`
+
+When the admin selects a payslip month, the page checks `/rm_payouts` for approved or paid payouts matching that month. For each employee with a matching payout:
+- A gold inline banner appears under the **Other Allow.** column: "MIS Payout Available — ₹X approved for [Name]"
+- **Add ₹X** button: pre-fills `otherAllowances` with the payout amount
+- **Dismiss** button: hides the banner for this session (state only, no write)
+- Admin can always override the pre-filled amount — this is a suggestion only
+
+### 4. Cross-Module Navigation Links
+
+| Link | Location | Visible to |
+|---|---|---|
+| "View HR Profile →" | CRM `LeadDetailPage` — next to Primary RM name | Admin only |
+| "HR Profile →" | MIS `PayoutDetailPage` — next to RM name in header | Admin only |
+
+Both links navigate to `/hrms/employees/{uid}`.
+
 ## Authentication rules
 
 - **Only `@finvastra.com` Google Workspace accounts** may log in. Enforced in `onAuthStateChanged` (hard block) — not just the Google picker hint. Personal Gmail addresses are blocked even if they somehow reach the auth flow.

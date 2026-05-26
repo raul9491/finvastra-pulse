@@ -13,6 +13,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { Modal } from '../../../components/ui/Modal';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import { useToast } from '../../../components/ui/Toast';
 import { AddEmployeeModal } from './AddEmployeeModal';
 import {
   DEPARTMENTS, DESIGNATION_GROUPS,
@@ -223,7 +224,7 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
 
 // ─── Deactivate modal ─────────────────────────────────────────────────────────
 function DeactivateModal({ employee, onClose, onDone }: {
-  employee: UserProfile; onClose: () => void; onDone: () => void;
+  employee: UserProfile; onClose: () => void; onDone: (warning?: string | null) => void;
 }) {
   const { user } = useAuth();
   const [lwd,        setLwd]        = useState('');
@@ -243,11 +244,9 @@ function DeactivateModal({ employee, onClose, onDone }: {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
         body: JSON.stringify({ lastWorkingDate: lwd, exitReason, notes }),
       });
-      if (!res.ok) {
-        const data = await res.json() as { error?: string };
-        throw new Error(data.error ?? 'Deactivation failed');
-      }
-      onDone();
+      const data = await res.json() as { ok?: boolean; error?: string; warning?: string; openLeads?: number; openOpportunities?: number };
+      if (!res.ok) throw new Error(data.error ?? 'Deactivation failed');
+      onDone(data.warning ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Deactivation failed');
       setBusy(false);
@@ -457,6 +456,7 @@ export function EmployeesPage() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const { employees, loading } = useAllEmployees();
+  const toast = useToast();
 
   const isAdmin       = profile?.role === 'admin';
   const isHrmsManager = profile?.isHrmsManager === true;
@@ -849,7 +849,10 @@ export function EmployeesPage() {
       {deactivatingEmp && (
         <DeactivateModal employee={deactivatingEmp}
           onClose={() => setDeactivatingEmp(null)}
-          onDone={() => setDeactivatingEmp(null)} />
+          onDone={(warning) => {
+            setDeactivatingEmp(null);
+            if (warning) toast.warning(warning + ' — check the offboarding checklist.');
+          }} />
       )}
       {reactivatingEmp && (
         <ReactivateModal employee={reactivatingEmp}

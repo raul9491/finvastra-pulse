@@ -184,6 +184,10 @@ export function GeneratePayslipPage() {
   const [generateAllBusy, setGenerateAllBusy] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
+  // MIS payout suggestions: Map<userId, payoutAmount> for approved/paid payouts this month
+  const [misPayouts,  setMisPayouts]  = useState<Map<string, number>>(new Map());
+  const [misDismissed, setMisDismissed] = useState<Set<string>>(new Set());
+
   // Build set of already-generated employeeIds for this month
   const generatedSet = useMemo<Set<string>>(() => {
     return new Set(existingPayslips.map((p) => p.employeeId));
@@ -242,6 +246,39 @@ export function GeneratePayslipPage() {
     prefillAttendance().catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth, employees.length]);
+
+  // Fetch MIS payouts for the selected month — suggestion only, admin can override
+  useEffect(() => {
+    if (!selectedMonth) return;
+    let cancelled = false;
+
+    async function fetchMisPayouts() {
+      try {
+        const snap = await getDocs(
+          query(
+            collection(db, 'rm_payouts'),
+            where('periodStart', '>=', selectedMonth),
+            where('periodStart', '<=', selectedMonth),
+          )
+        );
+        const map = new Map<string, number>();
+        for (const d of snap.docs) {
+          const data = d.data() as { rmId?: string; status?: string; totalPayout?: number };
+          if ((data.status === 'approved' || data.status === 'paid') && data.rmId && data.totalPayout) {
+            map.set(data.rmId, data.totalPayout);
+          }
+        }
+        if (!cancelled) {
+          setMisPayouts(map);
+          setMisDismissed(new Set()); // reset dismissed when month changes
+        }
+      } catch { /* MIS read is non-fatal */ }
+    }
+
+    fetchMisPayouts();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMonth]);
 
   // ─── Field update helper ──────────────────────────────────────────────────
 
@@ -537,6 +574,39 @@ export function GeneratePayslipPage() {
                             value={values.otherAllowances}
                             onChange={(v) => updateField(emp.userId, 'otherAllowances', v)}
                           />
+                          {/* MIS payout suggestion — shown when an approved/paid payout exists */}
+                          {(() => {
+                            const payoutAmt = misPayouts.get(emp.userId);
+                            if (!payoutAmt || misDismissed.has(emp.userId)) return null;
+                            return (
+                              <div className="mt-1.5 rounded-lg px-2 py-1.5 text-[10px] leading-tight"
+                                style={{ backgroundColor: '#FEF3C7', border: '1px solid #C9A961', color: '#92400E' }}>
+                                <p className="font-semibold">MIS Payout Available</p>
+                                <p>₹{payoutAmt.toLocaleString('en-IN')} approved payout for {emp.displayName}</p>
+                                <div className="flex gap-1.5 mt-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      updateField(emp.userId, 'otherAllowances', payoutAmt);
+                                      setMisDismissed((prev) => new Set([...prev, emp.userId]));
+                                    }}
+                                    className="px-2 py-0.5 rounded font-semibold transition-opacity hover:opacity-80"
+                                    style={{ backgroundColor: '#C9A961', color: '#0B1538' }}
+                                  >
+                                    Add ₹{payoutAmt.toLocaleString('en-IN')}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setMisDismissed((prev) => new Set([...prev, emp.userId]))}
+                                    className="px-2 py-0.5 rounded border transition-opacity hover:opacity-80"
+                                    style={{ borderColor: '#C9A961', color: '#92400E' }}
+                                  >
+                                    Dismiss
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </td>
 
                         {/* Deductions */}

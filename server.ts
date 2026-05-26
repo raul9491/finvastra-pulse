@@ -1883,8 +1883,10 @@ async function startServer() {
 
   async function createOffboardingChecklist(
     uid: string, employeeName: string,
-    lastWorkingDate: string | null, exitReason: string | null, createdBy: string
+    lastWorkingDate: string | null, exitReason: string | null, createdBy: string,
+    extraItems: object[] = [],
   ) {
+    const items = [...buildOffboardingItems(), ...extraItems];
     await db.collection("offboarding_checklists").doc(uid).set({
       employeeId:      uid,
       employeeName,
@@ -1897,7 +1899,7 @@ async function startServer() {
       fnfStatus:       "pending",
       fnfSettledAt:    null,
       fnfSettledBy:    null,
-      items:           buildOffboardingItems(),
+      items,
       fnfDetails:      null,
     });
   }
@@ -1941,10 +1943,43 @@ async function startServer() {
         deactivatedBy:  callerUid,
       });
 
-      // 4. Create offboarding checklist
-      await createOffboardingChecklist(uid, empName, lastWorkingDate, exitReason, callerUid);
+      // 4. Check for open CRM items that need reassignment before exit
+      // Query leads — filter deleted in-memory to avoid requiring a composite index
+      const leadsSnap = await db.collection("leads")
+        .where("primaryOwnerId", "==", uid)
+        .get();
+      const openLeadsCount = leadsSnap.docs.filter((d) => d.data().deleted !== true).length;
 
-      // 5. Audit log
+      // Query opportunities across all leads via collectionGroup — filter status in-memory
+      const oppsSnap = await db.collectionGroup("opportunities")
+        .where("ownerId", "==", uid)
+        .get();
+      const openOppsCount = oppsSnap.docs.filter((d) => d.data().status === "open").length;
+
+      // Build an extra checklist item if any open CRM work exists
+      const extraItems: object[] = [];
+      if (openLeadsCount > 0 || openOppsCount > 0) {
+        extraItems.push({
+          id:          "crm_reassignment",
+          category:    "crm",
+          task:        `Reassign ${openLeadsCount} open lead${openLeadsCount !== 1 ? "s" : ""} and ${openOppsCount} open opportunit${openOppsCount !== 1 ? "ies" : "y"} before exit`,
+          completed:   false,
+          completedAt: null,
+          completedBy: null,
+          notes:       null,
+          required:    true,
+          metadata: {
+            openLeadsCount,
+            openOpportunitiesCount: openOppsCount,
+            reassignUrl: `/crm/leads?ownerId=${uid}`,
+          },
+        });
+      }
+
+      // 5. Create offboarding checklist (CRM item prepended via extraItems)
+      await createOffboardingChecklist(uid, empName, lastWorkingDate, exitReason, callerUid, extraItems);
+
+      // 6. Audit log
       await db.collection("audit_logs").add({
         actor:      callerUid,
         action:     "employee_deactivated",
@@ -1953,7 +1988,11 @@ async function startServer() {
         at:         admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      return res.json({ ok: true });
+      const warning = openLeadsCount > 0 || openOppsCount > 0
+        ? "Employee has open CRM items that need reassignment"
+        : null;
+
+      return res.json({ ok: true, warning, openLeads: openLeadsCount, openOpportunities: openOppsCount });
     } catch (e) {
       console.error("[deactivate-employee]", e);
       return res.status(500).json({ error: e instanceof Error ? e.message : "Internal error" });

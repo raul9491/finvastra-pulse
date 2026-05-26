@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -286,12 +286,23 @@ export function PayoutDetailPage() {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1
-              className="text-2xl mb-1"
-              style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic', color: '#0B1538' }}
-            >
-              {payout.rmDisplayName}
-            </h1>
+            <div className="flex items-center gap-3 mb-1">
+              <h1
+                className="text-2xl"
+                style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic', color: '#0B1538' }}
+              >
+                {payout.rmDisplayName}
+              </h1>
+              {isAdmin && payout.rmId && (
+                <Link
+                  to={`/hrms/employees/${payout.rmId}`}
+                  className="flex items-center gap-0.5 text-xs font-medium transition-opacity hover:opacity-70"
+                  style={{ color: '#C9A961' }}
+                >
+                  HR Profile →
+                </Link>
+              )}
+            </div>
             <p className="text-sm mb-2" style={{ color: '#8B8B85' }}>
               Period: <strong style={{ color: '#0A0A0A' }}>{formatPeriod(payout.periodStart, payout.periodEnd)}</strong>
             </p>

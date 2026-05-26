@@ -8,7 +8,7 @@ import { getIdToken } from 'firebase/auth';
 import { auth, db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
-import type { UserProfile, CrmRole, MisAccess } from '../../../types';
+import type { UserProfile, CrmRole, MisAccess, ConvertorVertical } from '../../../types';
 import { isSuperAdmin, SUPER_ADMIN_UIDS, SUPER_ADMIN_LABELS } from '../../../config/hrmsConfig';
 
 // Ajay is the first super admin UID — his permissions need a one-time fix
@@ -24,25 +24,35 @@ const CRM_ROLE_DISPLAY: Record<NonNullable<CrmRole>, string> = {
   viewer:         'Viewer',
 };
 
+const VERTICAL_DISPLAY: Record<NonNullable<ConvertorVertical>, string> = {
+  loan:      'Loan',
+  wealth:    'Wealth',
+  insurance: 'Insurance',
+};
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type PermDraft = {
-  role:          'admin' | 'employee';
-  hrmsAccess:    boolean;
-  isHrmsManager: boolean;
-  crmAccess:     boolean;
-  crmRole:       CrmRole;
-  misAccess:     MisAccess | null;
+  role:              'admin' | 'employee';
+  hrmsAccess:        boolean;
+  isHrmsManager:     boolean;
+  crmAccess:         boolean;
+  crmRole:           CrmRole;
+  convertorVertical: ConvertorVertical;
+  misAccess:         MisAccess | null;
 };
+
+type FilterKey = 'all' | 'changed' | 'admins' | 'crm' | 'mis' | 'super_admin';
 
 function toDraft(e: UserProfile): PermDraft {
   return {
-    role:          e.role === 'admin' ? 'admin' : 'employee',
-    hrmsAccess:    e.hrmsAccess !== false,
-    isHrmsManager: e.isHrmsManager === true,
-    crmAccess:     e.crmAccess === true,
-    crmRole:       e.crmRole ?? null,
-    misAccess:     e.misAccess ?? null,
+    role:              e.role === 'admin' ? 'admin' : 'employee',
+    hrmsAccess:        e.hrmsAccess !== false,
+    isHrmsManager:     e.isHrmsManager === true,
+    crmAccess:         e.crmAccess === true,
+    crmRole:           e.crmRole ?? null,
+    convertorVertical: e.convertorVertical ?? null,
+    misAccess:         e.misAccess ?? null,
   };
 }
 
@@ -52,6 +62,7 @@ function isDirty(a: PermDraft, b: PermDraft): boolean {
       || a.isHrmsManager !== b.isHrmsManager
       || a.crmAccess !== b.crmAccess
       || a.crmRole !== b.crmRole
+      || a.convertorVertical !== b.convertorVertical
       || a.misAccess !== b.misAccess;
 }
 
@@ -71,10 +82,19 @@ async function syncClaims(targetUid: string): Promise<void> {
   }
 }
 
-// ─── Styled select helper ─────────────────────────────────────────────────────
+// ─── Styled helpers ───────────────────────────────────────────────────────────
 
 const SEL = 'text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white outline-none ' +
             'focus:ring-2 focus:ring-navy/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed';
+
+// Column header with tooltip — wraps in a <span title="…">
+function ThTip({ children, tip }: { children: React.ReactNode; tip: string }) {
+  return (
+    <span title={tip} className="cursor-help border-b border-dashed border-slate-400/40">
+      {children}
+    </span>
+  );
+}
 
 // ─── Read-only super admin row ────────────────────────────────────────────────
 
@@ -85,6 +105,9 @@ function SuperAdminRow({ employee }: { employee: UserProfile }) {
   const crmRoleDisplay = employee.crmRole
     ? (CRM_ROLE_DISPLAY[employee.crmRole] ?? employee.crmRole)
     : '—';
+  const verticalDisplay = employee.convertorVertical
+    ? VERTICAL_DISPLAY[employee.convertorVertical]
+    : null;
 
   return (
     <tr
@@ -108,9 +131,14 @@ function SuperAdminRow({ employee }: { employee: UserProfile }) {
               <p className="text-sm font-semibold text-ink">{employee.displayName}</p>
               <span
                 className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
-                style={{ backgroundColor: 'rgba(201,169,97,0.2)', color: '#9A7E3F' }}
+                style={{
+                  backgroundColor: 'rgba(201,169,97,0.15)',
+                  border: '1px solid #C9A961',
+                  color: '#C9A961',
+                  letterSpacing: '0.1em',
+                }}
               >
-                ★ Super Admin
+                SUPER ADMIN
               </span>
             </div>
             <p className="text-xs truncate" style={{ color: '#8B8B85' }}>{hierarchyLabel}</p>
@@ -120,10 +148,8 @@ function SuperAdminRow({ employee }: { employee: UserProfile }) {
 
       {/* Role — read-only badge */}
       <td className="px-3 py-3">
-        <span
-          className="text-xs font-semibold px-2 py-1 rounded-lg"
-          style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#7A6030' }}
-        >
+        <span className="text-xs font-semibold px-2 py-1 rounded-lg"
+          style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#7A6030' }}>
           {employee.role === 'admin' ? 'Admin' : 'Employee'}
         </span>
       </td>
@@ -147,9 +173,14 @@ function SuperAdminRow({ employee }: { employee: UserProfile }) {
         </span>
       </td>
 
-      {/* CRM Role */}
+      {/* CRM Role + vertical if convertor */}
       <td className="px-3 py-3">
         <span className="text-xs" style={{ color: '#475569' }}>{crmRoleDisplay}</span>
+        {employee.crmRole === 'lead_convertor' && verticalDisplay && (
+          <p className="text-[10px] capitalize mt-0.5" style={{ color: '#8B8B85' }}>
+            {verticalDisplay}
+          </p>
+        )}
       </td>
 
       {/* MIS Access */}
@@ -157,6 +188,11 @@ function SuperAdminRow({ employee }: { employee: UserProfile }) {
         <span className="text-xs capitalize" style={{ color: '#475569' }}>
           {employee.misAccess ?? '—'}
         </span>
+      </td>
+
+      {/* Lock icon */}
+      <td className="px-3 py-3 text-center">
+        <Lock size={13} style={{ color: '#CBD5E1' }} />
       </td>
     </tr>
   );
@@ -180,6 +216,8 @@ function PermRow({
 
   const rowBg     = dirty ? 'rgba(201,169,97,0.05)' : '';
   const rowShadow = dirty ? 'inset 3px 0 0 #C9A961' : 'inset 3px 0 0 transparent';
+
+  const isConvertor = draft.crmRole === 'lead_convertor';
 
   return (
     <tr
@@ -260,12 +298,18 @@ function PermRow({
         </label>
       </td>
 
-      {/* CRM Role — "Viewer" removed; only valid roles shown */}
-      <td className="px-3 py-3">
+      {/* CRM Role + Convertor Vertical (stacked in same cell) */}
+      <td className="px-3 py-3 min-w-40">
+        {/* CRM Role — "Viewer" removed; only valid roles shown */}
         <select
           value={draft.crmRole ?? ''}
           disabled={!draft.crmAccess}
-          onChange={(e) => onChange({ crmRole: (e.target.value || null) as CrmRole })}
+          onChange={(e) => {
+            const role = (e.target.value || null) as CrmRole;
+            // Clear vertical when moving away from Convertor
+            const vertical = role === 'lead_convertor' ? draft.convertorVertical : null;
+            onChange({ crmRole: role, convertorVertical: vertical });
+          }}
           className={SEL}
         >
           <option value="">— none —</option>
@@ -274,6 +318,32 @@ function PermRow({
           <option value="manager">Manager</option>
           <option value="admin">Admin</option>
         </select>
+
+        {/* Convertor Vertical — only shown when role is Convertor */}
+        {isConvertor && (
+          <div className="mt-1.5">
+            <select
+              value={draft.convertorVertical ?? ''}
+              onChange={(e) =>
+                onChange({ convertorVertical: (e.target.value || null) as ConvertorVertical })
+              }
+              className={`${SEL} w-full ${!draft.convertorVertical
+                ? 'border-amber-400 bg-amber-50/40'
+                : ''}`}
+            >
+              <option value="">Select vertical…</option>
+              <option value="loan">Loan</option>
+              <option value="wealth">Wealth</option>
+              <option value="insurance">Insurance</option>
+            </select>
+            {!draft.convertorVertical && (
+              <p className="text-[10px] mt-0.5 font-semibold flex items-center gap-0.5"
+                style={{ color: '#D97706' }}>
+                ⚠ Vertical required
+              </p>
+            )}
+          </div>
+        )}
       </td>
 
       {/* MIS Access */}
@@ -288,6 +358,9 @@ function PermRow({
           <option value="admin">Admin</option>
         </select>
       </td>
+
+      {/* Spacer to match SA row lock icon column */}
+      <td className="px-3 py-3" />
     </tr>
   );
 }
@@ -306,7 +379,7 @@ export function SuperAdminPermissionsPage() {
   const [showSaved,  setShowSaved]  = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [search,     setSearch]     = useState('');
-  const [filter,     setFilter]     = useState<'all' | 'changed' | 'admins' | 'crm' | 'mis'>('all');
+  const [filter,     setFilter]     = useState<FilterKey>('all');
 
   // ── Initialize drafts once when employees first load ─────────────────────
   useEffect(() => {
@@ -351,6 +424,9 @@ export function SuperAdminPermissionsPage() {
 
   // ── Filtered rows ─────────────────────────────────────────────────────────
   const filteredRows = useMemo(() => {
+    // "Super Admin" chip: show only SA section — return empty regular rows
+    if (filter === 'super_admin') return [];
+
     return editableEmployees.filter((e) => {
       const draft = drafts[e.userId];
       if (!draft) return false;
@@ -388,8 +464,11 @@ export function SuperAdminPermissionsPage() {
       const curr = prev[uid];
       if (!curr) return prev;
       const updated = { ...curr, ...changes };
-      // Auto-clear CRM role when CRM access is revoked
-      if (changes.crmAccess === false) updated.crmRole = null;
+      // Auto-clear role + vertical when CRM access is revoked
+      if (changes.crmAccess === false) {
+        updated.crmRole           = null;
+        updated.convertorVertical = null;
+      }
       return { ...prev, [uid]: updated };
     });
   };
@@ -406,12 +485,14 @@ export function SuperAdminPermissionsPage() {
       for (const uid of dirtyUids) {
         const draft = drafts[uid];
         const patch = {
-          role:          draft.role,
-          hrmsAccess:    draft.hrmsAccess,
-          isHrmsManager: draft.isHrmsManager,
-          crmAccess:     draft.crmAccess,
-          crmRole:       draft.crmAccess ? draft.crmRole : null,
-          misAccess:     draft.misAccess,
+          role:              draft.role,
+          hrmsAccess:        draft.hrmsAccess,
+          isHrmsManager:     draft.isHrmsManager,
+          crmAccess:         draft.crmAccess,
+          crmRole:           draft.crmAccess ? draft.crmRole : null,
+          // Only save vertical when role is Convertor; clear it otherwise
+          convertorVertical: draft.crmRole === 'lead_convertor' ? draft.convertorVertical : null,
+          misAccess:         draft.misAccess,
         };
         await updateDoc(doc(db, 'users', uid), patch);
         await addDoc(collection(db, 'audit_logs'), {
@@ -467,13 +548,17 @@ export function SuperAdminPermissionsPage() {
 
   const thCls = 'px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-left whitespace-nowrap';
 
-  const filterChips = [
-    { key: 'all',     label: 'All',       count: editableEmployees.length },
-    { key: 'changed', label: 'Changed',   count: dirtyUids.length },
-    { key: 'admins',  label: 'Admins',    count: Object.values(drafts).filter((d) => d.role === 'admin').length },
-    { key: 'crm',     label: 'Has CRM',   count: Object.values(drafts).filter((d) => d.crmAccess).length },
-    { key: 'mis',     label: 'Has MIS',   count: Object.values(drafts).filter((d) => d.misAccess != null).length },
-  ] as const;
+  const filterChips: { key: FilterKey; label: string; count: number }[] = [
+    { key: 'all',         label: 'All',          count: editableEmployees.length },
+    { key: 'super_admin', label: 'Super Admins',  count: superAdminEmployees.length },
+    { key: 'changed',     label: 'Changed',       count: dirtyUids.length },
+    { key: 'admins',      label: 'Admins',        count: Object.values(drafts).filter((d) => d.role === 'admin').length },
+    { key: 'crm',         label: 'Has CRM',       count: Object.values(drafts).filter((d) => d.crmAccess).length },
+    { key: 'mis',         label: 'Has MIS',       count: Object.values(drafts).filter((d) => d.misAccess != null).length },
+  ];
+
+  // Whether to show regular employee rows (hidden on SA filter)
+  const showRegularRows = filter !== 'super_admin';
 
   return (
     <div className="pb-32">
@@ -549,10 +634,13 @@ export function SuperAdminPermissionsPage() {
             onClick={() => setFilter(key)}
             className="text-xs px-3 py-1.5 rounded-full font-semibold transition-colors"
             style={{
-              backgroundColor: filter === key ? '#0B1538' : '#F1F5F9',
-              color:           filter === key ? '#C9A961' : '#475569',
+              backgroundColor: filter === key
+                ? (key === 'super_admin' ? '#9A7E3F' : '#0B1538')
+                : '#F1F5F9',
+              color: filter === key ? '#FAFAF7' : '#475569',
             }}
           >
+            {key === 'super_admin' && filter === key && '★ '}
             {label}
             <span className="ml-1.5 opacity-70">{count}</span>
           </button>
@@ -574,11 +662,22 @@ export function SuperAdminPermissionsPage() {
                 <tr style={{ backgroundColor: '#FAFAF7', borderBottom: '1px solid #E2E8F0' }}>
                   <th className={`${thCls} pl-4 w-64`} style={{ color: '#8B8B85' }}>Employee</th>
                   <th className={thCls} style={{ color: '#8B8B85' }}>Role</th>
-                  <th className={`${thCls} text-center`} style={{ color: '#8B8B85' }}>HRMS</th>
-                  <th className={`${thCls} text-center`} style={{ color: '#8B8B85' }}>HR Mgr</th>
-                  <th className={`${thCls} text-center`} style={{ color: '#8B8B85' }}>CRM On</th>
-                  <th className={thCls} style={{ color: '#8B8B85' }}>CRM Role</th>
-                  <th className={thCls} style={{ color: '#8B8B85' }}>MIS Access</th>
+                  <th className={`${thCls} text-center`} style={{ color: '#8B8B85' }}>
+                    <ThTip tip="Can access the HR module">HRMS</ThTip>
+                  </th>
+                  <th className={`${thCls} text-center`} style={{ color: '#8B8B85' }}>
+                    <ThTip tip="Can approve leave requests and manage attendance">HR Mgr</ThTip>
+                  </th>
+                  <th className={`${thCls} text-center`} style={{ color: '#8B8B85' }}>
+                    <ThTip tip="Can use the CRM module">CRM On</ThTip>
+                  </th>
+                  <th className={thCls} style={{ color: '#8B8B85' }}>
+                    <ThTip tip="Their role within CRM — Generator, Convertor, Manager, or Admin">CRM Role</ThTip>
+                  </th>
+                  <th className={thCls} style={{ color: '#8B8B85' }}>
+                    <ThTip tip="Can view or administer commission reconciliation data">MIS Access</ThTip>
+                  </th>
+                  <th className={`${thCls} w-8`} style={{ color: '#8B8B85' }} />
                 </tr>
               </thead>
               <tbody>
@@ -588,7 +687,7 @@ export function SuperAdminPermissionsPage() {
                     {/* Super admin section header */}
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={8}
                         className="px-4 py-2"
                         style={{
                           backgroundColor: 'rgba(201,169,97,0.08)',
@@ -596,10 +695,8 @@ export function SuperAdminPermissionsPage() {
                         }}
                       >
                         <div className="flex items-center justify-between">
-                          <span
-                            className="text-[10px] font-bold uppercase tracking-widest"
-                            style={{ color: '#9A7E3F' }}
-                          >
+                          <span className="text-[10px] font-bold uppercase tracking-widest"
+                            style={{ color: '#9A7E3F' }}>
                             ★ Super Admin Accounts — Protected · Read Only
                           </span>
                           {/* Ajay fix button — shown only if his permissions are incorrect */}
@@ -628,47 +725,49 @@ export function SuperAdminPermissionsPage() {
                       <SuperAdminRow key={emp.userId} employee={emp} />
                     ))}
 
-                    {/* Divider before regular employees */}
-                    <tr>
-                      <td
-                        colSpan={7}
-                        className="px-4 py-1.5"
-                        style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}
-                      >
-                        <span
-                          className="text-[10px] font-bold uppercase tracking-widest"
-                          style={{ color: '#8B8B85' }}
+                    {/* Divider before regular employees (hidden on SA filter) */}
+                    {showRegularRows && (
+                      <tr>
+                        <td
+                          colSpan={8}
+                          className="px-4 py-1.5"
+                          style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}
                         >
-                          All Employees
-                        </span>
-                      </td>
-                    </tr>
+                          <span className="text-[10px] font-bold uppercase tracking-widest"
+                            style={{ color: '#8B8B85' }}>
+                            All Employees
+                          </span>
+                        </td>
+                      </tr>
+                    )}
                   </>
                 )}
 
-                {/* ── Regular editable rows ── */}
-                {filteredRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-16 text-center text-sm text-mute">
-                      {filter === 'changed'
-                        ? 'No unsaved changes yet — start editing rows above.'
-                        : 'No employees match your search.'}
-                    </td>
-                  </tr>
-                ) : (
-                  filteredRows.map((emp) => {
-                    const draft = drafts[emp.userId];
-                    if (!draft) return null;
-                    return (
-                      <PermRow
-                        key={emp.userId}
-                        employee={emp}
-                        draft={draft}
-                        dirty={dirtyUids.includes(emp.userId)}
-                        onChange={(patch) => updateDraft(emp.userId, patch)}
-                      />
-                    );
-                  })
+                {/* ── Regular editable rows (hidden when SA filter active) ── */}
+                {showRegularRows && (
+                  filteredRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-16 text-center text-sm text-mute">
+                        {filter === 'changed'
+                          ? 'No unsaved changes yet — start editing rows above.'
+                          : 'No employees match your search.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRows.map((emp) => {
+                      const draft = drafts[emp.userId];
+                      if (!draft) return null;
+                      return (
+                        <PermRow
+                          key={emp.userId}
+                          employee={emp}
+                          draft={draft}
+                          dirty={dirtyUids.includes(emp.userId)}
+                          onChange={(patch) => updateDraft(emp.userId, patch)}
+                        />
+                      );
+                    })
+                  )
                 )}
               </tbody>
             </table>
@@ -677,7 +776,7 @@ export function SuperAdminPermissionsPage() {
       </div>
 
       {/* ── Count footer ─────────────────────────────────────────────────── */}
-      {!loading && filteredRows.length > 0 && (
+      {!loading && showRegularRows && filteredRows.length > 0 && (
         <p className="text-xs text-mute mt-3 text-right">
           {filteredRows.length} of {editableEmployees.length} employees shown
         </p>
@@ -692,7 +791,7 @@ export function SuperAdminPermissionsPage() {
         >
           {saving ? (
             <>
-              <div className="w-4 h-4 border-2 border-gold/40 border-t-gold rounded-full animate-spin shrink-0"
+              <div className="w-4 h-4 border-2 rounded-full animate-spin shrink-0"
                 style={{ borderColor: 'rgba(201,169,97,0.3)', borderTopColor: '#C9A961' }} />
               <span className="text-sm flex-1 animate-pulse" style={{ color: '#C9A961' }}>
                 Saving permissions…
@@ -700,7 +799,6 @@ export function SuperAdminPermissionsPage() {
             </>
           ) : (
             <>
-              {/* Change count badge */}
               <span className="text-[11px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full shrink-0"
                 style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
                 {dirtyUids.length} change{dirtyUids.length === 1 ? '' : 's'}
@@ -710,7 +808,6 @@ export function SuperAdminPermissionsPage() {
                 Not yet saved
               </span>
 
-              {/* Discard */}
               <button
                 onClick={handleDiscard}
                 className="flex items-center gap-1.5 text-xs transition-colors hover:text-slate-200"
@@ -722,7 +819,6 @@ export function SuperAdminPermissionsPage() {
 
               <div className="w-px h-5" style={{ backgroundColor: '#1B2A4E' }} />
 
-              {/* Save */}
               <button
                 onClick={handleSave}
                 className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl

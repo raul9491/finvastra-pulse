@@ -12,7 +12,7 @@ import {
   getDoc,
   serverTimestamp,
 } from 'firebase/firestore';
-import { parseISO, eachDayOfInterval, isWeekend, format } from 'date-fns';
+import { parseISO, eachDayOfInterval, format } from 'date-fns';
 import { db, auth } from '../../../lib/firebase';
 import type { LeaveApplication, LeaveBalance, LeaveType, Holiday } from '../../../types';
 
@@ -101,7 +101,8 @@ export function calculateWorkingDays(
   if (end < start) return 0;
   const days = eachDayOfInterval({ start, end });
   const holidayDates = new Set(holidays.map((h) => h.date));
-  return days.filter((d) => !isWeekend(d) && !holidayDates.has(format(d, 'yyyy-MM-dd'))).length;
+  // Mon–Sat is the Finvastra working week (HR Handbook). Only Sunday (getDay() === 0) is off.
+  return days.filter((d) => d.getDay() !== 0 && !holidayDates.has(format(d, 'yyyy-MM-dd'))).length;
 }
 
 // ─── applyForLeave ────────────────────────────────────────────────────────────
@@ -146,9 +147,9 @@ export async function approveLeave(
     approvedAt: serverTimestamp(),
   });
 
-  // Deduct from leave balance (casual / sick / earned only; lop and optional have no balance)
+  // Deduct from leave balance (casual / sick / earned / comp_off have tracked balances)
   const balanceType = application.type as LeaveType;
-  if (balanceType === 'casual' || balanceType === 'sick' || balanceType === 'earned') {
+  if (balanceType === 'casual' || balanceType === 'sick' || balanceType === 'earned' || balanceType === 'comp_off') {
     const year = new Date().getFullYear();
     const balanceRef = doc(db, 'leave_balances', `${application.employeeId}_${year}`);
     const balSnap = await getDoc(balanceRef);

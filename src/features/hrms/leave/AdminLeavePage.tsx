@@ -45,11 +45,13 @@ function StatusPill({ status }: { status: LeaveStatus }) {
 }
 
 const TYPE_LABELS: Record<LeaveType, string> = {
-  casual:   'Casual',
-  sick:     'Sick',
-  earned:   'Earned',
-  lop:      'LOP',
-  optional: 'Optional',
+  casual:    'Casual',
+  sick:      'Sick',
+  earned:    'Earned',
+  comp_off:  'Comp Off',
+  maternity: 'Maternity',
+  lop:       'LOP',
+  optional:  'Optional',
 };
 
 // ─── Reject modal ─────────────────────────────────────────────────────────────
@@ -411,7 +413,7 @@ interface EditLeaveBalanceModalProps {
   onClose: () => void;
 }
 
-type LeaveTypeEditable = 'casual' | 'sick' | 'earned';
+type LeaveTypeEditable = 'casual' | 'sick' | 'earned' | 'comp_off';
 
 interface BalanceRow {
   type: LeaveTypeEditable;
@@ -449,16 +451,18 @@ function EditLeaveBalanceModal({
         const b = snap.data() as LeaveBalance;
         setBalance(b);
         setRows([
-          { type: 'casual', label: 'Casual Leave',  current: b.casual.total,  newTotal: String(b.casual.total) },
-          { type: 'sick',   label: 'Sick Leave',    current: b.sick.total,    newTotal: String(b.sick.total) },
-          { type: 'earned', label: 'Earned Leave',  current: b.earned.total,  newTotal: String(b.earned.total) },
+          { type: 'casual',   label: 'Casual Leave',       current: b.casual.total,            newTotal: String(b.casual.total) },
+          { type: 'sick',     label: 'Sick Leave',          current: b.sick.total,              newTotal: String(b.sick.total) },
+          { type: 'earned',   label: 'Earned Leave',        current: b.earned.total,            newTotal: String(b.earned.total) },
+          { type: 'comp_off', label: 'Compensatory Off',    current: b.comp_off?.total ?? 0,    newTotal: String(b.comp_off?.total ?? 0) },
         ]);
       } else {
         setBalance(null);
         setRows([
-          { type: 'casual', label: 'Casual Leave',  current: 0, newTotal: '12' },
-          { type: 'sick',   label: 'Sick Leave',    current: 0, newTotal: '7' },
-          { type: 'earned', label: 'Earned Leave',  current: 0, newTotal: '15' },
+          { type: 'casual',   label: 'Casual Leave',      current: 0, newTotal: '8'  },
+          { type: 'sick',     label: 'Sick Leave',         current: 0, newTotal: '7'  },
+          { type: 'earned',   label: 'Earned Leave',       current: 0, newTotal: '15' },
+          { type: 'comp_off', label: 'Compensatory Off',   current: 0, newTotal: '0'  },
         ]);
       }
       setLoading(false);
@@ -506,9 +510,10 @@ function EditLeaveBalanceModal({
       const adjustments: { type: string; oldTotal: number; newTotal: number; delta: number }[] = [];
 
       for (const r of rows) {
-        const newTotalNum = parseInt(r.newTotal, 10);
-        const oldTotal    = existing[r.type].total;
-        const used        = existing[r.type].used;
+        const newTotalNum  = parseInt(r.newTotal, 10);
+        const existingSlot = existing[r.type] ?? { total: 0, used: 0, remaining: 0 };
+        const oldTotal     = existingSlot.total;
+        const used         = existingSlot.used;
         const newRemaining = Math.max(0, newTotalNum - used);
         updatedBalance[r.type] = { total: newTotalNum, used, remaining: newRemaining };
         if (newTotalNum !== oldTotal) {

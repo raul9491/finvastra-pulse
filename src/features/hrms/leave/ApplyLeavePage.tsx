@@ -8,14 +8,16 @@ import { useHolidays } from '../hooks/useHolidays';
 import type { LeaveType } from '../../../types';
 
 const LEAVE_TYPES: { value: LeaveType; label: string }[] = [
-  { value: 'casual',   label: 'Casual Leave' },
-  { value: 'sick',     label: 'Sick Leave' },
-  { value: 'earned',   label: 'Earned Leave' },
-  { value: 'lop',      label: 'Loss of Pay (LOP)' },
-  { value: 'optional', label: 'Optional Leave' },
+  { value: 'casual',    label: 'Casual Leave' },
+  { value: 'sick',      label: 'Sick Leave' },
+  { value: 'earned',    label: 'Earned Leave' },
+  { value: 'comp_off',  label: 'Compensatory Off' },
+  { value: 'maternity', label: 'Maternity Leave' },
+  { value: 'lop',       label: 'Loss of Pay (LOP)' },
+  { value: 'optional',  label: 'Optional Leave' },
 ];
 
-const BALANCE_TYPES = new Set<LeaveType>(['casual', 'sick', 'earned']);
+const BALANCE_TYPES = new Set<LeaveType>(['casual', 'sick', 'earned', 'comp_off']);
 
 export function ApplyLeavePage() {
   const { user } = useAuth();
@@ -62,12 +64,12 @@ export function ApplyLeavePage() {
 
     // Must have at least one working day
     if (workingDays <= 0) {
-      return 'The selected date range has no working days (weekends / holidays excluded).';
+      return 'The selected date range has no working days (Sundays / holidays excluded; Mon–Sat work week).';
     }
 
     // Balance check for tracked leave types
     if (BALANCE_TYPES.has(leaveType) && balance) {
-      const remaining = balance[leaveType as 'casual' | 'sick' | 'earned'].remaining;
+      const remaining = balance[leaveType as 'casual' | 'sick' | 'earned' | 'comp_off']!.remaining;
       if (workingDays > remaining) {
         return `Insufficient ${leaveType} leave balance. You have ${remaining} day(s) remaining but requested ${workingDays}.`;
       }
@@ -88,7 +90,7 @@ export function ApplyLeavePage() {
   function getBalanceLabel(): string {
     if (!BALANCE_TYPES.has(leaveType)) return '';
     if (!balance) return '';
-    const remaining = balance[leaveType as 'casual' | 'sick' | 'earned'].remaining;
+    const remaining = balance[leaveType as 'casual' | 'sick' | 'earned' | 'comp_off']!.remaining;
     return `${leaveType.charAt(0).toUpperCase() + leaveType.slice(1)} balance: ${remaining} day(s) remaining`;
   }
 

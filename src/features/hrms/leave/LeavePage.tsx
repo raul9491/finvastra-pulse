@@ -127,14 +127,14 @@ export function LeavePage() {
           <BalanceCard
             label="Casual Leave"
             used={balance?.casual.used ?? 0}
-            total={balance?.casual.total ?? 12}
-            remaining={balance?.casual.remaining ?? 12}
+            total={balance?.casual.total ?? 8}
+            remaining={balance?.casual.remaining ?? 8}
           />
           <BalanceCard
             label="Sick Leave"
             used={balance?.sick.used ?? 0}
-            total={balance?.sick.total ?? 8}
-            remaining={balance?.sick.remaining ?? 8}
+            total={balance?.sick.total ?? 7}
+            remaining={balance?.sick.remaining ?? 7}
           />
           <BalanceCard
             label="Earned Leave"
@@ -142,6 +142,14 @@ export function LeavePage() {
             total={balance?.earned.total ?? 15}
             remaining={balance?.earned.remaining ?? 15}
           />
+          {balance?.comp_off && (
+            <BalanceCard
+              label="Comp Off"
+              used={balance.comp_off.used}
+              total={balance.comp_off.total}
+              remaining={balance.comp_off.remaining}
+            />
+          )}
         </div>
       )}
 

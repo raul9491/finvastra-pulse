@@ -225,7 +225,7 @@ export type HrmsRole = 'admin' | 'manager' | 'employee';
 
 // ─── Leave ─────────────────────────────────────────────────────────────────
 
-export type LeaveType = 'casual' | 'sick' | 'earned' | 'lop' | 'optional';
+export type LeaveType = 'casual' | 'sick' | 'earned' | 'lop' | 'optional' | 'comp_off' | 'maternity';
 export type LeaveStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 
 export interface LeaveApplication {
@@ -234,7 +234,7 @@ export interface LeaveApplication {
   type: LeaveType;
   fromDate: string;   // YYYY-MM-DD
   toDate: string;     // YYYY-MM-DD
-  days: number;       // working days (weekends + holidays excluded)
+  days: number;       // working days (Sundays + holidays excluded; Mon–Sat working week)
   reason: string;
   status: LeaveStatus;
   appliedAt: import('firebase/firestore').Timestamp;
@@ -247,9 +247,12 @@ export interface LeaveApplication {
 export interface LeaveBalance {
   employeeId: string;
   year: number;
-  casual: { total: number; used: number; remaining: number };
-  sick:   { total: number; used: number; remaining: number };
-  earned: { total: number; used: number; remaining: number };
+  casual:    { total: number; used: number; remaining: number };
+  sick:      { total: number; used: number; remaining: number };
+  earned:    { total: number; used: number; remaining: number };
+  // Optional: only present when comp off has been allocated. Existing docs without this field
+  // continue to work — the balance edit modal initialises it to 0 if missing.
+  comp_off?: { total: number; used: number; remaining: number };
 }
 
 // ─── Attendance ─────────────────────────────────────────────────────────────

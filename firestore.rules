@@ -781,5 +781,20 @@ service cloud.firestore {
             update: if isAdmin() || isHrmsManager();
       allow delete: if false;
     }
+
+    // ─── HRMS: HR Helpdesk / Grievance Tickets ───────────────────────────────
+    // Employees may read and create their own tickets.
+    // Admin and HRMS managers may read all tickets and update (respond/close).
+    // Anonymous tickets: employeeId is still stored for audit; isAnonymous flag
+    // controls display. Admin can see all regardless of isAnonymous.
+    // No physical deletes — tickets form a permanent audit trail.
+    match /hr_tickets/{docId} {
+      allow read:   if isAdmin() || isHrmsManager()
+                    || (isSignedIn() && resource.data.employeeId == request.auth.uid);
+      allow create: if isSignedIn()
+                    && request.resource.data.employeeId == request.auth.uid;
+      allow update: if isAdmin() || isHrmsManager();
+      allow delete: if false;
+    }
   }
 }

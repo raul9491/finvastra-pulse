@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, Clock, CalendarOff, Receipt, CalendarDays,
   Settings, LogOut, LayoutGrid, ClipboardList, FileText, UserPlus, Inbox,
   ReceiptText, FolderOpen, Megaphone, Building2, Calculator,
-  Laptop, UserMinus, Lock, FileSearch2, GraduationCap, TrendingUp, Briefcase, BookOpen,
+  Laptop, UserMinus, Lock, FileSearch2, GraduationCap, TrendingUp, Briefcase, BookOpen, LifeBuoy,
 } from 'lucide-react';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -21,6 +21,7 @@ import { useBirthdayEmployees } from '../../features/hrms/hooks/useBirthdayEmplo
 import { useProbationBadge } from '../../features/hrms/hooks/useProbation';
 import { usePendingReviewCount, useSelfAssessmentBadge, currentReviewYear } from '../../features/hrms/hooks/usePerformance';
 import { useMyTrainingBadge, useTrainingAdminBadge } from '../../features/hrms/hooks/useTraining';
+import { useMyOpenTicketCount, useOpenTicketCount } from '../../features/hrms/hooks/useHrTickets';
 
 function usePendingRequestCount(enabled: boolean): number {
   const [count, setCount] = useState(0);
@@ -102,6 +103,7 @@ const NAV: NavEntry[] = [
   { path: '/hrms/it-declaration',  label: 'IT Declaration', icon: FileSearch2,     live: true },
   { path: '/hrms/performance',     label: 'My Review',      icon: TrendingUp,      live: true },
   { path: '/hrms/training',        label: 'My Training',    icon: BookOpen,        live: true },
+  { path: '/hrms/hr-helpdesk',     label: 'HR Helpdesk',    icon: LifeBuoy,        live: true },
   { path: '/hrms/settings',        label: 'Settings',       icon: Settings,        live: true },
 ];
 
@@ -118,6 +120,7 @@ const ADMIN_NAV: NavEntry[] = [
   { path: '/hrms/admin/it-declarations',  label: 'IT Declarations',      icon: FileSearch2,   live: true },
   { path: '/hrms/admin/performance',     label: 'Performance Reviews',  icon: TrendingUp,    live: true },
   { path: '/hrms/admin/training',        label: 'Training',             icon: BookOpen,      live: true },
+  { path: '/hrms/admin/hr-helpdesk',    label: 'HR Helpdesk',          icon: LifeBuoy,      live: true },
 ];
 
 const LIFECYCLE_NAV: NavEntry[] = [
@@ -161,7 +164,9 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/admin/compliance':       'Compliance Calendar',
   '/hrms/admin/pf-tracker':      'PF Tracker',
   '/hrms/training':              'My Training',
+  '/hrms/hr-helpdesk':          'HR Helpdesk',
   '/hrms/admin/training':       'Training & Development',
+  '/hrms/admin/hr-helpdesk':    'HR Helpdesk — Admin',
   '/hrms/admin/recruitment':    'Recruitment',
   '/hrms/admin/assets':          'Asset Management',
   '/hrms/admin/onboarding':      'Onboarding',
@@ -201,6 +206,8 @@ export function HrmsShell() {
   const interviewBadge      = useInterviewBadge(isAdmin || isHrmsManager);
   const myTrainingBadge     = useMyTrainingBadge(user?.uid ?? '');
   const trainingAdminBadge  = useTrainingAdminBadge(isAdmin || isHrmsManager);
+  const myOpenTickets       = useMyOpenTicketCount(user?.uid ?? '');
+  const openTicketCount     = useOpenTicketCount(isAdmin || isHrmsManager);
   const _perfYear           = currentReviewYear();
   const selfAssessmentBadge = useSelfAssessmentBadge(user?.uid ?? '', _perfYear);
   const pendingReviewCount  = usePendingReviewCount(isAdmin || isHrmsManager);
@@ -281,7 +288,8 @@ export function HrmsShell() {
               path === '/hrms/announcements'  ? unreadAnnouncements + holidayBadge  :
               path === '/hrms/it-declaration' ? itDeclEmployeeBadge                 :
               path === '/hrms/performance'    ? selfAssessmentBadge                 :
-              path === '/hrms/training'       ? myTrainingBadge                     : 0;
+              path === '/hrms/training'       ? myTrainingBadge                     :
+              path === '/hrms/hr-helpdesk'   ? myOpenTickets                       : 0;
             return (
               <NavLink
                 key={path}
@@ -338,7 +346,8 @@ export function HrmsShell() {
                   path === '/hrms/admin/access-requests' && !onAccessRequestsPage ? pendingRequests       :
                   path === '/hrms/admin/it-declarations'                           ? itDeclAdminBadge      :
                   path === '/hrms/admin/performance'                               ? pendingReviewCount    :
-                  path === '/hrms/admin/training'                                  ? trainingAdminBadge    : 0;
+                  path === '/hrms/admin/training'                                  ? trainingAdminBadge    :
+                  path === '/hrms/admin/hr-helpdesk'                               ? openTicketCount       : 0;
                 return (
                   <NavLink key={path} to={path} end
                     className={({ isActive }) =>

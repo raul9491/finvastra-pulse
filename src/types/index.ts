@@ -1186,6 +1186,42 @@ export interface TrainingRecord {
   updatedAt: import('firebase/firestore').Timestamp;
 }
 
+// ─── HR Helpdesk / Grievance ─────────────────────────────────────────────────
+// Collection: /hr_tickets/{ticketId}
+// POSH Act compliance + general HR support requests.
+
+export type HrTicketCategory =
+  | 'payroll'            // Pay discrepancy, deduction queries
+  | 'leave'              // Leave balance, approval issues
+  | 'attendance'         // Attendance correction requests
+  | 'hr_policy'          // Policy clarification
+  | 'workplace_concern'  // Interpersonal / environment issues
+  | 'posh'               // Prevention of Sexual Harassment (POSH Act)
+  | 'it_access'          // System / tool access issues
+  | 'other';
+
+export type HrTicketStatus   = 'open' | 'in_review' | 'resolved' | 'closed';
+export type HrTicketPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface HrTicket {
+  id: string;
+  employeeId: string;
+  employeeName: string;    // blank if isAnonymous
+  category: HrTicketCategory;
+  subject: string;
+  description: string;
+  priority: HrTicketPriority;
+  status: HrTicketStatus;
+  isAnonymous: boolean;    // hides employeeName/employeeId from admin view
+  attachmentUrl: string | null;
+  createdAt: import('firebase/firestore').Timestamp;
+  updatedAt: import('firebase/firestore').Timestamp;
+  resolvedAt: import('firebase/firestore').Timestamp | null;
+  resolvedBy: string | null;
+  resolutionNotes: string | null;
+  adminNotes: string | null;  // internal notes visible only to admin
+}
+
 // ─── Toast ─────────────────────────────────────────────────────────────────
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';

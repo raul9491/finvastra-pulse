@@ -42,6 +42,8 @@ import { AdminPerformancePage }   from './features/hrms/performance/AdminPerform
 import { RecruitmentPage }        from './features/hrms/recruitment/RecruitmentPage';
 import { TrainingPage }           from './features/hrms/training/TrainingPage';
 import { AdminTrainingPage }      from './features/hrms/training/AdminTrainingPage';
+import { HrHelpdeskPage }         from './features/hrms/helpdesk/HrHelpdeskPage';
+import { AdminHelpdeskPage }      from './features/hrms/helpdesk/AdminHelpdeskPage';
 
 import { CrmShell }               from './components/layout/CrmShell';
 import { CrmDashboardPage }       from './features/crm/dashboard/CrmDashboardPage';
@@ -143,6 +145,8 @@ export const router = createBrowserRouter([
       { path: 'admin/recruitment',     element: <RecruitmentPage /> },
       { path: 'training',              element: <TrainingPage /> },
       { path: 'admin/training',        element: <AdminTrainingPage /> },
+      { path: 'hr-helpdesk',           element: <HrHelpdeskPage /> },
+      { path: 'admin/hr-helpdesk',     element: <AdminHelpdeskPage /> },
       { path: 'it-declaration',        element: <ItDeclarationPage /> },
       { path: 'admin/it-declarations', element: <AdminItDeclarationsPage /> },
       { path: 'claims',              element: <ClaimsPage /> },

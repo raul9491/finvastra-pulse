@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { FileText, Download, BookOpen, Book, Bell, Loader2 } from 'lucide-react';
+import { format } from 'date-fns';
+import { FileText, Download, BookOpen, Book, Bell, Loader2, ShieldCheck, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useCompanyDocuments, useMyEmployeeDocuments } from '../hooks/useDocuments';
+import { useMyAcknowledgements, usePendingAcknowledgements, acknowledgeDocument } from '../hooks/useDocumentAcknowledgements';
 import type { CompanyDocument, EmployeeDocument, CompanyDocumentCategory, EmployeeDocumentType } from '../../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -30,7 +32,7 @@ function toTs(ts: any): Date | null {
 
 // ─── Company Doc Card ─────────────────────────────────────────────────────────
 
-function CompanyDocCard({ doc: d }: { doc: CompanyDocument }) {
+function CompanyDocCard({ doc: d, ackedAt }: { doc: CompanyDocument; ackedAt?: Date | null }) {
   const meta = CATEGORY_META[d.category];
   const Icon = meta.icon;
   const uploadedDate = toTs(d.uploadedAt);
@@ -48,7 +50,7 @@ function CompanyDocCard({ doc: d }: { doc: CompanyDocument }) {
         </div>
       </div>
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded"
             style={{ backgroundColor: meta.color + '15', color: meta.color }}>
             {meta.label}
@@ -59,6 +61,12 @@ function CompanyDocCard({ doc: d }: { doc: CompanyDocument }) {
           {uploadedDate && (
             <span className="text-[10px] text-mute">
               {uploadedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </span>
+          )}
+          {d.requiresAcknowledgement && ackedAt && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
+              style={{ color: '#059669', backgroundColor: '#D1FAE5' }}>
+              <CheckCircle2 size={9} />Acknowledged {format(ackedAt, 'd MMM yyyy')}
             </span>
           )}
         </div>
@@ -102,15 +110,89 @@ function EmployeeDocRow({ doc: d }: { doc: EmployeeDocument }) {
   );
 }
 
+// ─── Acknowledgement Banner ───────────────────────────────────────────────────
+
+function AcknowledgementBanner({
+  doc: d,
+  employeeId,
+  employeeName,
+  onAcknowledged,
+}: {
+  doc: CompanyDocument;
+  employeeId: string;
+  employeeName: string;
+  onAcknowledged: () => void;
+}) {
+  const [checked,  setChecked]  = useState(false);
+  const [saving,   setSaving]   = useState(false);
+
+  const handleAck = async () => {
+    if (!checked) return;
+    setSaving(true);
+    try {
+      await acknowledgeDocument({
+        documentId:    d.id,
+        documentTitle: d.title,
+        employeeId,
+        employeeName,
+      });
+      onAcknowledged();
+    } catch {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="border-l-4 rounded-xl p-4 space-y-3"
+      style={{ borderColor: '#C9A961', backgroundColor: '#FFFBEB' }}>
+      <div className="flex items-start gap-3">
+        <AlertTriangle size={16} style={{ color: '#D97706' }} className="mt-0.5 shrink-0" />
+        <div className="flex-1">
+          <p className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>{d.title}</p>
+          {d.description && <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>{d.description}</p>}
+          <a href={d.fileUrl} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 mt-1 text-xs font-medium hover:opacity-70"
+            style={{ color: '#0B1538' }}>
+            <Download size={11} />Read document
+          </a>
+        </div>
+      </div>
+      <label className="flex items-start gap-2 cursor-pointer">
+        <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)}
+          className="mt-0.5 shrink-0" />
+        <span className="text-xs" style={{ color: '#2A2A2A' }}>
+          I confirm that I have read, understood, and agree to comply with the policies described in this document.
+        </span>
+      </label>
+      <button
+        onClick={handleAck}
+        disabled={!checked || saving}
+        className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg text-white disabled:opacity-40 transition-opacity"
+        style={{ backgroundColor: '#059669' }}>
+        <ShieldCheck size={13} />
+        {saving ? 'Recording…' : 'Submit Acknowledgement'}
+      </button>
+    </div>
+  );
+}
+
 // ─── DocumentsPage ────────────────────────────────────────────────────────────
 
 export function DocumentsPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const uid = user?.uid ?? '';
   const [categoryFilter, setCategoryFilter] = useState<CompanyDocumentCategory | ''>('');
+  const [justAcked, setJustAcked] = useState<Set<string>>(new Set());
 
   const { docs: companyDocs, loading: compLoading } = useCompanyDocuments(categoryFilter || undefined);
   const { docs: myDocs, loading: myLoading } = useMyEmployeeDocuments(uid);
+  // Load ALL active company docs (no filter) to cross-reference with acks
+  const { docs: allDocs } = useCompanyDocuments(undefined);
+  const { pending: pendingAcks, loading: acksLoading } = usePendingAcknowledgements(uid, allDocs);
+  const { acks } = useMyAcknowledgements(uid);
+
+  // Pending after filtering out ones just acknowledged this session
+  const visiblePending = pendingAcks.filter((d) => !justAcked.has(d.id));
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
@@ -121,6 +203,39 @@ export function DocumentsPage() {
         </h2>
         <p className="text-sm text-mute">Company policies and your personal documents.</p>
       </div>
+
+      {/* ── Pending Acknowledgements ── */}
+      {!acksLoading && visiblePending.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle size={14} style={{ color: '#D97706' }} />
+            <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#D97706' }}>
+              Action Required — {visiblePending.length} document{visiblePending.length !== 1 ? 's' : ''} to acknowledge
+            </h3>
+          </div>
+          <div className="space-y-3">
+            {visiblePending.map((d) => (
+              <AcknowledgementBanner
+                key={d.id}
+                doc={d}
+                employeeId={uid}
+                employeeName={profile?.displayName ?? 'Employee'}
+                onAcknowledged={() => setJustAcked((s) => new Set([...s, d.id]))}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── Recently Acknowledged (confirmation strip) ── */}
+      {justAcked.size > 0 && (
+        <div className="flex items-center gap-2 p-3 rounded-xl" style={{ backgroundColor: '#F0FDF4' }}>
+          <CheckCircle2 size={15} style={{ color: '#059669' }} />
+          <p className="text-xs font-medium" style={{ color: '#065F46' }}>
+            {justAcked.size} acknowledgement{justAcked.size !== 1 ? 's' : ''} recorded. Thank you.
+          </p>
+        </div>
+      )}
 
       {/* Company Documents */}
       <section>
@@ -151,7 +266,11 @@ export function DocumentsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {companyDocs.map((d) => <CompanyDocCard key={d.id} doc={d} />)}
+            {companyDocs.map((d) => {
+              const myAck = acks.find((a) => a.documentId === d.id);
+              const ackedAt = myAck?.acknowledgedAt ? toTs(myAck.acknowledgedAt) : null;
+              return <CompanyDocCard key={d.id} doc={d} ackedAt={ackedAt} />;
+            })}
           </div>
         )}
       </section>

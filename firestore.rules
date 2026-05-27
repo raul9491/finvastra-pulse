@@ -806,5 +806,23 @@ service cloud.firestore {
       allow update: if isAdmin() || isHrmsManager();
       allow delete: if false;
     }
+
+    // ─── Document Acknowledgements ────────────────────────────────────────────
+    // Immutable digital sign-off records. Employees create their own; once written
+    // they cannot be changed or deleted — they are a permanent compliance record.
+    // Admins and HRMS managers can read all acknowledgements (for compliance reporting).
+    match /document_acknowledgements/{ackId} {
+      // Employees can read their own acks; admins/managers can read all.
+      allow read: if isAdmin() || isHrmsManager()
+                  || (isSignedIn() && resource.data.employeeId == request.auth.uid);
+      // Employees can only create an ack for themselves.
+      allow create: if isSignedIn()
+                    && request.resource.data.employeeId == request.auth.uid
+                    && request.resource.data.keys().hasAll(['documentId', 'documentTitle', 'employeeId', 'employeeName', 'acknowledgedAt', 'method'])
+                    && request.resource.data.method == 'checkbox';
+      // Immutable — no updates, no deletes.
+      allow update: if false;
+      allow delete: if false;
+    }
   }
 }

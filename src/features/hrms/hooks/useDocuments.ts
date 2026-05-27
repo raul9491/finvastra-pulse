@@ -114,6 +114,7 @@ export async function addCompanyDocument(params: {
   fileUrl: string;
   uploadedBy: string;
   financialYear: string | null;
+  requiresAcknowledgement?: boolean;
 }) {
   await addDoc(collection(db, 'company_documents'), {
     ...params,

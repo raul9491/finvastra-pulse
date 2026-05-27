@@ -22,6 +22,7 @@ import { useProbationBadge } from '../../features/hrms/hooks/useProbation';
 import { usePendingReviewCount, useSelfAssessmentBadge, currentReviewYear } from '../../features/hrms/hooks/usePerformance';
 import { useMyTrainingBadge, useTrainingAdminBadge } from '../../features/hrms/hooks/useTraining';
 import { useMyOpenTicketCount, useOpenTicketCount } from '../../features/hrms/hooks/useHrTickets';
+import { usePendingAcknowledgementCount } from '../../features/hrms/hooks/useDocumentAcknowledgements';
 
 function usePendingRequestCount(enabled: boolean): number {
   const [count, setCount] = useState(0);
@@ -210,6 +211,7 @@ export function HrmsShell() {
   const trainingAdminBadge  = useTrainingAdminBadge(isAdmin || isHrmsManager);
   const myOpenTickets       = useMyOpenTicketCount(user?.uid ?? '');
   const openTicketCount     = useOpenTicketCount(isAdmin || isHrmsManager);
+  const pendingAckCount     = usePendingAcknowledgementCount(user?.uid ?? '');
   const _perfYear           = currentReviewYear();
   const selfAssessmentBadge = useSelfAssessmentBadge(user?.uid ?? '', _perfYear);
   const pendingReviewCount  = usePendingReviewCount(isAdmin || isHrmsManager);
@@ -288,6 +290,7 @@ export function HrmsShell() {
             const badge =
               path === '/hrms/dashboard'      ? dashboardBadge                      :
               path === '/hrms/announcements'  ? unreadAnnouncements + holidayBadge  :
+              path === '/hrms/documents'      ? pendingAckCount                     :
               path === '/hrms/it-declaration' ? itDeclEmployeeBadge                 :
               path === '/hrms/performance'    ? selfAssessmentBadge                 :
               path === '/hrms/training'       ? myTrainingBadge                     :

@@ -676,6 +676,23 @@ export interface CompanyDocument {
   uploadedAt: import('firebase/firestore').Timestamp;
   isActive: boolean;
   financialYear: string | null;
+  // Policy acknowledgement — optional; absent = false on legacy docs
+  requiresAcknowledgement?: boolean;
+  acknowledgementDeadlineDays?: number | null;  // days after upload by which all must ack
+}
+
+// ─── Policy Acknowledgements ──────────────────────────────────────────────────
+// Collection: /document_acknowledgements/{recordId}
+// Immutable record of an employee digitally acknowledging a policy document.
+
+export interface DocumentAcknowledgement {
+  id: string;
+  documentId: string;
+  documentTitle: string;
+  employeeId: string;
+  employeeName: string;
+  acknowledgedAt: import('firebase/firestore').Timestamp;
+  method: 'checkbox';   // digital tick-box consent
 }
 
 export type EmployeeDocumentType =

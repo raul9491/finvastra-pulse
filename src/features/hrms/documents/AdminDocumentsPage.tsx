@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { format } from 'date-fns';
-import { Upload, Trash2, Loader2, FileText, PlusCircle, X } from 'lucide-react';
+import { Upload, Trash2, FileText, PlusCircle, X, ShieldCheck, Users, CheckCircle2, ToggleLeft, ToggleRight, ChevronRight } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import {
   useAllCompanyDocuments, useEmployeeDocuments,
@@ -8,9 +8,10 @@ import {
   addEmployeeDocument, deactivateEmployeeDocument,
   uploadFileToStorage,
 } from '../hooks/useDocuments';
+import { useDocumentAcknowledgements, useAcknowledgementCountMap } from '../hooks/useDocumentAcknowledgements';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
-import type { CompanyDocumentCategory, EmployeeDocumentType } from '../../../types';
+import type { CompanyDocumentCategory, EmployeeDocumentType, CompanyDocument } from '../../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -45,6 +46,7 @@ function UploadCompanyDocModal({ uploadedBy, onClose }: { uploadedBy: string; on
   const [category, setCategory] = useState<CompanyDocumentCategory>('policy');
   const [description, setDescription] = useState('');
   const [fy, setFy] = useState('');
+  const [requiresAck, setRequiresAck] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
@@ -65,6 +67,7 @@ function UploadCompanyDocModal({ uploadedBy, onClose }: { uploadedBy: string; on
         fileUrl,
         uploadedBy,
         financialYear: fy.trim() || null,
+        requiresAcknowledgement: requiresAck || undefined,
       });
       onClose();
     } catch {
@@ -98,6 +101,18 @@ function UploadCompanyDocModal({ uploadedBy, onClose }: { uploadedBy: string; on
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>Financial Year</label>
             <input className={inp} value={fy} onChange={(e) => setFy(e.target.value)} placeholder="2025-26" />
+          </div>
+          {/* Requires Acknowledgement toggle */}
+          <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200">
+            <div>
+              <p className="text-sm font-medium text-ink">Requires Acknowledgement</p>
+              <p className="text-xs text-mute mt-0.5">Employees must digitally confirm they've read this</p>
+            </div>
+            <button type="button" onClick={() => setRequiresAck((v) => !v)}
+              className="shrink-0 transition-colors"
+              style={{ color: requiresAck ? '#059669' : '#94A3B8' }}>
+              {requiresAck ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
+            </button>
           </div>
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>File * (PDF / DOCX)</label>
@@ -215,6 +230,117 @@ function UploadEmployeeDocModal({ uploadedBy, employeeId, onClose }: { uploadedB
   );
 }
 
+// ─── Acknowledgement Detail Modal ─────────────────────────────────────────────
+
+function AcknowledgementDetailModal({
+  doc: d,
+  employees,
+  onClose,
+}: {
+  doc: CompanyDocument;
+  employees: { userId: string; displayName: string; department?: string }[];
+  onClose: () => void;
+}) {
+  const { acks, loading } = useDocumentAcknowledgements(d.id);
+  const ackedSet = new Set(acks.map((a) => a.employeeId));
+  const notAcked = employees.filter((e) => !ackedSet.has(e.userId));
+  const ackedList = employees.filter((e) => ackedSet.has(e.userId));
+
+  function toTs(ts: any): Date | null {
+    if (!ts) return null;
+    if (typeof ts.toDate === 'function') return ts.toDate();
+    return null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-start justify-between p-5 border-b border-slate-100">
+          <div>
+            <h3 className="text-base font-semibold text-ink">{d.title}</h3>
+            <p className="text-xs text-mute mt-0.5">Acknowledgement Status</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100"><X size={18} style={{ color: '#8B8B85' }} /></button>
+        </div>
+
+        {/* Summary strip */}
+        <div className="flex gap-4 px-5 py-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={14} style={{ color: '#059669' }} />
+            <span className="text-sm font-semibold" style={{ color: '#059669' }}>{ackedList.length} Acknowledged</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <ShieldCheck size={14} style={{ color: '#D97706' }} />
+            <span className="text-sm font-semibold" style={{ color: '#D97706' }}>{notAcked.length} Pending</span>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-10">
+            <div className="w-5 h-5 border-2 border-slate-200 border-t-navy rounded-full animate-spin" />
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            {notAcked.length > 0 && (
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#D97706' }}>
+                  Pending ({notAcked.length})
+                </p>
+                <div className="space-y-2">
+                  {notAcked.map((e) => (
+                    <div key={e.userId} className="flex items-center gap-3 p-2.5 rounded-xl bg-amber-50">
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                        style={{ backgroundColor: '#FEF3C7', color: '#D97706' }}>
+                        {e.displayName[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-ink truncate">{e.displayName}</p>
+                        {e.department && <p className="text-xs text-mute">{e.department}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {ackedList.length > 0 && (
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#059669' }}>
+                  Acknowledged ({ackedList.length})
+                </p>
+                <div className="space-y-2">
+                  {ackedList.map((e) => {
+                    const ack = acks.find((a) => a.employeeId === e.userId);
+                    const ackedAt = ack ? toTs(ack.acknowledgedAt) : null;
+                    return (
+                      <div key={e.userId} className="flex items-center gap-3 p-2.5 rounded-xl bg-green-50">
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                          style={{ backgroundColor: '#D1FAE5', color: '#059669' }}>
+                          {e.displayName[0]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-ink truncate">{e.displayName}</p>
+                          {ackedAt && <p className="text-xs text-mute">{format(ackedAt, 'd MMM yyyy, HH:mm')}</p>}
+                        </div>
+                        <CheckCircle2 size={14} style={{ color: '#059669' }} className="shrink-0" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {notAcked.length === 0 && ackedList.length === 0 && (
+              <p className="text-sm text-mute text-center py-6">No active employees found.</p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── AdminDocumentsPage ───────────────────────────────────────────────────────
 
 export function AdminDocumentsPage() {
@@ -224,10 +350,13 @@ export function AdminDocumentsPage() {
   const [selectedEmp, setSelectedEmp] = useState('');
   const [showCompanyModal, setShowCompanyModal] = useState(false);
   const [showEmpModal, setShowEmpModal] = useState(false);
+  const [ackDetailDoc, setAckDetailDoc] = useState<CompanyDocument | null>(null);
 
   const { docs: companyDocs, loading: compLoading } = useAllCompanyDocuments();
   const { docs: empDocs, loading: empLoading } = useEmployeeDocuments(selectedEmp);
   const { employees } = useAllEmployees();
+  const ackCountMap = useAcknowledgementCountMap(true);
+  const activeEmployees = employees.filter((e) => e.employeeStatus === 'active' || !e.employeeStatus);
 
   const employeeOptions = employees.map((e) => ({ value: e.userId, label: e.displayName }));
 
@@ -284,6 +413,7 @@ export function AdminDocumentsPage() {
                     <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Title</th>
                     <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Category</th>
                     <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Uploaded</th>
+                    <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Acknowledgements</th>
                     <th className="text-center p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Active</th>
                     <th className="p-4" />
                   </tr>
@@ -291,11 +421,28 @@ export function AdminDocumentsPage() {
                 <tbody>
                   {companyDocs.map((d) => {
                     const uploadedDate = toTs(d.uploadedAt);
+                    const ackedCount = ackCountMap[d.id] ?? 0;
+                    const totalActive = activeEmployees.length;
                     return (
                       <tr key={d.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                         <td className="p-4 font-medium text-ink">{d.title}</td>
                         <td className="p-4 text-mute capitalize">{d.category}</td>
                         <td className="p-4 text-mute">{uploadedDate ? format(uploadedDate, 'dd MMM yyyy') : '—'}</td>
+                        <td className="p-4">
+                          {d.requiresAcknowledgement ? (
+                            <button
+                              onClick={() => setAckDetailDoc(d)}
+                              className="flex items-center gap-1.5 group"
+                            >
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ackedCount >= totalActive ? 'text-green-700 bg-green-50' : 'text-amber-700 bg-amber-50'}`}>
+                                {ackedCount}/{totalActive}
+                              </span>
+                              <ChevronRight size={12} style={{ color: '#94A3B8' }} className="group-hover:text-ink transition-colors" />
+                            </button>
+                          ) : (
+                            <span className="text-xs text-mute">—</span>
+                          )}
+                        </td>
                         <td className="p-4 text-center">
                           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${d.isActive ? 'text-green-700 bg-green-50' : 'text-mute bg-slate-100'}`}>
                             {d.isActive ? 'Active' : 'Inactive'}
@@ -391,6 +538,13 @@ export function AdminDocumentsPage() {
       )}
       {showEmpModal && uid && selectedEmp && (
         <UploadEmployeeDocModal uploadedBy={uid} employeeId={selectedEmp} onClose={() => setShowEmpModal(false)} />
+      )}
+      {ackDetailDoc && (
+        <AcknowledgementDetailModal
+          doc={ackDetailDoc}
+          employees={activeEmployees}
+          onClose={() => setAckDetailDoc(null)}
+        />
       )}
     </div>
   );

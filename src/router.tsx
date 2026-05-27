@@ -40,6 +40,8 @@ import { ProbationPage }          from './features/hrms/probation/ProbationPage'
 import { PerformancePage }        from './features/hrms/performance/PerformancePage';
 import { AdminPerformancePage }   from './features/hrms/performance/AdminPerformancePage';
 import { RecruitmentPage }        from './features/hrms/recruitment/RecruitmentPage';
+import { TrainingPage }           from './features/hrms/training/TrainingPage';
+import { AdminTrainingPage }      from './features/hrms/training/AdminTrainingPage';
 
 import { CrmShell }               from './components/layout/CrmShell';
 import { CrmDashboardPage }       from './features/crm/dashboard/CrmDashboardPage';
@@ -139,6 +141,8 @@ export const router = createBrowserRouter([
       { path: 'admin/performance',     element: <AdminPerformancePage /> },
       { path: 'admin/offboarding',     element: <OffboardingPage /> },
       { path: 'admin/recruitment',     element: <RecruitmentPage /> },
+      { path: 'training',              element: <TrainingPage /> },
+      { path: 'admin/training',        element: <AdminTrainingPage /> },
       { path: 'it-declaration',        element: <ItDeclarationPage /> },
       { path: 'admin/it-declarations', element: <AdminItDeclarationsPage /> },
       { path: 'claims',              element: <ClaimsPage /> },

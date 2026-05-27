@@ -761,5 +761,25 @@ service cloud.firestore {
             update: if isAdmin() || isHrmsManager();
       allow delete: if false;
     }
+
+    // ─── HRMS: Training Programs ──────────────────────────────────────────────
+    // Admin-managed catalog of training programs (AMFI, IRDA, NCFM, POSH, etc.)
+    match /training_programs/{docId} {
+      allow read:   if isAdmin() || isHrmsManager();
+      allow create,
+            update: if isAdmin() || isHrmsManager();
+      allow delete: if false;
+    }
+
+    // ─── HRMS: Training Records ───────────────────────────────────────────────
+    // Per-employee enrollment and completion tracking.
+    // Employees may read their own records; only admin/HR may create or update.
+    match /training_records/{docId} {
+      allow read:   if isAdmin() || isHrmsManager()
+                    || (isSignedIn() && resource.data.employeeId == request.auth.uid);
+      allow create,
+            update: if isAdmin() || isHrmsManager();
+      allow delete: if false;
+    }
   }
 }

@@ -1139,6 +1139,53 @@ export interface ProbationRecord {
   updatedAt: import('firebase/firestore').Timestamp;
 }
 
+// ─── Training & Development ──────────────────────────────────────────────────
+// Collections: /training_programs/{id}  /training_records/{id}
+// Tracks mandatory compliance certifications (AMFI, IRDA, NCFM) and skill training.
+
+export type TrainingCategory =
+  | 'compliance'     // AMFI, IRDA, SEBI, regulatory certifications
+  | 'certification'  // External professional certifications
+  | 'skills'         // Product knowledge, sales skills, etc.
+  | 'induction'      // New joiner orientation / on-the-job training
+  | 'safety'         // Workplace safety & POSH
+  | 'other';
+
+export type TrainingStatus = 'enrolled' | 'completed' | 'expired';
+
+export interface TrainingProgram {
+  id: string;
+  name: string;
+  category: TrainingCategory;
+  description: string | null;
+  durationHours: number | null;
+  isMandatory: boolean;
+  renewalPeriodMonths: number | null;   // null = one-time; else renews every N months
+  isActive: boolean;
+  createdBy: string;
+  createdAt: import('firebase/firestore').Timestamp;
+  updatedAt: import('firebase/firestore').Timestamp;
+}
+
+export interface TrainingRecord {
+  id: string;
+  programId: string;
+  programName: string;          // denormalized for display
+  programCategory: TrainingCategory;
+  employeeId: string;
+  employeeName: string;         // denormalized for display
+  status: TrainingStatus;
+  enrolledAt: import('firebase/firestore').Timestamp;
+  completedAt: import('firebase/firestore').Timestamp | null;
+  expiresAt: import('firebase/firestore').Timestamp | null;   // null = never expires
+  certificateUrl: string | null;
+  enrolledBy: string;
+  completedBy: string | null;
+  notes: string | null;
+  createdAt: import('firebase/firestore').Timestamp;
+  updatedAt: import('firebase/firestore').Timestamp;
+}
+
 // ─── Toast ─────────────────────────────────────────────────────────────────
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';

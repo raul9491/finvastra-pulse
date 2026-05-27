@@ -18,6 +18,7 @@ import { AdminAttendancePage }    from './features/hrms/attendance/AdminAttendan
 import { LeavePage }              from './features/hrms/leave/LeavePage';
 import { ApplyLeavePage }         from './features/hrms/leave/ApplyLeavePage';
 import { AdminLeavePage }         from './features/hrms/leave/AdminLeavePage';
+import { TeamCalendarPage }       from './features/hrms/leave/TeamCalendarPage';
 import { PayslipsPage }           from './features/hrms/payslips/PayslipsPage';
 import { GeneratePayslipPage }    from './features/hrms/payslips/GeneratePayslipPage';
 import { HolidaysPage }           from './features/hrms/holidays/HolidaysPage';
@@ -123,9 +124,10 @@ export const router = createBrowserRouter([
       { path: 'admin/access-requests',     element: <AccessRequestsPage /> },
       { path: 'admin/import-employees',   element: <ImportEmployeesPage /> },
       { path: 'attendance', element: <AttendancePage /> },
-      { path: 'leave',         element: <LeavePage /> },
-      { path: 'leave/apply',  element: <ApplyLeavePage /> },
+      { path: 'leave',               element: <LeavePage /> },
+      { path: 'leave/apply',         element: <ApplyLeavePage /> },
       { path: 'leave/admin',         element: <AdminLeavePage /> },
+      { path: 'leave/team-calendar', element: <TeamCalendarPage /> },
       { path: 'payslips',            element: <PayslipsPage /> },
       { path: 'holidays',            element: <HolidaysPage /> },
       { path: 'admin/permissions',    element: <SuperAdminPermissionsPage /> },

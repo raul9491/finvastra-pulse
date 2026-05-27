@@ -8,6 +8,7 @@ import {
   Settings, LogOut, LayoutGrid, ClipboardList, FileText, UserPlus, Inbox,
   ReceiptText, FolderOpen, Megaphone, Building2, Calculator,
   Laptop, UserMinus, Lock, FileSearch2, GraduationCap, TrendingUp, Briefcase, BookOpen, LifeBuoy,
+  CalendarRange,
 } from 'lucide-react';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -95,7 +96,8 @@ const NAV: NavEntry[] = [
   { path: '/hrms/dashboard',      label: 'Dashboard',      icon: LayoutDashboard, live: true },
   { path: '/hrms/employees',      label: 'Employees',      icon: Users,           live: true },
   { path: '/hrms/attendance',     label: 'Attendance',     icon: Clock,           live: true },
-  { path: '/hrms/leave',          label: 'Leave',          icon: CalendarOff,     live: true },
+  { path: '/hrms/leave',               label: 'Leave',          icon: CalendarOff,   live: true },
+  { path: '/hrms/leave/team-calendar', label: 'Team Calendar',  icon: CalendarRange, live: true },
   { path: '/hrms/payslips',       label: 'Payslips',       icon: Receipt,         live: true },
   { path: '/hrms/holidays',       label: 'Holidays',       icon: CalendarDays,    live: true },
   { path: '/hrms/claims',         label: 'My Claims',      icon: ReceiptText,     live: true },
@@ -144,6 +146,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/attendance':            'Attendance',
   '/hrms/leave':                 'Leave',
   '/hrms/leave/apply':           'Apply for Leave',
+  '/hrms/leave/team-calendar':   'Team Leave Calendar',
   '/hrms/payslips':              'Payslips',
   '/hrms/holidays':              'Holidays',
   '/hrms/claims':                'My Claims',

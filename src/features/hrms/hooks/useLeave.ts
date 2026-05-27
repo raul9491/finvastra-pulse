@@ -64,6 +64,31 @@ export function useMyApplications(userId: string): {
   return { applications, loading };
 }
 
+// ─── useAllApprovedLeaves ─────────────────────────────────────────────────────
+// Admin hook: all approved leave applications across the org, sorted by fromDate.
+// Used by the team leave calendar.
+export function useAllApprovedLeaves(): {
+  applications: LeaveApplication[];
+  loading: boolean;
+} {
+  const [applications, setApplications] = useState<LeaveApplication[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'leave_applications'),
+      where('status', '==', 'approved'),
+      orderBy('fromDate', 'asc'),
+    );
+    return onSnapshot(q, (snap) => {
+      setApplications(snap.docs.map((d) => ({ id: d.id, ...d.data() } as LeaveApplication)));
+      setLoading(false);
+    }, () => setLoading(false));
+  }, []);
+
+  return { applications, loading };
+}
+
 // ─── usePendingApprovals ──────────────────────────────────────────────────────
 // Real-time subscription to all pending leave applications, oldest first (FIFO).
 export function usePendingApprovals(): {

@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, Clock, CalendarOff, Receipt, CalendarDays,
   Settings, LogOut, LayoutGrid, ClipboardList, FileText, UserPlus, Inbox,
   ReceiptText, FolderOpen, Megaphone, Building2, Calculator,
-  Laptop, UserMinus, Lock, FileSearch2, GraduationCap, TrendingUp,
+  Laptop, UserMinus, Lock, FileSearch2, GraduationCap, TrendingUp, Briefcase,
 } from 'lucide-react';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -69,6 +69,23 @@ function useOffboardingBadge(enabled: boolean): number {
   return count;
 }
 
+/** Count candidates currently in an interview stage (requires scheduling attention) */
+function useInterviewBadge(enabled: boolean): number {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    return onSnapshot(
+      query(
+        collection(db, 'candidates'),
+        where('stage', 'in', ['interview_1', 'interview_2']),
+      ),
+      (snap) => setCount(snap.size),
+      () => setCount(0),
+    );
+  }, [enabled]);
+  return count;
+}
+
 type NavEntry = { path: string; label: string; icon: ElementType; live: boolean };
 
 const NAV: NavEntry[] = [
@@ -101,6 +118,7 @@ const ADMIN_NAV: NavEntry[] = [
 ];
 
 const LIFECYCLE_NAV: NavEntry[] = [
+  { path: '/hrms/admin/recruitment',  label: 'Recruitment',  icon: Briefcase,      live: true },
   { path: '/hrms/admin/assets',       label: 'Assets',       icon: Laptop,         live: true },
   { path: '/hrms/admin/onboarding',   label: 'Onboarding',   icon: UserPlus,       live: true },
   { path: '/hrms/admin/probation',    label: 'Probation',    icon: GraduationCap,  live: true },
@@ -139,6 +157,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/admin/performance':      'Performance Reviews',
   '/hrms/admin/compliance':       'Compliance Calendar',
   '/hrms/admin/pf-tracker':      'PF Tracker',
+  '/hrms/admin/recruitment':     'Recruitment',
   '/hrms/admin/assets':          'Asset Management',
   '/hrms/admin/onboarding':      'Onboarding',
   '/hrms/admin/probation':       'Probation Management',
@@ -174,6 +193,7 @@ export function HrmsShell() {
   const onboardingBadge     = useOnboardingBadge(isAdmin || isHrmsManager);
   const offboardingBadge    = useOffboardingBadge(isAdmin || isHrmsManager);
   const probationBadge      = useProbationBadge(isAdmin || isHrmsManager);
+  const interviewBadge      = useInterviewBadge(isAdmin || isHrmsManager);
   const _perfYear           = currentReviewYear();
   const selfAssessmentBadge = useSelfAssessmentBadge(user?.uid ?? '', _perfYear);
   const pendingReviewCount  = usePendingReviewCount(isAdmin || isHrmsManager);
@@ -369,6 +389,7 @@ export function HrmsShell() {
               </div>
               {LIFECYCLE_NAV.map(({ path, label, icon: Icon }) => {
                 const badge =
+                  path === '/hrms/admin/recruitment' ? interviewBadge   :
                   path === '/hrms/admin/onboarding'  ? onboardingBadge  :
                   path === '/hrms/admin/probation'   ? probationBadge   :
                   path === '/hrms/admin/offboarding' ? offboardingBadge : 0;

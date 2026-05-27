@@ -781,6 +781,63 @@ export interface LostDetails {
   capturedBy: string;
 }
 
+// ─── Recruitment ─────────────────────────────────────────────────────────────
+
+export type CandidateStage =
+  | 'applied' | 'shortlisted' | 'interview_1' | 'interview_2'
+  | 'offer_made' | 'hired' | 'rejected';
+
+export type CandidateSource =
+  | 'referral' | 'walk_in' | 'linkedin' | 'naukri' | 'job_portal' | 'other';
+
+export type JobOpeningStatus = 'open' | 'on_hold' | 'closed';
+
+export interface JobOpening {
+  id: string;
+  title: string;               // matches DESIGNATIONS
+  department: string;          // matches DEPARTMENTS
+  location: string | null;
+  description: string | null;
+  openedDate: string;          // YYYY-MM-DD
+  targetHireDate: string | null;
+  status: JobOpeningStatus;
+  hiresRequired: number;
+  hiresCompleted: number;
+  createdBy: string;
+  createdAt: import('firebase/firestore').Timestamp;
+  updatedAt: import('firebase/firestore').Timestamp;
+}
+
+export interface CandidateStageEntry {
+  from: CandidateStage;
+  to: CandidateStage;
+  at: import('firebase/firestore').Timestamp;
+  by: string;
+  notes?: string;
+}
+
+export interface Candidate {
+  id: string;
+  openingId: string;
+  openingTitle: string;    // denormalized for display
+  name: string;
+  phone: string;
+  email: string | null;
+  currentDesignation: string | null;
+  currentCompany: string | null;
+  source: CandidateSource;
+  resumeLink: string | null;
+  stage: CandidateStage;
+  rejectionReason: string | null;
+  notes: string | null;
+  expectedJoiningDate: string | null;  // YYYY-MM-DD
+  offeredCTC: number | null;
+  addedBy: string;
+  addedAt: import('firebase/firestore').Timestamp;
+  updatedAt: import('firebase/firestore').Timestamp;
+  stageHistory: CandidateStageEntry[];
+}
+
 // ─── Asset Management ────────────────────────────────────────────────────────
 
 export type AssetType = 'laptop' | 'sim_card' | 'mobile_phone' | 'access_card' | 'mouse' | 'visiting_card' | 'id_card' | 'other';

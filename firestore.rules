@@ -741,5 +741,25 @@ service cloud.firestore {
             update: if isAdmin() || isHrmsManager();
       allow delete: if false;
     }
+
+    // ─── HRMS: Recruitment — Job Openings ───────────────────────────────────────
+    // Admin and HRMS managers only. No physical deletes; close an opening by
+    // setting status = 'closed'.
+    match /job_openings/{docId} {
+      allow read:   if isAdmin() || isHrmsManager();
+      allow create,
+            update: if isAdmin() || isHrmsManager();
+      allow delete: if false;
+    }
+
+    // ─── HRMS: Recruitment — Candidates ─────────────────────────────────────────
+    // Admin and HRMS managers only. No physical deletes; reject a candidate by
+    // setting stage = 'rejected' with a rejectionReason.
+    match /candidates/{docId} {
+      allow read:   if isAdmin() || isHrmsManager();
+      allow create,
+            update: if isAdmin() || isHrmsManager();
+      allow delete: if false;
+    }
   }
 }

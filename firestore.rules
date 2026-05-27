@@ -717,6 +717,21 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ─── HRMS: Performance Reviews ──────────────────────────────────────────────
+    // Employees can read and update (self-assessment only) their own review doc.
+    // Admin and HrmsManager can read all and perform all writes.
+    match /performance_reviews/{docId} {
+      allow read: if isAdmin() || isHrmsManager()
+                  || resource.data.employeeId == request.auth.uid;
+      // Employee can only update selfAssessment + status + updatedAt on their own doc
+      allow update: if isAdmin() || isHrmsManager()
+                    || (resource.data.employeeId == request.auth.uid
+                        && request.resource.data.keys().hasOnly(
+                             ['selfAssessment', 'status', 'updatedAt']));
+      allow create: if isAdmin() || isHrmsManager();
+      allow delete: if false;
+    }
+
     // ─── HRMS: Probation Records ────────────────────────────────────────────────
     // Admin and HRMS managers only. Auto-created on employee join; updated as
     // HR reviews, confirms, or extends. No deletes — permanent audit trail.

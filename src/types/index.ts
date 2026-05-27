@@ -968,6 +968,67 @@ export interface ItDeclaration {
   updatedAt: import('firebase/firestore').Timestamp;
 }
 
+// ─── Performance Reviews ─────────────────────────────────────────────────────
+// Annual performance management cycle.
+// Collection: /performance_reviews/{employeeId}_{year}
+// Year = calendar year of the review (2026 = reviews covering calendar year 2026).
+
+export type PerformanceReviewStatus =
+  | 'pending'          // created; employee hasn't submitted self-assessment yet
+  | 'self_review'      // employee submitted self-assessment
+  | 'manager_review'   // manager has submitted their review
+  | 'completed';       // HR finalized — increment set, letter available
+
+export interface PerformanceSelfAssessment {
+  submittedAt: import('firebase/firestore').Timestamp;
+  achievements: string;     // key achievements during the year
+  challenges: string;       // challenges faced and how handled
+  trainingNeeds: string;    // skills / training requested
+  careerGoals: string;      // short- and long-term goals
+  overallSelfRating: number;  // 1–5
+}
+
+export interface PerformanceManagerReview {
+  submittedAt: import('firebase/firestore').Timestamp;
+  submittedBy: string;          // uid of reviewer
+  managerName: string;
+  // KRA ratings — 1 (Poor) to 5 (Excellent)
+  workQuality: number;
+  workQuantity: number;
+  initiative: number;
+  communication: number;
+  teamwork: number;
+  punctuality: number;
+  overallRating: number;        // average of 6 KRAs, rounded to 1 decimal
+  strengths: string;
+  areasForImprovement: string;
+  recommendedForPromotion: boolean;
+  notes: string | null;
+}
+
+export interface PerformanceReview {
+  id: string;                   // {employeeId}_{year}
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string | null;
+  department: string | null;
+  designation: string | null;
+  year: number;                 // calendar year
+  status: PerformanceReviewStatus;
+  selfAssessment?: PerformanceSelfAssessment;
+  managerReview?: PerformanceManagerReview;
+  // HR finalization
+  incrementPercentage?: number;    // % e.g. 10
+  newGrossSalary?: number;         // ₹ per month
+  oldGrossSalary?: number;         // ₹ per month at time of finalization
+  incrementEffectiveDate?: string; // YYYY-MM-DD
+  hrNotes?: string | null;
+  finalizedAt?: import('firebase/firestore').Timestamp;
+  finalizedBy?: string;
+  createdAt: import('firebase/firestore').Timestamp;
+  updatedAt: import('firebase/firestore').Timestamp;
+}
+
 // ─── Probation Management ────────────────────────────────────────────────────
 // Collection: /probation_records/{userId}
 // Created on employee hire; updated as HR reviews and confirms/extends.

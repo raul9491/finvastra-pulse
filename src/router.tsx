@@ -37,6 +37,8 @@ import { OffboardingPage }        from './features/hrms/offboarding/OffboardingP
 import { ItDeclarationPage }      from './features/hrms/itdeclaration/ItDeclarationPage';
 import { AdminItDeclarationsPage } from './features/hrms/itdeclaration/AdminItDeclarationsPage';
 import { ProbationPage }          from './features/hrms/probation/ProbationPage';
+import { PerformancePage }        from './features/hrms/performance/PerformancePage';
+import { AdminPerformancePage }   from './features/hrms/performance/AdminPerformancePage';
 
 import { CrmShell }               from './components/layout/CrmShell';
 import { CrmDashboardPage }       from './features/crm/dashboard/CrmDashboardPage';
@@ -132,6 +134,8 @@ export const router = createBrowserRouter([
       { path: 'admin/assets',        element: <AssetsPage /> },
       { path: 'admin/onboarding',      element: <OnboardingPage /> },
       { path: 'admin/probation',       element: <ProbationPage /> },
+      { path: 'performance',           element: <PerformancePage /> },
+      { path: 'admin/performance',     element: <AdminPerformancePage /> },
       { path: 'admin/offboarding',     element: <OffboardingPage /> },
       { path: 'it-declaration',        element: <ItDeclarationPage /> },
       { path: 'admin/it-declarations', element: <AdminItDeclarationsPage /> },

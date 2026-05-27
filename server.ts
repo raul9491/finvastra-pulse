@@ -8,6 +8,7 @@ import { google } from "googleapis";
 import { JWT, OAuth2Client } from "google-auth-library";
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import { encryptField, decryptField } from "./src/lib/encryption.js";
@@ -1392,7 +1393,9 @@ async function startServer() {
         const STORAGE_BUCKET = "gen-lang-client-0643641184.firebasestorage.app";
         const buffer    = Buffer.from(base64Data, "base64");
         const filePath  = `hr-letters/${employeeId}/${filename}`;
-        const bucket    = admin.storage().bucket(STORAGE_BUCKET);
+        // Use getStorage() (explicit modular import) instead of admin.storage() (compat API).
+        // The compat API requires storageBucket in initializeApp; getStorage() does not.
+        const bucket    = getStorage().bucket(STORAGE_BUCKET);
         const fileRef   = bucket.file(filePath);
 
         // Generate a Firebase-style download token so the URL looks identical to
@@ -1414,8 +1417,9 @@ async function startServer() {
 
         return res.json({ ok: true, downloadUrl });
       } catch (e) {
-        console.error("[hr-letters/upload] Storage save failed:", e);
-        return res.status(500).json({ error: "Upload failed", detail: String(e) });
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("[hr-letters/upload] Storage save failed:", msg);
+        return res.status(500).json({ error: `Upload failed: ${msg}` });
       }
     }
   );

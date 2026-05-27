@@ -177,7 +177,11 @@
       "WebFetch(domain:doc-08-bc-sheets.googleusercontent.com)",
       "WebFetch(domain:doc-00-bc-sheets.googleusercontent.com)",
       "WebFetch(domain:doc-0k-bc-sheets.googleusercontent.com)",
-      "WebFetch(domain:doc-04-bc-sheets.googleusercontent.com)"
+      "WebFetch(domain:doc-04-bc-sheets.googleusercontent.com)",
+      "PowerShell(gcloud logging read \"resource.type=cloud_run_revision AND resource.labels.service_name=pulse-api AND textPayload:hr-letters\" --limit=20 --region=asia-south1 --format=\"value\\(timestamp,textPayload\\)\" 2>&1)",
+      "PowerShell(gcloud logging read \"resource.type=cloud_run_revision AND resource.labels.service_name=pulse-api\" --limit=30 --format=\"value\\(timestamp,textPayload,jsonPayload.message\\)\" 2>&1)",
+      "PowerShell(gcloud logging read \"resource.type=cloud_run_revision AND resource.labels.service_name=pulse-api AND timestamp>2026-05-27T13:25:00Z\" --limit=50 --format=\"value\\(timestamp,textPayload\\)\" 2>&1)",
+      "PowerShell(gcloud logging read \"resource.type=cloud_run_revision\" --limit=50 --format=\"value\\(timestamp,textPayload\\)\" 2>&1)"
     ],
     "additionalDirectories": [
       "\\tmp"

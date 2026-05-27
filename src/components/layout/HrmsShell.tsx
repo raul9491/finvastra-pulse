@@ -120,6 +120,7 @@ const ADMIN_NAV: NavEntry[] = [
   { path: '/hrms/admin/it-declarations',  label: 'IT Declarations',      icon: FileSearch2,   live: true },
   { path: '/hrms/admin/performance',     label: 'Performance Reviews',  icon: TrendingUp,    live: true },
   { path: '/hrms/admin/training',        label: 'Training',             icon: BookOpen,      live: true },
+  { path: '/hrms/admin/salary-history',  label: 'Salary History',       icon: TrendingUp,    live: true },
   { path: '/hrms/admin/hr-helpdesk',    label: 'HR Helpdesk',          icon: LifeBuoy,      live: true },
 ];
 
@@ -166,7 +167,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/training':              'My Training',
   '/hrms/hr-helpdesk':          'HR Helpdesk',
   '/hrms/admin/training':       'Training & Development',
-  '/hrms/admin/hr-helpdesk':    'HR Helpdesk — Admin',
+  '/hrms/admin/salary-history': 'Salary History',
+  '/hrms/admin/hr-helpdesk':   'HR Helpdesk — Admin',
   '/hrms/admin/recruitment':    'Recruitment',
   '/hrms/admin/assets':          'Asset Management',
   '/hrms/admin/onboarding':      'Onboarding',

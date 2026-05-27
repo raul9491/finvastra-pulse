@@ -782,6 +782,16 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ─── HRMS: Salary History ────────────────────────────────────────────────
+    // Confidential — admin and HRMS managers only. No self-service reads.
+    // No physical deletes; corrections are recorded as new revision entries.
+    match /salary_history/{docId} {
+      allow read:   if isAdmin() || isHrmsManager();
+      allow create: if isAdmin() || isHrmsManager();
+      allow update: if false;   // salary history is immutable — add a correction entry instead
+      allow delete: if false;
+    }
+
     // ─── HRMS: HR Helpdesk / Grievance Tickets ───────────────────────────────
     // Employees may read and create their own tickets.
     // Admin and HRMS managers may read all tickets and update (respond/close).

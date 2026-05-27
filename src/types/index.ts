@@ -1186,6 +1186,46 @@ export interface TrainingRecord {
   updatedAt: import('firebase/firestore').Timestamp;
 }
 
+// ─── Salary History ──────────────────────────────────────────────────────────
+// Collection: /salary_history/{recordId}
+// Tracks every salary revision: joining CTC, annual increments, promotions.
+// Provides a single source of truth for "current salary" for FnF and payslips.
+
+export type SalaryRevisionReason =
+  | 'joining'           // Initial CTC on joining
+  | 'increment'         // Annual/merit increment
+  | 'promotion'         // Promotion-linked revision
+  | 'correction'        // Data correction (admin error)
+  | 'contract_renewal'  // Fixed-term contract renewal
+  | 'other';
+
+export const SALARY_REVISION_REASON_LABELS: Record<SalaryRevisionReason, string> = {
+  joining:          'Joining CTC',
+  increment:        'Annual Increment',
+  promotion:        'Promotion',
+  correction:       'Correction',
+  contract_renewal: 'Contract Renewal',
+  other:            'Other',
+};
+
+export interface SalaryHistory {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  effectiveDate: string;                // YYYY-MM-DD — date the new salary took effect
+  grossSalary: number;                  // ₹ per month (total CTC / 12)
+  basicSalary: number | null;           // optional breakdown
+  hra: number | null;
+  otherAllowances: number | null;
+  reason: SalaryRevisionReason;
+  incrementPercentage: number | null;   // null if not an increment/promotion
+  previousGrossSalary: number | null;   // previous gross — for display only
+  relatedPerformanceReviewId: string | null;
+  notes: string | null;
+  recordedBy: string;                   // uid
+  recordedAt: import('firebase/firestore').Timestamp;
+}
+
 // ─── HR Helpdesk / Grievance ─────────────────────────────────────────────────
 // Collection: /hr_tickets/{ticketId}
 // POSH Act compliance + general HR support requests.

@@ -19,6 +19,7 @@ import { useHolidays } from '../../features/hrms/hooks/useHolidays';
 import { useMyItDeclaration, usePendingItDeclarationCount, currentFinancialYear } from '../../features/hrms/hooks/useItDeclarations';
 import { useOverdueComplianceCount } from '../../features/hrms/compliance/ComplianceCalendarPage';
 import { useBirthdayEmployees } from '../../features/hrms/hooks/useBirthdayEmployees';
+import { useWorkAnniversaries } from '../../features/hrms/hooks/useWorkAnniversaries';
 import { useProbationBadge } from '../../features/hrms/hooks/useProbation';
 import { usePendingReviewCount, useSelfAssessmentBadge, currentReviewYear } from '../../features/hrms/hooks/usePerformance';
 import { useMyTrainingBadge, useTrainingAdminBadge } from '../../features/hrms/hooks/useTraining';
@@ -233,6 +234,8 @@ export function HrmsShell() {
 
   // Birthday employees (admin/manager only — silently empty for regular employees)
   const { birthdayEmployees } = useBirthdayEmployees(isAdmin || isHrmsManager);
+  // Work anniversary employees (admin/manager only)
+  const { anniversaryEmployees } = useWorkAnniversaries(isAdmin || isHrmsManager);
 
   // ── Guards (after all hooks) ────────────────────────────────────────────────
   if (loading) return <FullPageLoader />;
@@ -251,8 +254,16 @@ export function HrmsShell() {
     },
   ).length;
 
-  // Dashboard badge = unread announcements + undismissed birthday cards
-  const dashboardBadge = unreadAnnouncements + undismissedBirthdays;
+  // Undismissed work anniversaries today: same localStorage pattern
+  const undismissedAnniversaries = anniversaryEmployees.filter(
+    (emp) => {
+      try { return !localStorage.getItem(`dismissed_anniversary_${emp.userId}_${_todayStr}`); }
+      catch { return true; }
+    },
+  ).length;
+
+  // Dashboard badge = unread announcements + undismissed birthdays + undismissed anniversaries
+  const dashboardBadge = unreadAnnouncements + undismissedBirthdays + undismissedAnniversaries;
   const onAccessRequestsPage = location.pathname === '/hrms/admin/access-requests';
 
   const handleLogout = async () => {

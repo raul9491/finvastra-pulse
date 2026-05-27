@@ -17,6 +17,7 @@ import { useHolidays, seedHolidays2026 } from '../hooks/useHolidays';
 import { useMyPayslips } from '../hooks/usePayslips';
 import { useAnnouncements, markAnnouncementRead, useUnreadAnnouncementCount } from '../hooks/useAnnouncements';
 import { useBirthdayEmployees, type BirthdayEmployee, type UpcomingBirthdayEmployee } from '../hooks/useBirthdayEmployees';
+import { useWorkAnniversaries, milestoneLabel, isMilestoneYear, type AnniversaryEmployee, type UpcomingAnniversaryEmployee } from '../hooks/useWorkAnniversaries';
 import type { UserProfile, Attendance, Announcement } from '../../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -49,6 +50,19 @@ function isBirthdayDismissed(userId: string): boolean {
 
 function dismissBirthdayInStorage(userId: string) {
   try { localStorage.setItem(birthdayDismissKey(userId), '1'); } catch { /* storage unavailable */ }
+}
+
+// localStorage helpers for anniversary dismissal
+function anniversaryDismissKey(userId: string) {
+  return `dismissed_anniversary_${userId}_${todayStr}`;
+}
+
+function isAnniversaryDismissed(userId: string): boolean {
+  try { return !!localStorage.getItem(anniversaryDismissKey(userId)); } catch { return false; }
+}
+
+function dismissAnniversaryInStorage(userId: string) {
+  try { localStorage.setItem(anniversaryDismissKey(userId), '1'); } catch { /* storage unavailable */ }
 }
 
 // ─── Team Today hook (manager/admin only) ─────────────────────────────────────
@@ -185,6 +199,125 @@ function UpcomingBirthdaysSection({ employees }: { employees: UpcomingBirthdayEm
               {/* Days until */}
               <span className="text-xs font-semibold whitespace-nowrap" style={{ color: '#C9A961' }}>
                 in {emp.daysUntil} day{emp.daysUntil !== 1 ? 's' : ''} 🎂
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Anniversary Cards ────────────────────────────────────────────────────────
+
+function AnniversarySection({
+  employees,
+  onDismiss,
+}: {
+  employees: AnniversaryEmployee[];
+  onDismiss: (userId: string) => void;
+}) {
+  if (employees.length === 0) return null;
+
+  return (
+    <div className="mb-6">
+      {employees.length > 1 && (
+        <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#8B8B85' }}>
+          {employees.length} work anniversaries today 🏅
+        </p>
+      )}
+      <div className="space-y-2">
+        {employees.map((emp) => {
+          const isMilestone = isMilestoneYear(emp.yearsCompleted);
+          const label       = milestoneLabel(emp.yearsCompleted);
+          return (
+            <div
+              key={emp.userId}
+              className="flex items-center gap-4 rounded-xl px-5 py-4"
+              style={{
+                backgroundColor: isMilestone ? 'rgba(11,21,56,0.04)' : 'rgba(201,169,97,0.04)',
+                border: `1px solid ${isMilestone ? 'rgba(11,21,56,0.18)' : 'rgba(201,169,97,0.20)'}`,
+                borderLeftWidth: '4px',
+                borderLeftColor: isMilestone ? '#0B1538' : '#C9A961',
+              }}
+            >
+              <span className="text-2xl shrink-0 select-none" aria-hidden>
+                {isMilestone ? '🏅' : '🗓️'}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-semibold" style={{ color: '#0B1538' }}>
+                    {emp.displayName}
+                  </p>
+                  <span
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    style={{
+                      backgroundColor: isMilestone ? '#0B1538' : 'rgba(201,169,97,0.20)',
+                      color:           isMilestone ? '#C9A961'  : '#9A7E3F',
+                    }}
+                  >
+                    {label}
+                  </span>
+                </div>
+                {(emp.department || emp.designation) && (
+                  <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>
+                    {[emp.department, emp.designation].filter(Boolean).join(' · ')}
+                  </p>
+                )}
+              </div>
+              <span className="text-xl shrink-0 select-none" aria-hidden>🎊</span>
+              <button
+                onClick={() => onDismiss(emp.userId)}
+                className="shrink-0 p-1.5 rounded-lg hover:bg-black/5 transition-colors"
+                title="Dismiss"
+                aria-label={`Dismiss anniversary card for ${emp.displayName}`}
+              >
+                <X size={14} style={{ color: '#8B8B85' }} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Upcoming Anniversaries section ──────────────────────────────────────────
+
+function UpcomingAnniversariesSection({ employees }: { employees: UpcomingAnniversaryEmployee[] }) {
+  if (employees.length === 0) return null;
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-6">
+      <p className="text-[10px] font-bold uppercase tracking-widest mb-4" style={{ color: '#8B8B85' }}>
+        Upcoming Anniversaries
+      </p>
+      <div className="space-y-3">
+        {employees.map((emp) => {
+          const initials = emp.displayName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+          const isMilestone = isMilestoneYear(emp.yearsCompleted);
+          return (
+            <div key={emp.userId} className="flex items-center gap-3">
+              {emp.photoURL ? (
+                <img src={emp.photoURL} alt={emp.displayName}
+                  className="w-7 h-7 rounded-full object-cover shrink-0" />
+              ) : (
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                  style={{ backgroundColor: 'rgba(11,21,56,0.1)', color: '#0B1538' }}>
+                  {initials}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate" style={{ color: '#0A0A0A' }}>
+                  {emp.displayName}
+                </p>
+                <p className="text-xs truncate" style={{ color: '#8B8B85' }}>
+                  {milestoneLabel(emp.yearsCompleted)}
+                  {isMilestone && ' 🏅'}
+                </p>
+              </div>
+              <span className="text-xs font-semibold whitespace-nowrap" style={{ color: '#0B1538' }}>
+                in {emp.daysUntil} day{emp.daysUntil !== 1 ? 's' : ''} 🗓️
               </span>
             </div>
           );
@@ -549,6 +682,28 @@ export function HrmsDashboardPage() {
     setDismissedBirthdays((prev) => new Set([...prev, userId]));
   }
 
+  // Work anniversary data — only fetched for admin/manager
+  const { anniversaryEmployees: allAnniversaries, upcomingAnniversaries } = useWorkAnniversaries(isManager);
+
+  // Dismissal state for today's anniversary cards
+  const [dismissedAnniversaries, setDismissedAnniversaries] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (allAnniversaries.length === 0) return;
+    const dismissed = new Set<string>();
+    for (const emp of allAnniversaries) {
+      if (isAnniversaryDismissed(emp.userId)) dismissed.add(emp.userId);
+    }
+    setDismissedAnniversaries(dismissed);
+  }, [allAnniversaries]);
+
+  const visibleAnniversaries = allAnniversaries.filter((emp) => !dismissedAnniversaries.has(emp.userId));
+
+  function handleDismissAnniversary(userId: string) {
+    dismissAnniversaryInStorage(userId);
+    setDismissedAnniversaries((prev) => new Set([...prev, userId]));
+  }
+
   // ── Auto-read: mark all unread announcements as read after 3 s ───────────────
   // Only fires once per page load (ref guard). Gives the user time to actually see it.
   const autoReadFired = useRef(false);
@@ -615,6 +770,9 @@ export function HrmsDashboardPage() {
       {/* Birthday cards — admin/manager only; hidden when all dismissed */}
       <BirthdaySection employees={visibleBirthdays} onDismiss={handleDismissBirthday} />
 
+      {/* Anniversary cards — admin/manager only; hidden when all dismissed */}
+      <AnniversarySection employees={visibleAnniversaries} onDismiss={handleDismissAnniversary} />
+
       {/* Announcements banner — pinned/urgent only */}
       <AnnouncementBanner userId={uid} announcements={announcements} />
 
@@ -675,6 +833,9 @@ export function HrmsDashboardPage() {
 
       {/* Upcoming Birthdays — admin/manager only; hidden when none in next 7 days */}
       <UpcomingBirthdaysSection employees={upcomingBirthdays} />
+
+      {/* Upcoming Anniversaries — admin/manager only; hidden when none in next 7 days */}
+      <UpcomingAnniversariesSection employees={upcomingAnniversaries} />
 
       {/* Quick Actions */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6">

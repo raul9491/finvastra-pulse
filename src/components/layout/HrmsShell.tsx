@@ -8,7 +8,7 @@ import {
   Settings, LogOut, LayoutGrid, ClipboardList, FileText, UserPlus, Inbox,
   ReceiptText, FolderOpen, Megaphone, Building2, Calculator,
   Laptop, UserMinus, Lock, FileSearch2, GraduationCap, TrendingUp, Briefcase, BookOpen, LifeBuoy,
-  CalendarRange,
+  CalendarRange, BookUser,
 } from 'lucide-react';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -96,6 +96,7 @@ type NavEntry = { path: string; label: string; icon: ElementType; live: boolean 
 const NAV: NavEntry[] = [
   { path: '/hrms/dashboard',      label: 'Dashboard',      icon: LayoutDashboard, live: true },
   { path: '/hrms/employees',      label: 'Employees',      icon: Users,           live: true },
+  { path: '/hrms/directory',      label: 'Directory',      icon: BookUser,        live: true },
   { path: '/hrms/attendance',     label: 'Attendance',     icon: Clock,           live: true },
   { path: '/hrms/leave',               label: 'Leave',          icon: CalendarOff,   live: true },
   { path: '/hrms/leave/team-calendar', label: 'Team Calendar',  icon: CalendarRange, live: true },
@@ -144,6 +145,7 @@ const COMPLIANCE_NAV: NavEntry[] = [
 const PAGE_TITLES: Record<string, string> = {
   '/hrms/dashboard':             'Dashboard',
   '/hrms/employees':             'Employees',
+  '/hrms/directory':             'Employee Directory',
   '/hrms/attendance':            'Attendance',
   '/hrms/leave':                 'Leave',
   '/hrms/leave/apply':           'Apply for Leave',

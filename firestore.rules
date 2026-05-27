@@ -824,5 +824,17 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if false;
     }
+
+    // ─── Comp Off Credits ─────────────────────────────────────────────────────
+    // Admin-written record of comp off days granted to employees who worked on
+    // Sundays or public holidays. Employees can read their own credits.
+    // Immutable audit trail — no updates or deletes once written.
+    match /comp_off_credits/{creditId} {
+      allow read: if isAdmin() || isHrmsManager()
+                  || (isSignedIn() && resource.data.employeeId == request.auth.uid);
+      allow create: if isAdmin() || isHrmsManager();
+      allow update: if false;
+      allow delete: if false;
+    }
   }
 }

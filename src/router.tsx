@@ -19,6 +19,7 @@ import { LeavePage }              from './features/hrms/leave/LeavePage';
 import { ApplyLeavePage }         from './features/hrms/leave/ApplyLeavePage';
 import { AdminLeavePage }         from './features/hrms/leave/AdminLeavePage';
 import { TeamCalendarPage }       from './features/hrms/leave/TeamCalendarPage';
+import { AdminCompOffPage }       from './features/hrms/leave/AdminCompOffPage';
 import { EmployeeDirectoryPage }  from './features/hrms/directory/EmployeeDirectoryPage';
 import { PayslipsPage }           from './features/hrms/payslips/PayslipsPage';
 import { GeneratePayslipPage }    from './features/hrms/payslips/GeneratePayslipPage';
@@ -129,6 +130,7 @@ export const router = createBrowserRouter([
       { path: 'leave/apply',         element: <ApplyLeavePage /> },
       { path: 'leave/admin',         element: <AdminLeavePage /> },
       { path: 'leave/team-calendar', element: <TeamCalendarPage /> },
+      { path: 'admin/comp-off',      element: <AdminCompOffPage /> },
       { path: 'directory',           element: <EmployeeDirectoryPage /> },
       { path: 'payslips',            element: <PayslipsPage /> },
       { path: 'holidays',            element: <HolidaysPage /> },

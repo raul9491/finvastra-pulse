@@ -170,7 +170,14 @@
       "PowerShell(gcloud run services describe pulse-api --region asia-south1 --format=\"value\\(spec.template.spec.serviceAccountName\\)\" 2>&1)",
       "PowerShell(gcloud services enable cloudscheduler.googleapis.com --project gen-lang-client-0643641184 2>&1)",
       "PowerShell(gcloud scheduler jobs list --location asia-south1 2>&1)",
-      "Bash(2>&1)"
+      "Bash(2>&1)",
+      "WebFetch(domain:drive.google.com)",
+      "WebFetch(domain:doc-14-bc-sheets.googleusercontent.com)",
+      "WebFetch(domain:doc-0g-c8-docstext.googleusercontent.com)",
+      "WebFetch(domain:doc-08-bc-sheets.googleusercontent.com)",
+      "WebFetch(domain:doc-00-bc-sheets.googleusercontent.com)",
+      "WebFetch(domain:doc-0k-bc-sheets.googleusercontent.com)",
+      "WebFetch(domain:doc-04-bc-sheets.googleusercontent.com)"
     ],
     "additionalDirectories": [
       "\\tmp"

@@ -16,7 +16,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type {
   OffboardingChecklist, ChecklistItem, ChecklistStatus,
-  ChecklistItemCategory, FnFDetails, FnFStatus, ExitReason,
+  ChecklistItemCategory, FnFDetails, FnFStatus, ExitReason, UserProfile,
 } from '../../../types';
 import { EXIT_REASON_LABELS } from '../../../types';
 
@@ -96,10 +96,17 @@ interface FnFInputs {
   workingDaysInLastMonth: string;
   daysWorked: string;
   earnedLeaveBalance: string;
-  joiningDateStr: string;      // DD-MM-YYYY or YYYY-MM-DD
-  lastWorkingDateStr: string;  // DD-MM-YYYY or YYYY-MM-DD
+  joiningDateStr: string;       // DD-MM-YYYY or YYYY-MM-DD
+  lastWorkingDateStr: string;   // DD-MM-YYYY or YYYY-MM-DD
   noticePeriodDays: string;
   noticePeriodServed: string;
+  // Extras
+  bonusAmount: string;
+  fuelAmount: string;
+  compOffDays: string;
+  excessPaidRecovery: string;
+  excessPaidRecoveryNotes: string;
+  // Standard deductions
   otherDeductions: string;
   otherDeductionNotes: string;
 }
@@ -121,11 +128,15 @@ function computeFnF(inputs: FnFInputs): FnFDetails | null {
   const earnedLeave = parseFloat(inputs.earnedLeaveBalance) || 0;
   const noticeDays = parseFloat(inputs.noticePeriodDays) || 0;
   const noticeServed = parseFloat(inputs.noticePeriodServed) || 0;
+  const bonusAmt = parseFloat(inputs.bonusAmount) || 0;
+  const fuelAmt = parseFloat(inputs.fuelAmount) || 0;
+  const compOffDays = parseFloat(inputs.compOffDays) || 0;
+  const excessRecovery = parseFloat(inputs.excessPaidRecovery) || 0;
   const otherDed = parseFloat(inputs.otherDeductions) || 0;
 
   if (gross <= 0) return null;
 
-  const basic = gross * 0.4; // approximate if separate basic not available; caller should supply gross
+  const basic = gross * 0.4; // approximate when separate basic not available
 
   const dailyRate = gross / workDays;
   const salaryForDaysWorked = dailyRate * daysWorked;
@@ -133,6 +144,9 @@ function computeFnF(inputs: FnFInputs): FnFDetails | null {
   // Leave encashment: earned only, capped at 30 days
   const cappedLeave = Math.min(earnedLeave, 30);
   const leaveEncashmentAmount = cappedLeave * dailyRate;
+
+  // Comp Off encashment: at daily rate
+  const compOffEncashmentAmount = compOffDays * dailyRate;
 
   // Gratuity: only if tenure >= 5 years
   const joiningDate = parseFlexDate(inputs.joiningDateStr);
@@ -155,7 +169,8 @@ function computeFnF(inputs: FnFInputs): FnFDetails | null {
 
   const totalPayable =
     salaryForDaysWorked + leaveEncashmentAmount + gratuityAmount
-    - noticePeriodDeduction - otherDed;
+    + bonusAmt + fuelAmt + compOffEncashmentAmount
+    - noticePeriodDeduction - excessRecovery - otherDed;
 
   return {
     grossSalary: gross,
@@ -170,6 +185,12 @@ function computeFnF(inputs: FnFInputs): FnFDetails | null {
     noticePeriodDays: noticeDays,
     noticePeriodServed: noticeServed,
     noticePeriodDeduction,
+    bonusAmount: bonusAmt || undefined,
+    fuelAmount: fuelAmt || undefined,
+    compOffDays: compOffDays || undefined,
+    compOffEncashmentAmount: compOffDays ? compOffEncashmentAmount : undefined,
+    excessPaidRecovery: excessRecovery || undefined,
+    excessPaidRecoveryNotes: inputs.excessPaidRecoveryNotes.trim() || undefined,
     otherDeductions: otherDed,
     otherDeductionNotes: inputs.otherDeductionNotes,
     totalPayable,
@@ -241,6 +262,15 @@ function generateFnFPdf(checklist: OffboardingChecklist) {
       ...(fnf.gratuityApplicable
         ? [['Gratuity', `Applicable (tenure ≥ 5 years)`, fnf.gratuityAmount.toFixed(2)]]
         : [['Gratuity', 'Not applicable (tenure < 5 years)', '0.00']]),
+      ...(fnf.bonusAmount
+        ? [['Bonus', '', fnf.bonusAmount.toFixed(2)]]
+        : []),
+      ...(fnf.fuelAmount
+        ? [['Fuel Allowance', '', fnf.fuelAmount.toFixed(2)]]
+        : []),
+      ...(fnf.compOffDays
+        ? [['Comp Off Encashment', `${fnf.compOffDays} days × ₹${fnf.dailyRate.toFixed(2)}/day`, (fnf.compOffEncashmentAmount ?? 0).toFixed(2)]]
+        : []),
     ],
     theme: 'striped',
     headStyles: { fillColor: [11, 21, 56], textColor: [201, 169, 97], fontSize: 8 },
@@ -262,6 +292,9 @@ function generateFnFPdf(checklist: OffboardingChecklist) {
         `${Math.max(0, fnf.noticePeriodDays - fnf.noticePeriodServed)} days shortfall × ₹${fnf.dailyRate.toFixed(2)}/day`,
         fnf.noticePeriodDeduction.toFixed(2),
       ],
+      ...(fnf.excessPaidRecovery
+        ? [[`Excess Paid Recovery${fnf.excessPaidRecoveryNotes ? ` (${fnf.excessPaidRecoveryNotes})` : ''}`, '', fnf.excessPaidRecovery.toFixed(2)]]
+        : []),
       [
         `Other Deductions${fnf.otherDeductionNotes ? ` (${fnf.otherDeductionNotes})` : ''}`,
         '',
@@ -317,6 +350,181 @@ function generateFnFPdf(checklist: OffboardingChecklist) {
     : format(new Date(), 'yyyy-MM');
   const safeName = checklist.employeeName.replace(/\s+/g, '_');
   pdf.save(`FnF_${checklist.id}_${safeName}_${month}.pdf`);
+}
+
+// ─── Experience Letter PDF ────────────────────────────────────────────────────
+
+function generateExperienceLetter(checklist: OffboardingChecklist, profile: UserProfile) {
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const margin = 20;
+  const today = format(new Date(), 'dd MMMM yyyy');
+
+  // Letterhead
+  pdf.setFillColor(11, 21, 56);
+  pdf.rect(0, 0, pageWidth, 28, 'F');
+  pdf.setTextColor(201, 169, 97);
+  pdf.setFontSize(16);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('FINVASTRA', margin, 13);
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(200, 200, 200);
+  pdf.text('Finvastra Advisory Pvt. Ltd.', margin, 20);
+
+  // Title
+  pdf.setTextColor(11, 21, 56);
+  pdf.setFontSize(14);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('EXPERIENCE CERTIFICATE', pageWidth / 2, 42, { align: 'center' });
+
+  // Date
+  pdf.setFontSize(9);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(100, 100, 100);
+  pdf.text(`Date: ${today}`, margin, 52);
+
+  // Body
+  let y = 68;
+  pdf.setTextColor(30, 30, 30);
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('To Whom It May Concern,', margin, y);
+  y += 10;
+
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(10);
+
+  const joining = profile.joiningDate ?? 'N/A';
+  const lwd     = checklist.lastWorkingDate ?? 'N/A';
+  const desig   = profile.designation ?? 'team member';
+  const dept    = profile.department ?? 'Finvastra';
+  const name    = checklist.employeeName;
+  const empCode = profile.employeeId ? ` (${profile.employeeId})` : '';
+
+  const paragraphs = [
+    `This is to certify that ${name}${empCode} was employed with Finvastra Advisory`,
+    `Pvt. Ltd. as ${desig} in the ${dept} department from ${joining} to ${lwd}.`,
+    '',
+    `During ${name.split(' ')[0]}'s tenure with us, they demonstrated professionalism,`,
+    'commitment, and a positive work ethic. They consistently contributed to the team',
+    'and carried out their responsibilities with diligence.',
+    '',
+    `We wish ${name.split(' ')[0]} all the very best in their future endeavors.`,
+  ];
+
+  for (const line of paragraphs) {
+    pdf.text(line, margin, y);
+    y += 7;
+  }
+
+  // Signature block
+  y += 16;
+  pdf.line(margin, y, margin + 65, y);
+  y += 5;
+  pdf.setFontSize(9);
+  pdf.setTextColor(60, 60, 60);
+  pdf.text('Authorized Signatory', margin, y);
+  y += 5;
+  pdf.text('Finvastra Advisory Pvt. Ltd.', margin, y);
+
+  // Footer
+  const footerY = pdf.internal.pageSize.getHeight() - 10;
+  pdf.setFontSize(7);
+  pdf.setTextColor(150, 150, 150);
+  pdf.text('Finvastra Advisory Pvt. Ltd. | pulse.finvastra.com | Confidential — For HR Use Only', pageWidth / 2, footerY, { align: 'center' });
+
+  const safeName = name.replace(/\s+/g, '_');
+  pdf.save(`ExperienceCertificate_${profile.employeeId ?? 'EMP'}_${safeName}.pdf`);
+}
+
+// ─── Relieving Letter PDF ─────────────────────────────────────────────────────
+
+function generateRelievingLetter(checklist: OffboardingChecklist, profile: UserProfile) {
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const margin = 20;
+  const today = format(new Date(), 'dd MMMM yyyy');
+
+  // Letterhead
+  pdf.setFillColor(11, 21, 56);
+  pdf.rect(0, 0, pageWidth, 28, 'F');
+  pdf.setTextColor(201, 169, 97);
+  pdf.setFontSize(16);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('FINVASTRA', margin, 13);
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(200, 200, 200);
+  pdf.text('Finvastra Advisory Pvt. Ltd.', margin, 20);
+
+  // Title
+  pdf.setTextColor(11, 21, 56);
+  pdf.setFontSize(14);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('RELIEVING LETTER', pageWidth / 2, 42, { align: 'center' });
+
+  // Date + Addressee
+  pdf.setFontSize(9);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(100, 100, 100);
+  pdf.text(`Date: ${today}`, margin, 52);
+
+  let y = 64;
+  pdf.setTextColor(30, 30, 30);
+  pdf.setFontSize(9);
+  pdf.text('To,', margin, y); y += 6;
+  pdf.setFont('helvetica', 'bold');
+  pdf.text(checklist.employeeName, margin, y); y += 6;
+  pdf.setFont('helvetica', 'normal');
+  if (profile.employeeId) { pdf.text(`Employee Code: ${profile.employeeId}`, margin, y); y += 6; }
+  y += 4;
+
+  pdf.setFontSize(10);
+  pdf.text(`Dear ${checklist.employeeName.split(' ')[0]},`, margin, y);
+  y += 10;
+
+  const lwd    = checklist.lastWorkingDate ?? 'N/A';
+  const desig  = profile.designation ?? 'your position';
+  const reason = checklist.exitReason ? EXIT_REASON_LABELS[checklist.exitReason] : null;
+
+  const paragraphs = [
+    `This is to confirm that you have been relieved from your duties as ${desig}`,
+    `at Finvastra Advisory Pvt. Ltd., effective ${lwd}${reason ? ` (${reason})` : ''}.`,
+    '',
+    'We acknowledge that all company assets, access credentials, and pending',
+    'responsibilities have been duly handed over. Your Full & Final Settlement',
+    'will be processed as per company policy.',
+    '',
+    'We appreciate your contributions during your tenure and wish you great',
+    'success in your future career.',
+  ];
+
+  for (const line of paragraphs) {
+    pdf.text(line, margin, y);
+    y += 7;
+  }
+
+  // Signature blocks
+  y += 16;
+  pdf.line(margin, y, margin + 65, y);
+  pdf.line(pageWidth / 2, y, pageWidth / 2 + 65, y);
+  y += 5;
+  pdf.setFontSize(9);
+  pdf.setTextColor(60, 60, 60);
+  pdf.text('Authorized Signatory', margin, y);
+  pdf.text('Employee Acknowledgement', pageWidth / 2, y);
+  y += 5;
+  pdf.text('Finvastra Advisory Pvt. Ltd.', margin, y);
+
+  // Footer
+  const footerY = pdf.internal.pageSize.getHeight() - 10;
+  pdf.setFontSize(7);
+  pdf.setTextColor(150, 150, 150);
+  pdf.text('Finvastra Advisory Pvt. Ltd. | pulse.finvastra.com | Confidential — For HR Use Only', pageWidth / 2, footerY, { align: 'center' });
+
+  const safeName = checklist.employeeName.replace(/\s+/g, '_');
+  pdf.save(`RelievingLetter_${profile.employeeId ?? 'EMP'}_${safeName}.pdf`);
 }
 
 // ─── Tick Item Modal ──────────────────────────────────────────────────────────
@@ -405,6 +613,11 @@ function FnFCalculatorModal({
     lastWorkingDateStr:     checklist.lastWorkingDate ?? '',
     noticePeriodDays:       existing ? String(existing.noticePeriodDays) : '30',
     noticePeriodServed:     existing ? String(existing.noticePeriodServed) : '',
+    bonusAmount:            existing?.bonusAmount ? String(existing.bonusAmount) : '',
+    fuelAmount:             existing?.fuelAmount ? String(existing.fuelAmount) : '',
+    compOffDays:            existing?.compOffDays ? String(existing.compOffDays) : '',
+    excessPaidRecovery:     existing?.excessPaidRecovery ? String(existing.excessPaidRecovery) : '',
+    excessPaidRecoveryNotes:existing?.excessPaidRecoveryNotes ?? '',
     otherDeductions:        existing ? String(existing.otherDeductions) : '0',
     otherDeductionNotes:    existing?.otherDeductionNotes ?? '',
   });
@@ -508,6 +721,34 @@ function FnFCalculatorModal({
             </div>
           </div>
 
+          {/* Additional earnings */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Bonus Amount (₹)</label>
+              <input type="number" className={fieldClass} value={inputs.bonusAmount} onChange={set('bonusAmount')} placeholder="0" />
+            </div>
+            <div>
+              <label className={labelClass}>Fuel Allowance (₹)</label>
+              <input type="number" className={fieldClass} value={inputs.fuelAmount} onChange={set('fuelAmount')} placeholder="0" />
+            </div>
+            <div>
+              <label className={labelClass}>Comp Off Encashment (days)</label>
+              <input type="number" className={fieldClass} value={inputs.compOffDays} onChange={set('compOffDays')} placeholder="0" />
+            </div>
+          </div>
+
+          {/* Additional deductions */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Excess Paid Recovery (₹)</label>
+              <input type="number" className={fieldClass} value={inputs.excessPaidRecovery} onChange={set('excessPaidRecovery')} placeholder="0" />
+            </div>
+            <div>
+              <label className={labelClass}>Recovery Notes</label>
+              <input type="text" className={fieldClass} value={inputs.excessPaidRecoveryNotes} onChange={set('excessPaidRecoveryNotes')} placeholder="e.g. Advance adjustment" />
+            </div>
+          </div>
+
           {/* Other deductions */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -524,11 +765,15 @@ function FnFCalculatorModal({
           {result && (
             <div className="bg-slate-50 rounded-2xl p-4 space-y-2 text-sm">
               <p className="font-semibold text-ink mb-3">Breakdown Preview</p>
+              {/* Earnings */}
               {[
                 ['Daily Rate', formatCurrency(result.dailyRate)],
                 ['Salary for Days Worked', formatCurrency(result.salaryForDaysWorked)],
                 ['Leave Encashment', formatCurrency(result.leaveEncashmentAmount)],
                 [`Gratuity${result.gratuityApplicable ? '' : ' (not applicable)'}`, formatCurrency(result.gratuityAmount)],
+                ...(result.bonusAmount ? [['Bonus', formatCurrency(result.bonusAmount)]] : []),
+                ...(result.fuelAmount  ? [['Fuel Allowance', formatCurrency(result.fuelAmount)]] : []),
+                ...(result.compOffDays ? [['Comp Off Encashment', formatCurrency(result.compOffEncashmentAmount ?? 0)]] : []),
               ].map(([label, val]) => (
                 <div key={label} className="flex justify-between">
                   <span className="text-muted">{label}</span>
@@ -536,8 +781,10 @@ function FnFCalculatorModal({
                 </div>
               ))}
               <div className="border-t border-slate-200 my-2" />
+              {/* Deductions */}
               {[
                 ['Notice Deduction', `-${formatCurrency(result.noticePeriodDeduction)}`],
+                ...(result.excessPaidRecovery ? [['Excess Paid Recovery', `-${formatCurrency(result.excessPaidRecovery)}`]] : []),
                 ['Other Deductions', `-${formatCurrency(result.otherDeductions)}`],
               ].map(([label, val]) => (
                 <div key={label} className="flex justify-between">
@@ -643,6 +890,24 @@ function ChecklistDetail({
   const [tickingItem, setTickingItem] = useState<ChecklistItem | null>(null);
   const [showFnFCalc, setShowFnFCalc] = useState(false);
   const [showSettle, setShowSettle] = useState(false);
+  const [empProfile, setEmpProfile] = useState<UserProfile | null>(null);
+
+  // Fetch employee profile (for letter generation) once on mount
+  useEffect(() => {
+    getDoc(doc(db, 'users', checklist.id)).then((snap) => {
+      if (snap.exists()) setEmpProfile(snap.data() as UserProfile);
+    }).catch(() => {});
+  }, [checklist.id]);
+
+  const handleExperienceLetter = () => {
+    if (!empProfile) return;
+    generateExperienceLetter(live, empProfile);
+  };
+
+  const handleRelievingLetter = () => {
+    if (!empProfile) return;
+    generateRelievingLetter(live, empProfile);
+  };
 
   // Subscribe to live updates for this checklist
   const [live, setLive] = useState<OffboardingChecklist>(checklist);
@@ -851,6 +1116,29 @@ function ChecklistDetail({
           </div>
         );
       })}
+
+      {/* HR Letters */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+        <div className="flex items-center gap-2">
+          <FileText size={16} style={{ color: '#C9A961' }} />
+          <span className="text-sm font-semibold text-ink">HR Letters</span>
+        </div>
+        {!empProfile && (
+          <p className="text-xs text-muted">Loading employee data…</p>
+        )}
+        {empProfile && (
+          <div className="flex gap-2 flex-wrap">
+            <button onClick={handleExperienceLetter}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border border-slate-200 hover:bg-slate-50 transition-colors">
+              <Download size={13} />Experience Certificate
+            </button>
+            <button onClick={handleRelievingLetter}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border border-slate-200 hover:bg-slate-50 transition-colors">
+              <Download size={13} />Relieving Letter
+            </button>
+          </div>
+        )}
+      </div>
 
       {tickingItem && (
         <TickItemModal item={tickingItem} checklistId={live.id} uid={currentUid} onClose={() => setTickingItem(null)} />

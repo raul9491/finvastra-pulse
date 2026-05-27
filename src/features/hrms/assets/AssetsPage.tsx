@@ -18,11 +18,14 @@ import type { Asset, AssetType, AssetStatus, AssetCondition } from '../../../typ
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ASSET_TYPE_LABELS: Record<AssetType, string> = {
-  laptop:       'Laptop',
-  sim_card:     'SIM Card',
-  mobile_phone: 'Mobile Phone',
-  access_card:  'Access Card',
-  other:        'Other',
+  laptop:        'Laptop',
+  sim_card:      'SIM Card',
+  mobile_phone:  'Mobile Phone',
+  access_card:   'Access Card',
+  mouse:         'Mouse',
+  visiting_card: 'Visiting Card',
+  id_card:       'ID Card',
+  other:         'Other',
 };
 
 const ASSET_STATUS_LABELS: Record<AssetStatus, string> = {

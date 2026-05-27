@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, CheckCircle2, Clock, Pencil, X, Check, Laptop, Smartphone, Wifi, CreditCard, Package } from 'lucide-react';
+import { ArrowLeft, ExternalLink, CheckCircle2, Clock, Pencil, X, Check, Laptop, Smartphone, Wifi, CreditCard, Package, Download, Mouse, CreditCard as IdCardIcon } from 'lucide-react';
 import { doc, getDoc, updateDoc, setDoc, serverTimestamp, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { format } from 'date-fns';
+import jsPDF from 'jspdf';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { CrmPerformanceWidget } from './CrmPerformanceWidget';
@@ -10,20 +12,26 @@ import type { UserProfile, UserDetails, EmployeeProfile, Asset, AssetType } from
 // ─── Employee Assets Section ──────────────────────────────────────────────────
 
 const ASSET_TYPE_LABELS: Record<AssetType, string> = {
-  laptop:       'Laptop',
-  sim_card:     'SIM Card',
-  mobile_phone: 'Mobile Phone',
-  access_card:  'Access Card',
-  other:        'Other',
+  laptop:        'Laptop',
+  sim_card:      'SIM Card',
+  mobile_phone:  'Mobile Phone',
+  access_card:   'Access Card',
+  mouse:         'Mouse',
+  visiting_card: 'Visiting Card',
+  id_card:       'ID Card',
+  other:         'Other',
 };
 
 function AssetTypeIcon({ type }: { type: AssetType }) {
   switch (type) {
-    case 'laptop':       return <Laptop       size={14} />;
-    case 'mobile_phone': return <Smartphone   size={14} />;
-    case 'sim_card':     return <Wifi         size={14} />;
-    case 'access_card':  return <CreditCard   size={14} />;
-    default:             return <Package      size={14} />;
+    case 'laptop':        return <Laptop      size={14} />;
+    case 'mobile_phone':  return <Smartphone  size={14} />;
+    case 'sim_card':      return <Wifi        size={14} />;
+    case 'access_card':   return <CreditCard  size={14} />;
+    case 'mouse':         return <Mouse       size={14} />;
+    case 'visiting_card': return <IdCardIcon  size={14} />;
+    case 'id_card':       return <IdCardIcon  size={14} />;
+    default:              return <Package     size={14} />;
   }
 }
 
@@ -311,6 +319,136 @@ function IdentityVerification({
       </p>
     </Section>
   );
+}
+
+// ─── Appointment Letter PDF ───────────────────────────────────────────────────
+
+function generateAppointmentLetter(profile: UserProfile, sensitive: SensitiveData | null) {
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const margin = 20;
+  const today = format(new Date(), 'dd MMMM yyyy');
+
+  // Letterhead
+  pdf.setFillColor(11, 21, 56);
+  pdf.rect(0, 0, pageWidth, 28, 'F');
+  pdf.setTextColor(201, 169, 97);
+  pdf.setFontSize(16);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('FINVASTRA', margin, 13);
+  pdf.setFontSize(8);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(200, 200, 200);
+  pdf.text('Finvastra Advisory Pvt. Ltd.', margin, 20);
+
+  // Title
+  pdf.setTextColor(11, 21, 56);
+  pdf.setFontSize(14);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('APPOINTMENT LETTER', pageWidth / 2, 42, { align: 'center' });
+  pdf.setFontSize(9);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(100, 100, 100);
+  pdf.text(`Date: ${today}`, margin, 52);
+
+  // Addressee
+  let y = 62;
+  pdf.setTextColor(30, 30, 30);
+  pdf.setFontSize(9);
+  pdf.text(`To,`, margin, y); y += 6;
+  pdf.setFont('helvetica', 'bold');
+  pdf.text(profile.displayName, margin, y); y += 6;
+  pdf.setFont('helvetica', 'normal');
+  if (profile.employeeId) { pdf.text(`Employee Code: ${profile.employeeId}`, margin, y); y += 6; }
+  y += 4;
+
+  // Salutation
+  pdf.text(`Dear ${profile.displayName},`, margin, y); y += 8;
+
+  // Body
+  const bodyLines = [
+    `We are pleased to appoint you as ${profile.designation ?? 'team member'} in the`,
+    `${profile.department ?? 'Finvastra'} department at Finvastra Advisory Pvt. Ltd., effective`,
+    `${profile.joiningDate ?? today}.`,
+    '',
+    'Your remuneration will be as follows:',
+  ];
+  for (const line of bodyLines) {
+    pdf.text(line, margin, y);
+    y += 6;
+  }
+  y += 2;
+
+  // Salary table
+  const rows: string[][] = [];
+  if (sensitive?.salaryBasic)      rows.push(['Basic Salary',         `₹ ${sensitive.salaryBasic.toLocaleString('en-IN')}/month`]);
+  if (sensitive?.salaryHra)        rows.push(['HRA',                  `₹ ${sensitive.salaryHra.toLocaleString('en-IN')}/month`]);
+  if (sensitive?.salaryConveyance) rows.push(['Conveyance Allowance', `₹ ${sensitive.salaryConveyance.toLocaleString('en-IN')}/month`]);
+  if (sensitive?.salaryMedical)    rows.push(['Medical Allowance',    `₹ ${sensitive.salaryMedical.toLocaleString('en-IN')}/month`]);
+  if (sensitive?.salaryOther)      rows.push(['Other Allowances',     `₹ ${sensitive.salaryOther.toLocaleString('en-IN')}/month`]);
+  if (sensitive?.grossSalary)      rows.push(['Gross Monthly CTC',    `₹ ${sensitive.grossSalary.toLocaleString('en-IN')}/month`]);
+
+  if (rows.length > 0) {
+    // Inline mini table
+    const col1 = margin;
+    const col2 = margin + 90;
+    pdf.setFillColor(245, 245, 245);
+    pdf.roundedRect(margin, y, pageWidth - 2 * margin, rows.length * 8 + 6, 2, 2, 'F');
+    y += 4;
+    pdf.setFontSize(8);
+    for (const [label, val] of rows) {
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(80, 80, 80);
+      pdf.text(label, col1 + 3, y + 4);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(30, 30, 30);
+      pdf.text(val, col2, y + 4);
+      y += 8;
+    }
+    y += 4;
+  }
+
+  // Continuation
+  pdf.setFontSize(9);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(30, 30, 30);
+  const closing = [
+    '',
+    'This appointment is subject to your satisfactory conduct, performance, and compliance with',
+    'the policies and terms of service as outlined in the Finvastra HR Handbook.',
+    '',
+    'Please sign and return a duplicate copy of this letter as your acceptance.',
+    '',
+    'We look forward to a productive and rewarding association with you.',
+    '',
+    'Welcome to the Finvastra family!',
+  ];
+  for (const line of closing) {
+    pdf.text(line, margin, y);
+    y += 6;
+  }
+
+  // Signatures
+  y += 10;
+  pdf.line(margin, y, margin + 65, y);
+  pdf.line(pageWidth / 2, y, pageWidth / 2 + 65, y);
+  y += 5;
+  pdf.setFontSize(8);
+  pdf.setTextColor(100, 100, 100);
+  pdf.text('Authorized Signatory', margin, y);
+  pdf.text('Employee Signature', pageWidth / 2, y);
+  y += 4;
+  pdf.text('Finvastra Advisory Pvt. Ltd.', margin, y);
+
+  // Footer
+  const footerY = pdf.internal.pageSize.getHeight() - 10;
+  pdf.setFontSize(7);
+  pdf.setTextColor(150, 150, 150);
+  pdf.text('Finvastra Advisory Pvt. Ltd. | pulse.finvastra.com | Confidential', pageWidth / 2, footerY, { align: 'center' });
+
+  const safeName = profile.displayName.replace(/\s+/g, '_');
+  const dateStr = profile.joiningDate ?? format(new Date(), 'yyyy-MM-dd');
+  pdf.save(`AppointmentLetter_${profile.employeeId ?? 'EMP'}_${safeName}_${dateStr}.pdf`);
 }
 
 // ─── Edit Profile Modal ───────────────────────────────────────────────────────
@@ -790,6 +928,25 @@ export function EmployeeProfilePage() {
 
       {/* Assigned Assets — admin/HR manager only */}
       {isAdminOrHr && userId && <EmployeeAssetsSection employeeUid={userId} />}
+
+      {/* HR Letters — admin/HR manager only */}
+      {isAdminOrHr && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
+          <h3 className="text-[10px] font-bold uppercase tracking-widest mb-4" style={{ color: '#8B8B85' }}>
+            HR Letters
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => generateAppointmentLetter(displayProfile, sensitive)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium hover:bg-slate-50 transition-colors"
+              style={{ color: '#0B1538' }}
+            >
+              <Download size={13} />
+              Appointment Letter
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Edit personal & salary modal */}
       {editingProfile && userId && displayProfile && (

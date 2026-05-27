@@ -783,7 +783,7 @@ export interface LostDetails {
 
 // ─── Asset Management ────────────────────────────────────────────────────────
 
-export type AssetType = 'laptop' | 'sim_card' | 'mobile_phone' | 'access_card' | 'other';
+export type AssetType = 'laptop' | 'sim_card' | 'mobile_phone' | 'access_card' | 'mouse' | 'visiting_card' | 'id_card' | 'other';
 export type AssetStatus = 'available' | 'assigned' | 'under_repair' | 'retired';
 export type AssetCondition = 'good' | 'fair' | 'damaged';
 
@@ -862,6 +862,13 @@ export interface FnFDetails {
   finalizedAt: import('firebase/firestore').Timestamp | null;
   finalizedBy: string | null;
   statementGeneratedAt: import('firebase/firestore').Timestamp | null;
+  // Optional extras — absent on legacy Firestore docs
+  bonusAmount?: number;
+  fuelAmount?: number;
+  compOffDays?: number;
+  compOffEncashmentAmount?: number;
+  excessPaidRecovery?: number;
+  excessPaidRecoveryNotes?: string;
 }
 
 export interface OnboardingChecklist {

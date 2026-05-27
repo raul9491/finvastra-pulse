@@ -2,70 +2,58 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // ─── Firestore-based role helpers ─────────────────────────────────────────
-    // Custom claims may be stale if the user has not refreshed their token after
-    // a role change. These helper functions read from Firestore as a fallback so
-    // admins and HR managers are never incorrectly blocked.
-    //
-    // DB: ai-studio-27afcadd-87fc-4f68-8a88-587e904a31bf (named, non-default)
-    function userDoc() {
-      return firestore.get(
-        /databases/ai-studio-27afcadd-87fc-4f68-8a88-587e904a31bf/documents/users/$(request.auth.uid)
-      );
-    }
-    function isAdminViaFs() {
-      return request.auth != null
-          && userDoc().data.get('role', '') == 'admin';
-    }
-    function isHrMgrViaFs() {
-      return request.auth != null
-          && userDoc().data.get('isHrmsManager', false) == true;
-    }
-    // Passes if either custom claims or the live Firestore doc confirms admin/HR.
-    function canAdminStorage() {
-      return request.auth != null && (
-        request.auth.token.role == 'admin'
-        || request.auth.token.isHrmsManager == true
-        || isAdminViaFs()
-        || isHrMgrViaFs()
-      );
-    }
-
     // ─── HR Letters ───────────────────────────────────────────────────────────
-    // Admin / HR manager can upload letters for any employee.
-    // Employee reads their own letters; admin/HR reads all.
+    //
+    // Writes go through POST /api/admin/hr-letters/upload (server endpoint).
+    // The Admin SDK bypasses these rules, so the write rule here is never
+    // reached for normal use. Setting it to `if false` prevents any rogue
+    // direct client upload.
+    //
+    // Reads use token-based download URLs generated server-side, so the read
+    // rule is also only reached when accessing the object directly (not via URL).
+    // We keep it for defence-in-depth: employee reads their own, admin reads all.
     match /hr-letters/{employeeId}/{fileName} {
       allow read: if request.auth != null && (
         request.auth.uid == employeeId
-        || canAdminStorage()
+        || request.auth.token.role == 'admin'
+        || request.auth.token.isHrmsManager == true
       );
-      allow write: if canAdminStorage();
+      allow write: if false; // server-only (Admin SDK)
     }
 
-    // Letters generated for employees who do not yet have a Pulse account.
-    // Stored under hr-letters/_manual/{filename} — admin/HR access only.
+    // Letters for employees without a Pulse account — stored under _manual/.
+    // Admin reads only; no direct client write.
     match /hr-letters/_manual/{fileName} {
-      allow read:  if canAdminStorage();
-      allow write: if canAdminStorage();
+      allow read: if request.auth != null && (
+        request.auth.token.role == 'admin'
+        || request.auth.token.isHrmsManager == true
+      );
+      allow write: if false; // server-only (Admin SDK)
     }
 
     // ─── Company Documents ────────────────────────────────────────────────────
     // All employees can read (policies, handbooks, circulars).
-    // Only admin / HR manager can upload or delete.
+    // Only admin / HR manager can upload. Relies on custom claims.
     match /company-documents/{allPaths=**} {
       allow read:  if request.auth != null;
-      allow write: if canAdminStorage();
+      allow write: if request.auth != null && (
+        request.auth.token.role == 'admin'
+        || request.auth.token.isHrmsManager == true
+      );
     }
 
     // ─── Employee Documents ───────────────────────────────────────────────────
     // Employee reads their own documents; admin / HR reads all.
-    // Admin / HR uploads on behalf of employees.
     match /employee-documents/{employeeId}/{allPaths=**} {
       allow read: if request.auth != null && (
         request.auth.uid == employeeId
-        || canAdminStorage()
+        || request.auth.token.role == 'admin'
+        || request.auth.token.isHrmsManager == true
       );
-      allow write: if canAdminStorage();
+      allow write: if request.auth != null && (
+        request.auth.token.role == 'admin'
+        || request.auth.token.isHrmsManager == true
+      );
     }
 
     // ─── Default deny ─────────────────────────────────────────────────────────

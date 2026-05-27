@@ -28,11 +28,11 @@ import {
 import {
   collection, addDoc, serverTimestamp,
 } from 'firebase/firestore';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getAuth } from 'firebase/auth';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
-import { db, storage } from '../../../lib/firebase';
+import { db } from '../../../lib/firebase';
 import { useAllLetters } from '../hooks/useGeneratedLetters';
 import type { GeneratedLetter } from '../../../types';
 import {
@@ -389,13 +389,27 @@ export function HrLetterGeneratorPage() {
       const bytes    = generateLetterPdf(data, seq);
       const filename = letterFilename(data, year, seq);
 
-      // 2. Upload to Firebase Storage
-      // Manual employees go under _manual/; existing employees go under their UID
-      const fileRef = storageRef(storage, `hr-letters/${storageEmpId}/${filename}`);
-      await uploadBytes(fileRef, bytes, { contentType: 'application/pdf' });
+      // 2. Upload via server proxy (Admin SDK bypasses Storage rules — fixes
+      //    the named-database issue that blocks client-side uploads for admins
+      //    with stale custom claims).
+      const idToken = await getAuth().currentUser?.getIdToken();
+      if (!idToken) throw new Error('Not authenticated — please sign in again.');
 
-      // 3. Get permanent download URL
-      const downloadUrl = await getDownloadURL(fileRef);
+      // Convert ArrayBuffer → base64
+      const base64Data = btoa(
+        new Uint8Array(bytes).reduce((acc, byte) => acc + String.fromCharCode(byte), '')
+      );
+
+      const uploadRes = await fetch('/api/admin/hr-letters/upload', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body:    JSON.stringify({ employeeId: storageEmpId, filename, base64Data }),
+      });
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? `Upload failed (${uploadRes.status})`);
+      }
+      const { downloadUrl } = await uploadRes.json() as { downloadUrl: string };
 
       // 4. Log to Firestore with storageUrl
       await addDoc(collection(db, 'generated_letters'), {
@@ -415,13 +429,7 @@ export function HrLetterGeneratorPage() {
 
       setSuccess(`${LETTER_TYPES.find((t) => t.value === letterType)?.label} generated and saved.`);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      // Stale token: custom claims not yet stamped — ask user to re-login
-      if (msg.includes('storage/unauthorized') || msg.includes('permission')) {
-        setError('Permission denied. If you recently received admin access, please sign out and sign back in to refresh your permissions, then try again.');
-      } else {
-        setError(msg || 'Failed to generate letter. Please try again.');
-      }
+      setError(e instanceof Error ? e.message : 'Failed to generate letter. Please try again.');
     } finally {
       setGenerating(false);
     }

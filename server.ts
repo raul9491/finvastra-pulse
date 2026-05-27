@@ -1354,6 +1354,72 @@ async function startServer() {
     return res.json({ ok: true });
   });
 
+  // ─── HR Letter Upload (server-side proxy) ──────────────────────────────────
+  // POST /api/admin/hr-letters/upload
+  //
+  // WHY server-side: Firebase Storage rules can only read from the *default*
+  // Firestore database for cross-service checks. This project uses a named DB
+  // (ai-studio-...) so the Storage rules `firestore.get()` fallback never fires.
+  // Admin SDK uploads bypass Storage rules entirely, so role is verified here
+  // in Express against Firestore — which does work with named databases.
+  //
+  // Body: { employeeId: string, filename: string, base64Data: string }
+  // Returns: { ok: true, downloadUrl: string }
+  app.post("/api/admin/hr-letters/upload",
+    express.json({ limit: "5mb" }),
+    async (req, res) => {
+      // 1. Auth
+      const uid = await verifyFirebaseToken(req);
+      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+
+      // 2. Role check via Firestore (works regardless of custom-claims freshness)
+      const callerSnap = await db.collection("users").doc(uid).get();
+      const callerData = callerSnap.data();
+      if (callerData?.role !== "admin" && callerData?.isHrmsManager !== true) {
+        return res.status(403).json({ error: "Admin or HR Manager required" });
+      }
+
+      const { employeeId, filename, base64Data } = req.body as {
+        employeeId: string;
+        filename:   string;
+        base64Data: string;
+      };
+      if (!employeeId || !filename || !base64Data) {
+        return res.status(400).json({ error: "Missing fields: employeeId, filename, base64Data" });
+      }
+
+      try {
+        const STORAGE_BUCKET = "gen-lang-client-0643641184.firebasestorage.app";
+        const buffer    = Buffer.from(base64Data, "base64");
+        const filePath  = `hr-letters/${employeeId}/${filename}`;
+        const bucket    = admin.storage().bucket(STORAGE_BUCKET);
+        const fileRef   = bucket.file(filePath);
+
+        // Generate a Firebase-style download token so the URL looks identical to
+        // what getDownloadURL() would return and works permanently.
+        const dlToken = crypto.randomUUID();
+
+        await fileRef.save(buffer, {
+          contentType: "application/pdf",
+          resumable:   false,
+          metadata: {
+            // firebaseStorageDownloadTokens is the Firebase Storage mechanism for
+            // token-based download URLs — same format as client getDownloadURL().
+            metadata: { firebaseStorageDownloadTokens: dlToken },
+          },
+        });
+
+        const encodedPath = encodeURIComponent(filePath).replace(/%2F/g, "%2F");
+        const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/${encodedPath}?alt=media&token=${dlToken}`;
+
+        return res.json({ ok: true, downloadUrl });
+      } catch (e) {
+        console.error("[hr-letters/upload] Storage save failed:", e);
+        return res.status(500).json({ error: "Upload failed", detail: String(e) });
+      }
+    }
+  );
+
   // ─── Scheduled Jobs API ─────────────────────────────────────────────────────
   // All three endpoints are triggered daily by Cloud Scheduler (HTTP target).
   // Manual admin trigger also available from the dashboard.

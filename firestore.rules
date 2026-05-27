@@ -367,6 +367,42 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ─── CRM: Wealth Investments ─────────────────────────────────────────────────
+    match /leads/{leadId}/opportunities/{oppId}/investments/{investId} {
+      allow read: if isAdmin() ||
+                     (hasCrmAccess() && (
+                       get(/databases/$(database)/documents/leads/$(leadId)/opportunities/$(oppId)).data.ownerId == request.auth.uid ||
+                       get(/databases/$(database)/documents/leads/$(leadId)).data.primaryOwnerId == request.auth.uid
+                     ));
+      allow create: if isAdmin() ||
+                       (hasCrmAccess() && (
+                         get(/databases/$(database)/documents/leads/$(leadId)/opportunities/$(oppId)).data.ownerId == request.auth.uid ||
+                         get(/databases/$(database)/documents/leads/$(leadId)).data.primaryOwnerId == request.auth.uid
+                       ));
+      allow update: if isAdmin() ||
+                       (hasCrmAccess() &&
+                        get(/databases/$(database)/documents/leads/$(leadId)/opportunities/$(oppId)).data.ownerId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // ─── CRM: Insurance Policies ─────────────────────────────────────────────────
+    match /leads/{leadId}/opportunities/{oppId}/policies/{policyId} {
+      allow read: if isAdmin() ||
+                     (hasCrmAccess() && (
+                       get(/databases/$(database)/documents/leads/$(leadId)/opportunities/$(oppId)).data.ownerId == request.auth.uid ||
+                       get(/databases/$(database)/documents/leads/$(leadId)).data.primaryOwnerId == request.auth.uid
+                     ));
+      allow create: if isAdmin() ||
+                       (hasCrmAccess() && (
+                         get(/databases/$(database)/documents/leads/$(leadId)/opportunities/$(oppId)).data.ownerId == request.auth.uid ||
+                         get(/databases/$(database)/documents/leads/$(leadId)).data.primaryOwnerId == request.auth.uid
+                       ));
+      allow update: if isAdmin() ||
+                       (hasCrmAccess() &&
+                        get(/databases/$(database)/documents/leads/$(leadId)/opportunities/$(oppId)).data.ownerId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
     // ─── CRM: Config — Opportunity Types ─────────────────────────────────────────
     match /opportunity_types/{typeId} {
       allow read:  if hasCrmAccess() || isAdmin();
@@ -881,6 +917,27 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ─── Attendance Regularization Requests ──────────────────────────────────
+    // Employee submits → status: pending. Admin approves or rejects.
+    // Create: employee for their own records only.
+    // Read:   employee reads own; admin/HR reads all.
+    // Update: admin/HR only (to approve/reject).
+    // Delete: never.
+    match /attendance_regularizations/{reqId} {
+      allow read:   if isAdmin() || isHrmsManager()
+                    || (isSignedIn() && resource.data.employeeId == request.auth.uid);
+      allow create: if isSignedIn()
+                    && request.resource.data.employeeId == request.auth.uid
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.reason is string
+                    && request.resource.data.reason.size() > 0
+                    && request.resource.data.reason.size() <= 2000
+                    && request.resource.data.date is string
+                    && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+      allow update: if isAdmin() || isHrmsManager();
+      allow delete: if false;
+    }
+
     // ─── Profile Update Logs ──────────────────────────────────────────────────
     // Immutable audit log when employees update their own contact/emergency details.
     match /profile_update_logs/{logId} {
@@ -888,6 +945,26 @@ service cloud.firestore {
       allow create: if isSignedIn()
                     && request.resource.data.employeeId == request.auth.uid;
       allow update: if false;
+      allow delete: if false;
+    }
+
+    // ─── In-App Notifications ─────────────────────────────────────────────────
+    // /notifications/{uid}/items/{itemId}
+    //
+    // Read: only the notification's owner (uid == request.auth.uid).
+    // Create: admin, isHrmsManager, or any signed-in user (for CRM webhook-written notifs).
+    //         Server-side Admin SDK writes always bypass rules (new_lead from processInboundLead).
+    //         Client-side writes come from admin pages (leave approve, claim approve, etc.).
+    // Update: only the owner — to mark notifications as read (read: true).
+    //         Strictly limited: only the `read` field may change.
+    // Delete: never — notifications are permanent for audit purposes.
+    match /notifications/{uid}/items/{itemId} {
+      allow read:   if isSignedIn() && request.auth.uid == uid;
+      allow create: if isAdmin() || isHrmsManager();
+      allow update: if isSignedIn()
+                    && request.auth.uid == uid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+                    && request.resource.data.read == true;
       allow delete: if false;
     }
   }

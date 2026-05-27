@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Search, Edit2, Download, UserPlus, Shield, Eye,
   LogOut, UserCheck, AlertTriangle, CheckSquare, X,
@@ -455,6 +455,7 @@ type StatusFilter = 'all' | 'active' | 'inactive';
 export function EmployeesPage() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { employees, loading } = useAllEmployees();
   const toast = useToast();
 
@@ -469,6 +470,23 @@ export function EmployeesPage() {
   const [deactivatingEmp,  setDeactivatingEmp]  = useState<UserProfile | null>(null);
   const [reactivatingEmp,  setReactivatingEmp]  = useState<UserProfile | null>(null);
   const [showAddModal,     setShowAddModal]     = useState(false);
+  const [addPrefill,       setAddPrefill]       = useState<{ name?: string; email?: string; phone?: string } | undefined>();
+
+  // Auto-open Add Employee modal when ?addNew=1 is present (e.g. from Recruitment "hired" CTA)
+  useEffect(() => {
+    if (searchParams.get('addNew') === '1' && canManage) {
+      setAddPrefill({
+        name:  searchParams.get('prefillName')  ?? undefined,
+        email: searchParams.get('prefillEmail') ?? undefined,
+        phone: searchParams.get('prefillPhone') ?? undefined,
+      });
+      setShowAddModal(true);
+      // Remove params from URL so a refresh doesn't re-open the modal
+      setSearchParams({}, { replace: true });
+    }
+    // Only run on mount — searchParams reference is stable for initial load
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Bulk edit state (admin + hrmsManager only)
   const [selectedIds,    setSelectedIds]    = useState<Set<string>>(new Set());
@@ -861,8 +879,9 @@ export function EmployeesPage() {
       )}
       {showAddModal && (
         <AddEmployeeModal
-          onClose={() => setShowAddModal(false)}
-          onCreated={() => setShowAddModal(false)} />
+          prefill={addPrefill}
+          onClose={() => { setShowAddModal(false); setAddPrefill(undefined); }}
+          onCreated={() => { setShowAddModal(false); setAddPrefill(undefined); }} />
       )}
     </>
   );

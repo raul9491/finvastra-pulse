@@ -10,12 +10,17 @@ import {
   addMonths,
   subMonths,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertCircle, CheckCircle2, Clock, X } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '../../auth/AuthContext';
 import type { UserProfile } from '../../../types';
 import { useMyAttendance, useTodayAttendance, checkIn, checkOut } from '../hooks/useAttendance';
 import type { AttendanceStatus, Attendance } from '../../../types';
+import {
+  useMyRegularizations, submitRegularization,
+  type SubmitRegularizationInput,
+} from '../hooks/useAttendanceRegularization';
+import type { AttendanceRegularization } from '../../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -109,6 +114,163 @@ function ProfileMeta({ profile }: { profile: UserProfile }) {
   );
 }
 
+// ─── Regularize Modal ─────────────────────────────────────────────────────────
+
+const REG_STATUS_STYLES: Record<AttendanceRegularization['status'], { label: string; color: string; icon: typeof Clock }> = {
+  pending:  { label: 'Pending Review', color: '#92400E', icon: Clock },
+  approved: { label: 'Approved',       color: '#065F46', icon: CheckCircle2 },
+  rejected: { label: 'Rejected',       color: '#991B1B', icon: AlertCircle },
+};
+
+interface RegularizeModalProps {
+  date:            string;           // YYYY-MM-DD
+  existingRecord:  Attendance | null;
+  employeeId:      string;
+  employeeName:    string;
+  existingReqForDate: AttendanceRegularization | null;
+  onClose:         () => void;
+}
+
+function RegularizeModal({
+  date, existingRecord, employeeId, employeeName, existingReqForDate, onClose,
+}: RegularizeModalProps) {
+  const [checkInTime,  setCheckInTime]  = useState('09:00');
+  const [checkOutTime, setCheckOutTime] = useState('18:00');
+  const [reason,       setReason]       = useState('');
+  const [saving,       setSaving]       = useState(false);
+  const [error,        setError]        = useState('');
+
+  const friendlyDate = format(parseISO(date), 'EEEE, dd MMM yyyy');
+  const isPending = existingReqForDate?.status === 'pending';
+
+  async function handleSubmit() {
+    if (!reason.trim()) { setError('Please provide a reason.'); return; }
+    if (!checkInTime && !checkOutTime) { setError('Please enter at least one time.'); return; }
+    setSaving(true);
+    try {
+      const input: SubmitRegularizationInput = {
+        employeeId,
+        employeeName,
+        date,
+        requestedCheckIn:  checkInTime  || null,
+        requestedCheckOut: checkOutTime || null,
+        reason:            reason.trim(),
+        existingStatus:    existingRecord?.status ?? null,
+      };
+      await submitRegularization(input);
+      onClose();
+    } catch {
+      setError('Failed to submit. Please try again.');
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-ink">Request Attendance Correction</h3>
+            <p className="text-xs mt-0.5 text-mute">{friendlyDate}</p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 transition-colors">
+            <X size={16} style={{ color: '#8B8B85' }} />
+          </button>
+        </div>
+
+        {/* If already has a pending/approved/rejected request for this date */}
+        {existingReqForDate && (
+          <div className="rounded-xl px-4 py-3 text-sm"
+            style={{
+              backgroundColor: existingReqForDate.status === 'approved' ? '#F0FDF4'
+                              : existingReqForDate.status === 'rejected' ? '#FFF1F2' : '#FFFBEB',
+              color: REG_STATUS_STYLES[existingReqForDate.status].color,
+            }}>
+            <p className="font-semibold">{REG_STATUS_STYLES[existingReqForDate.status].label}</p>
+            {existingReqForDate.rejectionReason && (
+              <p className="text-xs mt-1">Reason: {existingReqForDate.rejectionReason}</p>
+            )}
+            {isPending && (
+              <p className="text-xs mt-1 opacity-75">A request is already pending for this date.</p>
+            )}
+          </div>
+        )}
+
+        {!isPending && (
+          <>
+            {/* Current status */}
+            {existingRecord && (
+              <p className="text-xs text-mute">
+                Current: {STATUS_STYLES[existingRecord.status].label}
+                {existingRecord.checkIn && ` · In: ${formatTime(existingRecord.checkIn)}`}
+                {existingRecord.checkOut && ` · Out: ${formatTime(existingRecord.checkOut)}`}
+              </p>
+            )}
+
+            {/* Time inputs */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>
+                  Check-in Time
+                </label>
+                <input
+                  type="time"
+                  value={checkInTime}
+                  onChange={(e) => setCheckInTime(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-navy/10"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>
+                  Check-out Time
+                </label>
+                <input
+                  type="time"
+                  value={checkOutTime}
+                  onChange={(e) => setCheckOutTime(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-navy/10"
+                />
+              </div>
+            </div>
+
+            {/* Reason */}
+            <div>
+              <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>
+                Reason <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                rows={3}
+                value={reason}
+                onChange={(e) => { setReason(e.target.value); setError(''); }}
+                placeholder="Explain why you need this correction…"
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none outline-none focus:ring-2 focus:ring-navy/10"
+              />
+            </div>
+
+            {error && <p className="text-xs" style={{ color: '#DC2626' }}>{error}</p>}
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleSubmit}
+                disabled={saving || !reason.trim()}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40"
+                style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
+              >
+                {saving ? 'Submitting…' : 'Submit Request'}
+              </button>
+              <button onClick={onClose}
+                className="px-4 py-2.5 rounded-xl text-sm border border-slate-200 hover:bg-slate-50">
+                Cancel
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── AttendancePage ───────────────────────────────────────────────────────────
 
 export function AttendancePage() {
@@ -121,6 +283,11 @@ export function AttendancePage() {
 
   const { records, loading: monthLoading } = useMyAttendance(userId, currentMonth);
   const { record: todayRecord, loading: todayLoading } = useTodayAttendance(userId);
+
+  // ── Regularization state ───────────────────────────────────────────────────
+  const [regularizeDate, setRegularizeDate] = useState<string | null>(null);
+  const { requests: myRegularizations } = useMyRegularizations(userId, currentMonth);
+  const regularizationMap = new Map(myRegularizations.map((r) => [r.date, r]));
 
   // ── Check-in / check-out loading flags + error ───────────────────────────
   const [checkingIn,  setCheckingIn]  = useState(false);
@@ -351,6 +518,16 @@ export function AttendancePage() {
               const isToday = isSameDay(day, today);
               const isFuture = day > today;
               const isWknd = isWeekend(day);
+              const regReq = regularizationMap.get(dateStr);
+
+              // Eligible for regularization: past working day that's absent OR missing check-in/out
+              const isPastWorkDay = !isToday && !isFuture && !isWknd;
+              const needsCorrection = isPastWorkDay && (
+                !rec || rec.status === 'absent' || !rec.checkIn || !rec.checkOut
+              );
+              // Don't show if status is leave/holiday — no correction needed
+              const isLeaveOrHoliday = rec?.status === 'leave' || rec?.status === 'holiday';
+              const canRegularize = needsCorrection && !isLeaveOrHoliday;
 
               let bgColor = '#FFFFFF';
               let dotColor: string | null = null;
@@ -363,13 +540,19 @@ export function AttendancePage() {
                 bgColor = '#F8F9FA';
               }
 
+              // Pending reg request turns the cell amber-tinted
+              if (regReq?.status === 'pending') bgColor = '#FFFBEB';
+              if (regReq?.status === 'approved') bgColor = '#F0FDF4';
+
               return (
                 <div
                   key={dateStr}
                   className="relative flex flex-col items-center justify-center rounded-lg py-2 text-xs"
                   style={{
                     backgroundColor: bgColor,
-                    border: isToday ? '2px solid #C9A961' : '2px solid transparent',
+                    border: isToday ? '2px solid #C9A961'
+                          : regReq?.status === 'pending' ? '2px solid #D97706'
+                          : '2px solid transparent',
                     opacity: isFuture ? 0.4 : 1,
                     minHeight: 44,
                   }}
@@ -382,6 +565,23 @@ export function AttendancePage() {
                     <span
                       className="mt-0.5 w-1.5 h-1.5 rounded-full"
                       style={{ backgroundColor: dotColor }}
+                    />
+                  )}
+                  {/* Regularize button for eligible days */}
+                  {canRegularize && !regReq && (
+                    <button
+                      onClick={() => setRegularizeDate(dateStr)}
+                      className="absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold transition-opacity hover:opacity-80"
+                      style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
+                      title="Request attendance correction"
+                    >?</button>
+                  )}
+                  {/* Pending indicator */}
+                  {regReq?.status === 'pending' && (
+                    <span
+                      className="absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full"
+                      style={{ backgroundColor: '#D97706' }}
+                      title="Correction request pending"
                     />
                   )}
                 </div>
@@ -409,7 +609,84 @@ export function AttendancePage() {
             </span>
           ))}
         </div>
+
+        {/* Regularize hint */}
+        <p className="mt-3 text-[11px]" style={{ color: '#8B8B85' }}>
+          Tap the <strong style={{ color: '#0B1538' }}>?</strong> button on past days with missing or incorrect attendance to request a correction.
+        </p>
       </div>
+
+      {/* ── Correction Requests this month ────────────────────────────────────── */}
+      {myRegularizations.length > 0 && (
+        <div className="mt-6 bg-white rounded-2xl border border-slate-200 p-6">
+          <h3 className="text-sm font-semibold mb-4" style={{ color: '#0A0A0A' }}>
+            My Correction Requests — {format(viewDate, 'MMMM yyyy')}
+          </h3>
+          <div className="space-y-3">
+            {myRegularizations.map((req) => {
+              const style = REG_STATUS_STYLES[req.status];
+              const Icon = style.icon;
+              return (
+                <div
+                  key={req.id}
+                  className="flex items-start gap-3 rounded-xl px-4 py-3 text-xs"
+                  style={{
+                    backgroundColor: req.status === 'approved' ? '#F0FDF4'
+                                   : req.status === 'rejected' ? '#FFF1F2' : '#FFFBEB',
+                    border: `1px solid ${req.status === 'approved' ? '#BBF7D0'
+                                       : req.status === 'rejected' ? '#FECDD3' : '#FDE68A'}`,
+                  }}
+                >
+                  <Icon size={14} style={{ color: style.color, marginTop: 2, flexShrink: 0 }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                      <span className="font-semibold" style={{ color: '#0A0A0A' }}>
+                        {format(parseISO(req.date), 'EEE, dd MMM')}
+                      </span>
+                      <span className="font-semibold uppercase tracking-wide" style={{ color: style.color }}>
+                        {style.label}
+                      </span>
+                    </div>
+                    <p style={{ color: '#2A2A2A' }}>
+                      {req.requestedCheckIn && `In: ${req.requestedCheckIn}`}
+                      {req.requestedCheckIn && req.requestedCheckOut && ' · '}
+                      {req.requestedCheckOut && `Out: ${req.requestedCheckOut}`}
+                    </p>
+                    <p className="mt-0.5 truncate" style={{ color: '#8B8B85' }}>{req.reason}</p>
+                    {req.rejectionReason && (
+                      <p className="mt-1 italic" style={{ color: '#991B1B' }}>
+                        HR note: {req.rejectionReason}
+                      </p>
+                    )}
+                    {/* Rejected requests can be re-submitted */}
+                    {req.status === 'rejected' && (
+                      <button
+                        onClick={() => setRegularizeDate(req.date)}
+                        className="mt-1.5 text-[10px] font-semibold underline"
+                        style={{ color: '#0B1538' }}
+                      >
+                        Submit a new request
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Regularize modal */}
+      {regularizeDate && (
+        <RegularizeModal
+          date={regularizeDate}
+          existingRecord={recordMap.get(regularizeDate) ?? null}
+          employeeId={userId}
+          employeeName={profile?.displayName ?? 'Employee'}
+          existingReqForDate={regularizationMap.get(regularizeDate) ?? null}
+          onClose={() => setRegularizeDate(null)}
+        />
+      )}
     </div>
   );
 }

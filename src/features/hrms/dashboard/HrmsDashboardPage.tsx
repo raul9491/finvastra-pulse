@@ -6,9 +6,9 @@ import {
 } from 'date-fns';
 import {
   Clock, CalendarOff, CalendarDays, Receipt, ChevronRight,
-  AlertCircle, Megaphone, Pin, AlertTriangle, X, ReceiptText,
+  AlertCircle, Megaphone, Pin, AlertTriangle, X, ReceiptText, Users,
 } from 'lucide-react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useMyAttendance } from '../hooks/useAttendance';
@@ -634,6 +634,156 @@ function TeamTodayCard({ present, leave, absent, loading }: { present: number; l
   );
 }
 
+// ─── Pending HR action counts (admin/manager only) ───────────────────────────
+// Three real-time subscriptions: claims, IT declarations, leave encashment.
+// Leave count comes from the already-loaded usePendingApprovals() in the page.
+
+function usePendingHrCounts(enabled: boolean) {
+  const [counts, setCounts] = useState({ claims: 0, itDecl: 0, encashment: 0 });
+
+  useEffect(() => {
+    if (!enabled) return;
+    const unsubs: (() => void)[] = [];
+
+    unsubs.push(onSnapshot(
+      query(collection(db, 'claims'), where('status', '==', 'pending')),
+      (snap) => setCounts((c) => ({ ...c, claims: snap.size })),
+      () => {},
+    ));
+    unsubs.push(onSnapshot(
+      query(collection(db, 'it_declarations'), where('status', '==', 'submitted')),
+      (snap) => setCounts((c) => ({ ...c, itDecl: snap.size })),
+      () => {},
+    ));
+    unsubs.push(onSnapshot(
+      query(collection(db, 'leave_encashment_requests'), where('status', '==', 'pending')),
+      (snap) => setCounts((c) => ({ ...c, encashment: snap.size })),
+      () => {},
+    ));
+
+    return () => unsubs.forEach((u) => u());
+  }, [enabled]);
+
+  return counts;
+}
+
+// ─── Headcount hook (admin only) ─────────────────────────────────────────────
+
+function useHeadcount(enabled: boolean) {
+  const [data, setData] = useState<{ total: number; byDept: [string, number][] }>({ total: 0, byDept: [] });
+
+  useEffect(() => {
+    if (!enabled) return;
+    getDocs(query(collection(db, 'users'), where('status', '==', 'active')))
+      .then((snap) => {
+        const deptMap = new Map<string, number>();
+        snap.forEach((d) => {
+          const dept = (d.data() as { department?: string }).department ?? 'Other';
+          deptMap.set(dept, (deptMap.get(dept) ?? 0) + 1);
+        });
+        setData({
+          total:  snap.size,
+          byDept: [...deptMap.entries()].sort((a, b) => b[1] - a[1]),
+        });
+      })
+      .catch(() => {});
+  }, [enabled]);
+
+  return data;
+}
+
+// ─── HrPendingActionsPanel ────────────────────────────────────────────────────
+// Consolidated panel showing every pending HR action type in one place.
+
+function HrPendingActionsPanel({
+  leaveCount, claimsCount, itDeclCount, encashmentCount,
+}: {
+  leaveCount:     number;
+  claimsCount:    number;
+  itDeclCount:    number;
+  encashmentCount: number;
+}) {
+  const navigate = useNavigate();
+
+  const actions = [
+    { count: leaveCount,      label: 'leave application',    labelPlural: 'leave applications',    path: '/hrms/leave/admin',              color: '#1D4ED8' },
+    { count: claimsCount,     label: 'expense claim',        labelPlural: 'expense claims',         path: '/hrms/admin/claims',             color: '#7C3AED' },
+    { count: itDeclCount,     label: 'IT declaration',       labelPlural: 'IT declarations',        path: '/hrms/admin/it-declarations',    color: '#0891B2' },
+    { count: encashmentCount, label: 'encashment request',   labelPlural: 'encashment requests',    path: '/hrms/leave/admin',              color: '#D97706' },
+  ].filter((a) => a.count > 0);
+
+  const total = actions.reduce((s, a) => s + a.count, 0);
+  if (total === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 mb-6">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700 mb-3">
+        {total} pending action{total !== 1 ? 's' : ''} need your review
+      </p>
+      <div className="space-y-1.5">
+        {actions.map(({ count, label, labelPlural, path, color }) => (
+          <button
+            key={label}
+            onClick={() => navigate(path)}
+            className="group w-full flex items-center justify-between bg-white rounded-xl px-4 py-2.5 hover:shadow-sm transition-all border border-transparent hover:border-slate-100">
+            <div className="flex items-center gap-3">
+              <span
+                className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0"
+                style={{ backgroundColor: color }}>
+                {count}
+              </span>
+              <span className="text-sm text-ink">
+                {count > 1 ? `${count} ${labelPlural}` : `${count} ${label}`} pending
+              </span>
+            </div>
+            <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── HeadcountCard ────────────────────────────────────────────────────────────
+
+function HeadcountCard({ total, byDept }: { total: number; byDept: [string, number][] }) {
+  const navigate = useNavigate();
+
+  return (
+    <button
+      onClick={() => navigate('/hrms/admin/employees')}
+      className="group w-full text-left bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-md transition-all">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ backgroundColor: '#0B153810', color: '#0B1538' }}>
+            <Users size={18} />
+          </div>
+          <div className="text-left">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-mute">Headcount</p>
+            <p className="text-2xl font-bold text-ink">{total} active</p>
+          </div>
+        </div>
+        <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500 transition-colors" />
+      </div>
+      {byDept.length > 0 && (
+        <div className="space-y-2">
+          {byDept.slice(0, 5).map(([dept, count]) => (
+            <div key={dept} className="flex items-center gap-2">
+              <span className="text-xs text-ink-soft w-44 truncate shrink-0 text-left">{dept}</span>
+              <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all"
+                  style={{ width: `${(count / (total || 1)) * 100}%`, backgroundColor: '#1B2A4E' }} />
+              </div>
+              <span className="text-xs font-semibold text-ink w-4 text-right tabular-nums shrink-0">{count}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </button>
+  );
+}
+
 // ─── HrmsDashboardPage ────────────────────────────────────────────────────────
 
 export function HrmsDashboardPage() {
@@ -654,7 +804,9 @@ export function HrmsDashboardPage() {
   const { applications: pendingApprovals } = usePendingApprovals();
   const unreadCount = useUnreadAnnouncementCount(uid);
 
-  const teamToday = useTeamToday(isManager);
+  const teamToday    = useTeamToday(isManager);
+  const pendingCounts = usePendingHrCounts(isManager);
+  const headcount    = useHeadcount(isAdmin);
 
   // Hoist announcements so we can drive the auto-read effect + banner in one subscription
   const { announcements, loading: announcementsLoading } = useAnnouncements();
@@ -802,21 +954,14 @@ export function HrmsDashboardPage() {
         />
       </div>
 
-      {/* Manager: pending approvals banner */}
-      {isManager && pendingApprovals.length > 0 && (
-        <button onClick={() => navigate('/hrms/leave/admin')}
-          className="w-full group flex items-center justify-between bg-amber-50 border border-amber-200 rounded-2xl px-6 py-4 hover:shadow-sm transition-all mb-6">
-          <div className="flex items-center gap-3">
-            <AlertCircle size={18} className="text-amber-600" />
-            <div className="text-left">
-              <p className="text-sm font-semibold text-amber-900">
-                {pendingApprovals.length} leave application{pendingApprovals.length > 1 ? 's' : ''} waiting for approval
-              </p>
-              <p className="text-xs text-amber-700">Oldest first — act before the employee's leave date</p>
-            </div>
-          </div>
-          <ChevronRight size={16} className="text-amber-500 group-hover:translate-x-0.5 transition-transform" />
-        </button>
+      {/* Manager: consolidated pending actions panel (leave + claims + IT decl + encashment) */}
+      {isManager && (
+        <HrPendingActionsPanel
+          leaveCount={pendingApprovals.length}
+          claimsCount={pendingCounts.claims}
+          itDeclCount={pendingCounts.itDecl}
+          encashmentCount={pendingCounts.encashment}
+        />
       )}
 
       {/* Team Today — managers only */}
@@ -828,6 +973,13 @@ export function HrmsDashboardPage() {
             absent={teamToday.absent}
             loading={teamToday.loading}
           />
+        </div>
+      )}
+
+      {/* Headcount summary — admin only */}
+      {isAdmin && headcount.total > 0 && (
+        <div className="mb-6">
+          <HeadcountCard total={headcount.total} byDept={headcount.byDept} />
         </div>
       )}
 

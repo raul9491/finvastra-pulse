@@ -51,6 +51,7 @@ import { AdminSalaryHistoryPage } from './features/hrms/salary/AdminSalaryHistor
 import { LeaveYearEndPage }     from './features/hrms/leave/LeaveYearEndPage';
 import { HrLetterGeneratorPage } from './features/hrms/letters/HrLetterGeneratorPage';
 import { OrgChartPage }          from './features/hrms/orgchart/OrgChartPage';
+import { PulseGuidePage }        from './features/hrms/guide/PulseGuidePage';
 
 import { CrmShell }               from './components/layout/CrmShell';
 import { CrmDashboardPage }       from './features/crm/dashboard/CrmDashboardPage';
@@ -161,6 +162,7 @@ export const router = createBrowserRouter([
       { path: 'it-declaration',        element: <ItDeclarationPage /> },
       { path: 'admin/it-declarations', element: <AdminItDeclarationsPage /> },
       { path: 'org-chart',             element: <OrgChartPage /> },
+      { path: 'guide',                 element: <PulseGuidePage /> },
       { path: 'admin/leave-year-end',  element: <LeaveYearEndPage /> },
       { path: 'admin/letters',         element: <HrLetterGeneratorPage /> },
       { path: 'claims',              element: <ClaimsPage /> },

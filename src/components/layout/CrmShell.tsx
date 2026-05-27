@@ -9,6 +9,7 @@ import { auth } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { useMyLeads } from '../../features/crm/hooks/useMyLeads';
 import { VideoLogo } from '../ui/VideoLogo';
+import { NotificationBell } from '../ui/NotificationBell';
 
 type NavEntry = { path: string; label: string; icon: ElementType; live: boolean; end?: boolean; badge?: number };
 
@@ -258,7 +259,10 @@ export function CrmShell() {
             <h1 className="text-base font-semibold" style={{ color: '#0A0A0A' }}>{pageTitle}</h1>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* Notification bell — CRM users get new_lead alerts from webhook intake */}
+            {user && <NotificationBell uid={user.uid} />}
+            <div className="w-px h-5 bg-slate-200" />
             {profile?.photoURL ? (
               <img src={profile.photoURL} alt={profile.displayName} className="w-8 h-8 rounded-full object-cover" />
             ) : (

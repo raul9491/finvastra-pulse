@@ -2,11 +2,18 @@ import { useState, useCallback } from 'react';
 import { format, parseISO, getDaysInMonth } from 'date-fns';
 import { Navigate } from 'react-router-dom';
 import { Timestamp, getDocs, query, collection, where, orderBy } from 'firebase/firestore';
+import { CheckCircle2, XCircle, Clock, AlertCircle } from 'lucide-react';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useTeamAttendance, adminMarkAttendance } from '../hooks/useAttendance';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
-import type { Attendance, AttendanceStatus, UserProfile } from '../../../types';
+import {
+  useAllRegularizations,
+  approveRegularization,
+  rejectRegularization,
+} from '../hooks/useAttendanceRegularization';
+import { writeNotification, sendHrEmailNotification, buildHrEmailHtml } from '../../../lib/notifications';
+import type { Attendance, AttendanceStatus, UserProfile, AttendanceRegularization } from '../../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -194,15 +201,274 @@ function ExportMonthButton({ employees, month }: MonthExportProps) {
   );
 }
 
+// ─── RegularizationsTab ───────────────────────────────────────────────────────
+
+const REG_STATUS_STYLES = {
+  pending:  { label: 'Pending',  bg: '#FFFBEB', text: '#92400E', icon: Clock       },
+  approved: { label: 'Approved', bg: '#F0FDF4', text: '#065F46', icon: CheckCircle2 },
+  rejected: { label: 'Rejected', bg: '#FFF1F2', text: '#991B1B', icon: XCircle     },
+};
+
+interface RejectRegModalProps {
+  req: AttendanceRegularization;
+  reviewerName: string;
+  reviewerId: string;
+  onDone: () => void;
+  onCancel: () => void;
+}
+
+function RejectRegModal({ req, reviewerName, reviewerId, onDone, onCancel }: RejectRegModalProps) {
+  const [reason, setReason] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function handleReject() {
+    if (!reason.trim()) return;
+    setSaving(true);
+    try {
+      await rejectRegularization(req.id, reviewerId, reviewerName, reason.trim());
+      // Notify employee
+      writeNotification(req.employeeId, {
+        type: 'leave_rejected',
+        title: 'Attendance Correction Rejected',
+        body: `Your correction request for ${req.date} was rejected: ${reason.trim()}`,
+        link: '/hrms/attendance',
+      }).catch(() => {});
+      sendHrEmailNotification({
+        employeeId: req.employeeId,
+        subject: 'Attendance Correction Request Rejected',
+        htmlBody: buildHrEmailHtml({
+          title: 'Attendance Correction Rejected',
+          lines: [
+            { label: 'Date', value: req.date },
+            { label: 'Requested In', value: req.requestedCheckIn ?? '—' },
+            { label: 'Requested Out', value: req.requestedCheckOut ?? '—' },
+          ],
+          note: `Rejected: ${reason.trim()}`,
+        }),
+      }).catch(() => {});
+      onDone();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+        <h3 className="text-base font-semibold text-ink">Reject Correction Request</h3>
+        <p className="text-xs text-mute">
+          {req.employeeName} · {req.date}
+        </p>
+        <div>
+          <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>
+            Rejection Reason <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            rows={3}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Why is this request rejected?"
+            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none outline-none focus:ring-2 focus:ring-navy/10"
+          />
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={handleReject}
+            disabled={saving || !reason.trim()}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40"
+            style={{ backgroundColor: '#DC2626', color: '#FFFFFF' }}
+          >
+            {saving ? 'Rejecting…' : 'Reject'}
+          </button>
+          <button onClick={onCancel}
+            className="px-4 py-2.5 rounded-xl text-sm border border-slate-200 hover:bg-slate-50">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface RegTabProps {
+  reviewerId: string;
+  reviewerName: string;
+}
+
+function RegularizationsTab({ reviewerId, reviewerName }: RegTabProps) {
+  const [statusFilter, setStatusFilter] = useState('pending');
+  const { requests, loading } = useAllRegularizations(statusFilter);
+  const [rejectingReq, setRejectingReq] = useState<AttendanceRegularization | null>(null);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+
+  async function handleApprove(req: AttendanceRegularization) {
+    setApprovingId(req.id);
+    try {
+      // Look up whether an attendance record already exists for this employee+date
+      const existing = await getDocs(
+        query(
+          collection(db, 'attendance'),
+          where('userId', '==', req.employeeId),
+          where('date', '==', req.date),
+        ),
+      );
+      const existingId = existing.docs[0]?.id ?? null;
+      await approveRegularization(req, reviewerId, reviewerName, existingId);
+
+      // Notify employee
+      writeNotification(req.employeeId, {
+        type: 'leave_approved',
+        title: 'Attendance Correction Approved',
+        body: `Your correction request for ${req.date} has been approved.`,
+        link: '/hrms/attendance',
+      }).catch(() => {});
+      sendHrEmailNotification({
+        employeeId: req.employeeId,
+        subject: 'Attendance Correction Approved',
+        htmlBody: buildHrEmailHtml({
+          title: 'Attendance Correction Approved ✓',
+          lines: [
+            { label: 'Date',           value: req.date },
+            { label: 'Check-in',       value: req.requestedCheckIn ?? '—' },
+            { label: 'Check-out',      value: req.requestedCheckOut ?? '—' },
+            { label: 'Reviewed by',    value: reviewerName },
+          ],
+          ctaLabel: 'View Attendance',
+          ctaLink: 'https://pulse.finvastra.com/hrms/attendance',
+        }),
+      }).catch(() => {});
+    } finally {
+      setApprovingId(null);
+    }
+  }
+
+  return (
+    <div>
+      {/* Filter bar */}
+      <div className="flex flex-wrap gap-2 mb-5">
+        {(['pending', 'approved', 'rejected', 'all'] as const).map((f) => (
+          <button
+            key={f}
+            onClick={() => setStatusFilter(f)}
+            className="px-4 py-1.5 rounded-full text-xs font-semibold capitalize transition-colors"
+            style={{
+              backgroundColor: statusFilter === f ? '#0B1538' : '#F2EFE7',
+              color: statusFilter === f ? '#C9A961' : '#2A2A2A',
+            }}
+          >
+            {f === 'all' ? 'All' : REG_STATUS_STYLES[f as keyof typeof REG_STATUS_STYLES].label}
+          </button>
+        ))}
+      </div>
+
+      {loading && (
+        <div className="py-8 text-center text-sm animate-pulse" style={{ color: '#8B8B85' }}>Loading…</div>
+      )}
+
+      {!loading && requests.length === 0 && (
+        <div className="py-10 text-center rounded-2xl border border-slate-200">
+          <p className="text-sm" style={{ color: '#8B8B85' }}>No {statusFilter !== 'all' ? statusFilter : ''} correction requests.</p>
+        </div>
+      )}
+
+      {!loading && requests.length > 0 && (
+        <div className="space-y-3">
+          {requests.map((req) => {
+            const st = REG_STATUS_STYLES[req.status];
+            const Icon = st.icon;
+            return (
+              <div
+                key={req.id}
+                className="bg-white rounded-2xl border border-slate-200 p-5"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-semibold text-sm" style={{ color: '#0A0A0A' }}>
+                        {req.employeeName}
+                      </span>
+                      <span
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                        style={{ backgroundColor: st.bg, color: st.text }}
+                      >
+                        <Icon size={11} />
+                        {st.label}
+                      </span>
+                    </div>
+                    <p className="text-xs mb-2" style={{ color: '#8B8B85' }}>
+                      {format(parseISO(req.date), 'EEEE, dd MMM yyyy')}
+                      {req.existingStatus && ` · Was: ${req.existingStatus}`}
+                    </p>
+                    <div className="flex flex-wrap gap-4 text-xs" style={{ color: '#2A2A2A' }}>
+                      {req.requestedCheckIn  && <span>🕐 Check-in: <strong>{req.requestedCheckIn}</strong></span>}
+                      {req.requestedCheckOut && <span>🕐 Check-out: <strong>{req.requestedCheckOut}</strong></span>}
+                    </div>
+                    <p className="text-xs mt-2 italic" style={{ color: '#8B8B85' }}>"{req.reason}"</p>
+                    {req.rejectionReason && (
+                      <p className="text-xs mt-1" style={{ color: '#991B1B' }}>
+                        Rejected: {req.rejectionReason}
+                      </p>
+                    )}
+                    {req.reviewedByName && req.status !== 'pending' && (
+                      <p className="text-[11px] mt-1" style={{ color: '#8B8B85' }}>
+                        Reviewed by {req.reviewedByName}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Actions — only for pending */}
+                  {req.status === 'pending' && (
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => handleApprove(req)}
+                        disabled={approvingId === req.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold disabled:opacity-50"
+                        style={{ backgroundColor: '#065F46', color: '#FFFFFF' }}
+                      >
+                        <CheckCircle2 size={12} />
+                        {approvingId === req.id ? 'Approving…' : 'Approve'}
+                      </button>
+                      <button
+                        onClick={() => setRejectingReq(req)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-red-200"
+                        style={{ color: '#DC2626' }}
+                      >
+                        <XCircle size={12} />
+                        Reject
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {rejectingReq && (
+        <RejectRegModal
+          req={rejectingReq}
+          reviewerId={reviewerId}
+          reviewerName={reviewerName}
+          onDone={() => setRejectingReq(null)}
+          onCancel={() => setRejectingReq(null)}
+        />
+      )}
+    </div>
+  );
+}
+
 // ─── AdminAttendancePage ──────────────────────────────────────────────────────
 
 export function AdminAttendancePage() {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
 
   // ── All hooks unconditionally at the top — Rules of Hooks ───────────────────
   // Guard comes AFTER hooks. When profile is null (still loading), we skip
   // the guard and render nothing until profile resolves.
   const today = format(new Date(), 'yyyy-MM-dd');
+  const [activeTab, setActiveTab] = useState<'day' | 'corrections'>('day');
   const [selectedDate, setSelectedDate] = useState<string>(today);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
 
@@ -214,6 +480,9 @@ export function AdminAttendancePage() {
     return <Navigate to="/hrms/dashboard" replace />;
   }
 
+  const reviewerId   = user?.uid ?? '';
+  const reviewerName = profile?.displayName ?? 'HR';
+
   // Build a map: userId → attendance record for the selected date
   const recordByUser = new Map<string, Attendance>(records.map((r) => [r.userId, r]));
 
@@ -223,7 +492,7 @@ export function AdminAttendancePage() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       {/* Page header */}
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
+      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div>
           <h2
             className="text-3xl mb-1"
@@ -236,170 +505,202 @@ export function AdminAttendancePage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => {
-              setSelectedDate(e.target.value);
-              setEditingUserId(null);
-            }}
-            className="text-sm border border-slate-200 rounded-xl px-3 py-2 bg-white"
-            style={{ color: '#0A0A0A' }}
-          />
-          <ExportMonthButton employees={employees} month={exportMonth} />
-        </div>
-      </div>
-
-      {/* Date heading */}
-      <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#8B8B85' }}>
-        {format(parseISO(selectedDate), 'EEEE, dd MMMM yyyy')}
-      </p>
-
-      {/* Attendance table */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-center text-sm animate-pulse" style={{ color: '#8B8B85' }}>
-            Loading…
+        {activeTab === 'day' && (
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => {
+                setSelectedDate(e.target.value);
+                setEditingUserId(null);
+              }}
+              className="text-sm border border-slate-200 rounded-xl px-3 py-2 bg-white"
+              style={{ color: '#0A0A0A' }}
+            />
+            <ExportMonthButton employees={employees} month={exportMonth} />
           </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-100" style={{ backgroundColor: '#FAFAF7' }}>
-                {['Employee', 'Status', 'Check-in', 'Check-out', 'Hours', 'Edit'].map((h) => (
-                  <th
-                    key={h}
-                    className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider"
-                    style={{ color: '#8B8B85' }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {employees.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-sm" style={{ color: '#8B8B85' }}>
-                    No employees found.
-                  </td>
-                </tr>
-              )}
-
-              {employees.map((emp) => {
-                const rec = recordByUser.get(emp.userId);
-                const isEditing = editingUserId === emp.userId;
-
-                return (
-                  <>
-                    <tr
-                      key={emp.userId}
-                      className="border-b border-slate-50 hover:bg-slate-50 transition-colors"
-                    >
-                      {/* Employee name */}
-                      <td className="px-4 py-3 font-medium" style={{ color: '#0A0A0A' }}>
-                        {emp.displayName}
-                        {emp.designation && (
-                          <span className="ml-1 text-xs" style={{ color: '#8B8B85' }}>
-                            · {emp.designation}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Status pill */}
-                      <td className="px-4 py-3">
-                        {rec ? (
-                          <span
-                            className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                            style={{
-                              backgroundColor: STATUS_STYLES[rec.status].bg,
-                              color: STATUS_STYLES[rec.status].text,
-                            }}
-                          >
-                            {STATUS_STYLES[rec.status].label}
-                          </span>
-                        ) : (
-                          <span
-                            className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                            style={{ backgroundColor: '#F8F9FA', color: '#8B8B85' }}
-                          >
-                            No record
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Check-in */}
-                      <td className="px-4 py-3" style={{ color: '#2A2A2A' }}>
-                        {rec ? formatTime(rec.checkIn) : '—'}
-                      </td>
-
-                      {/* Check-out */}
-                      <td className="px-4 py-3" style={{ color: '#2A2A2A' }}>
-                        {rec ? formatTime(rec.checkOut) : '—'}
-                      </td>
-
-                      {/* Hours */}
-                      <td className="px-4 py-3" style={{ color: '#2A2A2A' }}>
-                        {rec ? rec.workingHours.toFixed(1) : '—'}
-                      </td>
-
-                      {/* Edit */}
-                      <td className="px-4 py-3">
-                        {isEditing ? (
-                          <button
-                            onClick={() => setEditingUserId(null)}
-                            className="text-xs underline"
-                            style={{ color: '#8B8B85' }}
-                          >
-                            Cancel
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => setEditingUserId(emp.userId)}
-                            className="px-3 py-1 rounded-lg text-xs font-semibold border border-slate-200 hover:bg-slate-50 transition-colors"
-                            style={{ color: '#2A2A2A' }}
-                          >
-                            Edit
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-
-                    {/* Inline edit row — rendered immediately below the employee row */}
-                    {isEditing && (
-                      <EditRow
-                        key={`edit-${emp.userId}`}
-                        record={rec ?? null}
-                        userId={emp.userId}
-                        date={selectedDate}
-                        onSave={() => setEditingUserId(null)}
-                        onCancel={() => setEditingUserId(null)}
-                      />
-                    )}
-                  </>
-                );
-              })}
-            </tbody>
-          </table>
         )}
       </div>
 
-      {/* Footer summary */}
-      {!loading && records.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs" style={{ color: '#8B8B85' }}>
-          {(['present', 'half_day', 'absent', 'leave', 'holiday'] as AttendanceStatus[]).map((s) => {
-            const count = records.filter((r) => r.status === s).length;
-            if (!count) return null;
-            return (
-              <span key={s}>
-                {STATUS_STYLES[s].label}: <strong style={{ color: '#2A2A2A' }}>{count}</strong>
+      {/* Tab bar */}
+      <div className="flex gap-1 p-1 rounded-xl mb-6 w-fit" style={{ backgroundColor: '#F2EFE7' }}>
+        {[
+          { key: 'day',         label: 'Daily View'   },
+          { key: 'corrections', label: 'Corrections'  },
+        ].map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key as 'day' | 'corrections')}
+            className="px-5 py-2 rounded-lg text-sm font-semibold transition-all"
+            style={{
+              backgroundColor: activeTab === key ? '#0B1538' : 'transparent',
+              color: activeTab === key ? '#C9A961' : '#8B8B85',
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Day View tab ────────────────────────────────────────────────────── */}
+      {activeTab === 'day' && (
+        <>
+          {/* Date heading */}
+          <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#8B8B85' }}>
+            {format(parseISO(selectedDate), 'EEEE, dd MMMM yyyy')}
+          </p>
+
+          {/* Attendance table */}
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            {loading ? (
+              <div className="p-8 text-center text-sm animate-pulse" style={{ color: '#8B8B85' }}>
+                Loading…
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100" style={{ backgroundColor: '#FAFAF7' }}>
+                    {['Employee', 'Status', 'Check-in', 'Check-out', 'Hours', 'Edit'].map((h) => (
+                      <th
+                        key={h}
+                        className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider"
+                        style={{ color: '#8B8B85' }}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {employees.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-6 text-center text-sm" style={{ color: '#8B8B85' }}>
+                        No employees found.
+                      </td>
+                    </tr>
+                  )}
+
+                  {employees.map((emp) => {
+                    const rec = recordByUser.get(emp.userId);
+                    const isEditing = editingUserId === emp.userId;
+
+                    return (
+                      <>
+                        <tr
+                          key={emp.userId}
+                          className="border-b border-slate-50 hover:bg-slate-50 transition-colors"
+                        >
+                          {/* Employee name */}
+                          <td className="px-4 py-3 font-medium" style={{ color: '#0A0A0A' }}>
+                            {emp.displayName}
+                            {emp.designation && (
+                              <span className="ml-1 text-xs" style={{ color: '#8B8B85' }}>
+                                · {emp.designation}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Status pill */}
+                          <td className="px-4 py-3">
+                            {rec ? (
+                              <span
+                                className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                                style={{
+                                  backgroundColor: STATUS_STYLES[rec.status].bg,
+                                  color: STATUS_STYLES[rec.status].text,
+                                }}
+                              >
+                                {STATUS_STYLES[rec.status].label}
+                              </span>
+                            ) : (
+                              <span
+                                className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                                style={{ backgroundColor: '#F8F9FA', color: '#8B8B85' }}
+                              >
+                                No record
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Check-in */}
+                          <td className="px-4 py-3" style={{ color: '#2A2A2A' }}>
+                            {rec ? formatTime(rec.checkIn) : '—'}
+                          </td>
+
+                          {/* Check-out */}
+                          <td className="px-4 py-3" style={{ color: '#2A2A2A' }}>
+                            {rec ? formatTime(rec.checkOut) : '—'}
+                          </td>
+
+                          {/* Hours */}
+                          <td className="px-4 py-3" style={{ color: '#2A2A2A' }}>
+                            {rec ? rec.workingHours.toFixed(1) : '—'}
+                          </td>
+
+                          {/* Edit */}
+                          <td className="px-4 py-3">
+                            {isEditing ? (
+                              <button
+                                onClick={() => setEditingUserId(null)}
+                                className="text-xs underline"
+                                style={{ color: '#8B8B85' }}
+                              >
+                                Cancel
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => setEditingUserId(emp.userId)}
+                                className="px-3 py-1 rounded-lg text-xs font-semibold border border-slate-200 hover:bg-slate-50 transition-colors"
+                                style={{ color: '#2A2A2A' }}
+                              >
+                                Edit
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+
+                        {/* Inline edit row — rendered immediately below the employee row */}
+                        {isEditing && (
+                          <EditRow
+                            key={`edit-${emp.userId}`}
+                            record={rec ?? null}
+                            userId={emp.userId}
+                            date={selectedDate}
+                            onSave={() => setEditingUserId(null)}
+                            onCancel={() => setEditingUserId(null)}
+                          />
+                        )}
+                      </>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Footer summary */}
+          {!loading && records.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs" style={{ color: '#8B8B85' }}>
+              {(['present', 'half_day', 'absent', 'leave', 'holiday'] as AttendanceStatus[]).map((s) => {
+                const count = records.filter((r) => r.status === s).length;
+                if (!count) return null;
+                return (
+                  <span key={s}>
+                    {STATUS_STYLES[s].label}: <strong style={{ color: '#2A2A2A' }}>{count}</strong>
+                  </span>
+                );
+              })}
+              <span>
+                No record: <strong style={{ color: '#2A2A2A' }}>{employees.length - records.length}</strong>
               </span>
-            );
-          })}
-          <span>
-            No record: <strong style={{ color: '#2A2A2A' }}>{employees.length - records.length}</strong>
-          </span>
-        </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Corrections tab ─────────────────────────────────────────────────── */}
+      {activeTab === 'corrections' && (
+        <RegularizationsTab reviewerId={reviewerId} reviewerName={reviewerName} />
       )}
     </div>
   );

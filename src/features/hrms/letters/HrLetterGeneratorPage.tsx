@@ -23,7 +23,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
-  FileText, Download, CheckCircle2, AlertCircle, Loader2,
+  FileText, Download, CheckCircle2, AlertCircle, Loader2, UserPlus, Users,
 } from 'lucide-react';
 import {
   collection, addDoc, serverTimestamp,
@@ -42,6 +42,13 @@ import {
   type IncrementData, type NocData, type SalaryCertificateData,
   type ExperienceData, type RelievingData,
 } from './letterPdf';
+
+// ─── Probation options ────────────────────────────────────────────────────────
+
+const PROBATION_OPTIONS = [
+  '1 month', '2 months', '3 months', '6 months',
+  '9 months', '12 months', '18 months', '24 months',
+];
 
 // ─── Letter type catalogue ────────────────────────────────────────────────────
 
@@ -98,7 +105,19 @@ export function HrLetterGeneratorPage() {
     () => employees.filter((e) => !e.employeeStatus || e.employeeStatus === 'active'),
     [employees],
   );
+  // For employee picker (select by UID, display name)
   const empOptions = activeEmployees.map((e) => ({ value: e.userId, label: e.displayName }));
+  // For Reporting To picker (select manager by UID, but store their name)
+  const managerOptions = activeEmployees.map((e) => ({
+    value: e.userId,
+    label: e.displayName + (e.designation ? ` — ${e.designation}` : ''),
+  }));
+
+  // ── Manual entry mode ─────────────────────────────────────────────────────────
+  // Used for employees who do not yet have a Pulse account or Google Workspace email.
+  const [manualMode, setManualMode] = useState(false);
+  const [manualName, setManualName] = useState('');
+  const [manualCode, setManualCode] = useState('');
 
   // ── Form state ──────────────────────────────────────────────────────────────
   const [letterType, setLetterType] = useState<LetterType>('appointment');
@@ -111,7 +130,9 @@ export function HrLetterGeneratorPage() {
   const [off_ctc,            setOff_ctc]            = useState('');
   const [off_joiningDeadline,setOff_joiningDeadline]= useState('');
   const [off_probation,      setOff_probation]      = useState('6 months');
+  // Stored as manager name (displayed in PDF); selected via SearchableSelect by UID
   const [off_reportingTo,    setOff_reportingTo]    = useState('');
+  const [off_reportingToUid, setOff_reportingToUid] = useState('');
 
   // Appointment
   const [apt_designation, setApt_designation] = useState('');
@@ -119,7 +140,9 @@ export function HrLetterGeneratorPage() {
   const [apt_joiningDate, setApt_joiningDate] = useState('');
   const [apt_ctc,         setApt_ctc]         = useState('');
   const [apt_probation,   setApt_probation]   = useState('6 months');
-  const [apt_reportingTo, setApt_reportingTo] = useState('');
+  // Same pattern as offer
+  const [apt_reportingTo,    setApt_reportingTo]    = useState('');
+  const [apt_reportingToUid, setApt_reportingToUid] = useState('');
 
   // Confirmation
   const [con_designation,      setCon_designation]      = useState('');
@@ -173,6 +196,12 @@ export function HrLetterGeneratorPage() {
       ? format(new Date(joiningDate + 'T00:00:00'), 'dd-MMM-yyyy')
       : '';
 
+    // Reset reporting-to when employee changes
+    setOff_reportingTo('');
+    setOff_reportingToUid('');
+    setApt_reportingTo('');
+    setApt_reportingToUid('');
+
     switch (letterType) {
       case 'offer':
         setOff_designation(designation);
@@ -215,7 +244,12 @@ export function HrLetterGeneratorPage() {
   // ── Validation ──────────────────────────────────────────────────────────────
   const validate = (): Record<string, string> => {
     const errs: Record<string, string> = {};
-    if (!empId)                              errs.emp = 'Select an employee';
+    if (manualMode) {
+      if (!manualName.trim()) errs.manualName = 'Enter employee name';
+      if (!manualCode.trim()) errs.manualCode = 'Enter employee code';
+    } else {
+      if (!empId) errs.emp = 'Select an employee';
+    }
     if (!seq.trim() || isNaN(Number(seq)))   errs.seq = 'Enter a valid sequence number';
 
     switch (letterType) {
@@ -283,8 +317,11 @@ export function HrLetterGeneratorPage() {
     setGenerating(true);
 
     try {
-      const empName = selectedEmp?.displayName ?? empId;
-      const empCode = selectedEmp?.employeeId  ?? empId;
+      // Manual mode: use hand-typed name/code; storage goes under _manual/
+      const isManual = manualMode;
+      const empName  = isManual ? manualName.trim() : (selectedEmp?.displayName ?? empId);
+      const empCode  = isManual ? manualCode.trim() : (selectedEmp?.employeeId  ?? empId);
+      const storageEmpId = isManual ? '_manual' : empId;
       const year    = new Date().getFullYear();
       const refNum  = letterRefNumber(letterType, year, seq);
 
@@ -353,7 +390,8 @@ export function HrLetterGeneratorPage() {
       const filename = letterFilename(data, year, seq);
 
       // 2. Upload to Firebase Storage
-      const fileRef = storageRef(storage, `hr-letters/${empId}/${filename}`);
+      // Manual employees go under _manual/; existing employees go under their UID
+      const fileRef = storageRef(storage, `hr-letters/${storageEmpId}/${filename}`);
       await uploadBytes(fileRef, bytes, { contentType: 'application/pdf' });
 
       // 3. Get permanent download URL
@@ -362,7 +400,7 @@ export function HrLetterGeneratorPage() {
       // 4. Log to Firestore with storageUrl
       await addDoc(collection(db, 'generated_letters'), {
         letterType,
-        employeeId:      empId,
+        employeeId:      isManual ? '_manual' : empId,
         employeeName:    empName,
         refNumber:       refNum,
         generatedBy:     uid,
@@ -377,7 +415,13 @@ export function HrLetterGeneratorPage() {
 
       setSuccess(`${LETTER_TYPES.find((t) => t.value === letterType)?.label} generated and saved.`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to generate letter. Please try again.');
+      const msg = e instanceof Error ? e.message : String(e);
+      // Stale token: custom claims not yet stamped — ask user to re-login
+      if (msg.includes('storage/unauthorized') || msg.includes('permission')) {
+        setError('Permission denied. If you recently received admin access, please sign out and sign back in to refresh your permissions, then try again.');
+      } else {
+        setError(msg || 'Failed to generate letter. Please try again.');
+      }
     } finally {
       setGenerating(false);
     }
@@ -441,10 +485,72 @@ export function HrLetterGeneratorPage() {
 
         {/* Common fields */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Employee mode toggle */}
           <div className="sm:col-span-2">
-            {L('Employee', 'emp', true)}
-            <SearchableSelect options={empOptions} value={empId} onChange={(v) => { setEmpId(v); setFieldErrors((p) => { const n = {...p}; delete n.emp; return n; }); }} placeholder="Select employee…" />
+            <div className="flex items-center gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => { setManualMode(false); setFieldErrors({}); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                style={{
+                  backgroundColor: !manualMode ? '#0B1538' : '#F2EFE7',
+                  color: !manualMode ? '#C9A961' : '#8B8B85',
+                }}
+              >
+                <Users size={13} />
+                Existing Employee
+              </button>
+              <button
+                type="button"
+                onClick={() => { setManualMode(true); setFieldErrors({}); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                style={{
+                  backgroundColor: manualMode ? '#0B1538' : '#F2EFE7',
+                  color: manualMode ? '#C9A961' : '#8B8B85',
+                }}
+              >
+                <UserPlus size={13} />
+                New / No Account
+              </button>
+            </div>
+
+            {!manualMode ? (
+              <>
+                {L('Employee', 'emp', true)}
+                <SearchableSelect
+                  options={empOptions}
+                  value={empId}
+                  onChange={(v) => { setEmpId(v); setFieldErrors((p) => { const n = {...p}; delete n.emp; return n; }); }}
+                  placeholder="Search by name…"
+                />
+              </>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl border border-amber-200" style={{ backgroundColor: '#FFFBEB' }}>
+                <p className="sm:col-span-2 text-xs font-semibold" style={{ color: '#92400E' }}>
+                  ✏️ Enter employee details manually (for new joiners without a Pulse account)
+                </p>
+                <div>
+                  {L('Employee Full Name', 'manualName', true)}
+                  <input
+                    className={I('manualName')}
+                    placeholder="e.g. Priya Sharma"
+                    value={manualName}
+                    onChange={(e) => { setManualName(e.target.value); setFieldErrors((p) => { const n = {...p}; delete n.manualName; return n; }); }}
+                  />
+                </div>
+                <div>
+                  {L('Employee Code', 'manualCode', true)}
+                  <input
+                    className={I('manualCode')}
+                    placeholder="e.g. FAPL-025"
+                    value={manualCode}
+                    onChange={(e) => { setManualCode(e.target.value); setFieldErrors((p) => { const n = {...p}; delete n.manualCode; return n; }); }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
+
           <div>
             {L('Sequence Number', 'seq', true)}
             <input
@@ -464,8 +570,43 @@ export function HrLetterGeneratorPage() {
             <div>{L('Department', 'off_department', true)}<input className={I('off_department')} value={off_department} onChange={(e) => setOff_department(e.target.value)} /></div>
             <div>{L('CTC', 'off_ctc', true)}<input className={I('off_ctc')} placeholder="e.g. ₹4,80,000 per annum" value={off_ctc} onChange={(e) => setOff_ctc(e.target.value)} /></div>
             <div>{L('Joining Deadline (dd-MMM-yyyy)', 'off_joiningDeadline', true)}<input className={I('off_joiningDeadline')} placeholder="e.g. 15-Jun-2026" value={off_joiningDeadline} onChange={(e) => setOff_joiningDeadline(e.target.value)} /></div>
-            <div>{L('Probation Period')}<input className={I()} value={off_probation} onChange={(e) => setOff_probation(e.target.value)} /></div>
-            <div>{L('Reporting To', 'off_reportingTo', true)}<input className={I('off_reportingTo')} placeholder="Manager name" value={off_reportingTo} onChange={(e) => setOff_reportingTo(e.target.value)} /></div>
+            {/* Probation — styled select with highlighted month badge */}
+            <div>
+              {L('Probation Period')}
+              <select
+                className={`${I()} cursor-pointer`}
+                value={off_probation}
+                onChange={(e) => setOff_probation(e.target.value)}
+              >
+                {PROBATION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+              <div className="mt-1.5">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
+                  style={{ backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
+                  🕐 {off_probation}
+                </span>
+              </div>
+            </div>
+            {/* Reporting To — SearchableSelect from employee list */}
+            <div>
+              {L('Reporting To', 'off_reportingTo', true)}
+              <SearchableSelect
+                options={managerOptions}
+                value={off_reportingToUid}
+                onChange={(uid) => {
+                  const emp = activeEmployees.find((e) => e.userId === uid);
+                  if (emp) {
+                    setOff_reportingTo(emp.displayName);
+                    setOff_reportingToUid(uid);
+                    setFieldErrors((p) => { const n = {...p}; delete n.off_reportingTo; return n; });
+                  }
+                }}
+                placeholder="Search manager by name…"
+              />
+              {fieldErrors.off_reportingTo && (
+                <p className="text-[11px] mt-0.5 text-red-500">{fieldErrors.off_reportingTo}</p>
+              )}
+            </div>
           </div>
         )}
 
@@ -476,8 +617,43 @@ export function HrLetterGeneratorPage() {
             <div>{L('Department', 'apt_department', true)}<input className={I('apt_department')} value={apt_department} onChange={(e) => setApt_department(e.target.value)} /></div>
             <div>{L('Date of Joining (dd-MMM-yyyy)', 'apt_joiningDate', true)}<input className={I('apt_joiningDate')} placeholder="e.g. 01-Jun-2026" value={apt_joiningDate} onChange={(e) => setApt_joiningDate(e.target.value)} /></div>
             <div>{L('CTC', 'apt_ctc', true)}<input className={I('apt_ctc')} placeholder="e.g. ₹4,80,000 per annum" value={apt_ctc} onChange={(e) => setApt_ctc(e.target.value)} /></div>
-            <div>{L('Probation Period')}<input className={I()} value={apt_probation} onChange={(e) => setApt_probation(e.target.value)} /></div>
-            <div>{L('Reporting To', 'apt_reportingTo', true)}<input className={I('apt_reportingTo')} placeholder="Manager name" value={apt_reportingTo} onChange={(e) => setApt_reportingTo(e.target.value)} /></div>
+            {/* Probation — styled select */}
+            <div>
+              {L('Probation Period')}
+              <select
+                className={`${I()} cursor-pointer`}
+                value={apt_probation}
+                onChange={(e) => setApt_probation(e.target.value)}
+              >
+                {PROBATION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+              <div className="mt-1.5">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
+                  style={{ backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
+                  🕐 {apt_probation}
+                </span>
+              </div>
+            </div>
+            {/* Reporting To — SearchableSelect */}
+            <div>
+              {L('Reporting To', 'apt_reportingTo', true)}
+              <SearchableSelect
+                options={managerOptions}
+                value={apt_reportingToUid}
+                onChange={(uid) => {
+                  const emp = activeEmployees.find((e) => e.userId === uid);
+                  if (emp) {
+                    setApt_reportingTo(emp.displayName);
+                    setApt_reportingToUid(uid);
+                    setFieldErrors((p) => { const n = {...p}; delete n.apt_reportingTo; return n; });
+                  }
+                }}
+                placeholder="Search manager by name…"
+              />
+              {fieldErrors.apt_reportingTo && (
+                <p className="text-[11px] mt-0.5 text-red-500">{fieldErrors.apt_reportingTo}</p>
+              )}
+            </div>
           </div>
         )}
 

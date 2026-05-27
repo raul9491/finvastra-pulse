@@ -1292,6 +1292,68 @@ async function startServer() {
     return res.json({ ok: true });
   });
 
+  // ─── HR Action Email Notifications ──────────────────────────────────────────
+  // POST /api/hrms/notify/email
+  // Called by admin pages (leave, claims, IT declarations) after a status change.
+  // Caller must be admin or isHrmsManager. Sends a branded HTML email to the
+  // employee via Google Workspace SMTP. Fire-and-forget — always returns 200.
+  //
+  // Body: { employeeId: string, subject: string, htmlBody: string }
+  app.post("/api/hrms/notify/email", async (req, res) => {
+    // Auth check — admin or isHrmsManager only
+    const uid = await verifyFirebaseToken(req);
+    if (!uid) return res.status(401).json({ error: "Unauthorized" });
+    const callerSnap = await db.collection("users").doc(uid).get();
+    const callerData = callerSnap.data();
+    const isAdmin      = callerData?.role === "admin";
+    const isHrMgr      = callerData?.isHrmsManager === true;
+    if (!isAdmin && !isHrMgr) return res.status(403).json({ error: "Admin or HR Manager required" });
+
+    const { employeeId, subject, htmlBody } = req.body as {
+      employeeId: string; subject: string; htmlBody: string;
+    };
+    if (!employeeId || !subject || !htmlBody) {
+      return res.status(400).json({ error: "Missing fields" });
+    }
+
+    // Fetch employee email from Firebase Auth (they may not have @finvastra.com yet)
+    let toEmail = "";
+    try {
+      const authUser = await admin.auth().getUser(employeeId);
+      toEmail = authUser.email ?? "";
+    } catch {
+      // Employee may not have an Auth account — non-fatal, skip email
+      return res.json({ ok: true, skipped: "no_auth_account" });
+    }
+    if (!toEmail) return res.json({ ok: true, skipped: "no_email" });
+
+    if (process.env.SMTP_USER && process.env.SMTP_APP_PASSWORD) {
+      try {
+        const nodemailer = await import("nodemailer");
+        const transporter = nodemailer.default.createTransport({
+          host: "smtp.gmail.com",
+          port: 465,
+          secure: true,
+          auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_APP_PASSWORD },
+        });
+        await transporter.sendMail({
+          from: `"Finvastra Pulse" <${process.env.SMTP_USER}>`,
+          to: toEmail,
+          subject,
+          html: htmlBody,
+        });
+        console.log(`[hr-notify/email] Sent "${subject}" to ${toEmail}`);
+      } catch (e) {
+        // Non-fatal — in-app notification is the primary channel
+        console.error("[hr-notify/email] SMTP failed:", e);
+      }
+    } else {
+      console.log(`[hr-notify/email - no SMTP] to=${toEmail} | ${subject}`);
+    }
+
+    return res.json({ ok: true });
+  });
+
   // ─── Scheduled Jobs API ─────────────────────────────────────────────────────
   // All three endpoints are triggered daily by Cloud Scheduler (HTTP target).
   // Manual admin trigger also available from the dashboard.

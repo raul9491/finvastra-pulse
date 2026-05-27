@@ -5,6 +5,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useAllClaims, approveClaim, rejectClaim, markClaimsPaid, exportClaimsCSV } from '../hooks/useClaims';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import { writeNotification, sendHrEmailNotification, buildHrEmailHtml } from '../../../lib/notifications';
 import type { ClaimType, ClaimStatus, Claim } from '../../../types';
 
 // ─── Helpers (same as ClaimsPage) ─────────────────────────────────────────────
@@ -38,14 +39,37 @@ const MONTHS = Array.from({ length: 12 }, (_, i) => {
 
 // ─── Reject Modal ─────────────────────────────────────────────────────────────
 
-function RejectModal({ claimId, onClose }: { claimId: string; onClose: () => void }) {
+function RejectModal({ claim, onClose }: { claim: Claim; onClose: () => void }) {
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
 
   const handleReject = async () => {
     if (!reason.trim()) return;
     setSaving(true);
-    await rejectClaim(claimId, reason.trim());
+    await rejectClaim(claim.id, reason.trim());
+    // Notify employee — in-app + email, both fire-and-forget
+    writeNotification(claim.employeeId, {
+      type:  'claim_rejected',
+      title: 'Claim Rejected',
+      body:  `Your ₹${claim.amount.toLocaleString('en-IN')} ${claim.claimType} claim was rejected. Reason: ${reason.trim()}`,
+      link:  '/hrms/claims',
+    }).catch(() => {});
+    sendHrEmailNotification({
+      employeeId: claim.employeeId,
+      subject:    'Expense Claim Rejected — Finvastra Pulse',
+      htmlBody:   buildHrEmailHtml({
+        title: 'Expense Claim Rejected',
+        lines: [
+          { label: 'Claim Type', value: claim.claimType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) },
+          { label: 'Amount',     value: `₹${claim.amount.toLocaleString('en-IN')}` },
+          { label: 'Month',      value: claim.month },
+          { label: 'Status',     value: 'Rejected' },
+        ],
+        note:     `Reason: ${reason.trim()}`,
+        ctaLabel: 'View My Claims',
+        ctaLink:  'https://pulse.finvastra.com/hrms/claims',
+      }),
+    }).catch(() => {});
     onClose();
   };
 
@@ -74,14 +98,39 @@ function RejectModal({ claimId, onClose }: { claimId: string; onClose: () => voi
 
 // ─── Mark Paid Modal ──────────────────────────────────────────────────────────
 
-function MarkPaidModal({ claimIds, totalAmount, onClose }: { claimIds: string[]; totalAmount: number; onClose: () => void }) {
+function MarkPaidModal({ claims, totalAmount, onClose }: { claims: Claim[]; totalAmount: number; onClose: () => void }) {
   const [ref, setRef] = useState('');
   const [saving, setSaving] = useState(false);
 
   const handlePay = async () => {
     if (!ref.trim()) return;
     setSaving(true);
-    await markClaimsPaid(claimIds, ref.trim());
+    await markClaimsPaid(claims.map((c) => c.id), ref.trim());
+    // Notify each employee — in-app + email, both fire-and-forget
+    claims.forEach((c) => {
+      writeNotification(c.employeeId, {
+        type:  'claim_paid',
+        title: 'Claim Paid',
+        body:  `Your ₹${c.amount.toLocaleString('en-IN')} ${c.claimType} claim has been paid. Ref: ${ref.trim()}`,
+        link:  '/hrms/claims',
+      }).catch(() => {});
+      sendHrEmailNotification({
+        employeeId: c.employeeId,
+        subject:    'Expense Claim Paid — Finvastra Pulse',
+        htmlBody:   buildHrEmailHtml({
+          title: 'Expense Claim Paid ✓',
+          lines: [
+            { label: 'Claim Type', value: c.claimType.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase()) },
+            { label: 'Amount',     value: `₹${c.amount.toLocaleString('en-IN')}` },
+            { label: 'Month',      value: c.month },
+            { label: 'Reference',  value: ref.trim() },
+            { label: 'Status',     value: 'Paid' },
+          ],
+          ctaLabel: 'View My Claims',
+          ctaLink:  'https://pulse.finvastra.com/hrms/claims',
+        }),
+      }).catch(() => {});
+    });
     onClose();
   };
 
@@ -89,7 +138,7 @@ function MarkPaidModal({ claimIds, totalAmount, onClose }: { claimIds: string[];
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
         <div>
-          <h3 className="text-base font-semibold text-ink">Mark {claimIds.length} Claims as Paid</h3>
+          <h3 className="text-base font-semibold text-ink">Mark {claims.length} Claims as Paid</h3>
           <p className="text-sm text-mute mt-1">Total: ₹{totalAmount.toLocaleString('en-IN')}</p>
         </div>
         <div>
@@ -122,7 +171,7 @@ export function AdminClaimsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [empFilter, setEmpFilter] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [rejectId, setRejectId] = useState<string | null>(null);
+  const [rejectingClaim, setRejectingClaim] = useState<Claim | null>(null);
   const [showMarkPaid, setShowMarkPaid] = useState(false);
 
   const { claims, loading } = useAllClaims(month, statusFilter || undefined, empFilter || undefined);
@@ -135,9 +184,31 @@ export function AdminClaimsPage() {
     setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   };
 
-  const handleApprove = async (id: string) => {
+  const handleApprove = async (claim: Claim) => {
     if (!user) return;
-    await approveClaim(id, user.uid);
+    await approveClaim(claim.id, user.uid);
+    // Notify employee — in-app + email, both fire-and-forget
+    writeNotification(claim.employeeId, {
+      type:  'claim_approved',
+      title: 'Claim Approved',
+      body:  `Your ₹${claim.amount.toLocaleString('en-IN')} ${claim.claimType} claim has been approved.`,
+      link:  '/hrms/claims',
+    }).catch(() => {});
+    sendHrEmailNotification({
+      employeeId: claim.employeeId,
+      subject:    'Expense Claim Approved — Finvastra Pulse',
+      htmlBody:   buildHrEmailHtml({
+        title: 'Expense Claim Approved ✓',
+        lines: [
+          { label: 'Claim Type', value: claim.claimType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) },
+          { label: 'Amount',     value: `₹${claim.amount.toLocaleString('en-IN')}` },
+          { label: 'Month',      value: claim.month },
+          { label: 'Status',     value: 'Approved — awaiting payment' },
+        ],
+        ctaLabel: 'View My Claims',
+        ctaLink:  'https://pulse.finvastra.com/hrms/claims',
+      }),
+    }).catch(() => {});
   };
 
   return (
@@ -267,11 +338,11 @@ export function AdminClaimsPage() {
                     <td className="p-4">
                       {c.status === 'pending' && (
                         <div className="flex items-center gap-2">
-                          <button onClick={() => handleApprove(c.id)}
+                          <button onClick={() => handleApprove(c)}
                             className="p-1.5 rounded-lg hover:bg-green-50 transition-colors" title="Approve">
                             <Check size={16} style={{ color: '#166534' }} />
                           </button>
-                          <button onClick={() => setRejectId(c.id)}
+                          <button onClick={() => setRejectingClaim(c)}
                             className="p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Reject">
                             <X size={16} style={{ color: '#DC2626' }} />
                           </button>
@@ -286,10 +357,10 @@ export function AdminClaimsPage() {
         )}
       </div>
 
-      {rejectId && <RejectModal claimId={rejectId} onClose={() => setRejectId(null)} />}
+      {rejectingClaim && <RejectModal claim={rejectingClaim} onClose={() => setRejectingClaim(null)} />}
       {showMarkPaid && (
         <MarkPaidModal
-          claimIds={[...selected].filter(id => claims.find(c => c.id === id)?.status === 'approved')}
+          claims={approvedSelected}
           totalAmount={approvedSelected.reduce((s, c) => s + c.amount, 0)}
           onClose={() => { setShowMarkPaid(false); setSelected(new Set()); }}
         />

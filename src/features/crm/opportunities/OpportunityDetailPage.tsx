@@ -8,6 +8,8 @@ import { useOpportunity, useActivities, useOpportunityTypes, updateOpportunitySt
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { BankSubmissionsSection } from './loans/BankSubmissionsSection';
 import { BankEligibilityCard } from './BankEligibilityCard';
+import { WealthInvestmentsSection } from './wealth/WealthInvestmentsSection';
+import { InsurancePoliciesSection } from './insurance/InsurancePoliciesSection';
 import type { OpportunityType, ActivityType, LostReason, LostDetails } from '../../../types';
 import { LOST_REASON_LABELS } from '../../../types';
 
@@ -342,7 +344,7 @@ export function OpportunityDetailPage() {
         )}
       </div>
 
-      {/* Sub-collection section — loan-specific or placeholder for wealth/insurance */}
+      {/* Sub-collection section — type-specific */}
       {opportunity.opportunityType === 'loan' ? (
         <>
           <BankEligibilityCard
@@ -352,15 +354,10 @@ export function OpportunityDetailPage() {
           />
           <BankSubmissionsSection leadId={leadId!} oppId={oppId!} oppOwnerId={opportunity.ownerId} opportunityProduct={opportunity.product} />
         </>
+      ) : opportunity.opportunityType === 'wealth' ? (
+        <WealthInvestmentsSection leadId={leadId!} oppId={oppId!} canWrite={canAct} />
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#8B8B85' }}>
-            {opportunity.opportunityType === 'wealth' ? 'Investments' : 'Policies'}
-          </h3>
-          <p className="text-sm" style={{ color: '#8B8B85' }}>
-            No {opportunity.opportunityType === 'wealth' ? 'investments' : 'policies'} recorded yet.
-          </p>
-        </div>
+        <InsurancePoliciesSection leadId={leadId!} oppId={oppId!} canWrite={canAct} />
       )}
 
       {/* Lost Reason Modal */}

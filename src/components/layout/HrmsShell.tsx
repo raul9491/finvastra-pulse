@@ -8,12 +8,13 @@ import {
   Settings, LogOut, LayoutGrid, ClipboardList, FileText, UserPlus, Inbox,
   ReceiptText, FolderOpen, Megaphone, Building2, Calculator,
   Laptop, UserMinus, Lock, FileSearch2, GraduationCap, TrendingUp, Briefcase, BookOpen, LifeBuoy,
-  CalendarRange, BookUser, Network, RotateCcw, ScrollText,
+  CalendarRange, BookUser, Network, RotateCcw, ScrollText, HelpCircle,
 } from 'lucide-react';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { isSuperAdmin } from '../../config/hrmsConfig';
 import { VideoLogo } from '../ui/VideoLogo';
+import { NotificationBell } from '../ui/NotificationBell';
 import { useUnreadAnnouncementCount, getUnseenHolidayCount } from '../../features/hrms/hooks/useAnnouncements';
 import { useHolidays } from '../../features/hrms/hooks/useHolidays';
 import { useMyItDeclaration, usePendingItDeclarationCount, currentFinancialYear } from '../../features/hrms/hooks/useItDeclarations';
@@ -27,6 +28,7 @@ import { usePendingReviewCount, useSelfAssessmentBadge, currentReviewYear } from
 import { useMyTrainingBadge, useTrainingAdminBadge } from '../../features/hrms/hooks/useTraining';
 import { useMyOpenTicketCount, useOpenTicketCount } from '../../features/hrms/hooks/useHrTickets';
 import { usePendingAcknowledgementCount } from '../../features/hrms/hooks/useDocumentAcknowledgements';
+import { usePendingRegularizationCount } from '../../features/hrms/hooks/useAttendanceRegularization';
 
 function usePendingRequestCount(enabled: boolean): number {
   const [count, setCount] = useState(0);
@@ -112,6 +114,7 @@ const NAV: NavEntry[] = [
   { path: '/hrms/performance',     label: 'My Review',      icon: TrendingUp,      live: true },
   { path: '/hrms/training',        label: 'My Training',    icon: BookOpen,        live: true },
   { path: '/hrms/hr-helpdesk',     label: 'HR Helpdesk',    icon: LifeBuoy,        live: true },
+  { path: '/hrms/guide',           label: 'Pulse Guide',    icon: HelpCircle,      live: true },
   { path: '/hrms/settings',        label: 'Settings',       icon: Settings,        live: true },
 ];
 
@@ -229,7 +232,8 @@ export function HrmsShell() {
   const trainingAdminBadge  = useTrainingAdminBadge(isAdmin || isHrmsManager);
   const myOpenTickets       = useMyOpenTicketCount(user?.uid ?? '');
   const openTicketCount     = useOpenTicketCount(isAdmin || isHrmsManager);
-  const pendingAckCount     = usePendingAcknowledgementCount(user?.uid ?? '');
+  const pendingAckCount           = usePendingAcknowledgementCount(user?.uid ?? '');
+  const pendingRegularizations    = usePendingRegularizationCount(isAdmin || isHrmsManager);
   const _perfYear           = currentReviewYear();
   const selfAssessmentBadge = useSelfAssessmentBadge(user?.uid ?? '', _perfYear);
   const pendingReviewCount  = usePendingReviewCount(isAdmin || isHrmsManager);
@@ -377,6 +381,7 @@ export function HrmsShell() {
               {ADMIN_NAV.map(({ path, label, icon: Icon }) => {
                 const badge =
                   path === '/hrms/admin/access-requests' && !onAccessRequestsPage ? pendingRequests       :
+                  path === '/hrms/admin/attendance'                                ? pendingRegularizations :
                   path === '/hrms/leave/admin'                                     ? pendingEncashCount    :
                   path === '/hrms/admin/leave-year-end'                            ? leaveResetBadge       :
                   path === '/hrms/admin/it-declarations'                           ? itDeclAdminBadge      :
@@ -518,8 +523,11 @@ export function HrmsShell() {
             <h1 className="text-base font-semibold" style={{ color: '#0A0A0A' }}>{pageTitle}</h1>
           </div>
 
-          {/* Right: user + sign out */}
-          <div className="flex items-center gap-4">
+          {/* Right: notifications + user + sign out */}
+          <div className="flex items-center gap-3">
+            {/* Notification bell — HRMS employees get leave/claim status updates */}
+            {user && <NotificationBell uid={user.uid} />}
+            <div className="w-px h-5 bg-slate-200" />
             {profile?.photoURL ? (
               <img src={profile.photoURL} alt={profile.displayName} className="w-8 h-8 rounded-full object-cover" />
             ) : (

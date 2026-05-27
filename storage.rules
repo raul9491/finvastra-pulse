@@ -2,18 +2,51 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
+    // ─── Firestore-based role helpers ─────────────────────────────────────────
+    // Custom claims may be stale if the user has not refreshed their token after
+    // a role change. These helper functions read from Firestore as a fallback so
+    // admins and HR managers are never incorrectly blocked.
+    //
+    // DB: ai-studio-27afcadd-87fc-4f68-8a88-587e904a31bf (named, non-default)
+    function userDoc() {
+      return firestore.get(
+        /databases/ai-studio-27afcadd-87fc-4f68-8a88-587e904a31bf/documents/users/$(request.auth.uid)
+      );
+    }
+    function isAdminViaFs() {
+      return request.auth != null
+          && userDoc().data.get('role', '') == 'admin';
+    }
+    function isHrMgrViaFs() {
+      return request.auth != null
+          && userDoc().data.get('isHrmsManager', false) == true;
+    }
+    // Passes if either custom claims or the live Firestore doc confirms admin/HR.
+    function canAdminStorage() {
+      return request.auth != null && (
+        request.auth.token.role == 'admin'
+        || request.auth.token.isHrmsManager == true
+        || isAdminViaFs()
+        || isHrMgrViaFs()
+      );
+    }
+
     // ─── HR Letters ───────────────────────────────────────────────────────────
-    // Admin / HR manager can upload; employee reads their own; admin/HR reads all.
+    // Admin / HR manager can upload letters for any employee.
+    // Employee reads their own letters; admin/HR reads all.
     match /hr-letters/{employeeId}/{fileName} {
       allow read: if request.auth != null && (
         request.auth.uid == employeeId
-        || request.auth.token.role == 'admin'
-        || request.auth.token.isHrmsManager == true
+        || canAdminStorage()
       );
-      allow write: if request.auth != null && (
-        request.auth.token.role == 'admin'
-        || request.auth.token.isHrmsManager == true
-      );
+      allow write: if canAdminStorage();
+    }
+
+    // Letters generated for employees who do not yet have a Pulse account.
+    // Stored under hr-letters/_manual/{filename} — admin/HR access only.
+    match /hr-letters/_manual/{fileName} {
+      allow read:  if canAdminStorage();
+      allow write: if canAdminStorage();
     }
 
     // ─── Company Documents ────────────────────────────────────────────────────
@@ -21,10 +54,7 @@ service firebase.storage {
     // Only admin / HR manager can upload or delete.
     match /company-documents/{allPaths=**} {
       allow read:  if request.auth != null;
-      allow write: if request.auth != null && (
-        request.auth.token.role == 'admin'
-        || request.auth.token.isHrmsManager == true
-      );
+      allow write: if canAdminStorage();
     }
 
     // ─── Employee Documents ───────────────────────────────────────────────────
@@ -33,13 +63,9 @@ service firebase.storage {
     match /employee-documents/{employeeId}/{allPaths=**} {
       allow read: if request.auth != null && (
         request.auth.uid == employeeId
-        || request.auth.token.role == 'admin'
-        || request.auth.token.isHrmsManager == true
+        || canAdminStorage()
       );
-      allow write: if request.auth != null && (
-        request.auth.token.role == 'admin'
-        || request.auth.token.isHrmsManager == true
-      );
+      allow write: if canAdminStorage();
     }
 
     // ─── Default deny ─────────────────────────────────────────────────────────

@@ -14,6 +14,7 @@ import {
 import { format } from 'date-fns';
 import { Coins, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
+import { writeNotification, sendHrEmailNotification, buildHrEmailHtml } from '../../../lib/notifications';
 import {
   usePendingApprovals,
   approveLeave,
@@ -63,12 +64,12 @@ const TYPE_LABELS: Record<LeaveType, string> = {
 // ─── Reject modal ─────────────────────────────────────────────────────────────
 
 interface RejectModalProps {
-  applicationId: string;
+  application: LeaveApplication;
   rejectedBy: string;
   onClose: () => void;
 }
 
-function RejectModal({ applicationId, rejectedBy, onClose }: RejectModalProps) {
+function RejectModal({ application, rejectedBy, onClose }: RejectModalProps) {
   const [reason,     setReason]     = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error,      setError]      = useState<string | null>(null);
@@ -80,7 +81,29 @@ function RejectModal({ applicationId, rejectedBy, onClose }: RejectModalProps) {
     }
     setSubmitting(true);
     try {
-      await rejectLeave(applicationId, reason.trim(), rejectedBy);
+      await rejectLeave(application.id, reason.trim(), rejectedBy);
+      // Notify employee — in-app + email, both fire-and-forget
+      writeNotification(application.employeeId, {
+        type:  'leave_rejected',
+        title: 'Leave Rejected',
+        body:  `Your ${application.days}-day ${application.type} leave (${application.fromDate} – ${application.toDate}) was rejected. Reason: ${reason.trim()}`,
+        link:  '/hrms/leave',
+      }).catch(() => {});
+      sendHrEmailNotification({
+        employeeId: application.employeeId,
+        subject:    'Leave Application Rejected — Finvastra Pulse',
+        htmlBody:   buildHrEmailHtml({
+          title: 'Leave Application Rejected',
+          lines: [
+            { label: 'Leave Type',  value: application.type.charAt(0).toUpperCase() + application.type.slice(1) },
+            { label: 'Duration',    value: `${application.days} day${application.days !== 1 ? 's' : ''} (${application.fromDate} to ${application.toDate})` },
+            { label: 'Status',      value: 'Rejected' },
+          ],
+          note:     `Reason: ${reason.trim()}`,
+          ctaLabel: 'View My Leave',
+          ctaLink:  'https://pulse.finvastra.com/hrms/leave',
+        }),
+      }).catch(() => {});
       onClose();
     } catch (err) {
       console.error('[AdminLeavePage] rejectLeave error:', err);
@@ -151,13 +174,34 @@ interface PendingTabProps {
 function PendingTab({ approverId, employeeNameById }: PendingTabProps) {
   const { applications, loading } = usePendingApprovals();
   const toast = useToast();
-  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectingApp, setRejectingApp] = useState<LeaveApplication | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
 
-  const handleApprove = async (appId: string, employeeName: string) => {
-    setApprovingId(appId);
+  const handleApprove = async (app: LeaveApplication, employeeName: string) => {
+    setApprovingId(app.id);
     try {
-      await approveLeave(appId, approverId);
+      await approveLeave(app.id, approverId);
+      // Notify employee — in-app + email, both fire-and-forget
+      writeNotification(app.employeeId, {
+        type:  'leave_approved',
+        title: 'Leave Approved',
+        body:  `Your ${app.days}-day ${app.type} leave (${app.fromDate} – ${app.toDate}) has been approved.`,
+        link:  '/hrms/leave',
+      }).catch(() => {});
+      sendHrEmailNotification({
+        employeeId: app.employeeId,
+        subject:    'Leave Application Approved — Finvastra Pulse',
+        htmlBody:   buildHrEmailHtml({
+          title: 'Leave Application Approved ✓',
+          lines: [
+            { label: 'Leave Type',  value: app.type.charAt(0).toUpperCase() + app.type.slice(1) },
+            { label: 'Duration',    value: `${app.days} day${app.days !== 1 ? 's' : ''} (${app.fromDate} to ${app.toDate})` },
+            { label: 'Status',      value: 'Approved' },
+          ],
+          ctaLabel: 'View My Leave',
+          ctaLink:  'https://pulse.finvastra.com/hrms/leave',
+        }),
+      }).catch(() => {});
       toast.success(`Leave approved for ${employeeName}`);
     } catch (err) {
       console.error('[AdminLeavePage] approveLeave error:', err);
@@ -231,7 +275,7 @@ function PendingTab({ approverId, employeeNameById }: PendingTabProps) {
                 <td className="px-6 py-3.5">
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => handleApprove(app.id, employeeNameById(app.employeeId))}
+                      onClick={() => handleApprove(app, employeeNameById(app.employeeId))}
                       disabled={approvingId === app.id}
                       className="px-3 py-1 rounded-lg text-xs font-semibold transition-opacity hover:opacity-80"
                       style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}
@@ -239,7 +283,7 @@ function PendingTab({ approverId, employeeNameById }: PendingTabProps) {
                       {approvingId === app.id ? '…' : 'Approve'}
                     </button>
                     <button
-                      onClick={() => setRejectingId(app.id)}
+                      onClick={() => setRejectingApp(app)}
                       className="px-3 py-1 rounded-lg text-xs font-semibold transition-opacity hover:opacity-80"
                       style={{ backgroundColor: '#FEE2E2', color: '#991B1B' }}
                     >
@@ -253,11 +297,11 @@ function PendingTab({ approverId, employeeNameById }: PendingTabProps) {
         </table>
       </div>
 
-      {rejectingId && (
+      {rejectingApp && (
         <RejectModal
-          applicationId={rejectingId}
+          application={rejectingApp}
           rejectedBy={approverId}
-          onClose={() => setRejectingId(null)}
+          onClose={() => setRejectingApp(null)}
         />
       )}
     </>

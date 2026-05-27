@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
   Briefcase, Plus, ChevronRight, Check, X, Download,
@@ -506,6 +506,7 @@ function OfferLetterModal({
 
 export function RecruitmentPage() {
   const { profile, user } = useAuth();
+  const navigate = useNavigate();
 
   const [openings,    setOpenings]    = useState<JobOpening[]>([]);
   const [candidates,  setCandidates]  = useState<Candidate[]>([]);
@@ -748,6 +749,24 @@ export function RecruitmentPage() {
                                 className="p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Reject"
                                 style={{ color: '#991B1B' }}>
                                 <X size={13} />
+                              </button>
+                            )}
+                            {/* Hired: CTA to add this person as an HRMS employee */}
+                            {c.stage === 'hired' && (
+                              <button
+                                onClick={() => {
+                                  const params = new URLSearchParams();
+                                  params.set('addNew', '1');
+                                  params.set('prefillName', c.name);
+                                  if (c.email) params.set('prefillEmail', c.email);
+                                  if (c.phone) params.set('prefillPhone', c.phone);
+                                  navigate(`/hrms/employees?${params.toString()}`);
+                                }}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors hover:opacity-80"
+                                style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}
+                                title="Add this person as an HRMS employee"
+                              >
+                                <UserCheck size={12} /> Add to HRMS
                               </button>
                             )}
                           </div>

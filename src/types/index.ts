@@ -1361,6 +1361,119 @@ export interface GeneratedLetter {
   storageStatus:   'uploading' | 'uploaded' | 'failed' | null;
 }
 
+// ─── CRM: Wealth Investments ─────────────────────────────────────────────────
+// Subcollection: /leads/{leadId}/opportunities/{oppId}/investments/{id}
+
+export type WealthInvestmentType =
+  | 'mf_sip'
+  | 'mf_lumpsum'
+  | 'direct_equity'
+  | 'bonds'
+  | 'pms'
+  | 'aif'
+  | 'fd_ncd'
+  | 'nps'
+  | 'other';
+
+export const WEALTH_INVESTMENT_TYPE_LABELS: Record<WealthInvestmentType, string> = {
+  mf_sip:        'MF — SIP',
+  mf_lumpsum:    'MF — Lumpsum',
+  direct_equity: 'Direct Equity',
+  bonds:         'Bonds',
+  pms:           'PMS',
+  aif:           'AIF',
+  fd_ncd:        'FD / NCD',
+  nps:           'NPS',
+  other:         'Other',
+};
+
+export interface WealthInvestment {
+  id: string;
+  investmentType:  WealthInvestmentType;
+  schemeName:      string;         // fund/stock/bond name
+  folioNumber?:    string;         // MF folio
+  investedAmount:  number;         // total cost basis
+  sipAmount?:      number;         // monthly SIP amount
+  units?:          number;         // units/shares held
+  purchaseNAV?:    number;         // NAV at purchase
+  currentNAV?:     number;         // latest NAV (updated manually)
+  currentValue?:   number;         // current market value
+  purchaseDate:    string;         // YYYY-MM-DD
+  status:          'active' | 'redeemed' | 'paused';
+  notes?:          string;
+  addedBy:         string;
+  addedAt:         any;
+  updatedAt:       any;
+}
+
+// ─── CRM: Insurance Policies ──────────────────────────────────────────────────
+// Subcollection: /leads/{leadId}/opportunities/{oppId}/policies/{id}
+
+export type InsurancePolicyType =
+  | 'term'
+  | 'health'
+  | 'motor'
+  | 'home'
+  | 'personal_accident'
+  | 'travel'
+  | 'endowment'
+  | 'ulip'
+  | 'pension'
+  | 'other';
+
+export const INSURANCE_POLICY_TYPE_LABELS: Record<InsurancePolicyType, string> = {
+  term:              'Term Life',
+  health:            'Health',
+  motor:             'Motor',
+  home:              'Home',
+  personal_accident: 'Personal Accident',
+  travel:            'Travel',
+  endowment:         'Endowment',
+  ulip:              'ULIP',
+  pension:           'Pension / Annuity',
+  other:             'Other',
+};
+
+export interface InsurancePolicy {
+  id: string;
+  policyNumber:      string;
+  insurerName:       string;
+  productName:       string;
+  policyType:        InsurancePolicyType;
+  sumAssured:        number;
+  annualPremium:     number;
+  premiumFrequency:  'annual' | 'semi_annual' | 'quarterly' | 'monthly';
+  commencementDate:  string;      // YYYY-MM-DD policy start
+  maturityDate?:     string;      // YYYY-MM-DD (for savings/endowment)
+  renewalDate:       string;      // YYYY-MM-DD next renewal
+  status:            'active' | 'lapsed' | 'matured' | 'cancelled';
+  notes?:            string;
+  addedBy:           string;
+  addedAt:           any;
+  updatedAt:         any;
+}
+
+// ─── Attendance Regularization ───────────────────────────────────────────────
+
+export type RegularizationStatus = 'pending' | 'approved' | 'rejected';
+
+export interface AttendanceRegularization {
+  id: string;
+  employeeId:           string;
+  employeeName:         string;
+  date:                 string;    // YYYY-MM-DD
+  requestedCheckIn:     string | null;  // HH:mm (24-hour)
+  requestedCheckOut:    string | null;  // HH:mm (24-hour)
+  reason:               string;
+  existingStatus:       AttendanceStatus | null;
+  status:               RegularizationStatus;
+  reviewedBy:           string | null;
+  reviewedByName:       string | null;
+  reviewedAt:           any;
+  rejectionReason:      string | null;
+  submittedAt:          any;
+}
+
 // ─── Toast ─────────────────────────────────────────────────────────────────
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';

@@ -92,10 +92,23 @@ function DesignationSelect({ value, onChange, className }: {
   );
 }
 
-export function AddEmployeeModal({ onClose, onCreated }: { onClose: () => void; onCreated?: () => void }) {
+export function AddEmployeeModal({
+  onClose,
+  onCreated,
+  prefill,
+}: {
+  onClose:    () => void;
+  onCreated?: () => void;
+  prefill?:   { name?: string; email?: string; phone?: string };
+}) {
   const { user } = useAuth();
   const { employees } = useAllEmployees();
-  const [form, setForm] = useState<AddEmployeeForm>(EMPTY);
+  const [form, setForm] = useState<AddEmployeeForm>({
+    ...EMPTY,
+    ...(prefill?.name  ? { displayName:   prefill.name  } : {}),
+    ...(prefill?.email ? { officialEmail:  prefill.email } : {}),
+    ...(prefill?.phone ? { phone:          prefill.phone } : {}),
+  });
   const [saving, setSaving] = useState(false);
   const [serverError, setServerError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});

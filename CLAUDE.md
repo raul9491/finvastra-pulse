@@ -1568,6 +1568,322 @@ Firebase Storage must be initialised via the Firebase Console before `storage.ru
 
 ---
 
+## Phase I — CRM + HRMS Completion Sprint (2026-05-27)
+
+CRM Dashboard rebuilt, HRMS Admin Dashboard upgraded, Wealth investment tracking, Insurance policy tracking, and employee quick-reference guide. All deterministic code — no AI/LLM anywhere.
+
+| Feature | Status | Files |
+|---|---|---|
+| **CRM Dashboard rebuild** | ✅ Complete | `src/features/crm/dashboard/CrmDashboardPage.tsx` |
+| **HRMS Admin Dashboard upgrade** | ✅ Complete | `src/features/hrms/dashboard/HrmsDashboardPage.tsx` |
+| **CRM Wealth investment tracking** | ✅ Complete | `src/features/crm/hooks/useWealthInvestments.ts`, `src/features/crm/opportunities/wealth/WealthInvestmentsSection.tsx` |
+| **CRM Insurance policy tracking** | ✅ Complete | `src/features/crm/hooks/useInsurancePolicies.ts`, `src/features/crm/opportunities/insurance/InsurancePoliciesSection.tsx` |
+| **Employee quick-reference guide** | ✅ Complete | `src/features/hrms/guide/PulseGuidePage.tsx` |
+| **Types: WealthInvestment, InsurancePolicy** | ✅ Complete | `src/types/index.ts` |
+| **Firestore rules: investments + policies subcollections** | ✅ Complete | `firestore.rules` |
+
+### CRM Dashboard Rebuild
+
+**File**: `src/features/crm/dashboard/CrmDashboardPage.tsx` (~550 lines)
+
+**Admin / manager view:**
+- 4 stat cards: Total Leads, Open Pipeline, Won This Month, Commission Earned
+- 3 business-line pipeline cards: Loans / Wealth / Insurance total ₹
+- RM Performance Table: per-RM active leads, open opps, pipeline value, commission this month
+- Source Breakdown: lead count by origin (website, social, walk-in, referral, etc.)
+- CommissionDashboardCard + Quick Actions + SLA overdue alert
+
+**RM view** (crmRole === 'lead_generator' or 'lead_convertor'):
+- 4 personal stat cards: My Leads, My Open Opps, My Pipeline ₹, My Commission This Month
+- My Pipeline by business line (if has opps)
+- Source Breakdown of own leads
+- CommissionDashboardCard + Quick Actions + SLA alert
+
+**Inline hook `useOpenOppsStats()`**: uses `collectionGroup(db, 'opportunities')` with `where('status','==','open')` — reads only `opportunityType`, `dealSize`, `ownerId` fields; no per-lead batch fetches. All RM aggregation computed client-side from already-loaded arrays.
+
+**DevAdminTools**: preserved at bottom, gated by `import.meta.env.DEV && isAdmin`.
+
+### HRMS Admin Dashboard Upgrade
+
+**Added to `HrmsDashboardPage.tsx`:**
+- `usePendingHrCounts(enabled)` — three real-time `onSnapshot` subscriptions to claims/it_declarations/leave_encashment_requests counting pending items
+- `useHeadcount(enabled)` — one-time `getDocs` on active users, groups by department
+- `HrPendingActionsPanel` — amber panel with 4 clickable action rows (leave, claims, IT declarations, encashment); renders null when all counts are 0
+- `HeadcountCard` — total headcount + top 5 departments as horizontal bars; admin-only
+
+### Wealth Investment Tracking
+
+**Firestore path**: `/leads/{leadId}/opportunities/{oppId}/investments/{investId}`
+
+**Schema:**
+```
+investmentType: WealthInvestmentType  ('mf_sip'|'mf_lumpsum'|'direct_equity'|'bonds'|'pms'|'aif'|'fd_ncd'|'nps'|'other')
+schemeName, folioNumber?, investedAmount, sipAmount?, units?, purchaseNAV?
+currentValue?, purchaseDate (YYYY-MM-DD)
+status: 'active'|'redeemed'|'paused'
+notes?, addedBy, addedAt, updatedAt
+```
+
+**`WealthInvestmentsSection`** on OpportunityDetailPage (wealth type):
+- Summary strip (Invested / Current / Return %) when ≥2 investments
+- Per-investment rows with gain/loss indicator
+- `AddInvestmentModal` with field-level validation; folio/SIP/units shown conditionally by type
+
+### Insurance Policy Tracking
+
+**Firestore path**: `/leads/{leadId}/opportunities/{oppId}/policies/{policyId}`
+
+**Schema:**
+```
+policyNumber, insurerName, productName
+policyType: InsurancePolicyType  ('term'|'health'|'motor'|'home'|'personal_accident'|'travel'|'endowment'|'ulip'|'pension'|'other')
+sumAssured, annualPremium, premiumFrequency: 'annual'|'semi_annual'|'quarterly'|'monthly'
+commencementDate, maturityDate? (savings products), renewalDate
+status: 'active'|'lapsed'|'matured'|'cancelled'
+notes?, addedBy, addedAt, updatedAt
+```
+
+**`InsurancePoliciesSection`** on OpportunityDetailPage (insurance type):
+- Renewal alert badge (amber, `AlertTriangle` icon) when active policy renews within 30 days
+- `AddPolicyModal` with conditional maturity date for savings products (endowment/ulip/pension)
+
+### Firestore rules added (Phase I)
+
+```
+/leads/{leadId}/opportunities/{oppId}/investments/{investId}
+  allow read:   isAdmin() || (hasCrmAccess() && (ownerId match || primaryOwner match))
+  allow create: isAdmin() || hasCrmAccess() + ownership check
+  allow update: isAdmin() || (hasCrmAccess() && ownerId match)
+  allow delete: isAdmin()
+
+/leads/{leadId}/opportunities/{oppId}/policies/{policyId}
+  // same pattern as investments above
+```
+
+### Pulse Guide (Employee Quick-Reference)
+
+**Path**: `/hrms/guide`  
+**Access**: all authenticated HRMS employees  
+**File**: `src/features/hrms/guide/PulseGuidePage.tsx`
+
+12 accordion sections covering all key features:
+1. Attendance — check-in/out, how records are stored
+2. Leave — apply, types, balances, calendar
+3. Claims & Reimbursements — submit, travel claims, receipts
+4. Payslips — where to find, what's included
+5. IT Declaration — what to declare, financial year, lifecycle
+6. Company Documents — library, handbook, policies
+7. My Profile — what you can edit yourself, what needs HR
+8. Announcements — where to find, mark as read
+9. Performance Reviews — cycles, self-evaluation
+10. Training — enroll, certificate
+11. HR Helpdesk — raise a ticket
+12. Security & Privacy — session timeout, password reset
+
+Search box filters sections by keyword in real time.
+
+Quick links bar navigates to related HRMS pages (uses `<QuickLink>` component — extracted to avoid hook-in-map React violation).
+
+---
+
+## Phase J — In-App Notifications + Recruitment-HRMS Bridge (2026-05-27)
+
+Notification bell in both shells, status notifications for leave/claims/IT declarations, and a direct "Add to HRMS" path from a hired candidate to the employee add modal.
+
+| Feature | Status | Files |
+|---|---|---|
+| **`writeNotification()` helper** | ✅ Complete | `src/lib/notifications.ts` |
+| **`NotificationBell` component** | ✅ Complete | `src/components/ui/NotificationBell.tsx` |
+| **Bell in CRM shell** | ✅ Complete | `src/components/layout/CrmShell.tsx` |
+| **Bell in HRMS shell** | ✅ Complete | `src/components/layout/HrmsShell.tsx` |
+| **Leave approve/reject → notify employee** | ✅ Complete | `src/features/hrms/leave/AdminLeavePage.tsx` |
+| **Claim approve/reject/pay → notify employee** | ✅ Complete | `src/features/hrms/claims/AdminClaimsPage.tsx` |
+| **IT Declaration accept/revise → notify employee** | ✅ Complete | `src/features/hrms/itdeclaration/AdminItDeclarationsPage.tsx` |
+| **Recruitment "Add to HRMS" CTA for hired candidates** | ✅ Complete | `src/features/hrms/recruitment/RecruitmentPage.tsx` |
+| **EmployeesPage URL-param prefill** | ✅ Complete | `src/features/hrms/employees/EmployeesPage.tsx`, `AddEmployeeModal.tsx` |
+| **Firestore rules: `/notifications/{uid}/items`** | ✅ Complete | `firestore.rules` |
+
+### Notification schema
+
+```
+/notifications/{uid}/items/{itemId}
+  type:      NotificationType   — new_lead | leave_approved | leave_rejected |
+                                  claim_approved | claim_rejected | claim_paid |
+                                  it_decl_revision | it_decl_accepted
+  title:     string             — short heading shown in dropdown
+  body:      string             — one-line detail
+  link?:     string             — route to navigate on click
+  read:      boolean
+  createdAt: Timestamp
+```
+
+### Notification Bell (shared component)
+
+`src/components/ui/NotificationBell.tsx` — placed in both shell headers (right side, before user avatar).
+- Subscribes to `/notifications/{uid}/items` (newest 20, ordered by `createdAt desc`)
+- Red badge shows unread count (9+ if more than 9)
+- Click → dropdown with notification list; click item → mark read + navigate to `link`
+- "Mark all read" button uses `writeBatch` to clear all in one round trip
+- Closes on outside click
+
+### `writeNotification(targetUid, payload)` helper
+
+In `src/lib/notifications.ts`. Always fire-and-forget (`.catch(() => {})`). Called from:
+- `AdminClaimsPage` — after approve, reject, mark-paid
+- `AdminLeavePage` — after approve, reject
+- `AdminItDeclarationsPage` — after accept, request-revision
+
+### Recruitment → HRMS bridge
+
+`RecruitmentPage.tsx`: candidates with `stage === 'hired'` show a green **Add to HRMS** button.
+Clicking navigates to `/hrms/employees?addNew=1&prefillName=...&prefillEmail=...&prefillPhone=...`.
+
+`EmployeesPage.tsx`: on mount, reads URL params. If `addNew=1`, auto-opens `AddEmployeeModal` with name/email/phone pre-filled. Clears params from URL with `replace: true` so refresh doesn't re-open.
+
+`AddEmployeeModal.tsx`: accepts optional `prefill?: { name?, email?, phone? }` prop, initialises form state from it.
+
+### Firestore rules (notifications)
+
+```
+match /notifications/{uid}/items/{itemId} {
+  allow read:   if isSignedIn() && request.auth.uid == uid;
+  allow create: if isAdmin() || isHrmsManager();
+  allow update: if isSignedIn() && uid == request.auth.uid
+                && affectedKeys().hasOnly(['read']) && read == true;
+  allow delete: if false;
+}
+```
+
+---
+
+## Phase K — Email Notifications for HR Actions (2026-05-27)
+
+In-app notifications existed from Phase J. Phase K adds SMTP email delivery for the same events, so employees are notified even when not logged in to Pulse.
+
+| Feature | Status | Files |
+|---|---|---|
+| **`POST /api/hrms/notify/email` server endpoint** | ✅ Complete | `server.ts` |
+| **`buildHrEmailHtml()` branded template helper** | ✅ Complete | `src/lib/notifications.ts` |
+| **`sendHrEmailNotification()` client helper** | ✅ Complete | `src/lib/notifications.ts` |
+| **Leave approve/reject → email** | ✅ Complete | `src/features/hrms/leave/AdminLeavePage.tsx` |
+| **Claim approve/reject/pay → email** | ✅ Complete | `src/features/hrms/claims/AdminClaimsPage.tsx` |
+| **IT Declaration accept/revise → email** | ✅ Complete | `src/features/hrms/itdeclaration/AdminItDeclarationsPage.tsx` |
+
+### Server endpoint — `POST /api/hrms/notify/email`
+
+Auth: caller must be admin or isHrmsManager (verified server-side against Firestore).
+
+Body: `{ employeeId: string, subject: string, htmlBody: string }`
+
+The server:
+1. Verifies auth
+2. Looks up employee email via `admin.auth().getUser(employeeId)` — skips silently if no Auth account
+3. Sends branded HTML email via Google Workspace SMTP (nodemailer)
+4. Always returns 200 — email failure is non-fatal (in-app notification is the primary channel)
+
+### `buildHrEmailHtml(opts)` — client-side template builder
+
+Produces a full branded HTML email (navy header, gold accents, detail rows table, optional note/highlight box, CTA button, footer). Never stores or logs PII — the HTML is built on the client and sent to the server in one call.
+
+Parameters: `{ title, lines: [{label, value}][], note?, ctaLabel?, ctaLink? }`
+
+### `sendHrEmailNotification(opts)` — client helper
+
+Fetches current user's ID token, calls `POST /api/hrms/notify/email`. Always fire-and-forget: `.catch(() => {})`. Called alongside `writeNotification()` in all three admin pages.
+
+### Notification channels side by side
+
+| Action | In-app bell | Email |
+|---|---|---|
+| Leave approved | ✅ | ✅ |
+| Leave rejected | ✅ (+ reason) | ✅ (+ reason in note box) |
+| Claim approved | ✅ | ✅ |
+| Claim rejected | ✅ (+ reason) | ✅ (+ reason in note box) |
+| Claims paid | ✅ per claim (+ UTR) | ✅ per employee (+ UTR) |
+| IT decl accepted | ✅ | ✅ |
+| IT decl revision | ✅ (+ HR note) | ✅ (+ HR note in note box) |
+
+---
+
+## Phase L — Attendance Regularization + Payslip Notification (2026-05-27)
+
+Employees can request corrections to past attendance. HR approves/rejects from an admin tab. Payslip generation now sends an in-app + email notification.
+
+| Feature | Status | Files |
+|---|---|---|
+| **`AttendanceRegularization` type** | ✅ Complete | `src/types/index.ts` |
+| **`useAttendanceRegularization` hook** | ✅ Complete | `src/features/hrms/hooks/useAttendanceRegularization.ts` |
+| **`RegularizeModal` + calendar `?` buttons** | ✅ Complete | `src/features/hrms/attendance/AttendancePage.tsx` |
+| **Correction request history section** | ✅ Complete | `src/features/hrms/attendance/AttendancePage.tsx` |
+| **Admin `Corrections` tab** | ✅ Complete | `src/features/hrms/attendance/AdminAttendancePage.tsx` |
+| **Approve/Reject + in-app + email notify** | ✅ Complete | `src/features/hrms/attendance/AdminAttendancePage.tsx` |
+| **HrmsShell badge on admin Attendance nav** | ✅ Complete | `src/components/layout/HrmsShell.tsx` |
+| **Firestore rules** | ✅ Complete | `firestore.rules` |
+| **Payslip generation → notify employee** | ✅ Complete | `src/features/hrms/payslips/GeneratePayslipPage.tsx` |
+
+### Regularization flow
+
+```
+Employee taps ? on a past absent/incomplete day
+       ↓
+RegularizeModal: enter corrected check-in + check-out + reason
+       ↓
+/attendance_regularizations/{id}  status: 'pending'
+       ↓
+Admin → Corrections tab → Approve or Reject (with reason)
+  Approve → attendance record created/updated; status 'present'; workingHours computed
+  Reject  → rejectionReason saved; employee can re-submit
+       ↓
+Employee notified (in-app bell + email)
+```
+
+### Calendar cell indicators
+
+- **`?` button** (navy, gold text): past working day that is absent or missing check-in/out — no pending request yet
+- **Amber dot** in cell corner: request is pending review
+- **Amber border** on cell: request pending
+- **Green background** on cell: request approved
+
+### Correction request history
+
+Below the calendar, a "My Correction Requests" section lists this month's requests with status pills. Rejected requests show an HR note and a "Submit a new request" link.
+
+### Admin Corrections tab
+
+Two-tab layout: **Daily View** (existing) + **Corrections** (new).
+
+Corrections tab:
+- Filter chips: Pending / Approved / Rejected / All
+- Each card: employee name, status pill, date, requested times, reason
+- Pending cards: **Approve** (green) + **Reject** (red, opens modal for reason)
+- Approve looks up existing attendance doc via `getDocs` query before calling `approveRegularization()`
+
+### Firestore rules (`/attendance_regularizations/{reqId}`)
+
+```
+allow read:   employee reads own OR admin/HR reads all
+allow create: employee for own records, status must be 'pending', date format validated
+allow update: admin/HR only (to approve/reject)
+allow delete: false
+```
+
+### Notification channels (attendance correction)
+
+| Action | In-app bell | Email |
+|---|---|---|
+| Correction approved | ✅ | ✅ |
+| Correction rejected | ✅ (+ reason) | ✅ (+ reason in note box) |
+
+### Payslip notification (added to Phase L)
+
+After `createPayslip()` succeeds, the page fires:
+- `writeNotification(employeeId, { type: 'leave_approved', title: 'Payslip ready — Month', ... })`
+- `sendHrEmailNotification` with net pay + working days in the detail table
+
+Both are fire-and-forget. Employee is directed to `/hrms/payslips`.
+
+---
+
 ## Known context for the build
 
 - Solo developer (Rahul) on this. Part-time alongside other Finvastra work.

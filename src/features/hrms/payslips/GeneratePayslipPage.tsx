@@ -187,6 +187,9 @@ export function GeneratePayslipPage() {
   // MIS payout suggestions: Map<userId, payoutAmount> for approved/paid payouts this month
   const [misPayouts,  setMisPayouts]  = useState<Map<string, number>>(new Map());
   const [misDismissed, setMisDismissed] = useState<Set<string>>(new Set());
+  // Encashment suggestions: map of employeeId → { amount, requestId }
+  const [encashAmounts,   setEncashAmounts]   = useState<Map<string, { amount: number; reqId: string }>>(new Map());
+  const [encashDismissed, setEncashDismissed] = useState<Set<string>>(new Set());
 
   // Build set of already-generated employeeIds for this month
   const generatedSet = useMemo<Set<string>>(() => {
@@ -329,6 +332,37 @@ export function GeneratePayslipPage() {
     }
 
     fetchMisPayouts();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMonth]);
+
+  // Fetch approved encashment requests for the selected payslip month
+  useEffect(() => {
+    if (!selectedMonth) return;
+    let cancelled = false;
+    async function fetchEncashment() {
+      try {
+        const snap = await getDocs(
+          query(
+            collection(db, 'leave_encashment_requests'),
+            where('month', '==', selectedMonth),
+            where('status', '==', 'approved'),
+          ),
+        );
+        const map = new Map<string, { amount: number; reqId: string }>();
+        for (const d of snap.docs) {
+          const data = d.data() as { employeeId?: string; totalAmount?: number };
+          if (data.employeeId && data.totalAmount) {
+            map.set(data.employeeId, { amount: data.totalAmount, reqId: d.id });
+          }
+        }
+        if (!cancelled) {
+          setEncashAmounts(map);
+          setEncashDismissed(new Set());
+        }
+      } catch { /* non-fatal */ }
+    }
+    fetchEncashment();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth]);
@@ -653,6 +687,39 @@ export function GeneratePayslipPage() {
                                     onClick={() => setMisDismissed((prev) => new Set([...prev, emp.userId]))}
                                     className="px-2 py-0.5 rounded border transition-opacity hover:opacity-80"
                                     style={{ borderColor: '#C9A961', color: '#92400E' }}
+                                  >
+                                    Dismiss
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          {/* Leave Encashment suggestion — approved encashment for this payroll month */}
+                          {(() => {
+                            const enc = encashAmounts.get(emp.userId);
+                            if (!enc || encashDismissed.has(emp.userId)) return null;
+                            return (
+                              <div className="mt-1.5 rounded-lg px-2 py-1.5 text-[10px] leading-tight"
+                                style={{ backgroundColor: '#F0FDF4', border: '1px solid #6EE7B7', color: '#065F46' }}>
+                                <p className="font-semibold">Leave Encashment Approved</p>
+                                <p>₹{enc.amount.toLocaleString('en-IN')} encashment for {emp.displayName}</p>
+                                <div className="flex gap-1.5 mt-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      updateField(emp.userId, 'otherAllowances', enc.amount);
+                                      setEncashDismissed((prev) => new Set([...prev, emp.userId]));
+                                    }}
+                                    className="px-2 py-0.5 rounded font-semibold transition-opacity hover:opacity-80"
+                                    style={{ backgroundColor: '#059669', color: '#FFFFFF' }}
+                                  >
+                                    Add ₹{enc.amount.toLocaleString('en-IN')}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEncashDismissed((prev) => new Set([...prev, emp.userId]))}
+                                    className="px-2 py-0.5 rounded border transition-opacity hover:opacity-80"
+                                    style={{ borderColor: '#6EE7B7', color: '#065F46' }}
                                   >
                                     Dismiss
                                   </button>

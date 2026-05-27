@@ -1,0 +1,50 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ─── HR Letters ───────────────────────────────────────────────────────────
+    // Admin / HR manager can upload; employee reads their own; admin/HR reads all.
+    match /hr-letters/{employeeId}/{fileName} {
+      allow read: if request.auth != null && (
+        request.auth.uid == employeeId
+        || request.auth.token.role == 'admin'
+        || request.auth.token.isHrmsManager == true
+      );
+      allow write: if request.auth != null && (
+        request.auth.token.role == 'admin'
+        || request.auth.token.isHrmsManager == true
+      );
+    }
+
+    // ─── Company Documents ────────────────────────────────────────────────────
+    // All employees can read (policies, handbooks, circulars).
+    // Only admin / HR manager can upload or delete.
+    match /company-documents/{allPaths=**} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && (
+        request.auth.token.role == 'admin'
+        || request.auth.token.isHrmsManager == true
+      );
+    }
+
+    // ─── Employee Documents ───────────────────────────────────────────────────
+    // Employee reads their own documents; admin / HR reads all.
+    // Admin / HR uploads on behalf of employees.
+    match /employee-documents/{employeeId}/{allPaths=**} {
+      allow read: if request.auth != null && (
+        request.auth.uid == employeeId
+        || request.auth.token.role == 'admin'
+        || request.auth.token.isHrmsManager == true
+      );
+      allow write: if request.auth != null && (
+        request.auth.token.role == 'admin'
+        || request.auth.token.isHrmsManager == true
+      );
+    }
+
+    // ─── Default deny ─────────────────────────────────────────────────────────
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

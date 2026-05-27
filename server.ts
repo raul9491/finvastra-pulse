@@ -1350,6 +1350,43 @@ async function startServer() {
     }
   });
 
+  // POST /api/admin/run-leave-year-reset
+  // Triggered on April 1 by Cloud Scheduler (OIDC auth). Manual trigger from admin UI.
+  // Accepts: Firebase admin token (dashboard) OR Cloud Scheduler OIDC token.
+  // Body: { year?: number }  — defaults to current FY start year.
+  app.post("/api/admin/run-leave-year-reset", async (req, res) => {
+    const fromScheduler = await verifySchedulerOIDC(req);
+    let callerUid  = "scheduler";
+    let callerName = "Cloud Scheduler";
+
+    if (!fromScheduler) {
+      const uid = await verifyFirebaseToken(req);
+      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+      const userSnap = await db.collection("users").doc(uid).get();
+      if (userSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+      callerUid  = uid;
+      callerName = userSnap.data()?.displayName ?? uid;
+    }
+
+    // Resolve target FY year — defaults to current FY year (April convention)
+    const { year: yearParam } = req.body ?? {};
+    const now = new Date();
+    const currentFyYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    const year = typeof yearParam === "number" && yearParam > 2020 ? yearParam : currentFyYear;
+
+    // Idempotency guard — prevent double reset
+    const resetSnap = await db.collection("leave_year_resets").doc(String(year)).get();
+    if (resetSnap.exists) {
+      return res.status(409).json({ error: `Year-end reset for FY ${year} already completed.` });
+    }
+
+    try {
+      const { runLeaveYearReset } = await import("./src/lib/leaveYearResetJob");
+      const result = await runLeaveYearReset(db, year, callerUid, callerName);
+      return res.json(result);
+    } catch (e) { return res.status(500).json({ error: String(e) }); }
+  });
+
   // ─── Public Application Tracker ──────────────────────────────────────────────
   // GET /api/track/:token — unauthenticated, returns minimal public-safe data
   app.get("/api/track/:token", async (req, res) => {

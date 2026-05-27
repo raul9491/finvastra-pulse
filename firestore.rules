@@ -187,12 +187,21 @@ service cloud.firestore {
 
     // ─── User details (personal data — private) ──────────────────────────────────
     // Contains phone, personal email, DOB, address, family info, last working date.
-    // Admin + HRMS manager can read all and write. Employee can read their own only.
+    // Admin + HRMS manager can read all and write all fields.
+    // Employees can read their own and update only 7 self-service fields:
+    //   phone, personalEmail, presentAddress, bloodGroup, emergencyContact* (3 fields), updatedAt.
     match /user_details/{userId} {
-      allow get:           if isAdmin() || isHrmsManager() || isOwner(userId);
-      allow list:          if isAdmin() || isHrmsManager();
-      allow create, update: if isAdmin() || isHrmsManager();
-      allow delete:         if false;
+      allow get:    if isAdmin() || isHrmsManager() || isOwner(userId);
+      allow list:   if isAdmin() || isHrmsManager();
+      allow create: if isAdmin() || isHrmsManager();
+      allow update: if isAdmin() || isHrmsManager() ||
+                       (isOwner(userId) &&
+                        incoming().diff(existing()).affectedKeys().hasOnly([
+                          'phone', 'personalEmail', 'presentAddress', 'bloodGroup',
+                          'emergencyContactName', 'emergencyContactPhone',
+                          'emergencyContactRelationship', 'updatedAt'
+                        ]));
+      allow delete: if false;
     }
 
     // ─── Employee profiles (HR data: PAN/bank/aadhaar compliance) ───────────────
@@ -833,6 +842,51 @@ service cloud.firestore {
       allow read: if isAdmin() || isHrmsManager()
                   || (isSignedIn() && resource.data.employeeId == request.auth.uid);
       allow create: if isAdmin() || isHrmsManager();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ─── Leave Year-End Reset records ────────────────────────────────────────
+    // Written by admin or Cloud Scheduler (server endpoint). One doc per FY year.
+    // Immutable once created — acts as a "done" flag for the year-end reset.
+    match /leave_year_resets/{year} {
+      allow read:   if isAdmin() || isHrmsManager();
+      allow create: if isAdmin() || isHrmsManager();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ─── Leave Encashment Requests ────────────────────────────────────────────
+    // Employees submit requests; admin/HR manager approves.
+    match /leave_encashment_requests/{docId} {
+      allow read:   if isAdmin() || isHrmsManager()
+                    || (isSignedIn() && resource.data.employeeId == request.auth.uid);
+      allow create: if isSignedIn()
+                    && request.resource.data.employeeId == request.auth.uid
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.leaveDays is number
+                    && request.resource.data.leaveDays >= 1
+                    && request.resource.data.leaveDays <= 30;
+      allow update: if isAdmin() || isHrmsManager();
+      allow delete: if false;
+    }
+
+    // ─── Generated HR Letters ─────────────────────────────────────────────────
+    // Written by admin when generating a letter. Employees can read their own.
+    match /generated_letters/{letterId} {
+      allow read:   if isAdmin() || isHrmsManager()
+                    || (isSignedIn() && resource.data.employeeId == request.auth.uid);
+      allow create: if isAdmin() || isHrmsManager();
+      allow update: if false;   // letters are immutable — generate a new revision instead
+      allow delete: if false;
+    }
+
+    // ─── Profile Update Logs ──────────────────────────────────────────────────
+    // Immutable audit log when employees update their own contact/emergency details.
+    match /profile_update_logs/{logId} {
+      allow read:   if isAdmin() || isHrmsManager();
+      allow create: if isSignedIn()
+                    && request.resource.data.employeeId == request.auth.uid;
       allow update: if false;
       allow delete: if false;
     }

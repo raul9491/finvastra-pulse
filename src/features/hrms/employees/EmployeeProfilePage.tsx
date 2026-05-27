@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, CheckCircle2, Clock, Pencil, X, Check, Laptop, Smartphone, Wifi, CreditCard, Package, Download, Mouse, CreditCard as IdCardIcon } from 'lucide-react';
-import { doc, getDoc, updateDoc, setDoc, serverTimestamp, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { ArrowLeft, ExternalLink, CheckCircle2, Clock, Pencil, X, Check, Laptop, Smartphone, Wifi, CreditCard, Package, Download, Mouse, CreditCard as IdCardIcon, UserCircle, FileText } from 'lucide-react';
+import { doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { format } from 'date-fns';
-import jsPDF from 'jspdf';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { CrmPerformanceWidget } from './CrmPerformanceWidget';
-import type { UserProfile, UserDetails, EmployeeProfile, Asset, AssetType } from '../../../types';
+import { useMyLetters } from '../hooks/useGeneratedLetters';
+import type { UserProfile, UserDetails, EmployeeProfile, Asset, AssetType, GeneratedLetter } from '../../../types';
 
 // ─── Employee Assets Section ──────────────────────────────────────────────────
 
@@ -321,134 +321,67 @@ function IdentityVerification({
   );
 }
 
-// ─── Appointment Letter PDF ───────────────────────────────────────────────────
+// ─── My Letters Section ───────────────────────────────────────────────────────
 
-function generateAppointmentLetter(profile: UserProfile, sensitive: SensitiveData | null) {
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const margin = 20;
-  const today = format(new Date(), 'dd MMMM yyyy');
+const LETTER_TYPE_LABELS: Record<string, string> = {
+  offer:               'Offer Letter',
+  appointment:         'Appointment Letter',
+  confirmation:        'Confirmation Letter',
+  increment:           'Salary Increment',
+  noc:                 'NOC',
+  salary_certificate:  'Salary Certificate',
+  experience:          'Experience Certificate',
+  relieving:           'Relieving Letter',
+};
 
-  // Letterhead
-  pdf.setFillColor(11, 21, 56);
-  pdf.rect(0, 0, pageWidth, 28, 'F');
-  pdf.setTextColor(201, 169, 97);
-  pdf.setFontSize(16);
-  pdf.setFont('helvetica', 'bold');
-  pdf.text('FINVASTRA', margin, 13);
-  pdf.setFontSize(8);
-  pdf.setFont('helvetica', 'normal');
-  pdf.setTextColor(200, 200, 200);
-  pdf.text('Finvastra Advisory Pvt. Ltd.', margin, 20);
+function MyLettersSection({ employeeUid }: { employeeUid: string }) {
+  const { letters, loading } = useMyLetters(employeeUid);
 
-  // Title
-  pdf.setTextColor(11, 21, 56);
-  pdf.setFontSize(14);
-  pdf.setFont('helvetica', 'bold');
-  pdf.text('APPOINTMENT LETTER', pageWidth / 2, 42, { align: 'center' });
-  pdf.setFontSize(9);
-  pdf.setFont('helvetica', 'normal');
-  pdf.setTextColor(100, 100, 100);
-  pdf.text(`Date: ${today}`, margin, 52);
+  if (loading) return <div className="h-24 bg-slate-100 rounded-2xl animate-pulse" />;
+  if (letters.length === 0) return null;   // no letters yet — section hidden
 
-  // Addressee
-  let y = 62;
-  pdf.setTextColor(30, 30, 30);
-  pdf.setFontSize(9);
-  pdf.text(`To,`, margin, y); y += 6;
-  pdf.setFont('helvetica', 'bold');
-  pdf.text(profile.displayName, margin, y); y += 6;
-  pdf.setFont('helvetica', 'normal');
-  if (profile.employeeId) { pdf.text(`Employee Code: ${profile.employeeId}`, margin, y); y += 6; }
-  y += 4;
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 p-6">
+      <h3 className="text-[10px] font-bold uppercase tracking-widest mb-4" style={{ color: '#8B8B85' }}>
+        My Letters
+      </h3>
+      <div className="space-y-1">
+        {letters.map((l) => (
+          <LetterLine key={l.id} letter={l} />
+        ))}
+      </div>
+    </div>
+  );
+}
 
-  // Salutation
-  pdf.text(`Dear ${profile.displayName},`, margin, y); y += 8;
-
-  // Body
-  const bodyLines = [
-    `We are pleased to appoint you as ${profile.designation ?? 'team member'} in the`,
-    `${profile.department ?? 'Finvastra'} department at Finvastra Advisory Pvt. Ltd., effective`,
-    `${profile.joiningDate ?? today}.`,
-    '',
-    'Your remuneration will be as follows:',
-  ];
-  for (const line of bodyLines) {
-    pdf.text(line, margin, y);
-    y += 6;
-  }
-  y += 2;
-
-  // Salary table
-  const rows: string[][] = [];
-  if (sensitive?.salaryBasic)      rows.push(['Basic Salary',         `₹ ${sensitive.salaryBasic.toLocaleString('en-IN')}/month`]);
-  if (sensitive?.salaryHra)        rows.push(['HRA',                  `₹ ${sensitive.salaryHra.toLocaleString('en-IN')}/month`]);
-  if (sensitive?.salaryConveyance) rows.push(['Conveyance Allowance', `₹ ${sensitive.salaryConveyance.toLocaleString('en-IN')}/month`]);
-  if (sensitive?.salaryMedical)    rows.push(['Medical Allowance',    `₹ ${sensitive.salaryMedical.toLocaleString('en-IN')}/month`]);
-  if (sensitive?.salaryOther)      rows.push(['Other Allowances',     `₹ ${sensitive.salaryOther.toLocaleString('en-IN')}/month`]);
-  if (sensitive?.grossSalary)      rows.push(['Gross Monthly CTC',    `₹ ${sensitive.grossSalary.toLocaleString('en-IN')}/month`]);
-
-  if (rows.length > 0) {
-    // Inline mini table
-    const col1 = margin;
-    const col2 = margin + 90;
-    pdf.setFillColor(245, 245, 245);
-    pdf.roundedRect(margin, y, pageWidth - 2 * margin, rows.length * 8 + 6, 2, 2, 'F');
-    y += 4;
-    pdf.setFontSize(8);
-    for (const [label, val] of rows) {
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(80, 80, 80);
-      pdf.text(label, col1 + 3, y + 4);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(30, 30, 30);
-      pdf.text(val, col2, y + 4);
-      y += 8;
-    }
-    y += 4;
-  }
-
-  // Continuation
-  pdf.setFontSize(9);
-  pdf.setFont('helvetica', 'normal');
-  pdf.setTextColor(30, 30, 30);
-  const closing = [
-    '',
-    'This appointment is subject to your satisfactory conduct, performance, and compliance with',
-    'the policies and terms of service as outlined in the Finvastra HR Handbook.',
-    '',
-    'Please sign and return a duplicate copy of this letter as your acceptance.',
-    '',
-    'We look forward to a productive and rewarding association with you.',
-    '',
-    'Welcome to the Finvastra family!',
-  ];
-  for (const line of closing) {
-    pdf.text(line, margin, y);
-    y += 6;
-  }
-
-  // Signatures
-  y += 10;
-  pdf.line(margin, y, margin + 65, y);
-  pdf.line(pageWidth / 2, y, pageWidth / 2 + 65, y);
-  y += 5;
-  pdf.setFontSize(8);
-  pdf.setTextColor(100, 100, 100);
-  pdf.text('Authorized Signatory', margin, y);
-  pdf.text('Employee Signature', pageWidth / 2, y);
-  y += 4;
-  pdf.text('Finvastra Advisory Pvt. Ltd.', margin, y);
-
-  // Footer
-  const footerY = pdf.internal.pageSize.getHeight() - 10;
-  pdf.setFontSize(7);
-  pdf.setTextColor(150, 150, 150);
-  pdf.text('Finvastra Advisory Pvt. Ltd. | pulse.finvastra.com | Confidential', pageWidth / 2, footerY, { align: 'center' });
-
-  const safeName = profile.displayName.replace(/\s+/g, '_');
-  const dateStr = profile.joiningDate ?? format(new Date(), 'yyyy-MM-dd');
-  pdf.save(`AppointmentLetter_${profile.employeeId ?? 'EMP'}_${safeName}_${dateStr}.pdf`);
+function LetterLine({ letter: l }: { letter: GeneratedLetter }) {
+  const d = l.generatedAt?.toDate?.();
+  return (
+    <div className="flex items-center gap-3 py-2 border-b border-slate-100 last:border-0">
+      <FileText size={14} style={{ color: '#8B8B85', flexShrink: 0 }} />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate" style={{ color: '#0A0A0A' }}>
+          {LETTER_TYPE_LABELS[l.letterType] ?? l.letterType}
+        </p>
+        <p className="text-xs" style={{ color: '#8B8B85' }}>
+          {l.refNumber}{d ? ` · ${format(d, 'd MMM yyyy')}` : ''}
+        </p>
+      </div>
+      {l.storageUrl ? (
+        <button
+          onClick={() => window.open(l.storageUrl!, '_blank')}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-200 hover:bg-slate-50 transition-colors shrink-0"
+          style={{ color: '#0B1538' }}
+          title="Open / download PDF"
+        >
+          <Download size={12} />
+          PDF
+        </button>
+      ) : (
+        <span className="text-xs shrink-0" style={{ color: '#8B8B85' }}>—</span>
+      )}
+    </div>
+  );
 }
 
 // ─── Edit Profile Modal ───────────────────────────────────────────────────────
@@ -734,6 +667,151 @@ function ProfileCompletionBanner({
   );
 }
 
+// ─── EditMyDetailsModal — employee self-service (7 fields) ───────────────────
+
+interface EditMyDetailsModalProps {
+  userId:     string;
+  empName:    string;
+  details:    UserDetails | null;
+  onSave:     (updated: Partial<UserDetails>) => void;
+  onClose:    () => void;
+}
+
+function EditMyDetailsModal({ userId, empName, details, onSave, onClose }: EditMyDetailsModalProps) {
+  const [phone,       setPhone]       = useState(details?.phone ?? '');
+  const [email,       setEmail]       = useState(details?.personalEmail ?? '');
+  const [address,     setAddress]     = useState(details?.presentAddress ?? '');
+  const [bloodGroup,  setBloodGroup]  = useState(details?.bloodGroup ?? '');
+  const [ecName,      setEcName]      = useState(details?.emergencyContactName ?? '');
+  const [ecPhone,     setEcPhone]     = useState(details?.emergencyContactPhone ?? '');
+  const [ecRel,       setEcRel]       = useState(details?.emergencyContactRelationship ?? '');
+
+  const [saving,      setSaving]      = useState(false);
+  const [error,       setError]       = useState('');
+
+  const inp = 'w-full text-sm px-3.5 py-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-navy/10 focus:border-navy bg-white transition-colors';
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError('');
+    const updated: Record<string, unknown> = {
+      phone:                        phone.trim() || undefined,
+      personalEmail:                email.trim() || undefined,
+      presentAddress:               address.trim() || undefined,
+      bloodGroup:                   bloodGroup.trim() || undefined,
+      emergencyContactName:         ecName.trim() || undefined,
+      emergencyContactPhone:        ecPhone.trim() || undefined,
+      emergencyContactRelationship: ecRel.trim() || undefined,
+      updatedAt:                    serverTimestamp(),
+    };
+    try {
+      const ref = doc(db, 'user_details', userId);
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        await updateDoc(ref, updated as Record<string, unknown>);
+      } else {
+        await setDoc(ref, updated);
+      }
+      // Audit log
+      await addDoc(collection(db, 'profile_update_logs'), {
+        employeeId:  userId,
+        employeeName: empName,
+        updatedAt:   serverTimestamp(),
+        fields:      Object.keys(updated).filter((k) => k !== 'updatedAt'),
+      });
+      onSave(updated as Partial<UserDetails>);
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-5 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <UserCircle size={18} style={{ color: '#0B1538' }} />
+            <h3 className="text-base font-semibold" style={{ color: '#0A0A0A' }}>Edit My Details</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+            <X size={16} style={{ color: '#8B8B85' }} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {error && (
+            <div className="p-3 rounded-xl text-sm bg-red-50 border border-red-200" style={{ color: '#DC2626' }}>{error}</div>
+          )}
+
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-[0.3em] mb-3" style={{ color: '#C9A961' }}>
+              Contact Information
+            </p>
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-mute">Personal Mobile</label>
+                <input className={inp} placeholder="10-digit mobile number" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-mute">Personal Email</label>
+                <input type="email" className={inp} placeholder="personal@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-mute">Present Address</label>
+                <textarea className={`${inp} resize-none`} rows={2} placeholder="Current residential address" value={address} onChange={(e) => setAddress(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-mute">Blood Group</label>
+                <select className={inp} value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)}>
+                  <option value="">— Not specified —</option>
+                  {['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−'].map((bg) => (
+                    <option key={bg} value={bg}>{bg}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-[0.3em] mb-3" style={{ color: '#C9A961' }}>
+              Emergency Contact
+            </p>
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-mute">Full Name</label>
+                <input className={inp} placeholder="Emergency contact name" value={ecName} onChange={(e) => setEcName(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-mute">Phone</label>
+                  <input className={inp} placeholder="Mobile number" value={ecPhone} onChange={(e) => setEcPhone(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-mute">Relationship</label>
+                  <input className={inp} placeholder="e.g. Spouse, Parent" value={ecRel} onChange={(e) => setEcRel(e.target.value)} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 p-5 border-t border-slate-100">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium border border-slate-200 hover:bg-slate-50 transition-colors">
+            Cancel
+          </button>
+          <button onClick={handleSave} disabled={saving}
+            className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-opacity"
+            style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
+            {saving ? 'Saving…' : <><Check size={14} /> Save Changes</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── EmployeeProfilePage ──────────────────────────────────────────────────────
 
 export function EmployeeProfilePage() {
@@ -744,7 +822,8 @@ export function EmployeeProfilePage() {
   const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.isHrmsManager === true;
   const isOwnProfile = currentUser?.userId === userId;
 
-  const [editingProfile, setEditingProfile] = useState(false);
+  const [editingProfile,   setEditingProfile]   = useState(false);
+  const [editingMyDetails, setEditingMyDetails] = useState(false);
 
   const { profile, loading }            = useEmployee(userId);
   const [localProfile, setLocalProfile] = useState<UserProfile | null>(null);
@@ -801,16 +880,28 @@ export function EmployeeProfilePage() {
               {displayProfile.employeeId ?? '—'} · {displayProfile.designation ?? '—'} · {displayProfile.department ?? '—'}
             </p>
           </div>
-          {isAdminOrHr && (
-            <button
-              onClick={() => setEditingProfile(true)}
-              className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg border transition-colors hover:bg-slate-50 shrink-0"
-              style={{ borderColor: '#E2E8F0', color: '#2A2A2A' }}
-            >
-              <Pencil size={14} />
-              Edit details
-            </button>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {isOwnProfile && (
+              <button
+                onClick={() => setEditingMyDetails(true)}
+                className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg border transition-colors hover:bg-slate-50"
+                style={{ borderColor: '#C9A961', color: '#0B1538' }}
+              >
+                <UserCircle size={14} />
+                Edit My Details
+              </button>
+            )}
+            {isAdminOrHr && (
+              <button
+                onClick={() => setEditingProfile(true)}
+                className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg border transition-colors hover:bg-slate-50"
+                style={{ borderColor: '#E2E8F0', color: '#2A2A2A' }}
+              >
+                <Pencil size={14} />
+                Edit details
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -843,17 +934,41 @@ export function EmployeeProfilePage() {
         } />
       </Section>
 
-      {/* Contact — official email visible to all; personal contact only for admin/HR */}
+      {/* Contact — official email visible to all; personal contact to admin/HR or own profile */}
       <Section title="Contact">
         <FieldRow label="Official Email" value={displayProfile.email || null} />
-        {isAdminOrHr && (
+        {(isAdminOrHr || isOwnProfile) && !detLoading && (
           <>
-            <FieldRow label="Phone"         value={details?.phone ?? null} />
-            <FieldRow label="Official Phone"value={details?.officialPhone ?? null} />
-            <FieldRow label="Personal Email"value={details?.personalEmail ?? null} />
+            <FieldRow label="Personal Mobile" value={details?.phone ?? null} />
+            <FieldRow label="Personal Email"  value={details?.personalEmail ?? null} />
+            {isAdminOrHr && (
+              <FieldRow label="Official Phone" value={details?.officialPhone ?? null} />
+            )}
           </>
         )}
       </Section>
+
+      {/* Emergency Contact — visible to admin/HR and to the employee on their own profile */}
+      {(isAdminOrHr || isOwnProfile) && !detLoading && (
+        details?.emergencyContactName ? (
+          <Section title="Emergency Contact">
+            <FieldRow label="Name"         value={details.emergencyContactName ?? null} />
+            <FieldRow label="Phone"        value={details.emergencyContactPhone ?? null} />
+            <FieldRow label="Relationship" value={details.emergencyContactRelationship ?? null} />
+          </Section>
+        ) : isOwnProfile ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between gap-3">
+            <p className="text-sm" style={{ color: '#92400E' }}>
+              ⚠️ No emergency contact on file. Please add one for HR records.
+            </p>
+            <button onClick={() => setEditingMyDetails(true)}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg shrink-0 transition-colors hover:bg-amber-100"
+              style={{ color: '#92400E', border: '1px solid #FCD34D' }}>
+              Add Now
+            </button>
+          </div>
+        ) : null
+      )}
 
       {/* Personal Details — admin / HRMS manager only */}
       {isAdminOrHr && (
@@ -929,26 +1044,12 @@ export function EmployeeProfilePage() {
       {/* Assigned Assets — admin/HR manager only */}
       {isAdminOrHr && userId && <EmployeeAssetsSection employeeUid={userId} />}
 
-      {/* HR Letters — admin/HR manager only */}
-      {isAdminOrHr && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <h3 className="text-[10px] font-bold uppercase tracking-widest mb-4" style={{ color: '#8B8B85' }}>
-            HR Letters
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => generateAppointmentLetter(displayProfile, sensitive)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium hover:bg-slate-50 transition-colors"
-              style={{ color: '#0B1538' }}
-            >
-              <Download size={13} />
-              Appointment Letter
-            </button>
-          </div>
-        </div>
+      {/* My Letters — employee sees own letters; admin/HR sees any employee's letters */}
+      {(isOwnProfile || isAdminOrHr) && userId && (
+        <MyLettersSection employeeUid={userId} />
       )}
 
-      {/* Edit personal & salary modal */}
+      {/* Edit personal & salary modal (admin) */}
       {editingProfile && userId && displayProfile && (
         <EditProfileModal
           profile={displayProfile}
@@ -959,6 +1060,17 @@ export function EmployeeProfilePage() {
           onSaveDetails={(updated) => setDetails((prev) => ({ ...prev, ...updated }))}
           onSaveSensitive={(updated) => setSensitive((prev) => ({ ...prev, ...updated }))}
           onClose={() => setEditingProfile(false)}
+        />
+      )}
+
+      {/* Edit my details modal (employee self-service) */}
+      {editingMyDetails && userId && (
+        <EditMyDetailsModal
+          userId={userId}
+          empName={displayProfile.displayName}
+          details={details}
+          onSave={(updated) => setDetails((prev) => ({ ...prev, ...updated }))}
+          onClose={() => setEditingMyDetails(false)}
         />
       )}
     </div>

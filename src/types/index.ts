@@ -101,6 +101,10 @@ export interface UserDetails {
   bloodGroup?: string;
   fatherMotherName?: string;
   spouseName?: string;
+  // Emergency contact — self-service editable by the employee themselves
+  emergencyContactName?:         string;
+  emergencyContactPhone?:        string;
+  emergencyContactRelationship?: string;
   updatedAt?: import('firebase/firestore').Timestamp;
 }
 
@@ -253,6 +257,58 @@ export interface LeaveBalance {
   // Optional: only present when comp off has been allocated. Existing docs without this field
   // continue to work — the balance edit modal initialises it to 0 if missing.
   comp_off?: { total: number; used: number; remaining: number };
+}
+
+// ─── Leave Year-End Reset ─────────────────────────────────────────────────────
+
+/** Summary record written to /leave_year_resets/{year} when a year-end reset completes. */
+export interface LeaveYearReset {
+  year:               number;
+  resetAt:            import('firebase/firestore').Timestamp;
+  resetBy:            string;   // uid
+  resetByName:        string;
+  employeesProcessed: number;
+  errorCount:         number;
+  notes:              string | null;
+}
+
+/** Immutable audit entry written to /leave_balance_adjustments/{id} on every balance change. */
+export interface LeaveBalanceAdjustment {
+  employeeId:      string;
+  year:            number;
+  type:            'year_end_reset' | 'manual_adjustment' | 'comp_off_grant' | 'encashment';
+  prevYear?:       number;
+  elCarryForward?: number;
+  before:          Record<string, { total: number; used: number; remaining: number }> | null;
+  after:           Record<string, { total: number; used: number; remaining: number }>;
+  adjustedBy:      string;
+  adjustedByName:  string;
+  adjustedAt:      import('firebase/firestore').Timestamp;
+  notes:           string | null;
+}
+
+// ─── Leave Encashment Requests ────────────────────────────────────────────────
+
+export type EncashmentStatus = 'pending' | 'approved' | 'rejected' | 'paid';
+
+export interface LeaveEncashmentRequest {
+  id:              string;
+  employeeId:      string;
+  employeeName:    string;
+  leaveDays:       number;    // days being encashed
+  dailyRate:       number;    // ₹ (grossSalary / 26)
+  grossSalary:     number;    // ₹ gross monthly salary as entered by employee
+  totalAmount:     number;    // leaveDays × dailyRate
+  reason:          string;
+  month:           string;    // YYYY-MM — payroll month for which this should be processed
+  status:          EncashmentStatus;
+  submittedAt:     import('firebase/firestore').Timestamp;
+  approvedBy:      string | null;
+  approvedAt:      import('firebase/firestore').Timestamp | null;
+  rejectionReason: string | null;
+  paidAt:          import('firebase/firestore').Timestamp | null;
+  paymentReference: string | null;
+  notes:           string | null;
 }
 
 // ─── Attendance ─────────────────────────────────────────────────────────────
@@ -1277,6 +1333,32 @@ export interface HrTicket {
   resolvedBy: string | null;
   resolutionNotes: string | null;
   adminNotes: string | null;  // internal notes visible only to admin
+}
+
+// ─── HR Letters ─────────────────────────────────────────────────────────────
+
+/** Mirror of the LetterType union in letterPdf.ts — kept in sync manually. */
+export type LetterType =
+  | 'offer'
+  | 'appointment'
+  | 'confirmation'
+  | 'increment'
+  | 'noc'
+  | 'salary_certificate'
+  | 'experience'
+  | 'relieving';
+
+export interface GeneratedLetter {
+  id:              string;
+  letterType:      LetterType;
+  employeeId:      string;
+  employeeName:    string;
+  refNumber:       string;
+  generatedBy:     string;
+  generatedByName: string;
+  generatedAt:     import('firebase/firestore').Timestamp;
+  storageUrl:      string | null;
+  storageStatus:   'uploading' | 'uploaded' | 'failed' | null;
 }
 
 // ─── Toast ─────────────────────────────────────────────────────────────────

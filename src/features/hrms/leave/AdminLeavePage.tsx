@@ -12,17 +12,23 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { format } from 'date-fns';
+import { Coins, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import {
   usePendingApprovals,
   approveLeave,
   rejectLeave,
 } from '../hooks/useLeave';
+import {
+  useAllEncashmentRequests,
+  approveEncashmentRequest,
+  rejectEncashmentRequest,
+} from '../hooks/useLeaveEncashment';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { db } from '../../../lib/firebase';
-import type { LeaveApplication, LeaveBalance, LeaveStatus, LeaveType } from '../../../types';
+import type { LeaveApplication, LeaveBalance, LeaveStatus, LeaveType, LeaveEncashmentRequest } from '../../../types';
 
 // ─── Status pill ─────────────────────────────────────────────────────────────
 
@@ -850,12 +856,165 @@ function BalancesTab({ employees, actorUid, actorName }: BalancesTabProps) {
 
 // ─── AdminLeavePage ───────────────────────────────────────────────────────────
 
-type TabId = 'pending' | 'all' | 'balances';
+// ─── EncashmentTab ────────────────────────────────────────────────────────────
+
+function EncashmentTab({ actorUid }: { actorUid: string }) {
+  const { requests, loading } = useAllEncashmentRequests();
+  const [actionId,  setActionId]  = useState<string | null>(null);
+  const [rejReason, setRejReason] = useState('');
+  const [showRej,   setShowRej]   = useState<string | null>(null);
+  const [busy,      setBusy]      = useState<string | null>(null);
+  const [toast,     setToast]     = useState('');
+
+  const pendingRequests = requests.filter((r) => r.status === 'pending');
+  const otherRequests   = requests.filter((r) => r.status !== 'pending');
+
+  const handleApprove = async (id: string) => {
+    setBusy(id);
+    try {
+      await approveEncashmentRequest(id, actorUid);
+      setToast('Encashment request approved.');
+    } catch { setToast('Failed to approve.'); }
+    finally { setBusy(null); }
+  };
+
+  const handleReject = async (id: string) => {
+    if (!rejReason.trim()) return;
+    setBusy(id);
+    try {
+      await rejectEncashmentRequest(id, actorUid, rejReason.trim());
+      setShowRej(null);
+      setRejReason('');
+      setToast('Encashment request rejected.');
+    } catch { setToast('Failed to reject.'); }
+    finally { setBusy(null); }
+  };
+
+  const toTs = (ts: any): Date | null => ts?.toDate?.() ?? null;
+
+  return (
+    <div className="p-6 space-y-5">
+      {toast && (
+        <div className="flex items-center gap-2 p-3 rounded-xl" style={{ backgroundColor: '#F0FDF4' }}>
+          <CheckCircle2 size={14} style={{ color: '#059669' }} />
+          <p className="text-sm" style={{ color: '#065F46' }}>{toast}</p>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="h-12 bg-slate-100 rounded-xl animate-pulse" />)}</div>
+      ) : pendingRequests.length === 0 && otherRequests.length === 0 ? (
+        <div className="py-10 text-center">
+          <Coins size={32} className="mx-auto mb-3 text-slate-200" />
+          <p className="text-sm text-mute">No encashment requests yet.</p>
+        </div>
+      ) : (
+        <>
+          {pendingRequests.length > 0 && (
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#92400E' }}>
+                Pending ({pendingRequests.length})
+              </h4>
+              <div className="space-y-3">
+                {pendingRequests.map((r) => (
+                  <div key={r.id} className="p-4 rounded-2xl border border-amber-200 bg-amber-50/40">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-ink">{r.employeeName}</p>
+                        <p className="text-xs text-mute mt-0.5">
+                          {r.leaveDays} day{r.leaveDays !== 1 ? 's' : ''} · ₹{r.dailyRate.toLocaleString('en-IN')}/day · Total: <strong>₹{r.totalAmount.toLocaleString('en-IN')}</strong>
+                        </p>
+                        <p className="text-xs text-mute">Month: {r.month} · "{r.reason}"</p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button onClick={() => handleApprove(r.id)} disabled={busy === r.id}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                          style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}>
+                          Approve
+                        </button>
+                        <button onClick={() => { setShowRej(r.id); setRejReason(''); }} disabled={busy === r.id}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                          style={{ backgroundColor: '#FEE2E2', color: '#991B1B' }}>
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                    {showRej === r.id && (
+                      <div className="mt-3 flex gap-2">
+                        <input className="flex-1 text-sm px-3 py-1.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-red-200"
+                          placeholder="Rejection reason…" value={rejReason} onChange={(e) => setRejReason(e.target.value)} />
+                        <button onClick={() => handleReject(r.id)} disabled={!rejReason.trim() || busy === r.id}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                          style={{ backgroundColor: '#DC2626', color: '#FFFFFF' }}>
+                          Confirm
+                        </button>
+                        <button onClick={() => setShowRej(null)} className="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 hover:bg-slate-50">
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {otherRequests.length > 0 && (
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#475569' }}>
+                Processed
+              </h4>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    {['Employee', 'Month', 'Days', 'Amount', 'Status', 'Date'].map((h) => (
+                      <th key={h} className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-mute">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {otherRequests.slice(0, 20).map((r) => {
+                    const d = toTs(r.approvedAt);
+                    const statusCfg: Record<string, { label: string; color: string; bg: string }> = {
+                      approved: { label: 'Approved', color: '#065F46', bg: '#D1FAE5' },
+                      rejected: { label: 'Rejected', color: '#991B1B', bg: '#FEE2E2' },
+                      paid:     { label: 'Paid',     color: '#1D4ED8', bg: '#DBEAFE' },
+                    };
+                    const cfg = statusCfg[r.status] ?? { label: r.status, color: '#374151', bg: '#F3F4F6' };
+                    return (
+                      <tr key={r.id} className="border-b border-slate-50">
+                        <td className="px-3 py-2.5 font-medium text-ink">{r.employeeName}</td>
+                        <td className="px-3 py-2.5 text-mute">{r.month}</td>
+                        <td className="px-3 py-2.5 text-mute">{r.leaveDays}</td>
+                        <td className="px-3 py-2.5 font-semibold">₹{r.totalAmount.toLocaleString('en-IN')}</td>
+                        <td className="px-3 py-2.5">
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                            style={{ color: cfg.color, backgroundColor: cfg.bg }}>{cfg.label}</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-mute text-xs">{d ? format(d, 'd MMM yyyy') : '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+type TabId = 'pending' | 'all' | 'balances' | 'encashment';
 
 export function AdminLeavePage() {
   const { user, profile } = useAuth();
   const { employees }     = useAllEmployees();
   const [activeTab, setActiveTab] = useState<TabId>('pending');
+
+  // Must be called unconditionally — before any early returns (Rules of Hooks)
+  const { requests: encashPending } = useAllEncashmentRequests();
+  const pendingEncashCount = encashPending.filter((r) => r.status === 'pending').length;
 
   // Guard: admin or HRMS manager only
   if (profile?.role !== 'admin' && !profile?.isHrmsManager) {
@@ -896,17 +1055,24 @@ export function AdminLeavePage() {
         {/* Tab bar */}
         <div className="flex border-b border-slate-100">
           {([
-            ['pending',  'Pending Approvals'],
-            ['all',      'All Applications'],
-            ['balances', 'Balances'],
+            ['pending',    'Pending Approvals'],
+            ['all',        'All Applications'],
+            ['balances',   'Balances'],
+            ['encashment', 'Encashment'],
           ] as [TabId, string][]).map(([t, label]) => (
             <button
               key={t}
               onClick={() => setActiveTab(t)}
-              className="px-6 py-4 text-sm transition-colors"
+              className="relative px-6 py-4 text-sm transition-colors"
               style={tabStyle(t)}
             >
               {label}
+              {t === 'encashment' && pendingEncashCount > 0 && (
+                <span className="absolute top-2 right-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none"
+                  style={{ backgroundColor: '#DC2626', color: '#FFFFFF' }}>
+                  {pendingEncashCount}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -932,6 +1098,9 @@ export function AdminLeavePage() {
             isAdmin={profile?.role === 'admin'}
             isHrmsManager={!!profile?.isHrmsManager}
           />
+        )}
+        {activeTab === 'encashment' && (
+          <EncashmentTab actorUid={user?.uid ?? ''} />
         )}
       </div>
     </div>

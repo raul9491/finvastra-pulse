@@ -8,7 +8,7 @@ import {
   Settings, LogOut, LayoutGrid, ClipboardList, FileText, UserPlus, Inbox,
   ReceiptText, FolderOpen, Megaphone, Building2, Calculator,
   Laptop, UserMinus, Lock, FileSearch2, GraduationCap, TrendingUp, Briefcase, BookOpen, LifeBuoy,
-  CalendarRange, BookUser,
+  CalendarRange, BookUser, Network, RotateCcw, ScrollText,
 } from 'lucide-react';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -18,6 +18,8 @@ import { useUnreadAnnouncementCount, getUnseenHolidayCount } from '../../feature
 import { useHolidays } from '../../features/hrms/hooks/useHolidays';
 import { useMyItDeclaration, usePendingItDeclarationCount, currentFinancialYear } from '../../features/hrms/hooks/useItDeclarations';
 import { useOverdueComplianceCount } from '../../features/hrms/compliance/ComplianceCalendarPage';
+import { useLeaveYearResetBadge } from '../../features/hrms/hooks/useLeaveYearReset';
+import { usePendingEncashmentCount } from '../../features/hrms/hooks/useLeaveEncashment';
 import { useBirthdayEmployees } from '../../features/hrms/hooks/useBirthdayEmployees';
 import { useWorkAnniversaries } from '../../features/hrms/hooks/useWorkAnniversaries';
 import { useProbationBadge } from '../../features/hrms/hooks/useProbation';
@@ -106,6 +108,7 @@ const NAV: NavEntry[] = [
   { path: '/hrms/documents',      label: 'Documents',      icon: FolderOpen,      live: true },
   { path: '/hrms/announcements',   label: 'Announcements',  icon: Megaphone,       live: true },
   { path: '/hrms/it-declaration',  label: 'IT Declaration', icon: FileSearch2,     live: true },
+  { path: '/hrms/org-chart',       label: 'Org Chart',      icon: Network,         live: true },
   { path: '/hrms/performance',     label: 'My Review',      icon: TrendingUp,      live: true },
   { path: '/hrms/training',        label: 'My Training',    icon: BookOpen,        live: true },
   { path: '/hrms/hr-helpdesk',     label: 'HR Helpdesk',    icon: LifeBuoy,        live: true },
@@ -118,6 +121,8 @@ const ADMIN_NAV: NavEntry[] = [
   { path: '/hrms/admin/attendance',        label: 'Attendance',           icon: Clock,         live: true },
   { path: '/hrms/leave/admin',             label: 'Leave Approvals',      icon: ClipboardList, live: true },
   { path: '/hrms/admin/comp-off',          label: 'Comp Off Credits',     icon: CalendarDays,  live: true },
+  { path: '/hrms/admin/leave-year-end',    label: 'Year-End Reset',       icon: RotateCcw,     live: true },
+  { path: '/hrms/admin/letters',           label: 'HR Letters',           icon: ScrollText,    live: true },
   { path: '/hrms/admin/holidays',          label: 'Manage Holidays',      icon: CalendarDays,  live: true },
   { path: '/hrms/admin/payslips',          label: 'Generate Payslips',    icon: FileText,      live: true },
   { path: '/hrms/admin/claims',            label: 'Claims',               icon: ReceiptText,   live: true },
@@ -184,6 +189,9 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/admin/probation':       'Probation Management',
   '/hrms/admin/offboarding':     'Offboarding & FnF',
   '/hrms/admin/permissions':     'Permission Manager',
+  '/hrms/org-chart':             'Organisation Chart',
+  '/hrms/admin/leave-year-end':  'Leave Year-End Reset',
+  '/hrms/admin/letters':         'HR Letter Generator',
 };
 
 function FullPageLoader() {
@@ -210,6 +218,8 @@ export function HrmsShell() {
   // defaults and set up no subscriptions, so they're cheap when not needed.
   const pendingRequests     = usePendingRequestCount(isAdmin);
   const unreadAnnouncements = useUnreadAnnouncementCount(user?.uid ?? '');
+  const leaveResetBadge     = useLeaveYearResetBadge(isAdmin || isHrmsManager);
+  const pendingEncashCount  = usePendingEncashmentCount(isAdmin || isHrmsManager);
   const overdueCompliance   = useOverdueComplianceCount(isAdmin || isHrmsManager);
   const onboardingBadge     = useOnboardingBadge(isAdmin || isHrmsManager);
   const offboardingBadge    = useOffboardingBadge(isAdmin || isHrmsManager);
@@ -367,6 +377,8 @@ export function HrmsShell() {
               {ADMIN_NAV.map(({ path, label, icon: Icon }) => {
                 const badge =
                   path === '/hrms/admin/access-requests' && !onAccessRequestsPage ? pendingRequests       :
+                  path === '/hrms/leave/admin'                                     ? pendingEncashCount    :
+                  path === '/hrms/admin/leave-year-end'                            ? leaveResetBadge       :
                   path === '/hrms/admin/it-declarations'                           ? itDeclAdminBadge      :
                   path === '/hrms/admin/performance'                               ? pendingReviewCount    :
                   path === '/hrms/admin/training'                                  ? trainingAdminBadge    :

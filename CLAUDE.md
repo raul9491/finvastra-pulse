@@ -1302,6 +1302,160 @@ Employee reopens → sets reopenRequested: true (HR sees flag in admin panel)
 - `computeTotalDeductions(c80, d80, homeLoan, edu, lta)` → sum of all applicable deductions
 - `computeTaxSaving(total)` → `round(total × 0.30)` — indicative only
 
+## Phase F — Leave Policy Fixes + New Leave Types (2026-05-27)
+
+HR Handbook alignment. All changes are deterministic code — no AI/LLM.
+
+| Change | Detail |
+|---|---|
+| **Leave balances corrected** | Fallback defaults updated: CL→8, SL→7 (HR Handbook values). EL→15 was already correct. |
+| **Saturday now a working day** | `calculateWorkingDays` in `useLeave.ts` uses `d.getDay() !== 0` instead of `isWeekend()`. Mon–Sat is the Finvastra work week. |
+| **Compensatory Off** | Added `comp_off` to `LeaveType`, `LeaveBalance.comp_off?` (optional so existing docs work), balance editor, `ApplyLeavePage`, `AdminLeavePage.TYPE_LABELS`, `LeavePage` balance card |
+| **Maternity Leave** | Added `maternity` to `LeaveType` and `ApplyLeavePage` dropdown only. No balance tracking needed (statutory). |
+
+Files changed: `src/types/index.ts`, `src/features/hrms/hooks/useLeave.ts`, `src/features/hrms/leave/ApplyLeavePage.tsx`, `src/features/hrms/leave/AdminLeavePage.tsx`, `src/features/hrms/leave/LeavePage.tsx`
+
+---
+
+## Phase G — Leave Year-End Reset, HR Letters, Self-Service Profile, Leave Encashment, Org Chart (2026-05-27)
+
+Five new HRMS features. All deterministic rule-based code — no AI/LLM anywhere.
+
+| Feature | Status | Files |
+|---|---|---|
+| **Leave Year-End Reset** | ✅ Complete | `src/lib/leaveYearResetJob.ts`, `src/features/hrms/hooks/useLeaveYearReset.ts`, `src/features/hrms/leave/LeaveYearEndPage.tsx` |
+| **HR Letter Generator** | ✅ Complete | `src/features/hrms/letters/letterPdf.ts`, `src/features/hrms/letters/HrLetterGeneratorPage.tsx` |
+| **Employee Self-Service Profile** | ✅ Complete | `EditMyDetailsModal` inside `src/features/hrms/employees/EmployeeProfilePage.tsx` |
+| **Leave Encashment Request** | ✅ Complete | `src/features/hrms/hooks/useLeaveEncashment.ts`, tabs added in `LeavePage.tsx` + `AdminLeavePage.tsx`, suggestion banner in `GeneratePayslipPage.tsx` |
+| **Organisation Chart** | ✅ Complete | `src/features/hrms/orgchart/OrgChartPage.tsx` |
+| **Navigation + Router** | ✅ Complete | `HrmsShell.tsx` + `src/router.tsx` |
+
+### Leave Year-End Reset
+
+**Path**: `/hrms/admin/leave-year-end`  
+**Access**: admin + isHrmsManager  
+**Server endpoint**: `POST /api/admin/run-leave-year-reset` — accepts OIDC or Firebase admin token; idempotent (409 if already done).
+
+**Reset rules (FY April–March):**
+- CL → 8 (fresh, no carry-forward)
+- SL → 7 (fresh, no carry-forward)
+- EL → `min(previousYearRemaining, 30) + 15` (carry-forward capped at 30)
+- Comp Off → 0 (new doc has no `comp_off` field; optional field so existing docs unaffected)
+
+**FY year** = April onwards: current calendar year; Jan–Mar: previous year. `currentFyYear()` in `useLeaveYearReset.ts`.
+
+**HrmsShell badge**: red `1` on "Year-End Reset" nav item if current FY's `/leave_year_resets/{year}` doc doesn't exist yet.
+
+**Cloud Scheduler job**: `leave-year-end-reset` — **already created** in `asia-south1`, fires `0 1 1 4 *` (April 1 at 01:00 UTC). Next run: 2027-04-01.
+
+```bash
+# Job already exists. To view or modify:
+gcloud scheduler jobs describe leave-year-end-reset --location=asia-south1
+
+# To run manually outside of April 1 (e.g. for FY 2026 if not yet run):
+gcloud scheduler jobs run leave-year-end-reset --location=asia-south1
+
+# Original creation command (for reference):
+gcloud scheduler jobs create http leave-year-end-reset \
+  --location=asia-south1 \
+  --schedule="0 1 1 4 *" \
+  --uri="https://pulse-api-787616231546.asia-south1.run.app/api/admin/run-leave-year-reset" \
+  --oidc-service-account-email="787616231546-compute@developer.gserviceaccount.com" \
+  --http-method=POST \
+  --headers="Content-Type=application/json" \
+  --message-body='{}'
+```
+
+**Firestore collections added:**
+```
+/leave_year_resets/{year}
+  year, resetAt, resetBy, resetByName, employeesProcessed, errorCount, notes
+
+/leave_balance_adjustments/{id}
+  employeeId, year, leaveType, oldTotal, newTotal, delta, reason
+  adjustedBy, adjustedByName, adjustedAt
+```
+
+### HR Letter Generator
+
+**Path**: `/hrms/admin/letters`  
+**Access**: admin + isHrmsManager  
+**Collection**: `/generated_letters/{id}` (log only; no PDF stored — generated on demand)
+
+**Four letter types:**
+
+| Type | Ref prefix | Key fields |
+|---|---|---|
+| Appointment | `FV/APT/{YEAR}/{seq}` | designation, department, salary, joining date |
+| Increment | `FV/INC/{YEAR}/{seq}` | new CTC, effective date, new designation (optional) |
+| Experience | `FV/EXP/{YEAR}/{seq}` | from date, to date, last designation |
+| Relieving | `FV/REL/{YEAR}/{seq}` | LWD, exit reason |
+
+PDF format: navy letterhead header, gold rule, ref + date, letter body, dual signature block (employee + HR/Management), CIN footer.
+
+### Employee Self-Service Profile Updates
+
+7 fields employees can edit on their own profile (all via `/user_details/{userId}`):
+- **Contact**: phone, personalEmail
+- **Address**: presentAddress  
+- **Health**: bloodGroup
+- **Emergency contact**: name, phone, relationship
+
+Firestore rule: `affectedKeys().hasOnly([phone, personalEmail, presentAddress, bloodGroup, emergencyContactName, emergencyContactPhone, emergencyContactRelationship, updatedAt])`. Sensitive fields (DOB, gender, PAN, permanentAddress) remain admin-only.
+
+Every self-service update is logged to `/profile_update_logs/{id}` for audit.
+
+### Leave Encashment Request
+
+**Collection**: `/leave_encashment_requests/{id}`  
+**Constraints**: EL only, min 1 day, max 30 days per request.
+
+**Status lifecycle**: `pending` → `approved` / `rejected` → `paid`
+
+**Employee flow** (LeavePage "Encashment" section):
+- Form: days, gross salary, payroll month, reason
+- Shows estimated amount = `days × (grossSalary / 26)`
+- History table with status pills
+
+**Admin flow** (AdminLeavePage "Encashment" tab):
+- Pending card: approve / reject with reason
+- Processed table: last 20 with status
+
+**GeneratePayslipPage**: gold suggestion banner per employee row when an `approved` encashment exists for the selected month. "Add ₹X" pre-fills Other Allowances; "Dismiss" hides for the session.
+
+**HrmsShell badge**: pending encashment count shown on "Leave Approvals" admin nav item.
+
+### Organisation Chart
+
+**Path**: `/hrms/org-chart`  
+**Access**: all authenticated employees (read-only)  
+**Data source**: `managerId` field on `/users/{uid}` docs (active employees only).
+
+- Root: Ajay Newatia (FAPL-000, UID `3zdX5QBnTbQAcTdLzUjfXxefP8r2`)
+- Employees with no/invalid `managerId` attach directly under root
+- Max depth: 10 (guards against circular references in bad data)
+- Collapse/expand per node (chevron button below each card); Expand All / Collapse All buttons
+- Department filter (dropdown + legend chips): shows subtree containing matching employees, preserving ancestor chain
+- Each card: avatar initial (or photo), name, designation, emp code, department badge in dept colour
+- No external chart library — pure CSS flexbox tree
+
+**Dept colours** (matching left-border accent on cards):
+
+| Department | Colour |
+|---|---|
+| Management | gold `#C9A961` |
+| Business Development & Client Relations | blue `#3B82F6` |
+| Digital Marketing | purple `#8B5CF6` |
+| Human Resources | pink `#EC4899` |
+| Finance & Accounts | green `#10B981` |
+| Technology | amber `#F59E0B` |
+| Operations | cyan `#06B6D4` |
+| Admin & Facilities | indigo `#6366F1` |
+| Housekeeping | lime `#84CC16` |
+| Consultant | orange `#F97316` |
+
+---
+
 ## Authentication rules
 
 - **Only `@finvastra.com` Google Workspace accounts** may log in. Enforced in `onAuthStateChanged` (hard block) — not just the Google picker hint. Personal Gmail addresses are blocked even if they somehow reach the auth flow.
@@ -1326,6 +1480,93 @@ Employee reopens → sets reopenRequested: true (HR sees flag in admin panel)
 - Seed script: `npm run seed:emulator` — run **once** after `npm run dev:emulators`. Creates all 22 employee Auth accounts + Firestore profiles.
 - `emulator-data/` is gitignored except `.gitkeep`. Never commit emulator data.
 - Admin in emulator: `rahulv@finvastra.com` — created by seed script with temp password `Finvastra@2026`.
+
+## Phase H — HR Letter Generator Extension + Firebase Storage (2026-05-27)
+
+8 letter types covering the full employee lifecycle. PDFs stored in Firebase Storage and downloadable from two places.
+
+| Feature | Status | Files |
+|---|---|---|
+| **4 new letter types (total: 8)** | ✅ Complete | `src/features/hrms/letters/letterPdf.ts` |
+| **Firebase Storage upload flow** | ✅ Complete | `src/features/hrms/letters/HrLetterGeneratorPage.tsx` |
+| **Download button in admin letters table** | ✅ Complete | `src/features/hrms/letters/HrLetterGeneratorPage.tsx` |
+| **`useMyLetters` / `useAllLetters` hooks** | ✅ Complete | `src/features/hrms/hooks/useGeneratedLetters.ts` |
+| **`GeneratedLetter` type + `LetterType`** | ✅ Complete | `src/types/index.ts` |
+| **"My Letters" section on Employee Profile** | ✅ Complete | `src/features/hrms/employees/EmployeeProfilePage.tsx` |
+| **`storage.rules`** | ✅ Complete | `storage.rules` (new file) |
+| **`firebase.json` storage section** | ✅ Complete | `firebase.json` |
+
+### 8 Letter Types
+
+| # | Type | Ref prefix | When used |
+|---|---|---|---|
+| 1 | **Offer Letter** | `FV/OFR/YYYY/NNN` | Pre-joining candidate |
+| 2 | **Appointment Letter** | `FV/APT/YYYY/NNN` | Formal appointment on joining |
+| 3 | **Confirmation Letter** | `FV/CON/YYYY/NNN` | End of probation |
+| 4 | **Salary Increment** | `FV/INC/YYYY/NNN` | Annual/mid-year revision |
+| 5 | **NOC** | `FV/NOC/YYYY/NNN` | Bank loan, passport, part-time study |
+| 6 | **Salary / CTC Certificate** | `FV/SAL/YYYY/NNN` | Bank loan, visa application |
+| 7 | **Experience Certificate** | `FV/EXP/YYYY/NNN` | Post-exit proof of employment |
+| 8 | **Relieving Letter** | `FV/REL/YYYY/NNN` | Separation + exit |
+
+### Generate flow (changed from Phase G)
+
+| Step | What happens |
+|---|---|
+| 1 | jsPDF builds PDF → `pdf.output('arraybuffer')` → `ArrayBuffer` |
+| 2 | Upload to Firebase Storage: `hr-letters/{employeeId}/{FV_TYPE_YEAR_SEQ_Name.pdf}` |
+| 3 | `getDownloadURL()` returns permanent URL |
+| 4 | Save to `/generated_letters/{id}` with `storageUrl: url, storageStatus: 'uploaded'` |
+| 5 | `window.open(url)` opens PDF in new tab |
+
+### `generateLetterPdf()` return type change
+
+`letterPdf.ts`: `generateLetterPdf()` now returns `ArrayBuffer` (not `jsPDF`). Callers never call `pdf.save()` directly — the page handles upload + `window.open`.
+
+### Download access points
+
+- **HR admin** (`/hrms/admin/letters`): Recent Letters table has a **PDF** download button on every row with a `storageUrl`.
+- **Employee profile** (`/hrms/employees/{uid}`): "My Letters" section visible to the employee themselves + admin + isHrmsManager. Lists all letters with ref number, date, and **PDF** button.
+
+### `GeneratedLetter` schema additions
+
+```
+storageUrl:    string | null    // Firebase Storage permanent download URL
+storageStatus: 'uploading' | 'uploaded' | 'failed' | null
+```
+
+### Firebase Storage rules (`storage.rules`)
+
+```
+match /hr-letters/{employeeId}/{fileName} {
+  allow read:  employee reads own OR admin/isHrmsManager
+  allow write: admin/isHrmsManager only
+}
+match /company-documents/{allPaths=**} {
+  allow read:  all authenticated employees
+  allow write: admin/isHrmsManager only
+}
+match /employee-documents/{employeeId}/{allPaths=**} {
+  allow read:  employee reads own OR admin/isHrmsManager
+  allow write: admin/isHrmsManager only
+}
+```
+
+### Storage setup (one-time — required before first letter upload)
+
+Firebase Storage must be initialised via the Firebase Console before `storage.rules` can be deployed:
+
+1. Go to https://console.firebase.google.com/project/gen-lang-client-0643641184/storage
+2. Click **Get Started** → choose **Start in production mode** → select `asia-south1` region
+3. Then run: `firebase deploy --only storage`
+
+### Removed
+
+- `generateAppointmentLetter()` function in `EmployeeProfilePage.tsx` — replaced by the full HR Letters page + profile download section.
+- `jsPDF` import from `EmployeeProfilePage.tsx` — no longer needed.
+- Local `GeneratedLetter` interface in `HrLetterGeneratorPage.tsx` — moved to `src/types/index.ts`.
+
+---
 
 ## Known context for the build
 

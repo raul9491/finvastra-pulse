@@ -1424,6 +1424,73 @@ async function startServer() {
     }
   );
 
+  // ─── CRM Document Vault Upload ──────────────────────────────────────────────
+  // POST /api/crm/documents/upload
+  //
+  // WHY server-side: same named-Firestore-DB problem as HR letters — Storage rules
+  // cannot cross-read named databases, so client SDK uploads would be blocked.
+  // Admin SDK upload bypasses Storage rules entirely; role is verified in Express.
+  //
+  // Body: { opportunityId: string, filename: string, base64Data: string, contentType: string }
+  // Returns: { ok: true, downloadUrl: string, storagePath: string }
+  app.post("/api/crm/documents/upload",
+    express.json({ limit: "12mb" }),
+    async (req, res) => {
+      // 1. Auth
+      const uid = await verifyFirebaseToken(req);
+      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+
+      // 2. Role check — admin OR any user with crmAccess
+      const callerSnap = await db.collection("users").doc(uid).get();
+      const callerData = callerSnap.data();
+      if (!callerData) return res.status(403).json({ error: "User not found" });
+      const isAdmin   = callerData.role === "admin";
+      const hasCrmAccess = callerData.crmAccess === true;
+      if (!isAdmin && !hasCrmAccess) {
+        return res.status(403).json({ error: "CRM access required" });
+      }
+
+      // 3. Validate body
+      const { opportunityId, filename, base64Data, contentType } = req.body as {
+        opportunityId?: string;
+        filename?:      string;
+        base64Data?:    string;
+        contentType?:   string;
+      };
+      if (!opportunityId || !filename || !base64Data) {
+        return res.status(400).json({ error: "Missing fields: opportunityId, filename, base64Data" });
+      }
+
+      // 4. Sanitise filename and prepend UUID to prevent collisions
+      const safeName   = filename.replace(/[^a-zA-Z0-9._\-() ]/g, '_').slice(0, 200);
+      const uniqueName = `${crypto.randomUUID()}_${safeName}`;
+      const filePath   = `crm-documents/${opportunityId}/${uniqueName}`;
+
+      try {
+        const STORAGE_BUCKET = "gen-lang-client-0643641184.firebasestorage.app";
+        const buffer   = Buffer.from(base64Data, "base64");
+        const bucket   = getStorage().bucket(STORAGE_BUCKET);
+        const fileRef  = bucket.file(filePath);
+        const dlToken  = crypto.randomUUID();
+
+        await fileRef.save(buffer, {
+          contentType:  contentType || "application/octet-stream",
+          resumable:    false,
+          metadata: { metadata: { firebaseStorageDownloadTokens: dlToken } },
+        });
+
+        const encodedPath = encodeURIComponent(filePath);
+        const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/${encodedPath}?alt=media&token=${dlToken}`;
+
+        return res.json({ ok: true, downloadUrl, storagePath: filePath });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("[crm/documents/upload] Storage save failed:", msg);
+        return res.status(500).json({ error: `Upload failed: ${msg}` });
+      }
+    }
+  );
+
   // ─── Scheduled Jobs API ─────────────────────────────────────────────────────
   // All three endpoints are triggered daily by Cloud Scheduler (HTTP target).
   // Manual admin trigger also available from the dashboard.

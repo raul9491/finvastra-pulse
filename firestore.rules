@@ -967,5 +967,21 @@ service cloud.firestore {
                     && request.resource.data.read == true;
       allow delete: if false;
     }
+
+    // ─── CRM: Document Vault ─────────────────────────────────────────────────
+    // Opportunity-level file attachments (bank statements, ITR scans, ID proof…).
+    // Writes go through POST /api/crm/documents/upload (Admin SDK) — write: false.
+    // Soft-delete (deleted: true) allowed by the owner or admin.
+    // No hard deletes — permanent audit trail.
+    match /crm_documents/{docId} {
+      allow read:   if isAdmin() || hasCrmAccess();
+      allow create: if isAdmin() || hasCrmAccess();
+      // Only allow soft-deletes — only `deleted`, `deletedAt`, `deletedBy` may change.
+      allow update: if (isAdmin() || (hasCrmAccess() && resource.data.uploadedBy == request.auth.uid))
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['deleted', 'deletedAt', 'deletedBy'])
+                    && request.resource.data.deleted == true;
+      allow delete: if false;
+    }
   }
 }

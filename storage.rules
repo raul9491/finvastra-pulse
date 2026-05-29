@@ -31,6 +31,20 @@ service firebase.storage {
       allow write: if false; // server-only (Admin SDK)
     }
 
+    // ─── CRM Document Vault ───────────────────────────────────────────────────
+    //
+    // Opportunity-level attachments (bank statements, ITR, ID proof, etc.).
+    // Uploads go through POST /api/crm/documents/upload (Admin SDK) so write is
+    // set to false here.  Reads: admin or any user with CRM access (token claim).
+    // Token-based download URLs bypass these rules entirely for direct downloads.
+    match /crm-documents/{opportunityId}/{fileName} {
+      allow read: if request.auth != null && (
+        request.auth.token.role == 'admin'
+        || request.auth.token.crmAccess == true
+      );
+      allow write: if false; // server-only (Admin SDK)
+    }
+
     // ─── Company Documents ────────────────────────────────────────────────────
     // All employees can read (policies, handbooks, circulars).
     // Only admin / HR manager can upload. Relies on custom claims.

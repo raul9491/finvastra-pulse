@@ -1474,6 +1474,29 @@ export interface AttendanceRegularization {
   submittedAt:          any;
 }
 
+// ─── CRM Document Vault ────────────────────────────────────────────────────
+// Files attached to an opportunity: PDFs, scans, bank statements, ITR, etc.
+// Stored in Firebase Storage at crm-documents/{opportunityId}/{uuid}_{name}.
+// Firestore log at /crm_documents/{docId}.
+
+export interface CrmDocument {
+  id:              string;
+  opportunityId:   string;
+  leadId:          string;
+  originalName:    string;       // original filename as uploaded
+  storagePath:     string;       // full GCS path, for admin reference
+  storageUrl:      string;       // permanent token-based download URL
+  fileSize:        number;       // bytes
+  contentType:     string;       // MIME type
+  docTypeId:       string | null; // optional link to /document_types
+  uploadedBy:      string;       // uid
+  uploadedByName:  string;
+  uploadedAt:      any;          // Timestamp
+  deleted:         boolean;
+  deletedAt:       any;          // Timestamp | null
+  deletedBy:       string | null;
+}
+
 // ─── Toast ─────────────────────────────────────────────────────────────────
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';

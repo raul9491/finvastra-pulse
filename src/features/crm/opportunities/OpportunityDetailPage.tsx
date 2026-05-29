@@ -10,6 +10,7 @@ import { BankSubmissionsSection } from './loans/BankSubmissionsSection';
 import { BankEligibilityCard } from './BankEligibilityCard';
 import { WealthInvestmentsSection } from './wealth/WealthInvestmentsSection';
 import { InsurancePoliciesSection } from './insurance/InsurancePoliciesSection';
+import { CrmDocumentVault } from './CrmDocumentVault';
 import type { OpportunityType, ActivityType, LostReason, LostDetails } from '../../../types';
 import { LOST_REASON_LABELS } from '../../../types';
 
@@ -377,6 +378,13 @@ export function OpportunityDetailPage() {
           loading={stageLoading}
         />
       )}
+
+      {/* Document vault — shared across all opportunity types */}
+      <CrmDocumentVault
+        opportunityId={oppId!}
+        leadId={leadId!}
+        canWrite={canAct}
+      />
 
       {/* Activity timeline */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6">

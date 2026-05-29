@@ -112,9 +112,12 @@ export interface ReferralLeadValues {
 }
 
 /**
- * Creates a lead with source='employee_referral'. After Firestore write, pushes a
- * new_referral notification to every active lead_generator so they see incoming
- * employee referrals in their queue.
+ * @deprecated DO NOT USE — was setting primaryOwnerId to the submitter's own UID
+ * (an HRMS employee, not a CRM RM), so leads went to nobody's queue.
+ *
+ * Replaced by POST /api/leads/referral/submit which uses workload-aware assignment.
+ * SubmitReferralPage now calls that endpoint directly.
+ * Kept here only so ImportReferralsPage (bulk CSV) can be migrated separately.
  */
 export async function createReferralLead(
   values: ReferralLeadValues,
@@ -122,55 +125,28 @@ export async function createReferralLead(
   displayName: string,
 ): Promise<string> {
   const now = serverTimestamp();
-  const tags: string[] = values.productInterest
-    ? [values.productInterest]
-    : [];
+  const tags: string[] = values.productInterest ? [values.productInterest] : [];
 
   const ref = await addDoc(collection(db, 'leads'), {
-    displayName:     values.displayName,
-    phone:           values.phone,
-    ...(values.email ? { email: values.email } : {}),
-    source:          'employee_referral',
-    referredBy:      uid,
+    displayName:      values.displayName,
+    phone:            values.phone,
+    ...(values.email  ? { email: values.email }   : {}),
+    ...(values.notes  ? { notes: values.notes }   : {}),
+    source:           'employee_referral',
+    referredBy:       uid,
+    referredByName:   displayName,
     tags,
-    primaryOwnerId:  uid,
-    consentGiven:    true,
+    // BUG WAS HERE: primaryOwnerId was uid (submitter), not an RM.
+    // This function is deprecated — use /api/leads/referral/submit instead.
+    primaryOwnerId:   'UNASSIGNED',
+    consentGiven:     true,
     consentTimestamp: now,
-    consentMethod:   values.consentMethod,
-    createdAt:       now,
-    createdBy:       uid,
-    updatedAt:       now,
-    deleted:         false,
+    consentMethod:    values.consentMethod,
+    createdAt:        now,
+    createdBy:        uid,
+    updatedAt:        now,
+    deleted:          false,
   });
-
-  // Notify all active lead_generators about the new referral.
-  // Non-fatal — the lead is already created above; notification failure is logged only.
-  try {
-    const genSnap = await getDocs(
-      query(
-        collection(db, 'users'),
-        where('crmRole', '==', 'lead_generator'),
-        where('employeeStatus', '==', 'active'),
-      ),
-    );
-    if (!genSnap.empty) {
-      const batch = writeBatch(db);
-      for (const genDoc of genSnap.docs) {
-        const notifRef = doc(collection(db, 'notifications', genDoc.id, 'items'));
-        batch.set(notifRef, {
-          type:        'new_referral',
-          leadId:      ref.id,
-          leadName:    values.displayName,
-          submittedBy: displayName,
-          createdAt:   now,
-          read:        false,
-        });
-      }
-      await batch.commit();
-    }
-  } catch (err) {
-    console.warn('[createReferralLead] notification batch failed (non-fatal):', err);
-  }
 
   return ref.id;
 }

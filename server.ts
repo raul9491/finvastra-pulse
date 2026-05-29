@@ -3122,6 +3122,123 @@ async function startServer() {
     }
   });
 
+  // ─── POST /api/leads/referral/submit — Employee referral lead intake ─────────
+  //
+  // Called by SubmitReferralPage when an HRMS employee submits a referral.
+  // Uses workload-aware assignment so the lead lands in a real RM's queue.
+  //
+  // WHY server-side: the client-side createReferralLead() was setting
+  // primaryOwnerId = referrer's own UID (an HRMS employee, not an RM), so leads
+  // went nowhere. Server handles assignment correctly.
+  //
+  // Auth: Firebase ID token in Authorization header.
+  // Body: { displayName, phone, email?, productInterest?, notes?, consentMethod }
+  app.post("/api/leads/referral/submit", async (req, res) => {
+    const uid = await verifyFirebaseToken(req);
+    if (!uid) return res.status(401).json({ error: "Unauthorized" });
+
+    const { displayName, phone, email, productInterest, notes, consentMethod } =
+      req.body as Record<string, unknown>;
+
+    // Validate required fields
+    if (!displayName || typeof displayName !== "string" || displayName.trim().length < 2) {
+      return res.status(400).json({ error: "displayName must be at least 2 characters" });
+    }
+    if (!phone || typeof phone !== "string") {
+      return res.status(400).json({ error: "phone is required" });
+    }
+    const validConsentMethods = ["verbal", "written", "digital", "offline_collection"];
+    if (!consentMethod || !validConsentMethods.includes(String(consentMethod))) {
+      return res.status(400).json({ error: "valid consentMethod is required" });
+    }
+
+    // Normalise phone
+    const normPhone = normaliseIndianPhone(String(phone));
+    if (!normPhone) {
+      return res.status(400).json({ error: `Invalid Indian mobile number: '${phone}'` });
+    }
+
+    // Duplicate check
+    const dupSnap = await db.collection("leads")
+      .where("phone", "==", normPhone)
+      .where("deleted", "==", false)
+      .limit(1)
+      .get();
+    if (!dupSnap.empty) {
+      return res.json({ ok: true, duplicate: true, leadId: dupSnap.docs[0].id });
+    }
+
+    // Workload-aware assignment to a lead_generator
+    const assignedTo = await workloadAwareAssign();
+
+    // SLA: 24 hours for employee referrals
+    const slaDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    // Get referrer's display name for the notification
+    let referrerName = "An employee";
+    try {
+      const referrerSnap = await db.collection("users").doc(uid).get();
+      referrerName = referrerSnap.data()?.displayName ?? referrerName;
+    } catch { /* non-fatal */ }
+
+    const tags: string[] = productInterest && typeof productInterest === "string" && productInterest.trim()
+      ? [productInterest.trim()]
+      : [];
+
+    const leadRef = db.collection("leads").doc();
+    await leadRef.set({
+      displayName:      displayName.trim(),
+      phone:            normPhone,
+      ...(email && typeof email === "string" && email.trim() ? { email: email.trim() } : {}),
+      ...(notes && typeof notes === "string" && notes.trim()  ? { notes: notes.trim() } : {}),
+      source:           "employee_referral",
+      referredBy:       uid,
+      referredByName:   referrerName,
+      tags,
+      primaryOwnerId:   assignedTo,
+      consentGiven:     true,
+      consentMethod:    String(consentMethod),
+      consentTimestamp: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt:        admin.firestore.FieldValue.serverTimestamp(),
+      createdBy:        `referral:${uid}`,
+      updatedAt:        admin.firestore.FieldValue.serverTimestamp(),
+      deleted:          false,
+      slaDeadline:      admin.firestore.Timestamp.fromDate(slaDeadline),
+    });
+
+    // Notify the assigned RM (and all generators so anyone can action if RM misses it)
+    try {
+      const genSnap = await db.collection("users")
+        .where("crmRole", "==", "lead_generator")
+        .where("crmAccess", "==", true)
+        .where("employeeStatus", "==", "active")
+        .get();
+
+      if (!genSnap.empty) {
+        const batch = db.batch();
+        for (const genDoc of genSnap.docs) {
+          const notifRef = db.collection("notifications").doc(genDoc.id).collection("items").doc();
+          batch.set(notifRef, {
+            type:        "new_referral",
+            title:       `New referral — ${displayName.trim()}`,
+            body:        `Referred by ${referrerName}${tags.length ? ` · ${tags[0]}` : ""}`,
+            link:        `/crm/leads/${leadRef.id}`,
+            leadId:      leadRef.id,
+            leadName:    displayName.trim(),
+            submittedBy: referrerName,
+            createdAt:   admin.firestore.FieldValue.serverTimestamp(),
+            read:        false,
+          });
+        }
+        await batch.commit();
+      }
+    } catch (e) {
+      console.warn("[referral/submit] notification batch failed (non-fatal):", e);
+    }
+
+    return res.json({ ok: true, duplicate: false, leadId: leadRef.id, assignedTo });
+  });
+
   // ─── Webhook logs read API ────────────────────────────────────────────────────
   // GET /api/admin/webhook-logs — returns latest 20 entries, admin only.
   // Firestore rules deny client access; this endpoint acts as the proxy.

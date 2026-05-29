@@ -181,7 +181,9 @@
       "PowerShell(gcloud logging read \"resource.type=cloud_run_revision AND resource.labels.service_name=pulse-api AND textPayload:hr-letters\" --limit=20 --region=asia-south1 --format=\"value\\(timestamp,textPayload\\)\" 2>&1)",
       "PowerShell(gcloud logging read \"resource.type=cloud_run_revision AND resource.labels.service_name=pulse-api\" --limit=30 --format=\"value\\(timestamp,textPayload,jsonPayload.message\\)\" 2>&1)",
       "PowerShell(gcloud logging read \"resource.type=cloud_run_revision AND resource.labels.service_name=pulse-api AND timestamp>2026-05-27T13:25:00Z\" --limit=50 --format=\"value\\(timestamp,textPayload\\)\" 2>&1)",
-      "PowerShell(gcloud logging read \"resource.type=cloud_run_revision\" --limit=50 --format=\"value\\(timestamp,textPayload\\)\" 2>&1)"
+      "PowerShell(gcloud logging read \"resource.type=cloud_run_revision\" --limit=50 --format=\"value\\(timestamp,textPayload\\)\" 2>&1)",
+      "Bash(gcloud run *)",
+      "PowerShell(gcloud run services update pulse-api --image asia-south1-docker.pkg.dev/gen-lang-client-0643641184/cloud-run-source-deploy/pulse-api:latest --region asia-south1 --quiet 2>&1)"
     ],
     "additionalDirectories": [
       "\\tmp"

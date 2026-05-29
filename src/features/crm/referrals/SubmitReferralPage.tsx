@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
+import { getAuth } from 'firebase/auth';
 import { useAuth } from '../../auth/AuthContext';
-import { createReferralLead } from '../hooks/useLeads';
 
 // ─── Form validation helpers (CLAUDE.md standard) ────────────────────────────
 
@@ -93,22 +93,37 @@ export function SubmitReferralPage() {
     setSubmitting(true);
 
     try {
-      await createReferralLead(
-        {
+      const idToken = await getAuth().currentUser?.getIdToken();
+      if (!idToken) throw new Error('Not authenticated — please sign in again.');
+
+      const res = await fetch('/api/leads/referral/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
           displayName:     form.displayName.trim(),
           phone:           form.phone.trim(),
-          ...(form.email.trim()          ? { email:           form.email.trim() }          : {}),
+          ...(form.email.trim()           ? { email:           form.email.trim() }           : {}),
           ...(form.productInterest.trim() ? { productInterest: form.productInterest.trim() } : {}),
-          ...(form.notes.trim()          ? { notes:           form.notes.trim() }          : {}),
-          consentMethod: form.consentMethod as 'verbal' | 'written' | 'digital' | 'offline_collection',
-        },
-        user!.uid,
-        profile?.displayName ?? 'An employee',
-      );
+          ...(form.notes.trim()           ? { notes:           form.notes.trim() }           : {}),
+          consentMethod: form.consentMethod,
+        }),
+      });
+
+      const data = await res.json() as { ok?: boolean; duplicate?: boolean; error?: string };
+
+      if (!res.ok) throw new Error(data.error ?? `Server error (${res.status})`);
+
+      if (data.duplicate) {
+        setServerError('This phone number already exists as a lead in CRM. No duplicate created.');
+        return;
+      }
+
       setSuccess(true);
     } catch (err) {
-      console.error('[SubmitReferralPage] error:', err);
-      setServerError('Failed to submit lead. Please try again.');
+      setServerError(err instanceof Error ? err.message : 'Failed to submit lead. Please try again.');
     } finally {
       setSubmitting(false);
     }

@@ -456,6 +456,17 @@ service cloud.firestore {
       allow write:  if false;  // server-only (Admin SDK bypasses rules)
     }
 
+    // ─── Import Logs (bulk data imports from Data Import page) ──────────────────
+    // Written by admin client after each successful import. Read by admin only.
+    match /import_logs/{logId} {
+      allow read:   if isAdmin();
+      allow create: if isAdmin() &&
+                       request.resource.data.keys().hasAll(['importType','filename','rowCount','importedBy','importedAt']) &&
+                       request.resource.data.importedBy == request.auth.uid;
+      allow update: if false;
+      allow delete: if false;
+    }
+
     // ─── Import Jobs ─────────────────────────────────────────────────────────────
     match /import_jobs/{jobId} {
       // Triggering user can read their own job's progress; admin sees all

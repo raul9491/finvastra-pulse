@@ -87,7 +87,7 @@ function generateOfferLetter(
   pdf.setFontSize(8);
   pdf.setFont('helvetica', 'normal');
   pdf.setTextColor(200, 200, 200);
-  pdf.text('Finvastra Advisory Pvt. Ltd.', M, 20);
+  pdf.text('Finvastra Advisors Private Limited', M, 20);
 
   pdf.setTextColor(11, 21, 56);
   pdf.setFontSize(14);
@@ -115,7 +115,7 @@ function generateOfferLetter(
   const dept = opening?.department ?? candidate.openingTitle;
   const lines = [
     `We are pleased to extend this offer of employment for the position of`,
-    `${candidate.openingTitle} in the ${dept} department at Finvastra Advisory Pvt. Ltd.`,
+    `${candidate.openingTitle} in the ${dept} department at Finvastra Advisors Private Limited.`,
     '',
     `Your expected date of joining is ${joiningDate ? format(new Date(joiningDate), 'dd MMMM yyyy') : 'to be confirmed'}.`,
     '',
@@ -158,12 +158,12 @@ function generateOfferLetter(
   pdf.text('Authorized Signatory', M, y);
   pdf.text('Candidate Acceptance', W / 2, y);
   y += 4;
-  pdf.text('Finvastra Advisory Pvt. Ltd.', M, y);
+  pdf.text('Finvastra Advisors Private Limited', M, y);
 
   const footerY = pdf.internal.pageSize.getHeight() - 10;
   pdf.setFontSize(7);
   pdf.setTextColor(150, 150, 150);
-  pdf.text('Finvastra Advisory Pvt. Ltd. | pulse.finvastra.com | Confidential', W / 2, footerY, { align: 'center' });
+  pdf.text('Finvastra Advisors Private Limited | pulse.finvastra.com | Confidential', W / 2, footerY, { align: 'center' });
 
   const safeName = candidate.name.replace(/\s+/g, '_');
   pdf.save(`OfferLetter_${safeName}_${joiningDate ?? 'TBD'}.pdf`);

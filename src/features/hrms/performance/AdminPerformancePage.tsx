@@ -386,7 +386,7 @@ function downloadIncrementLetter(review: PerformanceReview): void {
 
   // Header
   doc.setFontSize(18); doc.setFont('helvetica', 'bold'); doc.setTextColor(11, 21, 56);
-  doc.text('FINVASTRA FINANCIAL ADVISORY PVT. LTD.', pageW / 2, y, { align: 'center' });
+  doc.text('FINVASTRA ADVISORS PRIVATE LIMITED', pageW / 2, y, { align: 'center' });
   y += 6;
   doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(139, 139, 133);
   doc.text('Hyderabad · pulse.finvastra.com', pageW / 2, y, { align: 'center' });
@@ -472,7 +472,7 @@ function downloadIncrementLetter(review: PerformanceReview): void {
   doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(42, 42, 42);
   doc.text('Yours sincerely,', 20, y); y += 15;
   doc.setFont('helvetica', 'bold');
-  doc.text('For Finvastra Financial Advisory Pvt. Ltd.', 20, y); y += 5;
+  doc.text('For Finvastra Advisors Private Limited', 20, y); y += 5;
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(139, 139, 133);
   doc.text('Human Resources', 20, y); y += 22;
 

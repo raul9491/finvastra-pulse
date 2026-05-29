@@ -339,7 +339,7 @@ function generateFnFPdf(checklist: OffboardingChecklist) {
   pdf.setFontSize(7);
   pdf.setTextColor(150, 150, 150);
   pdf.text(
-    'Finvastra Advisory Pvt. Ltd. | pulse.finvastra.com | Confidential — For HR Use Only',
+    'Finvastra Advisors Private Limited | pulse.finvastra.com | Confidential — For HR Use Only',
     pageWidth / 2,
     footerY,
     { align: 'center' }
@@ -370,7 +370,7 @@ function generateExperienceLetter(checklist: OffboardingChecklist, profile: User
   pdf.setFontSize(8);
   pdf.setFont('helvetica', 'normal');
   pdf.setTextColor(200, 200, 200);
-  pdf.text('Finvastra Advisory Pvt. Ltd.', margin, 20);
+  pdf.text('Finvastra Advisors Private Limited', margin, 20);
 
   // Title
   pdf.setTextColor(11, 21, 56);
@@ -403,8 +403,8 @@ function generateExperienceLetter(checklist: OffboardingChecklist, profile: User
   const empCode = profile.employeeId ? ` (${profile.employeeId})` : '';
 
   const paragraphs = [
-    `This is to certify that ${name}${empCode} was employed with Finvastra Advisory`,
-    `Pvt. Ltd. as ${desig} in the ${dept} department from ${joining} to ${lwd}.`,
+    `This is to certify that ${name}${empCode} was employed with Finvastra Advisors`,
+    `Private Limited as ${desig} in the ${dept} department from ${joining} to ${lwd}.`,
     '',
     `During ${name.split(' ')[0]}'s tenure with us, they demonstrated professionalism,`,
     'commitment, and a positive work ethic. They consistently contributed to the team',
@@ -426,13 +426,13 @@ function generateExperienceLetter(checklist: OffboardingChecklist, profile: User
   pdf.setTextColor(60, 60, 60);
   pdf.text('Authorized Signatory', margin, y);
   y += 5;
-  pdf.text('Finvastra Advisory Pvt. Ltd.', margin, y);
+  pdf.text('Finvastra Advisors Private Limited', margin, y);
 
   // Footer
   const footerY = pdf.internal.pageSize.getHeight() - 10;
   pdf.setFontSize(7);
   pdf.setTextColor(150, 150, 150);
-  pdf.text('Finvastra Advisory Pvt. Ltd. | pulse.finvastra.com | Confidential — For HR Use Only', pageWidth / 2, footerY, { align: 'center' });
+  pdf.text('Finvastra Advisors Private Limited | pulse.finvastra.com | Confidential — For HR Use Only', pageWidth / 2, footerY, { align: 'center' });
 
   const safeName = name.replace(/\s+/g, '_');
   pdf.save(`ExperienceCertificate_${profile.employeeId ?? 'EMP'}_${safeName}.pdf`);
@@ -456,7 +456,7 @@ function generateRelievingLetter(checklist: OffboardingChecklist, profile: UserP
   pdf.setFontSize(8);
   pdf.setFont('helvetica', 'normal');
   pdf.setTextColor(200, 200, 200);
-  pdf.text('Finvastra Advisory Pvt. Ltd.', margin, 20);
+  pdf.text('Finvastra Advisors Private Limited', margin, 20);
 
   // Title
   pdf.setTextColor(11, 21, 56);
@@ -490,7 +490,7 @@ function generateRelievingLetter(checklist: OffboardingChecklist, profile: UserP
 
   const paragraphs = [
     `This is to confirm that you have been relieved from your duties as ${desig}`,
-    `at Finvastra Advisory Pvt. Ltd., effective ${lwd}${reason ? ` (${reason})` : ''}.`,
+    `at Finvastra Advisors Private Limited, effective ${lwd}${reason ? ` (${reason})` : ''}.`,
     '',
     'We acknowledge that all company assets, access credentials, and pending',
     'responsibilities have been duly handed over. Your Full & Final Settlement',
@@ -515,13 +515,13 @@ function generateRelievingLetter(checklist: OffboardingChecklist, profile: UserP
   pdf.text('Authorized Signatory', margin, y);
   pdf.text('Employee Acknowledgement', pageWidth / 2, y);
   y += 5;
-  pdf.text('Finvastra Advisory Pvt. Ltd.', margin, y);
+  pdf.text('Finvastra Advisors Private Limited', margin, y);
 
   // Footer
   const footerY = pdf.internal.pageSize.getHeight() - 10;
   pdf.setFontSize(7);
   pdf.setTextColor(150, 150, 150);
-  pdf.text('Finvastra Advisory Pvt. Ltd. | pulse.finvastra.com | Confidential — For HR Use Only', pageWidth / 2, footerY, { align: 'center' });
+  pdf.text('Finvastra Advisors Private Limited | pulse.finvastra.com | Confidential — For HR Use Only', pageWidth / 2, footerY, { align: 'center' });
 
   const safeName = checklist.employeeName.replace(/\s+/g, '_');
   pdf.save(`RelievingLetter_${profile.employeeId ?? 'EMP'}_${safeName}.pdf`);

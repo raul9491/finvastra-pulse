@@ -26,10 +26,10 @@ export function HrmsSettingsPage() {
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest mb-0.5" style={{ color: '#8B8B85' }}>Email</p>
-                <a href="mailto:hr@finvastra.com"
+                <a href="mailto:support@finvastra.com"
                   className="text-sm font-medium hover:underline"
                   style={{ color: '#0B1538' }}>
-                  hr@finvastra.com
+                  support@finvastra.com
                 </a>
               </div>
             </div>

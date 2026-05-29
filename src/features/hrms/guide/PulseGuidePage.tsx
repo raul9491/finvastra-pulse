@@ -292,7 +292,7 @@ const SECTIONS: Section[] = [
             <div className="flex items-center gap-2">
               <span className="text-ink font-medium">HR Team</span>
               <span className="text-mute">—</span>
-              <a href="mailto:hr@finvastra.com" className="text-blue-600 hover:underline">hr@finvastra.com</a>
+              <a href="mailto:support@finvastra.com" className="text-blue-600 hover:underline">support@finvastra.com</a>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-ink font-medium">Tech Support</span>
@@ -491,7 +491,7 @@ export function PulseGuidePage() {
           Couldn't find your answer? Raise an{' '}
           <a href="/hrms/hr-helpdesk" className="underline">HR Helpdesk ticket</a>
           {' '}or email{' '}
-          <a href="mailto:hr@finvastra.com" className="underline">hr@finvastra.com</a>
+          <a href="mailto:support@finvastra.com" className="underline">support@finvastra.com</a>
         </p>
       </div>
     </div>

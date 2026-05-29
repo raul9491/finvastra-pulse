@@ -1,33 +1,27 @@
 /**
  * HrLetterGeneratorPage — generate HR letters for employees.
  *
- * Route: /hrms/admin/letters
+ * Route:  /hrms/admin/letters
  * Access: admin + isHrmsManager
  *
- * Eight letter types covering the full employee lifecycle:
- *   Offer → Appointment → Confirmation → [Increment / Salary Certificate / NOC]
- *   → Experience → Relieving
+ * Four letter types matching actual Finvastra Advisors company formats:
+ *   Appointment → Confirmation / Probation Extension → Consultant Agreement
  *
  * Flow:
  *   1. Build PDF (jsPDF) → ArrayBuffer
- *   2. Upload to Firebase Storage at hr-letters/{employeeId}/{filename}.pdf
+ *   2. Upload to Firebase Storage via /api/admin/hr-letters/upload
  *   3. getDownloadURL() → permanent link
  *   4. Log to /generated_letters/{id} with storageUrl
- *   5. window.open(url) opens PDF in new tab for download
- *
- * HR can see and download all letters from the Recent Letters table.
- * Each employee can download their own letters from their profile page.
+ *   5. window.open(url) opens PDF in new tab
  */
 
 import { useState, useMemo, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
-  FileText, Download, CheckCircle2, AlertCircle, Loader2, UserPlus, Users,
+  FileText, Download, CheckCircle2, AlertCircle, Loader2, UserPlus, Users, Plus, Minus,
 } from 'lucide-react';
-import {
-  collection, addDoc, serverTimestamp,
-} from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
@@ -37,53 +31,53 @@ import { useAllLetters } from '../hooks/useGeneratedLetters';
 import type { GeneratedLetter } from '../../../types';
 import {
   generateLetterPdf, letterFilename, letterRefNumber, TYPE_ABBREV,
-  type LetterType, type LetterData,
-  type OfferData, type AppointmentData, type ConfirmationData,
-  type IncrementData, type NocData, type SalaryCertificateData,
-  type ExperienceData, type RelievingData,
+  type LetterType, type LetterData, type Salutation, type SalaryRow,
+  type AppointmentData, type ConfirmationData,
+  type ProbationExtensionData, type ConsultantAgreementData,
 } from './letterPdf';
-
-// ─── Probation options ────────────────────────────────────────────────────────
-
-const PROBATION_OPTIONS = [
-  '1 month', '2 months', '3 months', '6 months',
-  '9 months', '12 months', '18 months', '24 months',
-];
 
 // ─── Letter type catalogue ────────────────────────────────────────────────────
 
 const LETTER_TYPES: { value: LetterType; label: string; desc: string }[] = [
-  { value: 'offer',              label: 'Offer Letter',           desc: 'Pre-joining offer to candidate'     },
-  { value: 'appointment',        label: 'Appointment Letter',     desc: 'Formal appointment on joining'      },
-  { value: 'confirmation',       label: 'Confirmation Letter',    desc: 'End of probation confirmation'      },
-  { value: 'increment',          label: 'Salary Increment',       desc: 'Revised CTC notification'           },
-  { value: 'noc',                label: 'NOC',                    desc: 'No Objection Certificate'           },
-  { value: 'salary_certificate', label: 'Salary Certificate',     desc: 'CTC proof for banks / visa'        },
-  { value: 'experience',         label: 'Experience Certificate', desc: 'Work history certificate'           },
-  { value: 'relieving',          label: 'Relieving Letter',       desc: 'Separation + exit confirmation'     },
+  { value: 'appointment',         label: 'Appointment Letter',     desc: 'Full legal employment accord'        },
+  { value: 'confirmation',        label: 'Confirmation Letter',    desc: 'End of probation — permanent status' },
+  { value: 'probation_extension', label: 'Probation Extension',    desc: 'Extend probation period'             },
+  { value: 'consultant_agreement',label: 'Consultant Agreement',   desc: '13-clause engagement contract'       },
+];
+
+const SALUTATIONS: Salutation[] = ['Mr.', 'Ms.', 'Mrs.', 'Dr.'];
+
+// ─── Default salary row components ───────────────────────────────────────────
+
+const DEFAULT_SALARY_ROWS: SalaryRow[] = [
+  { component: 'Basic Salary',              description: 'Monthly Fixed', monthly: '' },
+  { component: 'House Rent Allowance',      description: '',              monthly: '' },
+  { component: 'Conveyance Allowance',      description: '',              monthly: '' },
+  { component: 'Other Allowance',           description: '',              monthly: '' },
 ];
 
 // ─── Form style helpers ───────────────────────────────────────────────────────
 
 const baseInp = 'w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-2 bg-white transition-colors';
+const baseTa  = `${baseInp} resize-none`;
 
-const inp = (field?: string, fieldErrors?: Record<string, string>) =>
-  `${baseInp} ${field && fieldErrors?.[field]
+const inp = (field?: string, fe?: Record<string, string>) =>
+  `${baseInp} ${field && fe?.[field]
     ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30'
     : 'border-slate-200 focus:ring-navy/10 focus:border-navy'}`;
 
 const fLabel = (
   text: string,
-  fieldErrors: Record<string, string>,
+  fe: Record<string, string>,
   field?: string,
   req = false,
 ) => (
   <label className="block text-xs font-semibold uppercase tracking-wider mb-1"
-    style={{ color: field && fieldErrors[field] ? '#DC2626' : '#8B8B85' }}>
+    style={{ color: field && fe[field] ? '#DC2626' : '#8B8B85' }}>
     {text}{req && <span className="text-red-500 ml-0.5">*</span>}
-    {field && fieldErrors[field] && (
+    {field && fe[field] && (
       <span className="ml-2 font-medium normal-case tracking-normal text-red-500">
-        — {fieldErrors[field]}
+        — {fe[field]}
       </span>
     )}
   </label>
@@ -93,9 +87,9 @@ const fLabel = (
 
 export function HrLetterGeneratorPage() {
   const { user, profile } = useAuth();
-  const uid               = user?.uid ?? '';
-  const isAdmin           = profile?.role === 'admin';
-  const isHrmsManager     = profile?.isHrmsManager === true;
+  const uid           = user?.uid ?? '';
+  const isAdmin       = profile?.role === 'admin';
+  const isHrmsManager = profile?.isHrmsManager === true;
   if (!isAdmin && !isHrmsManager) return <Navigate to="/hrms/dashboard" replace />;
 
   const { employees }                   = useAllEmployees();
@@ -105,82 +99,53 @@ export function HrLetterGeneratorPage() {
     () => employees.filter((e) => !e.employeeStatus || e.employeeStatus === 'active'),
     [employees],
   );
-  // For employee picker (select by UID, display name)
   const empOptions = activeEmployees.map((e) => ({ value: e.userId, label: e.displayName }));
-  // For Reporting To picker (select manager by UID, but store their name)
-  const managerOptions = activeEmployees.map((e) => ({
-    value: e.userId,
-    label: e.displayName + (e.designation ? ` — ${e.designation}` : ''),
-  }));
 
-  // ── Manual entry mode ─────────────────────────────────────────────────────────
-  // Used for employees who do not yet have a Pulse account or Google Workspace email.
+  // ── Employee selection ──────────────────────────────────────────────────────
   const [manualMode, setManualMode] = useState(false);
   const [manualName, setManualName] = useState('');
   const [manualCode, setManualCode] = useState('');
 
-  // ── Form state ──────────────────────────────────────────────────────────────
+  // ── Common ─────────────────────────────────────────────────────────────────
   const [letterType, setLetterType] = useState<LetterType>('appointment');
   const [empId,      setEmpId]      = useState('');
   const [seq,        setSeq]        = useState('1');
+  const [salutation, setSalutation] = useState<Salutation>('Mr.');
 
-  // Offer
-  const [off_designation,    setOff_designation]    = useState('');
-  const [off_department,     setOff_department]     = useState('');
-  const [off_ctc,            setOff_ctc]            = useState('');
-  const [off_joiningDeadline,setOff_joiningDeadline]= useState('');
-  const [off_probation,      setOff_probation]      = useState('6 months');
-  // Stored as manager name (displayed in PDF); selected via SearchableSelect by UID
-  const [off_reportingTo,    setOff_reportingTo]    = useState('');
-  const [off_reportingToUid, setOff_reportingToUid] = useState('');
+  // ── Appointment ────────────────────────────────────────────────────────────
+  const [apt_empAddress,       setApt_empAddress]       = useState('');
+  const [apt_designation,      setApt_designation]      = useState('');
+  const [apt_joiningDate,      setApt_joiningDate]      = useState('');
+  const [apt_probationDuration,setApt_probationDuration]= useState('three (3) months');
+  const [apt_probationEndDate, setApt_probationEndDate] = useState('');
+  const [apt_ctcAnnual,        setApt_ctcAnnual]        = useState('');
+  const [apt_ctcInWords,       setApt_ctcInWords]       = useState('');
+  const [apt_salaryRows,       setApt_salaryRows]       = useState<SalaryRow[]>(DEFAULT_SALARY_ROWS.map(r => ({ ...r })));
 
-  // Appointment
-  const [apt_designation, setApt_designation] = useState('');
-  const [apt_department,  setApt_department]  = useState('');
-  const [apt_joiningDate, setApt_joiningDate] = useState('');
-  const [apt_ctc,         setApt_ctc]         = useState('');
-  const [apt_probation,   setApt_probation]   = useState('6 months');
-  // Same pattern as offer
-  const [apt_reportingTo,    setApt_reportingTo]    = useState('');
-  const [apt_reportingToUid, setApt_reportingToUid] = useState('');
-
-  // Confirmation
+  // ── Confirmation ───────────────────────────────────────────────────────────
   const [con_designation,      setCon_designation]      = useState('');
-  const [con_department,       setCon_department]       = useState('');
-  const [con_joiningDate,      setCon_joiningDate]      = useState('');
+  const [con_probationFrom,    setCon_probationFrom]    = useState('');
+  const [con_probationTo,      setCon_probationTo]      = useState('');
   const [con_confirmationDate, setCon_confirmationDate] = useState('');
   const [con_newDesignation,   setCon_newDesignation]   = useState('');
 
-  // Increment
-  const [inc_designation,   setInc_designation]   = useState('');
-  const [inc_department,    setInc_department]    = useState('');
-  const [inc_effectiveDate, setInc_effectiveDate] = useState('');
-  const [inc_oldCtc,        setInc_oldCtc]        = useState('');
-  const [inc_newCtc,        setInc_newCtc]        = useState('');
-  const [inc_percentage,    setInc_percentage]    = useState('');
+  // ── Probation Extension ────────────────────────────────────────────────────
+  const [pex_designation,         setPex_designation]         = useState('');
+  const [pex_probationDuration,    setPex_probationDuration]   = useState('3 months');
+  const [pex_originalProbationEnd, setPex_originalProbationEnd]= useState('');
+  const [pex_extendedUntilDate,    setPex_extendedUntilDate]   = useState('');
 
-  // NOC
-  const [noc_designation, setNoc_designation] = useState('');
-  const [noc_department,  setNoc_department]  = useState('');
-  const [noc_joiningDate, setNoc_joiningDate] = useState('');
-  const [noc_purpose,     setNoc_purpose]     = useState('');
-  const [noc_validUntil,  setNoc_validUntil]  = useState('');
+  // ── Consultant Agreement ───────────────────────────────────────────────────
+  const [cag_consultantAddress, setCag_consultantAddress] = useState('');
+  const [cag_role,              setCag_role]              = useState('');
+  const [cag_scopeOfServices,   setCag_scopeOfServices]   = useState('');
+  const [cag_startDate,         setCag_startDate]         = useState('');
+  const [cag_endDate,           setCag_endDate]           = useState('');
+  const [cag_termMonths,        setCag_termMonths]        = useState('one (1) month');
+  const [cag_feeAmount,         setCag_feeAmount]         = useState('');
+  const [cag_feeInWords,        setCag_feeInWords]        = useState('');
 
-  // Salary Certificate
-  const [sal_designation, setSal_designation] = useState('');
-  const [sal_department,  setSal_department]  = useState('');
-  const [sal_joiningDate, setSal_joiningDate] = useState('');
-  const [sal_grossCtc,    setSal_grossCtc]    = useState('');
-  const [sal_basicSalary, setSal_basicSalary] = useState('');
-  const [sal_purpose,     setSal_purpose]     = useState('');
-
-  // Experience / Relieving (shared)
-  const [ex_designation,     setEx_designation]     = useState('');
-  const [ex_department,      setEx_department]      = useState('');
-  const [ex_joiningDate,     setEx_joiningDate]     = useState('');
-  const [ex_lastWorkingDate, setEx_lastWorkingDate] = useState('');
-  const [ex_exitReason,      setEx_exitReason]      = useState('');
-
+  // ── Status ─────────────────────────────────────────────────────────────────
   const [generating,  setGenerating]  = useState(false);
   const [success,     setSuccess]     = useState('');
   const [error,       setError]       = useState('');
@@ -188,120 +153,93 @@ export function HrLetterGeneratorPage() {
 
   const selectedEmp = activeEmployees.find((e) => e.userId === empId);
 
-  // Auto-fill common fields when employee is selected
+  // Auto-fill common fields when employee is selected or letter type changes
   useEffect(() => {
     if (!selectedEmp) return;
-    const { designation = '', department = '', joiningDate = '' } = selectedEmp;
+    const { designation = '', joiningDate = '' } = selectedEmp;
     const joinFmt = joiningDate
-      ? format(new Date(joiningDate + 'T00:00:00'), 'dd-MMM-yyyy')
+      ? format(new Date(joiningDate + 'T00:00:00'), "do MMMM yyyy")
       : '';
 
-    // Reset reporting-to when employee changes
-    setOff_reportingTo('');
-    setOff_reportingToUid('');
-    setApt_reportingTo('');
-    setApt_reportingToUid('');
-
     switch (letterType) {
-      case 'offer':
-        setOff_designation(designation);
-        setOff_department(department);
-        break;
       case 'appointment':
         setApt_designation(designation);
-        setApt_department(department);
         setApt_joiningDate(joinFmt);
         break;
       case 'confirmation':
         setCon_designation(designation);
-        setCon_department(department);
-        setCon_joiningDate(joinFmt);
         break;
-      case 'increment':
-        setInc_designation(designation);
-        setInc_department(department);
-        break;
-      case 'noc':
-        setNoc_designation(designation);
-        setNoc_department(department);
-        setNoc_joiningDate(joinFmt);
-        break;
-      case 'salary_certificate':
-        setSal_designation(designation);
-        setSal_department(department);
-        setSal_joiningDate(joinFmt);
-        break;
-      case 'experience':
-      case 'relieving':
-        setEx_designation(designation);
-        setEx_department(department);
-        setEx_joiningDate(joinFmt);
+      case 'probation_extension':
+        setPex_designation(designation);
         break;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empId, letterType]);
 
+  // ── Salary row helpers ──────────────────────────────────────────────────────
+  const totalMonthly = apt_salaryRows.reduce(
+    (sum, r) => sum + (parseFloat(r.monthly.replace(/,/g, '')) || 0), 0
+  );
+
+  function updateSalaryRow(idx: number, field: keyof SalaryRow, val: string) {
+    setApt_salaryRows((prev) => prev.map((r, i) => i === idx ? { ...r, [field]: val } : r));
+  }
+
+  function addSalaryRow() {
+    setApt_salaryRows((prev) => [...prev, { component: '', description: '', monthly: '' }]);
+  }
+
+  function removeSalaryRow(idx: number) {
+    if (apt_salaryRows.length <= 1) return;
+    setApt_salaryRows((prev) => prev.filter((_, i) => i !== idx));
+  }
+
   // ── Validation ──────────────────────────────────────────────────────────────
   const validate = (): Record<string, string> => {
     const errs: Record<string, string> = {};
+
     if (manualMode) {
       if (!manualName.trim()) errs.manualName = 'Enter employee name';
       if (!manualCode.trim()) errs.manualCode = 'Enter employee code';
     } else {
-      if (!empId) errs.emp = 'Select an employee';
+      if (letterType !== 'consultant_agreement' && !empId) errs.emp = 'Select an employee';
     }
-    if (!seq.trim() || isNaN(Number(seq)))   errs.seq = 'Enter a valid sequence number';
+    if (!seq.trim() || isNaN(Number(seq))) errs.seq = 'Enter a valid sequence number';
 
     switch (letterType) {
-      case 'offer':
-        if (!off_designation.trim())    errs.off_designation    = 'Required';
-        if (!off_department.trim())     errs.off_department     = 'Required';
-        if (!off_ctc.trim())            errs.off_ctc            = 'Required';
-        if (!off_joiningDeadline.trim())errs.off_joiningDeadline= 'Required';
-        if (!off_reportingTo.trim())    errs.off_reportingTo    = 'Required';
-        break;
       case 'appointment':
-        if (!apt_designation.trim()) errs.apt_designation = 'Required';
-        if (!apt_department.trim())  errs.apt_department  = 'Required';
-        if (!apt_joiningDate.trim()) errs.apt_joiningDate = 'Required';
-        if (!apt_ctc.trim())         errs.apt_ctc         = 'Required';
-        if (!apt_reportingTo.trim()) errs.apt_reportingTo = 'Required';
+        if (!apt_empAddress.trim())       errs.apt_empAddress       = 'Required';
+        if (!apt_designation.trim())      errs.apt_designation      = 'Required';
+        if (!apt_joiningDate.trim())      errs.apt_joiningDate      = 'Required';
+        if (!apt_probationDuration.trim())errs.apt_probationDuration = 'Required';
+        if (!apt_probationEndDate.trim()) errs.apt_probationEndDate  = 'Required';
+        if (!apt_ctcAnnual.trim())        errs.apt_ctcAnnual         = 'Required';
+        if (!apt_ctcInWords.trim())       errs.apt_ctcInWords        = 'Required';
+        if (apt_salaryRows.some(r => !r.component.trim() || !r.monthly.trim()))
+          errs.apt_salary = 'All salary rows must have a component and monthly amount';
         break;
       case 'confirmation':
         if (!con_designation.trim())      errs.con_designation      = 'Required';
-        if (!con_department.trim())       errs.con_department       = 'Required';
-        if (!con_joiningDate.trim())      errs.con_joiningDate      = 'Required';
+        if (!con_probationFrom.trim())    errs.con_probationFrom    = 'Required';
+        if (!con_probationTo.trim())      errs.con_probationTo      = 'Required';
         if (!con_confirmationDate.trim()) errs.con_confirmationDate = 'Required';
         break;
-      case 'increment':
-        if (!inc_designation.trim())   errs.inc_designation   = 'Required';
-        if (!inc_department.trim())    errs.inc_department    = 'Required';
-        if (!inc_effectiveDate.trim()) errs.inc_effectiveDate = 'Required';
-        if (!inc_oldCtc.trim())        errs.inc_oldCtc        = 'Required';
-        if (!inc_newCtc.trim())        errs.inc_newCtc        = 'Required';
+      case 'probation_extension':
+        if (!pex_designation.trim())          errs.pex_designation         = 'Required';
+        if (!pex_probationDuration.trim())     errs.pex_probationDuration   = 'Required';
+        if (!pex_originalProbationEnd.trim())  errs.pex_originalProbationEnd= 'Required';
+        if (!pex_extendedUntilDate.trim())     errs.pex_extendedUntilDate   = 'Required';
         break;
-      case 'noc':
-        if (!noc_designation.trim()) errs.noc_designation = 'Required';
-        if (!noc_department.trim())  errs.noc_department  = 'Required';
-        if (!noc_joiningDate.trim()) errs.noc_joiningDate = 'Required';
-        if (!noc_purpose.trim())     errs.noc_purpose     = 'Required';
-        if (!noc_validUntil.trim())  errs.noc_validUntil  = 'Required';
-        break;
-      case 'salary_certificate':
-        if (!sal_designation.trim()) errs.sal_designation = 'Required';
-        if (!sal_department.trim())  errs.sal_department  = 'Required';
-        if (!sal_joiningDate.trim()) errs.sal_joiningDate = 'Required';
-        if (!sal_grossCtc.trim())    errs.sal_grossCtc    = 'Required';
-        if (!sal_basicSalary.trim()) errs.sal_basicSalary = 'Required';
-        if (!sal_purpose.trim())     errs.sal_purpose     = 'Required';
-        break;
-      case 'experience':
-      case 'relieving':
-        if (!ex_designation.trim())     errs.ex_designation     = 'Required';
-        if (!ex_department.trim())      errs.ex_department      = 'Required';
-        if (!ex_joiningDate.trim())     errs.ex_joiningDate     = 'Required';
-        if (!ex_lastWorkingDate.trim()) errs.ex_lastWorkingDate = 'Required';
-        if (letterType === 'relieving' && !ex_exitReason.trim()) errs.ex_exitReason = 'Required';
+      case 'consultant_agreement':
+        if (!manualName.trim())               errs.manualName            = 'Enter consultant name';
+        if (!cag_consultantAddress.trim())    errs.cag_consultantAddress = 'Required';
+        if (!cag_role.trim())                 errs.cag_role              = 'Required';
+        if (!cag_scopeOfServices.trim())      errs.cag_scopeOfServices   = 'Required';
+        if (!cag_startDate.trim())            errs.cag_startDate         = 'Required';
+        if (!cag_endDate.trim())              errs.cag_endDate           = 'Required';
+        if (!cag_termMonths.trim())           errs.cag_termMonths        = 'Required';
+        if (!cag_feeAmount.trim())            errs.cag_feeAmount         = 'Required';
+        if (!cag_feeInWords.trim())           errs.cag_feeInWords        = 'Required';
         break;
     }
     return errs;
@@ -317,85 +255,73 @@ export function HrLetterGeneratorPage() {
     setGenerating(true);
 
     try {
-      // Manual mode: use hand-typed name/code; storage goes under _manual/
-      const isManual = manualMode;
-      const empName  = isManual ? manualName.trim() : (selectedEmp?.displayName ?? empId);
-      const empCode  = isManual ? manualCode.trim() : (selectedEmp?.employeeId  ?? empId);
+      const isManual     = manualMode || letterType === 'consultant_agreement';
+      const empName      = isManual ? manualName.trim() : (selectedEmp?.displayName ?? empId);
+      const empCode      = isManual ? (manualCode.trim() || 'N/A') : (selectedEmp?.employeeId ?? empId);
       const storageEmpId = isManual ? '_manual' : empId;
-      const year    = new Date().getFullYear();
-      const refNum  = letterRefNumber(letterType, year, seq);
+      const year         = new Date().getFullYear();
+      const refNum       = letterRefNumber(letterType, year, seq);
 
-      // Build letter data
       let data: LetterData;
       switch (letterType) {
-        case 'offer':
-          data = { type: 'offer', empName, empCode,
-            designation: off_designation, department: off_department,
-            ctc: off_ctc, joiningDeadline: off_joiningDeadline,
-            probation: off_probation, reportingTo: off_reportingTo,
-          } as OfferData;
-          break;
         case 'appointment':
-          data = { type: 'appointment', empName, empCode,
-            designation: apt_designation, department: apt_department,
-            joiningDate: apt_joiningDate, ctc: apt_ctc,
-            probation: apt_probation, reportingTo: apt_reportingTo,
+          data = {
+            type: 'appointment', salutation, empName, empCode,
+            empAddress:        apt_empAddress.trim(),
+            designation:       apt_designation.trim(),
+            joiningDate:       apt_joiningDate.trim(),
+            probationDuration: apt_probationDuration.trim(),
+            probationEndDate:  apt_probationEndDate.trim(),
+            ctcAnnual:         apt_ctcAnnual.trim(),
+            ctcInWords:        apt_ctcInWords.trim(),
+            salaryRows:        apt_salaryRows,
           } as AppointmentData;
           break;
         case 'confirmation':
-          data = { type: 'confirmation', empName, empCode,
-            designation: con_designation, department: con_department,
-            joiningDate: con_joiningDate, confirmationDate: con_confirmationDate,
-            newDesignation: con_newDesignation,
+          data = {
+            type: 'confirmation', salutation, empName, empCode,
+            designation:      con_designation.trim(),
+            probationFrom:    con_probationFrom.trim(),
+            probationTo:      con_probationTo.trim(),
+            confirmationDate: con_confirmationDate.trim(),
+            ...(con_newDesignation.trim() ? { newDesignation: con_newDesignation.trim() } : {}),
           } as ConfirmationData;
           break;
-        case 'increment':
-          data = { type: 'increment', empName, empCode,
-            designation: inc_designation, department: inc_department,
-            effectiveDate: inc_effectiveDate, oldCtc: inc_oldCtc,
-            newCtc: inc_newCtc, percentage: inc_percentage,
-          } as IncrementData;
+        case 'probation_extension':
+          data = {
+            type: 'probation_extension', salutation, empName, empCode,
+            designation:          pex_designation.trim(),
+            probationDuration:    pex_probationDuration.trim(),
+            originalProbationEnd: pex_originalProbationEnd.trim(),
+            extendedUntilDate:    pex_extendedUntilDate.trim(),
+          } as ProbationExtensionData;
           break;
-        case 'noc':
-          data = { type: 'noc', empName, empCode,
-            designation: noc_designation, department: noc_department,
-            joiningDate: noc_joiningDate, purpose: noc_purpose,
-            validUntil: noc_validUntil,
-          } as NocData;
+        case 'consultant_agreement':
+          data = {
+            type: 'consultant_agreement', salutation,
+            consultantName:     manualName.trim(),
+            consultantAddress:  cag_consultantAddress.trim(),
+            role:               cag_role.trim(),
+            scopeOfServices:    cag_scopeOfServices.trim(),
+            startDate:          cag_startDate.trim(),
+            endDate:            cag_endDate.trim(),
+            termMonths:         cag_termMonths.trim(),
+            feeAmount:          cag_feeAmount.trim(),
+            feeInWords:         cag_feeInWords.trim(),
+          } as ConsultantAgreementData;
           break;
-        case 'salary_certificate':
-          data = { type: 'salary_certificate', empName, empCode,
-            designation: sal_designation, department: sal_department,
-            joiningDate: sal_joiningDate, grossCtc: sal_grossCtc,
-            basicSalary: sal_basicSalary, purpose: sal_purpose,
-          } as SalaryCertificateData;
-          break;
-        case 'experience':
-          data = { type: 'experience', empName, empCode,
-            designation: ex_designation, department: ex_department,
-            joiningDate: ex_joiningDate, lastWorkingDate: ex_lastWorkingDate,
-          } as ExperienceData;
-          break;
-        case 'relieving':
-          data = { type: 'relieving', empName, empCode,
-            designation: ex_designation, department: ex_department,
-            joiningDate: ex_joiningDate, lastWorkingDate: ex_lastWorkingDate,
-            exitReason: ex_exitReason,
-          } as RelievingData;
-          break;
+        default:
+          throw new Error('Unknown letter type');
       }
 
       // 1. Generate PDF bytes
       const bytes    = generateLetterPdf(data, seq);
       const filename = letterFilename(data, year, seq);
 
-      // 2. Upload via server proxy (Admin SDK bypasses Storage rules — fixes
-      //    the named-database issue that blocks client-side uploads for admins
-      //    with stale custom claims).
+      // 2. Upload via server proxy (Admin SDK bypasses Storage rules)
       const idToken = await getAuth().currentUser?.getIdToken();
       if (!idToken) throw new Error('Not authenticated — please sign in again.');
 
-      // Convert ArrayBuffer → base64
       const base64Data = btoa(
         new Uint8Array(bytes).reduce((acc, byte) => acc + String.fromCharCode(byte), '')
       );
@@ -411,10 +337,10 @@ export function HrLetterGeneratorPage() {
       }
       const { downloadUrl } = await uploadRes.json() as { downloadUrl: string };
 
-      // 4. Log to Firestore with storageUrl
+      // 3. Log to Firestore
       await addDoc(collection(db, 'generated_letters'), {
         letterType,
-        employeeId:      isManual ? '_manual' : empId,
+        employeeId:      storageEmpId,
         employeeName:    empName,
         refNumber:       refNum,
         generatedBy:     uid,
@@ -424,9 +350,8 @@ export function HrLetterGeneratorPage() {
         storageStatus:   'uploaded',
       });
 
-      // 5. Open in new tab (user can view / save from browser)
+      // 4. Open in new tab
       window.open(downloadUrl, '_blank');
-
       setSuccess(`${LETTER_TYPES.find((t) => t.value === letterType)?.label} generated and saved.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to generate letter. Please try again.');
@@ -435,14 +360,16 @@ export function HrLetterGeneratorPage() {
     }
   };
 
-  const fe   = fieldErrors;
-  const I    = (f?: string) => inp(f, fe);
-  const L    = (text: string, f?: string, req = false) => fLabel(text, fe, f, req);
-
+  const fe = fieldErrors;
+  const I  = (f?: string) => inp(f, fe);
+  const L  = (text: string, f?: string, req = false) => fLabel(text, fe, f, req);
   const refPreview = `FV/${TYPE_ABBREV[letterType]}/${new Date().getFullYear()}/${String(Number(seq) || 1).padStart(3, '0')}`;
+
+  const isConsultant = letterType === 'consultant_agreement';
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
+
       {/* Header */}
       <div>
         <h2 className="text-3xl mb-1"
@@ -450,13 +377,14 @@ export function HrLetterGeneratorPage() {
           HR Letters
         </h2>
         <p className="text-sm" style={{ color: '#8B8B85' }}>
-          Generate official HR letters — stored in Firebase and available for employees to download from their profile.
+          Generate official Finvastra HR letters — stored in Firebase and available for employees to download.
         </p>
       </div>
 
       {/* Form */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-5">
-        {/* Letter type grid — 2 rows × 4 */}
+
+        {/* Letter type grid */}
         <div>
           <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#475569' }}>
             Letter Type
@@ -491,176 +419,214 @@ export function HrLetterGeneratorPage() {
           </div>
         )}
 
-        {/* Common fields */}
+        {/* Common: employee selector / manual entry */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Employee mode toggle */}
           <div className="sm:col-span-2">
-            <div className="flex items-center gap-2 mb-3">
-              <button
-                type="button"
-                onClick={() => { setManualMode(false); setFieldErrors({}); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                style={{
-                  backgroundColor: !manualMode ? '#0B1538' : '#F2EFE7',
-                  color: !manualMode ? '#C9A961' : '#8B8B85',
-                }}
-              >
-                <Users size={13} />
-                Existing Employee
-              </button>
-              <button
-                type="button"
-                onClick={() => { setManualMode(true); setFieldErrors({}); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                style={{
-                  backgroundColor: manualMode ? '#0B1538' : '#F2EFE7',
-                  color: manualMode ? '#C9A961' : '#8B8B85',
-                }}
-              >
-                <UserPlus size={13} />
-                New / No Account
-              </button>
-            </div>
 
-            {!manualMode ? (
-              <>
-                {L('Employee', 'emp', true)}
-                <SearchableSelect
-                  options={empOptions}
-                  value={empId}
-                  onChange={(v) => { setEmpId(v); setFieldErrors((p) => { const n = {...p}; delete n.emp; return n; }); }}
-                  placeholder="Search by name…"
-                />
-              </>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl border border-amber-200" style={{ backgroundColor: '#FFFBEB' }}>
-                <p className="sm:col-span-2 text-xs font-semibold" style={{ color: '#92400E' }}>
-                  ✏️ Enter employee details manually (for new joiners without a Pulse account)
+            {/* Toggle only for non-consultant types */}
+            {!isConsultant && (
+              <div className="flex items-center gap-2 mb-3">
+                <button type="button"
+                  onClick={() => { setManualMode(false); setFieldErrors({}); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                  style={{ backgroundColor: !manualMode ? '#0B1538' : '#F2EFE7', color: !manualMode ? '#C9A961' : '#8B8B85' }}>
+                  <Users size={13} />Existing Employee
+                </button>
+                <button type="button"
+                  onClick={() => { setManualMode(true); setFieldErrors({}); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                  style={{ backgroundColor: manualMode ? '#0B1538' : '#F2EFE7', color: manualMode ? '#C9A961' : '#8B8B85' }}>
+                  <UserPlus size={13} />New / No Account
+                </button>
+              </div>
+            )}
+
+            {/* Consultant — always manual name entry */}
+            {isConsultant && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Salutation */}
+                <div>
+                  {L('Salutation', undefined, true)}
+                  <select className={I()} value={salutation} onChange={(e) => setSalutation(e.target.value as Salutation)}>
+                    {SALUTATIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  {L('Consultant Full Name', 'manualName', true)}
+                  <input className={I('manualName')} placeholder="e.g. Priya Sharma"
+                    value={manualName} onChange={(e) => { setManualName(e.target.value); setFieldErrors((p) => { const n={...p}; delete n.manualName; return n; }); }} />
+                </div>
+              </div>
+            )}
+
+            {/* Existing employee picker */}
+            {!isConsultant && !manualMode && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  {L('Salutation', undefined, true)}
+                  <select className={I()} value={salutation} onChange={(e) => setSalutation(e.target.value as Salutation)}>
+                    {SALUTATIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  {L('Employee', 'emp', true)}
+                  <SearchableSelect
+                    options={empOptions}
+                    value={empId}
+                    onChange={(v) => { setEmpId(v); setFieldErrors((p) => { const n={...p}; delete n.emp; return n; }); }}
+                    placeholder="Search by name…"
+                  />
+                  {fe.emp && <p className="text-[11px] mt-0.5 text-red-500">{fe.emp}</p>}
+                </div>
+              </div>
+            )}
+
+            {/* Manual entry */}
+            {!isConsultant && manualMode && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl border border-amber-200" style={{ backgroundColor: '#FFFBEB' }}>
+                <p className="sm:col-span-3 text-xs font-semibold" style={{ color: '#92400E' }}>
+                  ✏️ Enter details manually (for new joiners without a Pulse account)
                 </p>
                 <div>
-                  {L('Employee Full Name', 'manualName', true)}
-                  <input
-                    className={I('manualName')}
-                    placeholder="e.g. Priya Sharma"
-                    value={manualName}
-                    onChange={(e) => { setManualName(e.target.value); setFieldErrors((p) => { const n = {...p}; delete n.manualName; return n; }); }}
-                  />
+                  {L('Salutation', undefined, true)}
+                  <select className={I()} value={salutation} onChange={(e) => setSalutation(e.target.value as Salutation)}>
+                    {SALUTATIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  {L('Full Name', 'manualName', true)}
+                  <input className={I('manualName')} placeholder="e.g. Priya Sharma"
+                    value={manualName} onChange={(e) => { setManualName(e.target.value); setFieldErrors((p) => { const n={...p}; delete n.manualName; return n; }); }} />
                 </div>
                 <div>
                   {L('Employee Code', 'manualCode', true)}
-                  <input
-                    className={I('manualCode')}
-                    placeholder="e.g. FAPL-025"
-                    value={manualCode}
-                    onChange={(e) => { setManualCode(e.target.value); setFieldErrors((p) => { const n = {...p}; delete n.manualCode; return n; }); }}
-                  />
+                  <input className={I('manualCode')} placeholder="e.g. FAPL-025"
+                    value={manualCode} onChange={(e) => { setManualCode(e.target.value); setFieldErrors((p) => { const n={...p}; delete n.manualCode; return n; }); }} />
                 </div>
               </div>
             )}
           </div>
 
+          {/* Sequence number */}
           <div>
             {L('Sequence Number', 'seq', true)}
-            <input
-              type="number" min="1"
-              className={I('seq')}
-              value={seq}
-              onChange={(e) => { setSeq(e.target.value); setFieldErrors((p) => { const n = {...p}; delete n.seq; return n; }); }}
-            />
+            <input type="number" min="1" className={I('seq')} value={seq}
+              onChange={(e) => { setSeq(e.target.value); setFieldErrors((p) => { const n={...p}; delete n.seq; return n; }); }} />
             <p className="text-[10px] mt-1" style={{ color: '#8B8B85' }}>Ref: {refPreview}</p>
           </div>
         </div>
 
-        {/* ── Offer fields ── */}
-        {letterType === 'offer' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-            <div>{L('Designation', 'off_designation', true)}<input className={I('off_designation')} value={off_designation} onChange={(e) => setOff_designation(e.target.value)} /></div>
-            <div>{L('Department', 'off_department', true)}<input className={I('off_department')} value={off_department} onChange={(e) => setOff_department(e.target.value)} /></div>
-            <div>{L('CTC', 'off_ctc', true)}<input className={I('off_ctc')} placeholder="e.g. ₹4,80,000 per annum" value={off_ctc} onChange={(e) => setOff_ctc(e.target.value)} /></div>
-            <div>{L('Joining Deadline (dd-MMM-yyyy)', 'off_joiningDeadline', true)}<input className={I('off_joiningDeadline')} placeholder="e.g. 15-Jun-2026" value={off_joiningDeadline} onChange={(e) => setOff_joiningDeadline(e.target.value)} /></div>
-            {/* Probation — styled select with highlighted month badge */}
-            <div>
-              {L('Probation Period')}
-              <select
-                className={`${I()} cursor-pointer`}
-                value={off_probation}
-                onChange={(e) => setOff_probation(e.target.value)}
-              >
-                {PROBATION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
-              <div className="mt-1.5">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
-                  style={{ backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
-                  🕐 {off_probation}
-                </span>
-              </div>
-            </div>
-            {/* Reporting To — SearchableSelect from employee list */}
-            <div>
-              {L('Reporting To', 'off_reportingTo', true)}
-              <SearchableSelect
-                options={managerOptions}
-                value={off_reportingToUid}
-                onChange={(uid) => {
-                  const emp = activeEmployees.find((e) => e.userId === uid);
-                  if (emp) {
-                    setOff_reportingTo(emp.displayName);
-                    setOff_reportingToUid(uid);
-                    setFieldErrors((p) => { const n = {...p}; delete n.off_reportingTo; return n; });
-                  }
-                }}
-                placeholder="Search manager by name…"
-              />
-              {fieldErrors.off_reportingTo && (
-                <p className="text-[11px] mt-0.5 text-red-500">{fieldErrors.off_reportingTo}</p>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* ── Appointment fields ── */}
         {letterType === 'appointment' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-            <div>{L('Designation', 'apt_designation', true)}<input className={I('apt_designation')} value={apt_designation} onChange={(e) => setApt_designation(e.target.value)} /></div>
-            <div>{L('Department', 'apt_department', true)}<input className={I('apt_department')} value={apt_department} onChange={(e) => setApt_department(e.target.value)} /></div>
-            <div>{L('Date of Joining (dd-MMM-yyyy)', 'apt_joiningDate', true)}<input className={I('apt_joiningDate')} placeholder="e.g. 01-Jun-2026" value={apt_joiningDate} onChange={(e) => setApt_joiningDate(e.target.value)} /></div>
-            <div>{L('CTC', 'apt_ctc', true)}<input className={I('apt_ctc')} placeholder="e.g. ₹4,80,000 per annum" value={apt_ctc} onChange={(e) => setApt_ctc(e.target.value)} /></div>
-            {/* Probation — styled select */}
-            <div>
-              {L('Probation Period')}
-              <select
-                className={`${I()} cursor-pointer`}
-                value={apt_probation}
-                onChange={(e) => setApt_probation(e.target.value)}
-              >
-                {PROBATION_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
-              <div className="mt-1.5">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
-                  style={{ backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
-                  🕐 {apt_probation}
-                </span>
+          <div className="space-y-4 pt-2 border-t border-slate-100">
+            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#475569' }}>Appointment Details</p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                {L('Residential Address (for contract party description)', 'apt_empAddress', true)}
+                <textarea className={`${baseTa} ${fe.apt_empAddress ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30' : 'border-slate-200 focus:ring-navy/10 focus:border-navy'}`}
+                  rows={2} placeholder="e.g. 116, Gayatri Hills, Jubilee Hills, Hyderabad, Telangana - 500033"
+                  value={apt_empAddress} onChange={(e) => setApt_empAddress(e.target.value)} />
+              </div>
+              <div>
+                {L('Designation', 'apt_designation', true)}
+                <input className={I('apt_designation')} value={apt_designation} onChange={(e) => setApt_designation(e.target.value)} />
+              </div>
+              <div>
+                {L('Date of Joining (e.g. 17th November 2025)', 'apt_joiningDate', true)}
+                <input className={I('apt_joiningDate')} placeholder="e.g. 17th November 2025"
+                  value={apt_joiningDate} onChange={(e) => setApt_joiningDate(e.target.value)} />
+              </div>
+              <div>
+                {L('Probation Duration (e.g. three (3) months)', 'apt_probationDuration', true)}
+                <input className={I('apt_probationDuration')} placeholder="e.g. three (3) months"
+                  value={apt_probationDuration} onChange={(e) => setApt_probationDuration(e.target.value)} />
+              </div>
+              <div>
+                {L('Probation End Date (e.g. 17th February 2026)', 'apt_probationEndDate', true)}
+                <input className={I('apt_probationEndDate')} placeholder="e.g. 17th February 2026"
+                  value={apt_probationEndDate} onChange={(e) => setApt_probationEndDate(e.target.value)} />
+              </div>
+              <div>
+                {L('Annual CTC (e.g. 8,40,000)', 'apt_ctcAnnual', true)}
+                <input className={I('apt_ctcAnnual')} placeholder="e.g. 8,40,000"
+                  value={apt_ctcAnnual} onChange={(e) => setApt_ctcAnnual(e.target.value)} />
+              </div>
+              <div>
+                {L('CTC in Words (e.g. Eight Lakh Forty Thousand)', 'apt_ctcInWords', true)}
+                <input className={I('apt_ctcInWords')} placeholder="e.g. Eight Lakh Forty Thousand"
+                  value={apt_ctcInWords} onChange={(e) => setApt_ctcInWords(e.target.value)} />
               </div>
             </div>
-            {/* Reporting To — SearchableSelect */}
+
+            {/* Salary table */}
             <div>
-              {L('Reporting To', 'apt_reportingTo', true)}
-              <SearchableSelect
-                options={managerOptions}
-                value={apt_reportingToUid}
-                onChange={(uid) => {
-                  const emp = activeEmployees.find((e) => e.userId === uid);
-                  if (emp) {
-                    setApt_reportingTo(emp.displayName);
-                    setApt_reportingToUid(uid);
-                    setFieldErrors((p) => { const n = {...p}; delete n.apt_reportingTo; return n; });
-                  }
-                }}
-                placeholder="Search manager by name…"
-              />
-              {fieldErrors.apt_reportingTo && (
-                <p className="text-[11px] mt-0.5 text-red-500">{fieldErrors.apt_reportingTo}</p>
-              )}
+              <div className="flex items-center justify-between mb-2">
+                {L('Salary Breakdown (Annexure I)', 'apt_salary', true)}
+                <button type="button" onClick={addSalaryRow}
+                  className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-slate-200 hover:bg-slate-50">
+                  <Plus size={11} /> Add Row
+                </button>
+              </div>
+              {fe.apt_salary && <p className="text-xs text-red-500 mb-2">{fe.apt_salary}</p>}
+              <div className="rounded-xl border border-slate-200 overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr style={{ backgroundColor: '#0B1538' }}>
+                      <th className="px-3 py-2 text-left font-semibold text-[10px] uppercase tracking-wider" style={{ color: '#C9A961', width: '35%' }}>Component</th>
+                      <th className="px-3 py-2 text-left font-semibold text-[10px] uppercase tracking-wider" style={{ color: '#C9A961', width: '30%' }}>Description</th>
+                      <th className="px-3 py-2 text-right font-semibold text-[10px] uppercase tracking-wider" style={{ color: '#C9A961', width: '17%' }}>Monthly (₹)</th>
+                      <th className="px-3 py-2 text-right font-semibold text-[10px] uppercase tracking-wider" style={{ color: '#C9A961', width: '14%' }}>Annual (₹)</th>
+                      <th className="px-3 py-2" style={{ width: '4%' }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {apt_salaryRows.map((row, idx) => {
+                      const monthly = parseFloat(row.monthly.replace(/,/g, '')) || 0;
+                      const annual  = (monthly * 12).toLocaleString('en-IN');
+                      return (
+                        <tr key={idx} className="border-t border-slate-100">
+                          <td className="px-2 py-1.5">
+                            <input className="w-full text-xs px-2 py-1 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-navy/10"
+                              value={row.component} placeholder="e.g. Basic Salary"
+                              onChange={(e) => updateSalaryRow(idx, 'component', e.target.value)} />
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <input className="w-full text-xs px-2 py-1 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-navy/10"
+                              value={row.description} placeholder="e.g. Monthly Fixed"
+                              onChange={(e) => updateSalaryRow(idx, 'description', e.target.value)} />
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <input className="w-full text-xs px-2 py-1 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-navy/10 text-right"
+                              value={row.monthly} placeholder="35000"
+                              onChange={(e) => updateSalaryRow(idx, 'monthly', e.target.value.replace(/[^0-9,]/g, ''))} />
+                          </td>
+                          <td className="px-3 py-1.5 text-right font-medium" style={{ color: '#475569' }}>
+                            {monthly > 0 ? annual : '—'}
+                          </td>
+                          <td className="px-2 py-1.5 text-center">
+                            <button type="button" onClick={() => removeSalaryRow(idx)}
+                              className="text-slate-300 hover:text-red-400 transition-colors">
+                              <Minus size={12} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {/* Totals row */}
+                    <tr className="border-t-2 border-slate-300" style={{ backgroundColor: '#F5EDD8' }}>
+                      <td className="px-3 py-2 text-xs font-bold" style={{ color: '#0B1538' }} colSpan={2}>TOTAL COST TO COMPANY (CTC)</td>
+                      <td className="px-3 py-2 text-xs font-bold text-right" style={{ color: '#0B1538' }}>
+                        {totalMonthly > 0 ? totalMonthly.toLocaleString('en-IN') : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-xs font-bold text-right" style={{ color: '#0B1538' }}>
+                        {totalMonthly > 0 ? (totalMonthly * 12).toLocaleString('en-IN') : '—'}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -668,59 +634,124 @@ export function HrLetterGeneratorPage() {
         {/* ── Confirmation fields ── */}
         {letterType === 'confirmation' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-            <div>{L('Designation', 'con_designation', true)}<input className={I('con_designation')} value={con_designation} onChange={(e) => setCon_designation(e.target.value)} /></div>
-            <div>{L('Department', 'con_department', true)}<input className={I('con_department')} value={con_department} onChange={(e) => setCon_department(e.target.value)} /></div>
-            <div>{L('Date of Joining (dd-MMM-yyyy)', 'con_joiningDate', true)}<input className={I('con_joiningDate')} placeholder="e.g. 01-Dec-2025" value={con_joiningDate} onChange={(e) => setCon_joiningDate(e.target.value)} /></div>
-            <div>{L('Confirmation Date (dd-MMM-yyyy)', 'con_confirmationDate', true)}<input className={I('con_confirmationDate')} placeholder="e.g. 01-Jun-2026" value={con_confirmationDate} onChange={(e) => setCon_confirmationDate(e.target.value)} /></div>
-            <div className="sm:col-span-2">{L('New Designation (if changed)')}<input className={I()} placeholder="Leave blank if unchanged" value={con_newDesignation} onChange={(e) => setCon_newDesignation(e.target.value)} /></div>
+            <div>
+              {L('Designation', 'con_designation', true)}
+              <input className={I('con_designation')} value={con_designation} onChange={(e) => setCon_designation(e.target.value)} />
+            </div>
+            <div>
+              {L('Confirmation Date (e.g. 01st January 2026)', 'con_confirmationDate', true)}
+              <input className={I('con_confirmationDate')} placeholder="e.g. 01st January 2026"
+                value={con_confirmationDate} onChange={(e) => setCon_confirmationDate(e.target.value)} />
+            </div>
+            <div>
+              {L('Probation Period From (e.g. 01st October 2025)', 'con_probationFrom', true)}
+              <input className={I('con_probationFrom')} placeholder="e.g. 01st October 2025"
+                value={con_probationFrom} onChange={(e) => setCon_probationFrom(e.target.value)} />
+            </div>
+            <div>
+              {L('Probation Period To (e.g. 01st January 2026)', 'con_probationTo', true)}
+              <input className={I('con_probationTo')} placeholder="e.g. 01st January 2026"
+                value={con_probationTo} onChange={(e) => setCon_probationTo(e.target.value)} />
+            </div>
+            <div className="sm:col-span-2">
+              {L('New Designation (only if changed during confirmation)')}
+              <input className={I()} placeholder="Leave blank if unchanged"
+                value={con_newDesignation} onChange={(e) => setCon_newDesignation(e.target.value)} />
+            </div>
           </div>
         )}
 
-        {/* ── Increment fields ── */}
-        {letterType === 'increment' && (
+        {/* ── Probation Extension fields ── */}
+        {letterType === 'probation_extension' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-            <div>{L('Designation', 'inc_designation', true)}<input className={I('inc_designation')} value={inc_designation} onChange={(e) => setInc_designation(e.target.value)} /></div>
-            <div>{L('Department', 'inc_department', true)}<input className={I('inc_department')} value={inc_department} onChange={(e) => setInc_department(e.target.value)} /></div>
-            <div>{L('Effective Date (dd-MMM-yyyy)', 'inc_effectiveDate', true)}<input className={I('inc_effectiveDate')} placeholder="e.g. 01-Apr-2026" value={inc_effectiveDate} onChange={(e) => setInc_effectiveDate(e.target.value)} /></div>
-            <div>{L('Increment %')}<input className={I()} placeholder="e.g. 15%" value={inc_percentage} onChange={(e) => setInc_percentage(e.target.value)} /></div>
-            <div>{L('Previous CTC', 'inc_oldCtc', true)}<input className={I('inc_oldCtc')} placeholder="e.g. ₹4,80,000 per annum" value={inc_oldCtc} onChange={(e) => setInc_oldCtc(e.target.value)} /></div>
-            <div>{L('Revised CTC', 'inc_newCtc', true)}<input className={I('inc_newCtc')} placeholder="e.g. ₹5,52,000 per annum" value={inc_newCtc} onChange={(e) => setInc_newCtc(e.target.value)} /></div>
+            <div>
+              {L('Designation', 'pex_designation', true)}
+              <input className={I('pex_designation')} value={pex_designation} onChange={(e) => setPex_designation(e.target.value)} />
+            </div>
+            <div>
+              {L('Probation Duration (e.g. 3 months)', 'pex_probationDuration', true)}
+              <input className={I('pex_probationDuration')} placeholder="e.g. 3 months"
+                value={pex_probationDuration} onChange={(e) => setPex_probationDuration(e.target.value)} />
+            </div>
+            <div>
+              {L('Original Probation End Date (e.g. 17th February 2026)', 'pex_originalProbationEnd', true)}
+              <input className={I('pex_originalProbationEnd')} placeholder="e.g. 17th February 2026"
+                value={pex_originalProbationEnd} onChange={(e) => setPex_originalProbationEnd(e.target.value)} />
+            </div>
+            <div>
+              {L('Extended Until Date (e.g. 17th May 2026)', 'pex_extendedUntilDate', true)}
+              <input className={I('pex_extendedUntilDate')} placeholder="e.g. 17th May 2026"
+                value={pex_extendedUntilDate} onChange={(e) => setPex_extendedUntilDate(e.target.value)} />
+            </div>
           </div>
         )}
 
-        {/* ── NOC fields ── */}
-        {letterType === 'noc' && (
+        {/* ── Consultant Agreement fields ── */}
+        {letterType === 'consultant_agreement' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-            <div>{L('Designation', 'noc_designation', true)}<input className={I('noc_designation')} value={noc_designation} onChange={(e) => setNoc_designation(e.target.value)} /></div>
-            <div>{L('Department', 'noc_department', true)}<input className={I('noc_department')} value={noc_department} onChange={(e) => setNoc_department(e.target.value)} /></div>
-            <div>{L('Date of Joining (dd-MMM-yyyy)', 'noc_joiningDate', true)}<input className={I('noc_joiningDate')} placeholder="e.g. 01-Jun-2024" value={noc_joiningDate} onChange={(e) => setNoc_joiningDate(e.target.value)} /></div>
-            <div>{L('Valid Until (dd-MMM-yyyy)', 'noc_validUntil', true)}<input className={I('noc_validUntil')} placeholder="e.g. 31-Dec-2026" value={noc_validUntil} onChange={(e) => setNoc_validUntil(e.target.value)} /></div>
-            <div className="sm:col-span-2">{L('Purpose of NOC', 'noc_purpose', true)}<input className={I('noc_purpose')} placeholder="e.g. home loan application, passport application, part-time study" value={noc_purpose} onChange={(e) => setNoc_purpose(e.target.value)} /></div>
+            <div className="sm:col-span-2">
+              {L('Residential Address (for contract party description)', 'cag_consultantAddress', true)}
+              <textarea className={`${baseTa} ${fe.cag_consultantAddress ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30' : 'border-slate-200 focus:ring-navy/10 focus:border-navy'}`}
+                rows={2} placeholder="e.g. 42, Banjara Hills Road No. 12, Hyderabad, Telangana - 500034"
+                value={cag_consultantAddress} onChange={(e) => setCag_consultantAddress(e.target.value)} />
+            </div>
+            <div>
+              {L('Role / Position (e.g. Consultant - Digital Marketing)', 'cag_role', true)}
+              <input className={I('cag_role')} placeholder="e.g. Consultant - Digital Marketing"
+                value={cag_role} onChange={(e) => setCag_role(e.target.value)} />
+            </div>
+            <div>
+              {L('Agreement Term (e.g. one (1) month)', 'cag_termMonths', true)}
+              <input className={I('cag_termMonths')} placeholder="e.g. one (1) month"
+                value={cag_termMonths} onChange={(e) => setCag_termMonths(e.target.value)} />
+            </div>
+            <div>
+              {L('Start Date (e.g. 02nd January 2026)', 'cag_startDate', true)}
+              <input className={I('cag_startDate')} placeholder="e.g. 02nd January 2026"
+                value={cag_startDate} onChange={(e) => setCag_startDate(e.target.value)} />
+            </div>
+            <div>
+              {L('End Date (e.g. 31st January 2026)', 'cag_endDate', true)}
+              <input className={I('cag_endDate')} placeholder="e.g. 31st January 2026"
+                value={cag_endDate} onChange={(e) => setCag_endDate(e.target.value)} />
+            </div>
+            <div>
+              {L('Monthly Fee Amount (e.g. 10,000)', 'cag_feeAmount', true)}
+              <input className={I('cag_feeAmount')} placeholder="e.g. 10,000"
+                value={cag_feeAmount} onChange={(e) => setCag_feeAmount(e.target.value)} />
+            </div>
+            <div>
+              {L('Fee in Words (e.g. Ten Thousand)', 'cag_feeInWords', true)}
+              <input className={I('cag_feeInWords')} placeholder="e.g. Ten Thousand"
+                value={cag_feeInWords} onChange={(e) => setCag_feeInWords(e.target.value)} />
+            </div>
+            <div className="sm:col-span-2">
+              {L('Scope of Services', 'cag_scopeOfServices', true)}
+              <textarea className={`${baseTa} ${fe.cag_scopeOfServices ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30' : 'border-slate-200 focus:ring-navy/10 focus:border-navy'}`}
+                rows={4} placeholder="Describe the services to be provided — shooting and editing visual content, developing creative concepts, etc."
+                value={cag_scopeOfServices} onChange={(e) => setCag_scopeOfServices(e.target.value)} />
+            </div>
+
+            {/* Notice about Aadhaar */}
+            <div className="sm:col-span-2 px-4 py-3 rounded-xl border border-amber-200" style={{ backgroundColor: '#FFFBEB' }}>
+              <p className="text-xs font-semibold mb-1" style={{ color: '#92400E' }}>📋 Aadhaar field</p>
+              <p className="text-xs" style={{ color: '#92400E' }}>
+                The agreement will show a blank line (<em>___________________________</em>) in the party description
+                where the Aadhaar number goes. Please fill this in manually on the printed / signed copy to comply
+                with UIDAI guidelines.
+              </p>
+            </div>
           </div>
         )}
 
-        {/* ── Salary Certificate fields ── */}
-        {letterType === 'salary_certificate' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-            <div>{L('Designation', 'sal_designation', true)}<input className={I('sal_designation')} value={sal_designation} onChange={(e) => setSal_designation(e.target.value)} /></div>
-            <div>{L('Department', 'sal_department', true)}<input className={I('sal_department')} value={sal_department} onChange={(e) => setSal_department(e.target.value)} /></div>
-            <div>{L('Date of Joining (dd-MMM-yyyy)', 'sal_joiningDate', true)}<input className={I('sal_joiningDate')} placeholder="e.g. 01-Jun-2024" value={sal_joiningDate} onChange={(e) => setSal_joiningDate(e.target.value)} /></div>
-            <div>{L('Gross Annual CTC', 'sal_grossCtc', true)}<input className={I('sal_grossCtc')} placeholder="e.g. ₹4,80,000 per annum" value={sal_grossCtc} onChange={(e) => setSal_grossCtc(e.target.value)} /></div>
-            <div>{L('Basic Salary (Monthly)', 'sal_basicSalary', true)}<input className={I('sal_basicSalary')} placeholder="e.g. ₹15,000 per month" value={sal_basicSalary} onChange={(e) => setSal_basicSalary(e.target.value)} /></div>
-            <div>{L('Purpose', 'sal_purpose', true)}<input className={I('sal_purpose')} placeholder="e.g. home loan application, visa application" value={sal_purpose} onChange={(e) => setSal_purpose(e.target.value)} /></div>
-          </div>
-        )}
-
-        {/* ── Experience / Relieving fields ── */}
-        {(letterType === 'experience' || letterType === 'relieving') && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-            <div>{L('Designation', 'ex_designation', true)}<input className={I('ex_designation')} value={ex_designation} onChange={(e) => setEx_designation(e.target.value)} /></div>
-            <div>{L('Department', 'ex_department', true)}<input className={I('ex_department')} value={ex_department} onChange={(e) => setEx_department(e.target.value)} /></div>
-            <div>{L('Date of Joining (dd-MMM-yyyy)', 'ex_joiningDate', true)}<input className={I('ex_joiningDate')} placeholder="e.g. 01-Jun-2024" value={ex_joiningDate} onChange={(e) => setEx_joiningDate(e.target.value)} /></div>
-            <div>{L('Last Working Date (dd-MMM-yyyy)', 'ex_lastWorkingDate', true)}<input className={I('ex_lastWorkingDate')} placeholder="e.g. 31-May-2026" value={ex_lastWorkingDate} onChange={(e) => setEx_lastWorkingDate(e.target.value)} /></div>
-            {letterType === 'relieving' && (
-              <div className="sm:col-span-2">{L('Exit Reason', 'ex_exitReason', true)}<input className={I('ex_exitReason')} placeholder="e.g. Resignation" value={ex_exitReason} onChange={(e) => setEx_exitReason(e.target.value)} /></div>
-            )}
+        {/* Aadhaar notice for appointment letter */}
+        {letterType === 'appointment' && (
+          <div className="px-4 py-3 rounded-xl border border-amber-200" style={{ backgroundColor: '#FFFBEB' }}>
+            <p className="text-xs font-semibold mb-1" style={{ color: '#92400E' }}>📋 Aadhaar field</p>
+            <p className="text-xs" style={{ color: '#92400E' }}>
+              The accord will show a blank line (<em>___________________________</em>) in the party description.
+              Please fill the Aadhaar number manually on the printed / signed copy to comply with UIDAI guidelines.
+            </p>
           </div>
         )}
 
@@ -776,10 +807,10 @@ export function HrLetterGeneratorPage() {
   );
 }
 
-// ─── Letter row with download button ─────────────────────────────────────────
+// ─── Letter row ───────────────────────────────────────────────────────────────
 
 function LetterRow({ letter: l }: { letter: GeneratedLetter }) {
-  const d = l.generatedAt?.toDate?.();
+  const d         = l.generatedAt?.toDate?.();
   const typeLabel = LETTER_TYPES.find((t) => t.value === l.letterType)?.label ?? l.letterType;
 
   return (
@@ -804,8 +835,7 @@ function LetterRow({ letter: l }: { letter: GeneratedLetter }) {
             style={{ color: '#0B1538' }}
             title="Open / download PDF"
           >
-            <Download size={12} />
-            PDF
+            <Download size={12} /> PDF
           </button>
         ) : (
           <span className="text-xs" style={{ color: '#8B8B85' }}>—</span>

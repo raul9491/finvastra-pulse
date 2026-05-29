@@ -481,7 +481,7 @@ function downloadConfirmationLetter(record: ProbationRecord): void {
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(11, 21, 56);
-  doc.text('FINVASTRA FINANCIAL ADVISORY PVT. LTD.', pageW / 2, y, { align: 'center' });
+  doc.text('FINVASTRA ADVISORS PRIVATE LIMITED', pageW / 2, y, { align: 'center' });
   y += 6;
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
@@ -525,7 +525,7 @@ function downloadConfirmationLetter(record: ProbationRecord): void {
     `With reference to your appointment dated ${fmtDate(record.joiningDate)}, we are pleased to ` +
     `inform you that upon review of your performance during the probation period ending ` +
     `${fmtDate(record.probationEndDate)}, the management has decided to confirm your appointment ` +
-    `as a Permanent Employee of Finvastra Financial Advisory Pvt. Ltd.`;
+    `as a Permanent Employee of Finvastra Advisors Private Limited`;
   const lines1 = doc.splitTextToSize(para1, bodyStyle.maxWidth);
   doc.text(lines1, 20, y);
   y += (lines1.length * 5) + 6;
@@ -553,7 +553,7 @@ function downloadConfirmationLetter(record: ProbationRecord): void {
   doc.text('Yours sincerely,', 20, y);
   y += 15;
   doc.setFont('helvetica', 'bold');
-  doc.text('For Finvastra Financial Advisory Pvt. Ltd.', 20, y);
+  doc.text('For Finvastra Advisors Private Limited', 20, y);
   y += 5;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
@@ -588,7 +588,7 @@ function downloadExtensionLetter(record: ProbationRecord): void {
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(11, 21, 56);
-  doc.text('FINVASTRA FINANCIAL ADVISORY PVT. LTD.', pageW / 2, y, { align: 'center' });
+  doc.text('FINVASTRA ADVISORS PRIVATE LIMITED', pageW / 2, y, { align: 'center' });
   y += 6;
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
@@ -658,7 +658,7 @@ function downloadExtensionLetter(record: ProbationRecord): void {
   doc.text('Yours sincerely,', 20, y);
   y += 15;
   doc.setFont('helvetica', 'bold');
-  doc.text('For Finvastra Financial Advisory Pvt. Ltd.', 20, y);
+  doc.text('For Finvastra Advisors Private Limited', 20, y);
   y += 5;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);

@@ -251,7 +251,7 @@ export function LoginPage() {
 
           <p style={{ textAlign: 'center', fontSize: 11, marginTop: 16, color: '#8B8B85' }}>
             Access restricted to Finvastra team members only.<br />
-            © 2026 Finvastra Financial Services Pvt. Ltd.
+            © 2026 Finvastra Advisors Private Limited
           </p>
         </div>
       </div>

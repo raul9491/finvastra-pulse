@@ -1339,9 +1339,12 @@ export interface HrTicket {
 
 /** Mirror of the LetterType union in letterPdf.ts — kept in sync manually. */
 export type LetterType =
-  | 'offer'
   | 'appointment'
   | 'confirmation'
+  | 'probation_extension'
+  | 'consultant_agreement'
+  // Legacy types from before Phase H rewrite (may exist in Firestore; displayed as raw string)
+  | 'offer'
   | 'increment'
   | 'noc'
   | 'salary_certificate'

@@ -8,7 +8,7 @@ import {
   Settings, LogOut, LayoutGrid, ClipboardList, FileText, UserPlus, Inbox,
   ReceiptText, FolderOpen, Megaphone, Building2, Calculator,
   Laptop, UserMinus, Lock, FileSearch2, GraduationCap, TrendingUp, Briefcase, BookOpen, LifeBuoy,
-  CalendarRange, BookUser, Network, RotateCcw, ScrollText, HelpCircle,
+  CalendarRange, BookUser, Network, RotateCcw, ScrollText, HelpCircle, Database,
 } from 'lucide-react';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -195,6 +195,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/org-chart':             'Organisation Chart',
   '/hrms/admin/leave-year-end':  'Leave Year-End Reset',
   '/hrms/admin/letters':         'HR Letter Generator',
+  '/hrms/admin/data-import':     'Data Import',
 };
 
 function FullPageLoader() {
@@ -361,21 +362,38 @@ export function HrmsShell() {
 
               {/* Super Admin: Permission Manager — only visible to the 3 protected accounts */}
               {isSA && (
-                <NavLink
-                  to="/hrms/admin/permissions"
-                  end
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 py-2.5 rounded-lg transition-colors mb-0.5 ${isActive ? 'pl-2.5 border-l-2' : 'pl-3'}`
-                  }
-                  style={({ isActive }) =>
-                    isActive
-                      ? { backgroundColor: '#1B2A4E', color: '#FFFFFF', borderColor: '#C9A961' }
-                      : { color: '#C9A961' }
-                  }
-                >
-                  <Lock size={17} className="shrink-0" />
-                  <span className="text-sm flex-1 font-medium">Permission Manager</span>
-                </NavLink>
+                <>
+                  <NavLink
+                    to="/hrms/admin/permissions"
+                    end
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 py-2.5 rounded-lg transition-colors mb-0.5 ${isActive ? 'pl-2.5 border-l-2' : 'pl-3'}`
+                    }
+                    style={({ isActive }) =>
+                      isActive
+                        ? { backgroundColor: '#1B2A4E', color: '#FFFFFF', borderColor: '#C9A961' }
+                        : { color: '#C9A961' }
+                    }
+                  >
+                    <Lock size={17} className="shrink-0" />
+                    <span className="text-sm flex-1 font-medium">Permission Manager</span>
+                  </NavLink>
+                  <NavLink
+                    to="/hrms/admin/data-import"
+                    end
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 py-2.5 rounded-lg transition-colors mb-0.5 ${isActive ? 'pl-2.5 border-l-2' : 'pl-3'}`
+                    }
+                    style={({ isActive }) =>
+                      isActive
+                        ? { backgroundColor: '#1B2A4E', color: '#FFFFFF', borderColor: '#C9A961' }
+                        : { color: '#C9A961' }
+                    }
+                  >
+                    <Database size={17} className="shrink-0" />
+                    <span className="text-sm flex-1 font-medium">Data Import</span>
+                  </NavLink>
+                </>
               )}
 
               {ADMIN_NAV.map(({ path, label, icon: Icon }) => {

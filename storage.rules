@@ -70,6 +70,13 @@ service firebase.storage {
       );
     }
 
+    // ─── Data Import audit files ──────────────────────────────────────────────
+    // Original uploaded files stored as audit trail. Admin-write, Admin-read only.
+    match /imports/{importType}/{userId}/{fileName} {
+      allow read: if request.auth != null && request.auth.token.role == 'admin';
+      allow write: if request.auth != null && request.auth.token.role == 'admin';
+    }
+
     // ─── Default deny ─────────────────────────────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;

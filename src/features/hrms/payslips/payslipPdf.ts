@@ -122,7 +122,7 @@ export function generatePayslipPdf(payslip: Payslip, employee: UserProfile): voi
   // ─── Footer ──────────────────────────────────────────────────────────────────
   doc.setFontSize(7);
   doc.setTextColor(139, 139, 133);
-  doc.text('This is a system-generated payslip. For queries contact HR at hr@finvastra.com', pageW / 2, y, { align: 'center' });
+  doc.text('This is a system-generated payslip. For queries contact HR at support@finvastra.com', pageW / 2, y, { align: 'center' });
   if (payslip.notes) {
     y += 4;
     doc.text(`Notes: ${payslip.notes}`, pageW / 2, y, { align: 'center' });

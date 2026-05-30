@@ -355,6 +355,29 @@ export interface Payslip {
   notes: string;
 }
 
+// ─── Payslip Extras ──────────────────────────────────────────────────────────
+//
+// Optional supplementary fields for PDF generation.
+// Fetched from employee_sensitive, user_details, and leave_balances at download time.
+// All fields are optional — the PDF falls back to "—" when absent.
+
+export interface PayslipExtras {
+  gender?:           string;
+  /** Pre-masked PAN string e.g. "ABCDE****F". Absent → shows "On file" in PDF. */
+  panMasked?:        string;
+  bankName?:         string;        // official salary-credit bank name
+  bankAccountLast4?: string;        // last 4 digits of salary account number
+  pfNumber?:         string;        // EPFO PF member ID (e.g. CBSLM00479350000024243)
+  uan?:              string;        // Universal Account Number
+  joiningDate?:      string;        // YYYY-MM-DD — from UserProfile
+  location?:         string;        // default "Hyderabad"
+  leaveBalance?: {
+    sick:    { credited: number; availed: number; closing: number };
+    casual:  { credited: number; availed: number; closing: number };
+    earned:  { credited: number; availed: number; closing: number };
+  };
+}
+
 // ─── CRM: Leads (person record) ──────────────────────────────────────────────
 
 export type LeadSource = 'website' | 'instagram' | 'facebook' | 'walkin' | 'referral' | 'broker' | 'offline_bulk' | 'social_meta' | 'employee_referral';

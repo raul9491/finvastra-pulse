@@ -9,7 +9,7 @@ import { useAllPayslips, createPayslip } from '../hooks/usePayslips';
 import { writeNotification, sendHrEmailNotification, buildHrEmailHtml } from '../../../lib/notifications';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { generatePayslipPdf } from './payslipPdf';
-import type { Payslip, UserProfile, Attendance } from '../../../types';
+import type { Payslip, UserProfile, Attendance, PayslipExtras, LeaveBalance } from '../../../types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -162,6 +162,50 @@ function ConfirmModal({ count, onConfirm, onCancel }: ConfirmModalProps) {
       </div>
     </div>
   );
+}
+
+// ─── Extras helper ───────────────────────────────────────────────────────────
+//
+// Fetches supplementary data for a single employee just-in-time before PDF
+// generation.  All fields are optional — a fetch failure returns an empty object
+// so the PDF still generates (showing "—" for missing cells).
+
+async function fetchExtrasForEmployee(
+  uid: string,
+  month: string,
+): Promise<PayslipExtras> {
+  const year = parseInt(month.split('-')[0], 10);
+  try {
+    const [sensSnap, detSnap, lbSnap] = await Promise.all([
+      getDoc(doc(db, 'employee_sensitive', uid)),
+      getDoc(doc(db, 'user_details',       uid)),
+      getDoc(doc(db, 'leave_balances',     `${uid}_${year}`)),
+    ]);
+
+    const sens = (sensSnap.exists() ? sensSnap.data() : {}) as Record<string, unknown>;
+    const dets = (detSnap.exists()  ? detSnap.data()  : {}) as Record<string, unknown>;
+
+    let leaveBalance: PayslipExtras['leaveBalance'] = undefined;
+    if (lbSnap.exists()) {
+      const lb = lbSnap.data() as LeaveBalance;
+      leaveBalance = {
+        sick:   { credited: lb.sick.total,   availed: lb.sick.used,   closing: lb.sick.remaining   },
+        casual: { credited: lb.casual.total, availed: lb.casual.used, closing: lb.casual.remaining },
+        earned: { credited: lb.earned.total, availed: lb.earned.used, closing: lb.earned.remaining },
+      };
+    }
+
+    return {
+      gender:           typeof dets.gender       === 'string' ? dets.gender       : undefined,
+      bankName:         typeof sens.bankName      === 'string' ? sens.bankName      : undefined,
+      bankAccountLast4: typeof sens.bankAccountNo === 'string' ? sens.bankAccountNo.slice(-4) : undefined,
+      pfNumber:         typeof sens.pfNumber      === 'string' ? sens.pfNumber      : undefined,
+      uan:              typeof sens.uan           === 'string' ? sens.uan           : undefined,
+      leaveBalance,
+    };
+  } catch {
+    return {}; // non-fatal — PDF renders without extras
+  }
 }
 
 // ─── GeneratePayslipPage ──────────────────────────────────────────────────────
@@ -487,8 +531,14 @@ export function GeneratePayslipPage() {
 
   // ─── Download existing payslip (admin side) ───────────────────────────────
 
-  function handleDownloadExisting(emp: UserProfile, payslip: Payslip) {
-    generatePayslipPdf(payslip, emp, 'save');
+  async function handleDownloadExisting(emp: UserProfile, payslip: Payslip) {
+    const fetched = await fetchExtrasForEmployee(emp.userId, payslip.month);
+    const extras: PayslipExtras = {
+      ...fetched,
+      joiningDate: emp.joiningDate,
+      location:    emp.location ?? 'Hyderabad',
+    };
+    generatePayslipPdf(payslip, emp, 'save', extras);
   }
 
   // ─── Send payslip PDF by email ────────────────────────────────────────────
@@ -496,7 +546,13 @@ export function GeneratePayslipPage() {
   async function handleSendEmail(emp: UserProfile, payslip: Payslip) {
     setSendingEmail((prev) => new Set(prev).add(emp.userId));
     try {
-      const base64 = generatePayslipPdf(payslip, emp, 'base64') as string;
+      const fetched = await fetchExtrasForEmployee(emp.userId, payslip.month);
+      const extras: PayslipExtras = {
+        ...fetched,
+        joiningDate: emp.joiningDate,
+        location:    emp.location ?? 'Hyderabad',
+      };
+      const base64 = generatePayslipPdf(payslip, emp, 'base64', extras) as string;
       const fname  = emp.displayName.replace(/\s+/g, '-');
       const monthLabel = format(new Date(`${payslip.month}-01`), 'MMMM yyyy');
       const filename   = `Finvastra-Payslip-${fname}-${payslip.month}.pdf`;

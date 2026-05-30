@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Download, X } from 'lucide-react';
+import { getDoc, doc } from 'firebase/firestore';
+import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useMyPayslips } from '../hooks/usePayslips';
 import { generatePayslipPdf } from './payslipPdf';
-import type { Payslip, UserProfile } from '../../../types';
+import type { Payslip, UserProfile, PayslipExtras, LeaveBalance } from '../../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -228,9 +230,64 @@ export function PayslipsPage() {
   const { payslips, loading }    = useMyPayslips(user?.uid ?? '');
   const [expandedId, setExpanded] = useState<string | null>(null);
 
-  function handleDownload(payslip: Payslip) {
-    if (!profile) return;
-    generatePayslipPdf(payslip, profile as UserProfile);
+  // Supplementary data for the payslip PDF (bank details, UAN, gender).
+  // Fetched once on mount — all fields are optional so a failed fetch is non-fatal.
+  const [baseExtras, setBaseExtras] = useState<Omit<PayslipExtras, 'leaveBalance'>>({});
+
+  useEffect(() => {
+    const uid = user?.uid;
+    if (!uid) return;
+    let cancelled = false;
+
+    async function fetchBaseExtras() {
+      const [sensSnap, detSnap] = await Promise.all([
+        getDoc(doc(db, 'employee_sensitive', uid)),
+        getDoc(doc(db, 'user_details',       uid)),
+      ]);
+      if (cancelled) return;
+
+      const sens = (sensSnap.exists() ? sensSnap.data() : {}) as Record<string, unknown>;
+      const dets = (detSnap.exists()  ? detSnap.data()  : {}) as Record<string, unknown>;
+
+      setBaseExtras({
+        gender:           typeof dets.gender       === 'string' ? dets.gender       : undefined,
+        bankName:         typeof sens.bankName      === 'string' ? sens.bankName      : undefined,
+        bankAccountLast4: typeof sens.bankAccountNo === 'string' ? sens.bankAccountNo.slice(-4) : undefined,
+        pfNumber:         typeof sens.pfNumber      === 'string' ? sens.pfNumber      : undefined,
+        uan:              typeof sens.uan           === 'string' ? sens.uan           : undefined,
+      });
+    }
+
+    fetchBaseExtras().catch(() => {});
+    return () => { cancelled = true; };
+  }, [user?.uid]);
+
+  async function handleDownload(payslip: Payslip) {
+    if (!profile || !user) return;
+
+    // Fetch leave balance for the payslip's financial year
+    const year = parseInt(payslip.month.split('-')[0], 10);
+    let leaveBalance: PayslipExtras['leaveBalance'] = undefined;
+    try {
+      const lbSnap = await getDoc(doc(db, 'leave_balances', `${user.uid}_${year}`));
+      if (lbSnap.exists()) {
+        const lb = lbSnap.data() as LeaveBalance;
+        leaveBalance = {
+          sick:   { credited: lb.sick.total,   availed: lb.sick.used,   closing: lb.sick.remaining   },
+          casual: { credited: lb.casual.total, availed: lb.casual.used, closing: lb.casual.remaining },
+          earned: { credited: lb.earned.total, availed: lb.earned.used, closing: lb.earned.remaining },
+        };
+      }
+    } catch { /* non-fatal — PDF still generates without leave section */ }
+
+    const extras: PayslipExtras = {
+      ...baseExtras,
+      joiningDate: (profile as UserProfile).joiningDate,
+      location:    (profile as UserProfile).location ?? 'Hyderabad',
+      leaveBalance,
+    };
+
+    generatePayslipPdf(payslip, profile as UserProfile, 'save', extras);
   }
 
   function toggleExpand(id: string) {

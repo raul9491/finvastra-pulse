@@ -165,9 +165,11 @@ export function buildHrEmailHtml(opts: {
  * Requires the current Firebase user to be admin or HR manager.
  */
 export async function sendHrEmailNotification(opts: {
-  employeeId: string;
-  subject:    string;
-  htmlBody:   string;
+  employeeId:  string;
+  subject:     string;
+  htmlBody:    string;
+  pdfBase64?:  string;   // base64-encoded PDF to attach
+  pdfFilename?: string;  // e.g. "Finvastra-Payslip-April-2026.pdf"
 }): Promise<void> {
   const token = await getAuth().currentUser?.getIdToken();
   if (!token) return;
@@ -176,9 +178,11 @@ export async function sendHrEmailNotification(opts: {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body:    JSON.stringify({
-      employeeId: opts.employeeId,
-      subject:    opts.subject,
-      htmlBody:   opts.htmlBody,
+      employeeId:  opts.employeeId,
+      subject:     opts.subject,
+      htmlBody:    opts.htmlBody,
+      pdfBase64:   opts.pdfBase64,
+      pdfFilename: opts.pdfFilename,
     }),
   });
 }

@@ -1310,8 +1310,9 @@ async function startServer() {
     const isHrMgr      = callerData?.isHrmsManager === true;
     if (!isAdmin && !isHrMgr) return res.status(403).json({ error: "Admin or HR Manager required" });
 
-    const { employeeId, subject, htmlBody } = req.body as {
+    const { employeeId, subject, htmlBody, pdfBase64, pdfFilename } = req.body as {
       employeeId: string; subject: string; htmlBody: string;
+      pdfBase64?: string; pdfFilename?: string;
     };
     if (!employeeId || !subject || !htmlBody) {
       return res.status(400).json({ error: "Missing fields" });
@@ -1342,8 +1343,16 @@ async function startServer() {
           to: toEmail,
           subject,
           html: htmlBody,
+          ...(pdfBase64 && pdfFilename ? {
+            attachments: [{
+              filename: pdfFilename,
+              content: pdfBase64,
+              encoding: 'base64',
+              contentType: 'application/pdf',
+            }],
+          } : {}),
         });
-        console.log(`[hr-notify/email] Sent "${subject}" to ${toEmail}`);
+        console.log(`[hr-notify/email] Sent "${subject}" to ${toEmail}${pdfBase64 ? ' (with PDF)' : ''}`);
       } catch (e) {
         // Non-fatal — in-app notification is the primary channel
         console.error("[hr-notify/email] SMTP failed:", e);

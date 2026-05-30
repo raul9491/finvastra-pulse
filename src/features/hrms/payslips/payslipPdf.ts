@@ -2,7 +2,12 @@ import { jsPDF } from 'jspdf';
 import { addWatermarkToAllPages } from '../../../lib/pdfWatermark';
 import type { Payslip, UserProfile } from '../../../types';
 
-export function generatePayslipPdf(payslip: Payslip, employee: UserProfile): void {
+/**
+ * Generate the payslip PDF.
+ * mode = 'save'   (default) — triggers browser download immediately
+ * mode = 'base64'           — returns base64 string (used for email attachment)
+ */
+export function generatePayslipPdf(payslip: Payslip, employee: UserProfile, mode?: 'save' | 'base64'): string | void {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   let y = 20;
@@ -131,8 +136,11 @@ export function generatePayslipPdf(payslip: Payslip, employee: UserProfile): voi
   // ─── Watermark ───────────────────────────────────────────────────────────────
   addWatermarkToAllPages(doc, { downloaderName: employee.displayName });
 
-  // ─── Save ────────────────────────────────────────────────────────────────────
+  // ─── Output ──────────────────────────────────────────────────────────────────
   const fname = employee.displayName.replace(/\s+/g, '-');
   const monthSlug = payslip.month;
+  if (mode === 'base64') {
+    return doc.output('datauristring').split(',')[1]; // pure base64, no data-uri prefix
+  }
   doc.save(`Finvastra-Payslip-${fname}-${monthSlug}.pdf`);
 }

@@ -90,12 +90,12 @@ export function MisShell() {
           to={path}
           end
           className={({ isActive }) =>
-            `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3 hover:bg-[rgba(255,255,255,0.04)]'}`
+            `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3 nav-item-hover'}`
           }
           style={({ isActive }) =>
             isActive
               ? { backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961', borderColor: '#C9A961' }
-              : { color: 'rgba(240,236,224,0.45)' }
+              : { color: 'var(--shell-text-secondary)' }
           }
         >
           <Icon size={17} className="shrink-0" />
@@ -107,7 +107,7 @@ export function MisShell() {
 
   // ── User footer ───────────────────────────────────────────────────────────────
   const userFooter = (
-    <div className="p-4 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+    <div className="p-4 shrink-0" style={{ borderTop: '1px solid var(--shell-border)' }}>
       <div className="flex items-center gap-3">
         {profile?.photoURL ? (
           <img src={profile.photoURL} alt={profile.displayName} className="w-8 h-8 rounded-full object-cover shrink-0" />
@@ -119,7 +119,7 @@ export function MisShell() {
         )}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{profile?.displayName}</p>
-          <p className="text-[10px] uppercase tracking-widest truncate" style={{ color: 'rgba(240,236,224,0.35)' }}>{profile?.role}</p>
+          <p className="text-[10px] uppercase tracking-widest truncate" style={{ color: 'var(--shell-text-dim)' }}>{profile?.role}</p>
         </div>
       </div>
     </div>
@@ -133,7 +133,7 @@ export function MisShell() {
         className="hidden md:flex md:flex-col w-60 shrink-0 glass-sidebar"
       >
         {/* Logo */}
-        <div className="h-16 flex items-center px-4 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="h-16 flex items-center px-4 shrink-0" style={{ borderBottom: '1px solid var(--shell-border)' }}>
           <VideoLogo size="xs" showText={true} />
         </div>
 
@@ -166,14 +166,14 @@ export function MisShell() {
               exit={{ x: -240 }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             >
-              <div className="h-16 flex items-center justify-between px-4 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <div className="h-16 flex items-center justify-between px-4 shrink-0" style={{ borderBottom: '1px solid var(--shell-border)' }}>
                 <VideoLogo size="xs" showText={true} />
                 <button
                   onClick={() => setMobileNavOpen(false)}
-                  className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                  className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard) transition-colors"
                   aria-label="Close navigation menu"
                 >
-                  <X size={18} style={{ color: 'rgba(240,236,224,0.45)' }} />
+                  <X size={18} style={{ color: 'var(--shell-text-secondary)' }} />
                 </button>
               </div>
 
@@ -199,23 +199,23 @@ export function MisShell() {
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {/* Hamburger — mobile only */}
             <button
-              className="md:hidden p-2 -ml-1 rounded-lg hover:bg-white/10 transition-colors shrink-0"
+              className="md:hidden p-2 -ml-1 rounded-lg hover:bg-(--shell-hover-hard) transition-colors shrink-0"
               onClick={() => setMobileNavOpen(true)}
               aria-label="Open navigation menu"
             >
-              <Menu size={20} style={{ color: 'rgba(240,236,224,0.70)' }} />
+              <Menu size={20} style={{ color: 'var(--shell-text-icon)' }} />
             </button>
 
             <button
               onClick={() => navigate('/')}
-              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors hover:bg-white/10 shrink-0"
-              style={{ color: 'rgba(240,236,224,0.45)' }}
+              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors hover:bg-(--shell-hover-hard) shrink-0"
+              style={{ color: 'var(--shell-text-secondary)' }}
               title="Back to launcher"
             >
               <LayoutGrid size={14} />
               <span className="hidden sm:block">Apps</span>
             </button>
-            <div className="w-px h-4 hidden sm:block shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.10)' }} />
+            <div className="w-px h-4 hidden sm:block shrink-0" style={{ backgroundColor: 'var(--shell-border-mid)' }} />
             <h1 className="text-base font-semibold truncate min-w-0" style={{ color: 'var(--text-primary)' }}>{pageTitle}</h1>
           </div>
 
@@ -233,11 +233,11 @@ export function MisShell() {
             <span className="text-sm font-medium hidden sm:block" style={{ color: 'var(--text-primary)' }}>
               {profile?.displayName}
             </span>
-            <div className="w-px h-5 hidden sm:block" style={{ backgroundColor: 'rgba(255,255,255,0.10)' }} />
+            <div className="w-px h-5 hidden sm:block" style={{ backgroundColor: 'var(--shell-border-mid)' }} />
             <button
               onClick={handleLogout}
               className="flex items-center gap-1.5 text-sm transition-opacity hover:opacity-60"
-              style={{ color: 'rgba(240,236,224,0.45)' }}
+              style={{ color: 'var(--shell-text-secondary)' }}
               title="Sign out"
             >
               <LogOut size={15} />

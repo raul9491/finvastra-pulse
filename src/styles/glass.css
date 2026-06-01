@@ -55,6 +55,18 @@
   --ss-muted:         rgba(240,236,224,0.42);
   --ss-ring:          rgba(201,169,97,0.40);
 
+  /* Shell chrome vars — dark defaults.
+     Used by HrmsShell, CrmShell, MisShell for nav items, borders, dividers.
+     Replacing hardcoded rgba(240,236,224,…) and rgba(255,255,255,…) values. */
+  --shell-text-secondary: rgba(240,236,224,0.50); /* inactive nav labels, header btns */
+  --shell-text-dim:       rgba(240,236,224,0.30); /* section headers, role text        */
+  --shell-text-icon:      rgba(240,236,224,0.70); /* hamburger / close icons           */
+  --shell-border:         rgba(255,255,255,0.08); /* section dividing borders          */
+  --shell-border-mid:     rgba(255,255,255,0.10); /* vertical dividers in header       */
+  --shell-hover-soft:     rgba(255,255,255,0.04); /* nav item hover                    */
+  --shell-hover-mid:      rgba(255,255,255,0.07); /* header button hover               */
+  --shell-hover-hard:     rgba(255,255,255,0.10); /* stronger hover (white/10)         */
+
   /* Tell the browser to render native form controls in dark style */
   color-scheme: dark;
 }
@@ -294,6 +306,12 @@ select.glass-inp option {
   color: var(--text-primary);
 }
 
+/* ─── Adaptive nav hover (replaces Tailwind arbitrary hover:bg-[rgba(...)]) ── */
+
+.nav-item-hover:hover {
+  background-color: var(--shell-hover-soft);
+}
+
 /* ─── Sidebar nav ─────────────────────────────────────── */
 
 .glass-sidebar {
@@ -382,6 +400,16 @@ body.light-mode {
   --ss-selected-text: #0B1538;
   --ss-muted:         #8B8B85;
   --ss-ring:          rgba(11,21,56,0.30);
+
+  /* Shell chrome — light mode */
+  --shell-text-secondary: rgba(10,10,10,0.55);
+  --shell-text-dim:       rgba(10,10,10,0.38);
+  --shell-text-icon:      rgba(10,10,10,0.60);
+  --shell-border:         rgba(0,0,0,0.08);
+  --shell-border-mid:     rgba(0,0,0,0.10);
+  --shell-hover-soft:     rgba(0,0,0,0.04);
+  --shell-hover-mid:      rgba(0,0,0,0.05);
+  --shell-hover-hard:     rgba(0,0,0,0.07);
 
   /* Native form controls: light style */
   color-scheme: light;

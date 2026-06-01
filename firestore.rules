@@ -304,7 +304,7 @@ service cloud.firestore {
                         resource.data.ownerId == request.auth.uid &&
                         incoming().diff(existing()).affectedKeys().hasOnly([
                           'stage', 'status', 'notes', 'expectedCloseDate',
-                          'actualCloseDate', 'updatedAt', 'customFields'
+                          'actualCloseDate', 'updatedAt', 'customFields', 'stageData'
                         ]));
 
       allow delete: if false;

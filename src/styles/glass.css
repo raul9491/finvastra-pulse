@@ -1,0 +1,328 @@
+/* ═══════════════════════════════════════════════════════
+   Finvastra Pulse — Glassmorphism Design System
+   UI layer only. Brand: navy #0B1538, gold #C9A961.
+═══════════════════════════════════════════════════════ */
+
+:root {
+  /* Background */
+  --glass-bg-base: #050d1f;
+
+  /* Glass panels */
+  --glass-panel-bg: rgba(255,255,255,0.06);
+  --glass-panel-border: 1px solid rgba(255,255,255,0.10);
+  --glass-panel-blur: blur(20px);
+  --glass-panel-radius: 16px;
+  --glass-panel-hover-bg: rgba(255,255,255,0.09);
+  --glass-panel-hover-border: rgba(255,255,255,0.16);
+
+  /* Finvastra accent (gold) */
+  --accent-primary: #C9A961;
+  --accent-primary-dim: rgba(201,169,97,0.15);
+  --accent-primary-border: rgba(201,169,97,0.30);
+  --accent-deep: #9A7E3F;
+
+  /* Navy tones */
+  --navy-deep: #050d1f;
+  --navy-base: #0B1538;
+  --navy-mid: #1B2A4E;
+
+  /* Text */
+  --text-primary: #f0ece0;
+  --text-muted: rgba(240,236,224,0.50);
+  --text-dim: rgba(240,236,224,0.28);
+
+  /* Status */
+  --status-success: #34d399;
+  --status-danger: #f87171;
+  --status-warning: #C9A961;
+  --status-info: #60a5fa;
+
+  /* Buttons */
+  --btn-primary-bg: linear-gradient(135deg,
+    rgba(201,169,97,0.85), rgba(154,126,63,0.85));
+  --btn-primary-border: rgba(201,169,97,0.40);
+  --btn-primary-shadow: 0 4px 20px rgba(201,169,97,0.25);
+}
+
+/* ─── Global body ─────────────────────────────────────── */
+
+body {
+  background-color: var(--navy-deep);
+  background-image:
+    radial-gradient(ellipse 60% 50% at 15% 15%,
+      rgba(11,21,56,0.90) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 85% 10%,
+      rgba(201,169,97,0.18) 0%, transparent 70%),
+    radial-gradient(ellipse 70% 60% at 50% 90%,
+      rgba(27,42,78,0.70) 0%, transparent 70%);
+  background-attachment: fixed;
+  color: var(--text-primary);
+  font-family: 'DM Sans', ui-sans-serif, sans-serif;
+}
+
+/* ─── Orb drift animation ─────────────────────────────── */
+
+@keyframes orbDrift {
+  0%, 100% { transform: translate(0,0) scale(1); }
+  50%       { transform: translate(15px,-10px) scale(1.03); }
+}
+
+/* ─── Glass panel base ────────────────────────────────── */
+
+.glass-panel {
+  background: var(--glass-panel-bg);
+  border: var(--glass-panel-border);
+  backdrop-filter: var(--glass-panel-blur);
+  -webkit-backdrop-filter: var(--glass-panel-blur);
+  border-radius: var(--glass-panel-radius);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.glass-panel:hover {
+  background: var(--glass-panel-hover-bg);
+  border-color: var(--glass-panel-hover-border);
+}
+
+/* ─── Glass card (shimmer top border) ────────────────── */
+
+.glass-card {
+  position: relative;
+}
+.glass-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(201,169,97,0.35),
+    transparent);
+  border-radius: 16px 16px 0 0;
+  pointer-events: none;
+}
+
+/* ─── Entry animations ────────────────────────────────── */
+
+.fade-up   { animation: fadeUp 0.45s ease both; }
+.fade-up-1 { animation-delay: 0.05s; }
+.fade-up-2 { animation-delay: 0.10s; }
+.fade-up-3 { animation-delay: 0.15s; }
+.fade-up-4 { animation-delay: 0.20s; }
+
+/* ─── Form inputs (global) ────────────────────────────── */
+
+.glass-input,
+input.glass-inp,
+select.glass-inp,
+textarea.glass-inp {
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  border-radius: 10px !important;
+  color: var(--text-primary) !important;
+  padding: 10px 14px !important;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.glass-input::placeholder,
+input.glass-inp::placeholder,
+textarea.glass-inp::placeholder {
+  color: rgba(240,236,224,0.30) !important;
+}
+.glass-input:focus,
+input.glass-inp:focus,
+select.glass-inp:focus,
+textarea.glass-inp:focus {
+  border-color: rgba(201,169,97,0.50) !important;
+  background: rgba(255,255,255,0.09) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(201,169,97,0.12) !important;
+}
+
+/* ─── Buttons ─────────────────────────────────────────── */
+
+.btn-glass-primary {
+  background: var(--btn-primary-bg);
+  border: 1px solid var(--btn-primary-border);
+  box-shadow: var(--btn-primary-shadow);
+  color: #0B1538;
+  font-weight: 700;
+  border-radius: 10px;
+  transition: opacity 0.2s, box-shadow 0.2s;
+}
+.btn-glass-primary:hover {
+  opacity: 0.9;
+  box-shadow: 0 6px 28px rgba(201,169,97,0.35);
+}
+
+.btn-glass-secondary {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text-primary);
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+.btn-glass-secondary:hover {
+  background: rgba(255,255,255,0.10);
+}
+
+.btn-glass-danger {
+  background: rgba(248,113,113,0.15);
+  border: 1px solid rgba(248,113,113,0.30);
+  color: #f87171;
+  border-radius: 10px;
+}
+
+.btn-glass-icon {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 10px;
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s;
+}
+.btn-glass-icon:hover {
+  background: rgba(201,169,97,0.12);
+}
+
+/* ─── Status badges ───────────────────────────────────── */
+
+.badge-glass-success {
+  background: rgba(52,211,153,0.12);
+  color: #34d399;
+  border: 1px solid rgba(52,211,153,0.20);
+  border-radius: 20px;
+  font-size: 11px;
+  padding: 3px 10px;
+  font-weight: 600;
+}
+.badge-glass-danger {
+  background: rgba(248,113,113,0.12);
+  color: #f87171;
+  border: 1px solid rgba(248,113,113,0.20);
+  border-radius: 20px;
+  font-size: 11px;
+  padding: 3px 10px;
+  font-weight: 600;
+}
+.badge-glass-warning {
+  background: rgba(201,169,97,0.12);
+  color: #C9A961;
+  border: 1px solid rgba(201,169,97,0.20);
+  border-radius: 20px;
+  font-size: 11px;
+  padding: 3px 10px;
+  font-weight: 600;
+}
+.badge-glass-info {
+  background: rgba(96,165,250,0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(96,165,250,0.20);
+  border-radius: 20px;
+  font-size: 11px;
+  padding: 3px 10px;
+  font-weight: 600;
+}
+.badge-glass-muted {
+  background: rgba(255,255,255,0.07);
+  color: rgba(240,236,224,0.55);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 20px;
+  font-size: 11px;
+  padding: 3px 10px;
+  font-weight: 600;
+}
+
+/* ─── Modal overlay / panel ───────────────────────────── */
+
+.glass-modal-overlay {
+  background: rgba(0,0,0,0.60);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.glass-modal-panel {
+  background: rgba(5,13,31,0.92);
+  border: 1px solid rgba(255,255,255,0.12);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border-radius: 20px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+}
+.glass-modal-header {
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+/* ─── Table styles ────────────────────────────────────── */
+
+.glass-table thead {
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+}
+.glass-table th {
+  font-size: 10.5px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+.glass-table tr {
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.glass-table tr:hover {
+  background: rgba(255,255,255,0.03);
+}
+.glass-table td {
+  color: var(--text-primary);
+}
+
+/* ─── Sidebar nav ─────────────────────────────────────── */
+
+.glass-sidebar {
+  background: rgba(5,13,31,0.85) !important;
+  border-right: 1px solid rgba(255,255,255,0.08) !important;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+.glass-nav-item-active {
+  background: rgba(201,169,97,0.12) !important;
+  border-left: 2px solid #C9A961 !important;
+  color: #C9A961 !important;
+}
+.glass-nav-item-inactive {
+  color: rgba(240,236,224,0.45) !important;
+}
+.glass-nav-item-inactive:hover {
+  background: rgba(255,255,255,0.04) !important;
+}
+.glass-nav-badge {
+  background: rgba(201,169,97,0.20) !important;
+  color: #C9A961 !important;
+  border-radius: 10px !important;
+}
+.glass-module-label {
+  color: rgba(201,169,97,0.65) !important;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+}
+
+/* ─── Header bar ──────────────────────────────────────── */
+
+.glass-header {
+  background: rgba(5,13,31,0.80) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ─── Page wrapper backgrounds ────────────────────────── */
+
+.glass-page-bg {
+  background: transparent !important;
+}
+
+/* ─── Login card ──────────────────────────────────────── */
+
+.glass-login-card {
+  background: rgba(5,13,31,0.88);
+  border: 1px solid rgba(255,255,255,0.12);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border-radius: 24px;
+}

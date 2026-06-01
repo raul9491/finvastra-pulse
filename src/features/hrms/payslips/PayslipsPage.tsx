@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronUp, Download, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Download, X, Receipt } from 'lucide-react';
 import { getDoc, doc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useMyPayslips } from '../hooks/usePayslips';
 import { generatePayslipPdf } from './payslipPdf';
+import { Button } from '../../../components/ui/Button';
+import { EmptyState } from '../../../components/ui/EmptyState';
+import { Skeleton } from '../../../components/ui/Skeleton';
 import type { Payslip, UserProfile, PayslipExtras, LeaveBalance } from '../../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -191,34 +194,13 @@ function PayslipBreakdown({
               <span className="text-navy font-bold text-xl">
                 {formatCurrency(payslip.netPay)}
               </span>
-              <button
-                onClick={onDownload}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-navy text-gold hover:bg-navy-soft transition-colors"
-              >
-                <Download size={12} />
+              <Button variant="primary" size="sm" icon={<Download size={12} />} onClick={onDownload}>
                 Download PDF
-              </button>
+              </Button>
             </div>
           </div>
         </div>
       </td>
-    </tr>
-  );
-}
-
-// ─── Skeleton row ─────────────────────────────────────────────────────────────
-
-function SkeletonRow() {
-  return (
-    <tr>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <td key={i} className="px-6 py-4">
-          <div
-            className="h-4 rounded animate-pulse bg-slate-200"
-            style={{ width: i === 5 ? 80 : '100%' }}
-          />
-        </td>
-      ))}
     </tr>
   );
 }
@@ -309,9 +291,10 @@ export function PayslipsPage() {
       </h3>
       <p className="text-sm text-mute mb-6">Last 12 months · click a row to expand</p>
 
-      {/* Table */}
+      {/* Table — horizontally scrollable on mobile */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-140">
           <thead>
             <tr className="border-b border-slate-200 bg-paper">
               <th className="px-6 py-3.5 text-left text-[10px] font-bold uppercase tracking-widest text-mute">Month</th>
@@ -325,14 +308,21 @@ export function PayslipsPage() {
           <tbody>
             {loading && (
               <>
-                <SkeletonRow /><SkeletonRow /><SkeletonRow /><SkeletonRow />
+                <Skeleton.Row cols={6} />
+                <Skeleton.Row cols={6} />
+                <Skeleton.Row cols={6} />
+                <Skeleton.Row cols={6} />
               </>
             )}
 
             {!loading && payslips.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-6 py-16 text-center text-sm text-mute">
-                  No payslips yet. Generated payslips will appear here.
+                <td colSpan={6}>
+                  <EmptyState
+                    icon={Receipt}
+                    title="No payslips yet"
+                    body="Generated payslips will appear here once your HR team publishes them."
+                  />
                 </td>
               </tr>
             )}
@@ -374,6 +364,7 @@ export function PayslipsPage() {
             ))}
           </tbody>
         </table>
+        </div>{/* /overflow-x-auto */}
       </div>
     </div>
   );

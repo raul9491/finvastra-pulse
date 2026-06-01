@@ -83,6 +83,7 @@ export function LoginPage() {
     }
   };
 
+  // inp kept for legacy reference; replaced by glass-inp class in the form
   const inp = [
     'w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm outline-none',
     'transition-all duration-200',
@@ -116,13 +117,10 @@ export function LoginPage() {
 
       {/* ── Login card ── */}
       <div style={{ position: 'relative', zIndex: 2, width: '100%', maxWidth: 440, margin: '0 16px' }}>
-        <div style={{
-          background:      'rgba(255,255,255,0.97)',
-          backdropFilter:  'blur(8px)',
-          borderRadius:    28,
-          padding:         40,
-          boxShadow:       '0 32px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08)',
-          animation:       'fadeUp 0.6s ease 0.1s both',
+        <div className="glass-login-card" style={{
+          padding:   40,
+          boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
+          animation: 'fadeUp 0.6s ease 0.1s both',
         }}>
 
           {/* Logo inside card */}
@@ -131,7 +129,7 @@ export function LoginPage() {
           </div>
 
           {sessionExpired && (
-            <div className="mb-5 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+            <div className="mb-5 px-4 py-3 rounded-xl text-sm" style={{ backgroundColor: 'rgba(201,169,97,0.12)', border: '1px solid rgba(201,169,97,0.25)', color: '#C9A961' }}>
               Session expired. Please sign in again.
             </div>
           )}
@@ -140,25 +138,25 @@ export function LoginPage() {
             fontFamily:  '"Fraunces", Georgia, serif',
             fontSize:     24,
             fontWeight:   700,
-            color:        '#0A0A0A',
+            color:        'var(--text-primary)',
             textAlign:    'center',
             marginBottom: 4,
           }}>
             Welcome back
           </h1>
-          <p style={{ fontSize: 14, textAlign: 'center', color: '#8B8B85', marginBottom: 28 }}>
-            Sign in with your <strong>@finvastra.com</strong> account
+          <p style={{ fontSize: 14, textAlign: 'center', color: 'var(--text-muted)', marginBottom: 28 }}>
+            Sign in with your <strong style={{ color: '#C9A961' }}>@finvastra.com</strong> account
           </p>
 
           {displayError && (
-            <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
+            <div className="mb-4 px-4 py-3 rounded-xl text-sm" style={{ backgroundColor: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.25)', color: '#f87171' }}>
               {displayError}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+              <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
                 Email address
               </label>
               <input
@@ -168,11 +166,13 @@ export function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onBlur={() => setEmailTouched(true)}
-                className={`${inp} ${showDomainWarning ? 'border-amber-400' : 'border-slate-200'}`}
-                style={{ color: '#0A0A0A' }}
+                className="glass-inp w-full text-sm"
+                style={{
+                  borderColor: showDomainWarning ? 'rgba(201,169,97,0.50)' : undefined,
+                }}
               />
               {showDomainWarning && (
-                <p className="mt-1 text-xs text-amber-600">
+                <p className="mt-1 text-xs" style={{ color: '#C9A961' }}>
                   ⚠ Use your @finvastra.com company email
                 </p>
               )}
@@ -180,7 +180,7 @@ export function LoginPage() {
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+                <label className="block text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
                   Password
                 </label>
                 <button
@@ -199,16 +199,15 @@ export function LoginPage() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className={`${inp} border-slate-200`}
-                style={{ color: '#0A0A0A' }}
+                className="glass-inp w-full text-sm"
               />
               {resetState === 'sent' && (
-                <p className="mt-1.5 text-xs text-green-700 bg-green-50 rounded-lg px-3 py-2">
+                <p className="mt-1.5 text-xs rounded-lg px-3 py-2" style={{ backgroundColor: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.20)', color: '#34d399' }}>
                   Password reset link sent to <strong>{email}</strong>. Check your inbox.
                 </p>
               )}
               {(resetError || resetState === 'error') && (
-                <p className="mt-1.5 text-xs text-red-600">{resetError}</p>
+                <p className="mt-1.5 text-xs" style={{ color: '#f87171' }}>{resetError}</p>
               )}
             </div>
 
@@ -222,13 +221,12 @@ export function LoginPage() {
                 padding:      '12px',
                 borderRadius: 12,
                 fontSize:     14,
-                fontWeight:   600,
-                color:        '#C9A961',
-                background:   'linear-gradient(135deg, #0B1538, #1B2A4E)',
-                boxShadow:    btnHover && !submitting ? '0 8px 24px rgba(11,21,56,0.4)' : 'none',
-                filter:       btnHover && !submitting ? 'brightness(1.15)' : 'none',
+                fontWeight:   700,
+                color:        '#0B1538',
+                background:   'linear-gradient(135deg, rgba(201,169,97,0.90), rgba(154,126,63,0.90))',
+                border:       '1px solid rgba(201,169,97,0.40)',
+                boxShadow:    btnHover && !submitting ? '0 8px 28px rgba(201,169,97,0.35)' : '0 4px 20px rgba(201,169,97,0.20)',
                 transition:   'all 0.2s ease',
-                border:       'none',
                 cursor:       (!emailValid || submitting) ? 'not-allowed' : 'pointer',
                 opacity:      (!emailValid || submitting) ? 0.5 : 1,
               }}
@@ -237,7 +235,7 @@ export function LoginPage() {
             </button>
           </form>
 
-          <p style={{ textAlign: 'center', fontSize: 13, marginTop: 20, color: '#8B8B85' }}>
+          <p style={{ textAlign: 'center', fontSize: 13, marginTop: 20, color: 'var(--text-muted)' }}>
             Don't have an account?{' '}
             <Link
               to="/request-access"
@@ -249,7 +247,7 @@ export function LoginPage() {
             </Link>
           </p>
 
-          <p style={{ textAlign: 'center', fontSize: 11, marginTop: 16, color: '#8B8B85' }}>
+          <p style={{ textAlign: 'center', fontSize: 11, marginTop: 16, color: 'var(--text-dim)' }}>
             Access restricted to Finvastra team members only.<br />
             © 2026 Finvastra Advisors Private Limited
           </p>

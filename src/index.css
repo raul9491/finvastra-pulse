@@ -1,4 +1,5 @@
 @import "./styles/tokens.css";
+@import "./styles/glass.css";
 @import "tailwindcss";
 
 @theme {
@@ -53,17 +54,21 @@ table {
   width: 100%;
 }
 
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201,169,97,0.15) transparent;
+}
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--navy-soft);
-  border-radius: 99px;
+  background: rgba(201,169,97,0.15);
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--gold-deep);
+  background: rgba(201,169,97,0.30);
 }

@@ -25,11 +25,11 @@ import type { AttendanceRegularization } from '../../../types';
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const STATUS_STYLES: Record<AttendanceStatus, { bg: string; dot: string; label: string }> = {
-  present:  { bg: '#F0FDF4', dot: '#16A34A', label: 'Present'  },
-  half_day: { bg: '#FFFBEB', dot: '#D97706', label: 'Half-day' },
-  absent:   { bg: '#FFF1F2', dot: '#E11D48', label: 'Absent'   },
-  leave:    { bg: '#EFF6FF', dot: '#2563EB', label: 'Leave'    },
-  holiday:  { bg: '#FAFAF7', dot: '#C9A961', label: 'Holiday'  },
+  present:  { bg: 'rgba(52,211,153,0.12)',  dot: '#34d399', label: 'Present'  },
+  half_day: { bg: 'rgba(251,191,36,0.12)',  dot: '#fbbf24', label: 'Half-day' },
+  absent:   { bg: 'rgba(248,113,113,0.12)', dot: '#f87171', label: 'Absent'   },
+  leave:    { bg: 'rgba(96,165,250,0.12)',  dot: '#60a5fa', label: 'Leave'    },
+  holiday:  { bg: 'rgba(201,169,97,0.12)',  dot: '#C9A961', label: 'Holiday'  },
 };
 
 function toDate(ts: Timestamp | null | undefined): Date | null {
@@ -65,10 +65,13 @@ function ProfileBanner({ profile }: { profile: UserProfile }) {
 
   return (
     <div className="relative mb-14">
-      {/* 120px gradient banner */}
+      {/* gradient banner */}
       <div
         className="h-28 rounded-2xl"
-        style={{ background: 'linear-gradient(135deg, #0B1538 0%, #1B2A4E 100%)' }}
+        style={{
+          background: 'linear-gradient(135deg, rgba(11,21,56,0.80) 0%, rgba(27,42,78,0.70) 100%)',
+          border: '1px solid rgba(255,255,255,0.10)',
+        }}
       />
       {/* Avatar overlapping banner bottom by 52px */}
       <div className="absolute left-6" style={{ bottom: '-52px' }}>
@@ -77,12 +80,12 @@ function ProfileBanner({ profile }: { profile: UserProfile }) {
             src={profile.photoURL}
             alt={profile.displayName}
             className="w-26 h-26 rounded-3xl object-cover"
-            style={{ width: 104, height: 104, border: '4px solid white', boxShadow: '0 4px 16px rgba(0,0,0,0.15)' }}
+            style={{ width: 104, height: 104, border: '3px solid rgba(201,169,97,0.40)', boxShadow: '0 4px 20px rgba(0,0,0,0.40)' }}
           />
         ) : (
           <div
-            className="flex items-center justify-center text-2xl font-bold text-gold"
-            style={{ width: 104, height: 104, borderRadius: 24, backgroundColor: '#0B1538', border: '4px solid white', boxShadow: '0 4px 16px rgba(0,0,0,0.15)' }}
+            className="flex items-center justify-center text-2xl font-bold"
+            style={{ width: 104, height: 104, borderRadius: 24, backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961', border: '3px solid rgba(201,169,97,0.40)', boxShadow: '0 4px 20px rgba(0,0,0,0.40)' }}
           >
             {initials}
           </div>
@@ -96,16 +99,16 @@ function ProfileMeta({ profile }: { profile: UserProfile }) {
   return (
     <div className="px-2 pb-6">
       <h2
-        className="text-2xl text-ink"
-        style={{ fontFamily: '"Fraunces", Georgia, serif', fontWeight: 600 }}
+        className="text-2xl"
+        style={{ fontFamily: '"Fraunces", Georgia, serif', fontWeight: 600, color: 'var(--text-primary)' }}
       >
         {profile.displayName}
       </h2>
-      <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-mute">
+      <div className="flex flex-wrap items-center gap-2 mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
         {profile.designation && <span>{profile.designation}</span>}
-        {profile.designation && profile.department && <span className="text-slate-300">·</span>}
+        {profile.designation && profile.department && <span style={{ color: 'rgba(255,255,255,0.20)' }}>·</span>}
         {profile.department && <span>{profile.department}</span>}
-        {(profile.designation || profile.department) && <span className="text-slate-300">·</span>}
+        {(profile.designation || profile.department) && <span style={{ color: 'rgba(255,255,255,0.20)' }}>·</span>}
         <span className="font-mono">
           {profile.employeeId ?? profile.userId.slice(-8).toUpperCase()}
         </span>
@@ -117,9 +120,9 @@ function ProfileMeta({ profile }: { profile: UserProfile }) {
 // ─── Regularize Modal ─────────────────────────────────────────────────────────
 
 const REG_STATUS_STYLES: Record<AttendanceRegularization['status'], { label: string; color: string; icon: typeof Clock }> = {
-  pending:  { label: 'Pending Review', color: '#92400E', icon: Clock },
-  approved: { label: 'Approved',       color: '#065F46', icon: CheckCircle2 },
-  rejected: { label: 'Rejected',       color: '#991B1B', icon: AlertCircle },
+  pending:  { label: 'Pending Review', color: '#fbbf24', icon: Clock },
+  approved: { label: 'Approved',       color: '#34d399', icon: CheckCircle2 },
+  rejected: { label: 'Rejected',       color: '#f87171', icon: AlertCircle },
 };
 
 interface RegularizeModalProps {
@@ -166,27 +169,50 @@ function RegularizeModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.60)', backdropFilter: 'blur(4px)' }}
+    >
+      <div
+        className="w-full max-w-sm p-6 space-y-4 rounded-2xl"
+        style={{
+          backgroundColor:  'rgba(11,21,56,0.92)',
+          border:           '1px solid rgba(255,255,255,0.12)',
+          backdropFilter:   'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          boxShadow:        '0 24px 64px rgba(0,0,0,0.50)',
+        }}
+      >
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-base font-semibold text-ink">Request Attendance Correction</h3>
-            <p className="text-xs mt-0.5 text-mute">{friendlyDate}</p>
+            <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Request Attendance Correction
+            </h3>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{friendlyDate}</p>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 transition-colors">
-            <X size={16} style={{ color: '#8B8B85' }} />
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg transition-colors hover:bg-white/10"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            <X size={16} />
           </button>
         </div>
 
         {/* If already has a pending/approved/rejected request for this date */}
         {existingReqForDate && (
-          <div className="rounded-xl px-4 py-3 text-sm"
+          <div
+            className="rounded-xl px-4 py-3 text-sm"
             style={{
-              backgroundColor: existingReqForDate.status === 'approved' ? '#F0FDF4'
-                              : existingReqForDate.status === 'rejected' ? '#FFF1F2' : '#FFFBEB',
+              backgroundColor: existingReqForDate.status === 'approved' ? 'rgba(52,211,153,0.12)'
+                              : existingReqForDate.status === 'rejected' ? 'rgba(248,113,113,0.12)'
+                              : 'rgba(251,191,36,0.12)',
               color: REG_STATUS_STYLES[existingReqForDate.status].color,
-            }}>
+              border: `1px solid ${existingReqForDate.status === 'approved' ? 'rgba(52,211,153,0.25)'
+                                 : existingReqForDate.status === 'rejected' ? 'rgba(248,113,113,0.25)'
+                                 : 'rgba(251,191,36,0.25)'}`,
+            }}
+          >
             <p className="font-semibold">{REG_STATUS_STYLES[existingReqForDate.status].label}</p>
             {existingReqForDate.rejectionReason && (
               <p className="text-xs mt-1">Reason: {existingReqForDate.rejectionReason}</p>
@@ -201,7 +227,7 @@ function RegularizeModal({
           <>
             {/* Current status */}
             {existingRecord && (
-              <p className="text-xs text-mute">
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                 Current: {STATUS_STYLES[existingRecord.status].label}
                 {existingRecord.checkIn && ` · In: ${formatTime(existingRecord.checkIn)}`}
                 {existingRecord.checkOut && ` · Out: ${formatTime(existingRecord.checkOut)}`}
@@ -211,56 +237,63 @@ function RegularizeModal({
             {/* Time inputs */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
                   Check-in Time
                 </label>
                 <input
                   type="time"
                   value={checkInTime}
                   onChange={(e) => setCheckInTime(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-navy/10"
+                  className="glass-inp w-full text-sm"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
                   Check-out Time
                 </label>
                 <input
                   type="time"
                   value={checkOutTime}
                   onChange={(e) => setCheckOutTime(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-navy/10"
+                  className="glass-inp w-full text-sm"
                 />
               </div>
             </div>
 
             {/* Reason */}
             <div>
-              <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>
-                Reason <span className="text-red-500">*</span>
+              <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
+                Reason <span style={{ color: '#f87171' }}>*</span>
               </label>
               <textarea
                 rows={3}
                 value={reason}
                 onChange={(e) => { setReason(e.target.value); setError(''); }}
                 placeholder="Explain why you need this correction…"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none outline-none focus:ring-2 focus:ring-navy/10"
+                className="glass-inp w-full text-sm resize-none"
               />
             </div>
 
-            {error && <p className="text-xs" style={{ color: '#DC2626' }}>{error}</p>}
+            {error && <p className="text-xs" style={{ color: '#f87171' }}>{error}</p>}
 
             <div className="flex gap-3">
               <button
                 onClick={handleSubmit}
                 disabled={saving || !reason.trim()}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40"
-                style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 transition-all hover:brightness-110"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
+                  color: '#0B1538',
+                  border: '1px solid rgba(201,169,97,0.40)',
+                }}
               >
                 {saving ? 'Submitting…' : 'Submit Request'}
               </button>
-              <button onClick={onClose}
-                className="px-4 py-2.5 rounded-xl text-sm border border-slate-200 hover:bg-slate-50">
+              <button
+                onClick={onClose}
+                className="px-4 py-2.5 rounded-xl text-sm transition-colors hover:bg-white/10"
+                style={{ color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.12)' }}
+              >
                 Cancel
               </button>
             </div>
@@ -381,33 +414,33 @@ export function AttendancePage() {
       {/* Page heading */}
       <h2
         className="text-3xl mb-1"
-        style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}
+        style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}
       >
         Attendance
       </h2>
-      <p className="mb-8 text-sm" style={{ color: '#8B8B85' }}>Your clock-in history and monthly summary.</p>
+      <p className="mb-8 text-sm" style={{ color: 'var(--text-muted)' }}>Your clock-in history and monthly summary.</p>
 
       {/* ── Today Card — mobile-first large clock-in ───────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-6">
+      <div className="glass-panel overflow-hidden mb-6">
         {/* Dark header strip with live time */}
-        <div className="px-6 pt-5 pb-4" style={{ background: 'linear-gradient(135deg, #0B1538 0%, #1B2A4E 100%)' }}>
+        <div className="px-6 pt-5 pb-4" style={{ background: 'linear-gradient(135deg, rgba(11,21,56,0.90) 0%, rgba(27,42,78,0.80) 100%)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
           <p className="text-[10px] font-bold uppercase tracking-[0.3em] mb-2" style={{ color: '#C9A961' }}>
             Today — {format(today, 'EEEE, dd MMM yyyy')}
           </p>
-          <p className="text-3xl font-mono font-semibold" style={{ color: '#FFFFFF', letterSpacing: '0.05em' }}>
+          <p className="text-3xl font-mono font-semibold" style={{ color: 'var(--text-primary)', letterSpacing: '0.05em' }}>
             {format(today, 'HH:mm')}
           </p>
         </div>
 
         <div className="p-6">
           {clockError && (
-            <div className="mb-4 px-3 py-2 rounded-lg text-xs" style={{ backgroundColor: '#FEE2E2', color: '#991B1B' }}>
+            <div className="mb-4 px-3 py-2 rounded-lg text-xs" style={{ backgroundColor: 'rgba(248,113,113,0.12)', color: '#f87171', border: '1px solid rgba(248,113,113,0.25)' }}>
               {clockError}
             </div>
           )}
 
           {todayLoading && (
-            <div className="h-14 rounded-2xl animate-pulse" style={{ background: '#F2EFE7' }} />
+            <div className="h-14 rounded-2xl animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }} />
           )}
 
           {/* Not yet clocked in — big full-width button */}
@@ -415,8 +448,13 @@ export function AttendancePage() {
             <button
               onClick={handleCheckIn}
               disabled={checkingIn}
-              className="w-full py-4 rounded-2xl font-bold transition-opacity disabled:opacity-50 flex items-center justify-center gap-3"
-              style={{ backgroundColor: '#0B1538', color: '#C9A961', fontSize: '1.1rem' }}
+              className="w-full py-4 rounded-2xl font-bold transition-all hover:brightness-110 disabled:opacity-50 flex items-center justify-center gap-3"
+              style={{
+                background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
+                color: '#0B1538',
+                border: '1px solid rgba(201,169,97,0.40)',
+                fontSize: '1.1rem',
+              }}
             >
               <span style={{ fontSize: '1.4rem' }}>🕐</span>
               {checkingIn ? 'Checking in…' : 'Clock In'}
@@ -426,21 +464,26 @@ export function AttendancePage() {
           {/* Clocked in, not out */}
           {!todayLoading && todayRecord && !todayRecord.checkOut && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between rounded-xl px-5 py-4" style={{ backgroundColor: '#F0FDF4' }}>
+              <div className="flex items-center justify-between rounded-xl px-5 py-4" style={{ backgroundColor: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.20)' }}>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: '#16A34A' }}>Clocked in</p>
-                  <p className="text-2xl font-bold" style={{ color: '#0A0A0A' }}>{formatTime(todayRecord.checkIn)}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: '#34d399' }}>Clocked in</p>
+                  <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{formatTime(todayRecord.checkIn)}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5 text-mute">Duration</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-muted)' }}>Duration</p>
                   <p className="text-2xl font-mono font-bold" style={{ color: '#C9A961' }}>{liveDuration}</p>
                 </div>
               </div>
               <button
                 onClick={handleCheckOut}
                 disabled={checkingOut}
-                className="w-full py-3.5 rounded-2xl font-bold border-2 transition-colors disabled:opacity-50"
-                style={{ borderColor: '#0B1538', color: '#0B1538', fontSize: '1rem' }}
+                className="w-full py-3.5 rounded-2xl font-bold transition-all hover:brightness-110 disabled:opacity-50"
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  fontSize: '1rem',
+                }}
               >
                 {checkingOut ? 'Checking out…' : 'Clock Out'}
               </button>
@@ -449,11 +492,11 @@ export function AttendancePage() {
 
           {/* Done for the day */}
           {!todayLoading && todayRecord?.checkOut && (
-            <div className="rounded-xl px-5 py-4 flex items-center gap-4" style={{ backgroundColor: '#F0FDF4' }}>
+            <div className="rounded-xl px-5 py-4 flex items-center gap-4" style={{ backgroundColor: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.20)' }}>
               <span style={{ fontSize: '2rem' }}>✓</span>
               <div>
-                <p className="text-sm font-semibold" style={{ color: '#166534' }}>Present today</p>
-                <p className="text-xs mt-0.5" style={{ color: '#16A34A' }}>
+                <p className="text-sm font-semibold" style={{ color: '#34d399' }}>Present today</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                   {formatTime(todayRecord.checkIn)} → {formatTime(todayRecord.checkOut)}
                   {' · '}{todayRecord.workingHours.toFixed(1)} hours
                 </p>
@@ -464,26 +507,26 @@ export function AttendancePage() {
       </div>
 
       {/* ── Monthly Calendar ───────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
+      <div className="glass-panel p-6">
         {/* Month nav */}
         <div className="flex items-center justify-between mb-5">
           <button
             onClick={goPrev}
-            className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg transition-colors hover:bg-white/10"
             aria-label="Previous month"
           >
-            <ChevronLeft size={18} style={{ color: '#2A2A2A' }} />
+            <ChevronLeft size={18} style={{ color: 'var(--text-primary)' }} />
           </button>
-          <span className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>
+          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
             {format(viewDate, 'MMMM yyyy')}
           </span>
           <button
             onClick={goNext}
-            className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg transition-colors hover:bg-white/10"
             aria-label="Next month"
             disabled={isSameDay(endOfMonth(viewDate), endOfMonth(today)) || viewDate > today}
           >
-            <ChevronRight size={18} style={{ color: '#2A2A2A' }} />
+            <ChevronRight size={18} style={{ color: 'var(--text-primary)' }} />
           </button>
         </div>
 
@@ -493,7 +536,7 @@ export function AttendancePage() {
             <div
               key={d}
               className="text-center text-xs font-semibold py-1"
-              style={{ color: '#8B8B85' }}
+              style={{ color: 'var(--text-muted)' }}
             >
               {d}
             </div>
@@ -503,7 +546,7 @@ export function AttendancePage() {
         {/* Day cells */}
         {monthLoading ? (
           <div className="h-40 flex items-center justify-center">
-            <span className="text-sm animate-pulse" style={{ color: '#8B8B85' }}>Loading…</span>
+            <span className="text-sm animate-pulse" style={{ color: 'var(--text-muted)' }}>Loading…</span>
           </div>
         ) : (
           <div className="grid grid-cols-7 gap-1">
@@ -529,20 +572,20 @@ export function AttendancePage() {
               const isLeaveOrHoliday = rec?.status === 'leave' || rec?.status === 'holiday';
               const canRegularize = needsCorrection && !isLeaveOrHoliday;
 
-              let bgColor = '#FFFFFF';
+              let bgColor = 'rgba(255,255,255,0.03)';
               let dotColor: string | null = null;
 
               if (rec) {
-                const style = STATUS_STYLES[rec.status];
-                bgColor = style.bg;
-                dotColor = style.dot;
+                const st = STATUS_STYLES[rec.status];
+                bgColor = st.bg;
+                dotColor = st.dot;
               } else if (isWknd) {
-                bgColor = '#F8F9FA';
+                bgColor = 'rgba(255,255,255,0.015)';
               }
 
               // Pending reg request turns the cell amber-tinted
-              if (regReq?.status === 'pending') bgColor = '#FFFBEB';
-              if (regReq?.status === 'approved') bgColor = '#F0FDF4';
+              if (regReq?.status === 'pending') bgColor = 'rgba(251,191,36,0.12)';
+              if (regReq?.status === 'approved') bgColor = 'rgba(52,211,153,0.12)';
 
               return (
                 <div
@@ -551,14 +594,14 @@ export function AttendancePage() {
                   style={{
                     backgroundColor: bgColor,
                     border: isToday ? '2px solid #C9A961'
-                          : regReq?.status === 'pending' ? '2px solid #D97706'
+                          : regReq?.status === 'pending' ? '2px solid rgba(251,191,36,0.50)'
                           : '2px solid transparent',
-                    opacity: isFuture ? 0.4 : 1,
+                    opacity: isFuture ? 0.35 : 1,
                     minHeight: 44,
                   }}
                   title={rec ? STATUS_STYLES[rec.status].label : isWknd ? 'Weekend' : ''}
                 >
-                  <span className="font-medium" style={{ color: '#2A2A2A' }}>
+                  <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
                     {format(day, 'd')}
                   </span>
                   {dotColor && (
@@ -572,7 +615,7 @@ export function AttendancePage() {
                     <button
                       onClick={() => setRegularizeDate(dateStr)}
                       className="absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold transition-opacity hover:opacity-80"
-                      style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
+                      style={{ backgroundColor: 'rgba(201,169,97,0.20)', color: '#C9A961', border: '1px solid rgba(201,169,97,0.40)' }}
                       title="Request attendance correction"
                     >?</button>
                   )}
@@ -580,7 +623,7 @@ export function AttendancePage() {
                   {regReq?.status === 'pending' && (
                     <span
                       className="absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full"
-                      style={{ backgroundColor: '#D97706' }}
+                      style={{ backgroundColor: '#fbbf24' }}
                       title="Correction request pending"
                     />
                   )}
@@ -591,7 +634,7 @@ export function AttendancePage() {
         )}
 
         {/* ── Summary row ────────────────────────────────────────────────── */}
-        <div className="mt-5 pt-4 border-t border-slate-100 flex flex-wrap gap-x-5 gap-y-2 text-xs" style={{ color: '#2A2A2A' }}>
+        <div className="mt-5 pt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-muted)' }}>
           {(
             [
               ['present',  'Present'],
@@ -605,56 +648,58 @@ export function AttendancePage() {
                 className="inline-block w-2 h-2 rounded-full"
                 style={{ backgroundColor: STATUS_STYLES[s].dot }}
               />
-              {label} <strong>{summary[s] ?? 0}</strong>
+              {label} <strong style={{ color: 'var(--text-primary)' }}>{summary[s] ?? 0}</strong>
             </span>
           ))}
         </div>
 
         {/* Regularize hint */}
-        <p className="mt-3 text-[11px]" style={{ color: '#8B8B85' }}>
-          Tap the <strong style={{ color: '#0B1538' }}>?</strong> button on past days with missing or incorrect attendance to request a correction.
+        <p className="mt-3 text-[11px]" style={{ color: 'var(--text-dim)' }}>
+          Tap the <strong style={{ color: '#C9A961' }}>?</strong> button on past days with missing or incorrect attendance to request a correction.
         </p>
       </div>
 
       {/* ── Correction Requests this month ────────────────────────────────────── */}
       {myRegularizations.length > 0 && (
-        <div className="mt-6 bg-white rounded-2xl border border-slate-200 p-6">
-          <h3 className="text-sm font-semibold mb-4" style={{ color: '#0A0A0A' }}>
+        <div className="mt-6 glass-panel p-6">
+          <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
             My Correction Requests — {format(viewDate, 'MMMM yyyy')}
           </h3>
           <div className="space-y-3">
             {myRegularizations.map((req) => {
-              const style = REG_STATUS_STYLES[req.status];
-              const Icon = style.icon;
+              const st = REG_STATUS_STYLES[req.status];
+              const Icon = st.icon;
               return (
                 <div
                   key={req.id}
                   className="flex items-start gap-3 rounded-xl px-4 py-3 text-xs"
                   style={{
-                    backgroundColor: req.status === 'approved' ? '#F0FDF4'
-                                   : req.status === 'rejected' ? '#FFF1F2' : '#FFFBEB',
-                    border: `1px solid ${req.status === 'approved' ? '#BBF7D0'
-                                       : req.status === 'rejected' ? '#FECDD3' : '#FDE68A'}`,
+                    backgroundColor: req.status === 'approved' ? 'rgba(52,211,153,0.10)'
+                                   : req.status === 'rejected' ? 'rgba(248,113,113,0.10)'
+                                   : 'rgba(251,191,36,0.10)',
+                    border: `1px solid ${req.status === 'approved' ? 'rgba(52,211,153,0.25)'
+                                       : req.status === 'rejected' ? 'rgba(248,113,113,0.25)'
+                                       : 'rgba(251,191,36,0.25)'}`,
                   }}
                 >
-                  <Icon size={14} style={{ color: style.color, marginTop: 2, flexShrink: 0 }} />
+                  <Icon size={14} style={{ color: st.color, marginTop: 2, flexShrink: 0 }} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-0.5">
-                      <span className="font-semibold" style={{ color: '#0A0A0A' }}>
+                      <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
                         {format(parseISO(req.date), 'EEE, dd MMM')}
                       </span>
-                      <span className="font-semibold uppercase tracking-wide" style={{ color: style.color }}>
-                        {style.label}
+                      <span className="font-semibold uppercase tracking-wide" style={{ color: st.color }}>
+                        {st.label}
                       </span>
                     </div>
-                    <p style={{ color: '#2A2A2A' }}>
+                    <p style={{ color: 'var(--text-muted)' }}>
                       {req.requestedCheckIn && `In: ${req.requestedCheckIn}`}
                       {req.requestedCheckIn && req.requestedCheckOut && ' · '}
                       {req.requestedCheckOut && `Out: ${req.requestedCheckOut}`}
                     </p>
-                    <p className="mt-0.5 truncate" style={{ color: '#8B8B85' }}>{req.reason}</p>
+                    <p className="mt-0.5 truncate" style={{ color: 'var(--text-dim)' }}>{req.reason}</p>
                     {req.rejectionReason && (
-                      <p className="mt-1 italic" style={{ color: '#991B1B' }}>
+                      <p className="mt-1 italic" style={{ color: '#f87171' }}>
                         HR note: {req.rejectionReason}
                       </p>
                     )}
@@ -663,7 +708,7 @@ export function AttendancePage() {
                       <button
                         onClick={() => setRegularizeDate(req.date)}
                         className="mt-1.5 text-[10px] font-semibold underline"
-                        style={{ color: '#0B1538' }}
+                        style={{ color: '#C9A961' }}
                       >
                         Submit a new request
                       </button>

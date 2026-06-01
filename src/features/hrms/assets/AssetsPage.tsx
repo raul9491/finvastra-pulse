@@ -478,7 +478,7 @@ export function AssetsPage() {
       </div>
 
       {/* Summary strip */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
           { label: 'Total',        value: counts.total,        color: '#0B1538' },
           { label: 'Assigned',     value: counts.assigned,     color: '#1E40AF' },

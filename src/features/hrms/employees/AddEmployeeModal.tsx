@@ -471,7 +471,7 @@ export function AddEmployeeModal({
 
         {/* ── Salary Structure ── */}
         {sectionHead('Salary Structure (Monthly ₹)')}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             {fLabel('Basic Salary')}
             <input className={inp()} value={form.salaryBasic} onChange={(e) => set('salaryBasic', e.target.value)} placeholder="e.g. 75000" />

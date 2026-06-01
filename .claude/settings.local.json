@@ -194,7 +194,12 @@
       "PowerShell(cd \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\"; npm run lint; Write-Host \"Exit: $LASTEXITCODE\")",
       "mcp__claude_ai_Google_Drive__search_files",
       "mcp__claude_ai_Google_Drive__read_file_content",
-      "Bash(node -e \"const p = require\\('./package.json'\\); const all = {...p.dependencies,...p.devDependencies}; console.log\\(Object.keys\\(all\\).filter\\(k => k.includes\\('xlsx'\\)||k.includes\\('papa'\\)||k.includes\\('csv'\\)||k.includes\\('sheet'\\)\\)\\)\")"
+      "Bash(node -e \"const p = require\\('./package.json'\\); const all = {...p.dependencies,...p.devDependencies}; console.log\\(Object.keys\\(all\\).filter\\(k => k.includes\\('xlsx'\\)||k.includes\\('papa'\\)||k.includes\\('csv'\\)||k.includes\\('sheet'\\)\\)\\)\")",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(Get-ChildItem -Path src/components/ui -Name)",
+      "Bash(Sort-Object)",
+      "Bash(git -C \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\" diff --name-only HEAD)"
     ],
     "additionalDirectories": [
       "\\tmp"

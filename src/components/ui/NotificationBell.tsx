@@ -22,14 +22,14 @@ import type { AppNotification } from '../../lib/notifications';
 // ─── Icons per notification type ──────────────────────────────────────────────
 
 const TYPE_META: Record<AppNotification['type'], { icon: string; color: string }> = {
-  new_lead:         { icon: '👤', color: '#1D4ED8' },
-  leave_approved:   { icon: '✅', color: '#065F46' },
-  leave_rejected:   { icon: '❌', color: '#991B1B' },
-  claim_approved:   { icon: '✅', color: '#065F46' },
-  claim_rejected:   { icon: '❌', color: '#991B1B' },
-  claim_paid:       { icon: '💰', color: '#C2410C' },
-  it_decl_revision: { icon: '✏️', color: '#92400E' },
-  it_decl_accepted: { icon: '✅', color: '#065F46' },
+  new_lead:         { icon: '👤', color: '#60a5fa' },
+  leave_approved:   { icon: '✅', color: '#34d399' },
+  leave_rejected:   { icon: '❌', color: '#f87171' },
+  claim_approved:   { icon: '✅', color: '#34d399' },
+  claim_rejected:   { icon: '❌', color: '#f87171' },
+  claim_paid:       { icon: '💰', color: '#C9A961' },
+  it_decl_revision: { icon: '✏️', color: '#fbbf24' },
+  it_decl_accepted: { icon: '✅', color: '#34d399' },
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -104,17 +104,18 @@ export function NotificationBell({ uid }: { uid: string }) {
 
   return (
     <div className="relative" ref={ref}>
+      {/* Bell button */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className="relative flex items-center justify-center w-9 h-9 rounded-lg transition-colors hover:bg-slate-100"
+        className="relative flex items-center justify-center w-9 h-9 rounded-lg transition-colors hover:bg-[rgba(255,255,255,0.08)]"
         title="Notifications"
         aria-label={`Notifications${unreadCount > 0 ? ` — ${unreadCount} unread` : ''}`}
       >
-        <Bell size={18} style={{ color: '#475569' }} />
+        <Bell size={18} style={{ color: 'rgba(240,236,224,0.55)' }} />
         {unreadCount > 0 && (
           <span
             className="absolute top-1 right-1 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center leading-none"
-            style={{ backgroundColor: '#DC2626', color: '#FFFFFF' }}
+            style={{ backgroundColor: 'rgba(201,169,97,0.90)', color: '#0B1538' }}
           >
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
@@ -123,18 +124,28 @@ export function NotificationBell({ uid }: { uid: string }) {
 
       {open && (
         <div
-          className="absolute right-0 top-full mt-2 w-80 rounded-2xl shadow-xl z-50 overflow-hidden"
-          style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0' }}
+          className="absolute right-0 top-full mt-2 w-80 rounded-2xl z-50 overflow-hidden"
+          style={{
+            backgroundColor:  'rgba(11,21,56,0.88)',
+            border:           '1px solid rgba(255,255,255,0.12)',
+            backdropFilter:   'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            boxShadow:        '0 20px 60px rgba(0,0,0,0.50)',
+          }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3"
-            style={{ borderBottom: '1px solid #F1F5F9' }}>
-            <span className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>Notifications</span>
+          <div
+            className="flex items-center justify-between px-4 py-3"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Notifications
+            </span>
             {unreadCount > 0 && (
               <button
                 onClick={markAllRead}
-                className="flex items-center gap-1 text-xs font-medium hover:opacity-70 transition-opacity"
-                style={{ color: '#0B1538' }}
+                className="flex items-center gap-1 text-xs font-medium transition-opacity hover:opacity-70"
+                style={{ color: '#C9A961' }}
               >
                 <CheckCheck size={13} />
                 Mark all read
@@ -147,47 +158,60 @@ export function NotificationBell({ uid }: { uid: string }) {
             {loading ? (
               <div className="space-y-2 p-3">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-12 bg-slate-100 rounded-xl animate-pulse" />
+                  <div
+                    key={i}
+                    className="h-12 rounded-xl animate-pulse"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}
+                  />
                 ))}
               </div>
             ) : items.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-10 text-center">
-                <Inbox size={28} style={{ color: '#CBD5E1' }} />
-                <p className="text-sm font-medium" style={{ color: '#8B8B85' }}>No notifications yet</p>
+                <Inbox size={28} style={{ color: 'rgba(201,169,97,0.30)' }} />
+                <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
+                  No notifications yet
+                </p>
               </div>
             ) : (
               items.map((n) => {
-                const meta = TYPE_META[n.type] ?? { icon: '🔔', color: '#475569' };
+                const meta = TYPE_META[n.type] ?? { icon: '🔔', color: 'rgba(240,236,224,0.55)' };
                 return (
                   <button
                     key={n.id}
                     onClick={() => handleItemClick(n)}
-                    className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50"
+                    className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-[rgba(255,255,255,0.05)]"
                     style={{
-                      backgroundColor: n.read ? '#FFFFFF' : '#F0F4FF',
-                      borderBottom: '1px solid #F8FAFC',
+                      backgroundColor: n.read ? 'transparent' : 'rgba(201,169,97,0.06)',
+                      borderBottom:    '1px solid rgba(255,255,255,0.05)',
                     }}
                   >
                     <span className="text-base mt-0.5 shrink-0">{meta.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold leading-snug truncate"
-                        style={{ color: n.read ? '#475569' : '#0A0A0A' }}>
+                      <p
+                        className="text-sm font-semibold leading-snug truncate"
+                        style={{ color: n.read ? 'var(--text-muted)' : 'var(--text-primary)' }}
+                      >
                         {n.title}
                       </p>
-                      <p className="text-xs leading-snug mt-0.5"
-                        style={{ color: '#8B8B85' }}>
+                      <p className="text-xs leading-snug mt-0.5" style={{ color: 'var(--text-muted)' }}>
                         {n.body}
                       </p>
-                      <p className="text-[10px] mt-1" style={{ color: '#CBD5E1' }}>
+                      <p className="text-[10px] mt-1" style={{ color: 'var(--text-dim)' }}>
                         {formatTime(n.createdAt)}
                       </p>
                     </div>
                     {n.link && (
-                      <ArrowRight size={14} className="shrink-0 mt-1" style={{ color: '#CBD5E1' }} />
+                      <ArrowRight
+                        size={14}
+                        className="shrink-0 mt-1"
+                        style={{ color: 'rgba(201,169,97,0.40)' }}
+                      />
                     )}
                     {!n.read && (
-                      <span className="w-2 h-2 rounded-full shrink-0 mt-1.5"
-                        style={{ backgroundColor: '#DC2626' }} />
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0 mt-1.5"
+                        style={{ backgroundColor: '#C9A961' }}
+                      />
                     )}
                   </button>
                 );

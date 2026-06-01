@@ -7,7 +7,7 @@ import { VideoLogo } from '../../components/ui/VideoLogo';
 
 function FullPageLoader() {
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#FAFAF7' }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--navy-deep)' }}>
       <VideoLogo size="sm" showText={false} />
     </div>
   );
@@ -26,28 +26,28 @@ function ModuleTile({ icon, name, description, path, accentColor }: ModuleTilePr
   return (
     <button
       onClick={() => navigate(path)}
-      className="group text-left w-full bg-white border border-slate-200 rounded-2xl p-8 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+      className="group text-left w-full glass-panel glass-card p-8 transition-all duration-200 hover:-translate-y-0.5"
     >
       <div
         className="w-12 h-12 rounded-xl flex items-center justify-center mb-6"
-        style={{ backgroundColor: accentColor + '15', color: accentColor }}
+        style={{ backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961' }}
       >
         {icon}
       </div>
 
       <h2
         className="text-2xl mb-2"
-        style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}
+        style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}
       >
         {name}
       </h2>
-      <p className="text-sm leading-relaxed mb-8" style={{ color: '#8B8B85' }}>
+      <p className="text-sm leading-relaxed mb-8" style={{ color: 'var(--text-muted)' }}>
         {description}
       </p>
 
       <div
         className="flex items-center gap-2 text-sm font-semibold transition-gap group-hover:gap-3"
-        style={{ color: accentColor }}
+        style={{ color: accentColor === '#C9A961' ? '#C9A961' : '#C9A961' }}
       >
         Open {name} <ArrowRight size={15} />
       </div>
@@ -76,30 +76,30 @@ export function LauncherPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#FAFAF7' }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'transparent' }}>
 
       {/* Top bar */}
-      <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
-        <img src="/images/logo-finvastra.png" alt="Finvastra" style={{ height: 44, objectFit: 'contain' }} />
+      <header className="h-16 glass-header flex items-center justify-between px-8 shrink-0">
+        <img src="/images/logo-finvastra.png" alt="Finvastra" style={{ height: 44, objectFit: 'contain', filter: 'brightness(0) invert(1)', opacity: 0.75 }} />
         <div className="flex items-center gap-4">
           {profile?.photoURL ? (
             <img src={profile.photoURL} alt={profile.displayName} className="w-8 h-8 rounded-full object-cover" />
           ) : (
             <div
               className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-              style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
+              style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961' }}
             >
               {profile?.displayName?.[0] ?? '?'}
             </div>
           )}
-          <span className="text-sm font-medium hidden sm:block" style={{ color: '#2A2A2A' }}>
+          <span className="text-sm font-medium hidden sm:block" style={{ color: 'var(--text-primary)' }}>
             {profile?.displayName}
           </span>
-          <div className="w-px h-5 bg-slate-200" />
+          <div className="w-px h-5" style={{ backgroundColor: 'rgba(255,255,255,0.10)' }} />
           <button
             onClick={handleLogout}
             className="flex items-center gap-1.5 text-sm transition-opacity hover:opacity-60"
-            style={{ color: '#8B8B85' }}
+            style={{ color: 'rgba(240,236,224,0.45)' }}
           >
             <LogOut size={15} />
             <span className="hidden sm:block">Sign out</span>
@@ -120,11 +120,11 @@ export function LauncherPage() {
           <div className="mb-12 text-center">
             <h1
               className="text-4xl mb-2"
-              style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}
+              style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}
             >
               Good day, {firstName}.
             </h1>
-            <p style={{ color: '#8B8B85' }}>Select a module to get started.</p>
+            <p style={{ color: 'var(--text-muted)' }}>Select a module to get started.</p>
           </div>
 
           {/* Module tiles */}
@@ -166,7 +166,7 @@ export function LauncherPage() {
 
           {/* No access fallback */}
           {!showHrms && !showCrm && !showMis && (
-            <p className="text-sm" style={{ color: '#8B8B85' }}>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               No modules assigned yet. Contact your admin.
             </p>
           )}

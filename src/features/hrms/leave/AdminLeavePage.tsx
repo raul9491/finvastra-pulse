@@ -682,7 +682,8 @@ function EditLeaveBalanceModal({
           {/* Balance rows */}
           {selectedUid && (
             <div className="rounded-xl border border-slate-200 overflow-hidden">
-              <div className="grid grid-cols-3 text-xs font-semibold uppercase tracking-wide px-4 py-2 border-b border-slate-100" style={{ color: '#8B8B85', backgroundColor: '#FAFAF7' }}>
+              <div className="overflow-x-auto">
+              <div className="grid grid-cols-3 min-w-70 text-xs font-semibold uppercase tracking-wide px-4 py-2 border-b border-slate-100" style={{ color: '#8B8B85', backgroundColor: '#FAFAF7' }}>
                 <span>Leave Type</span>
                 <span className="text-center">Current Total</span>
                 <span className="text-center">New Total</span>
@@ -691,7 +692,7 @@ function EditLeaveBalanceModal({
                 <div className="px-4 py-6 text-sm text-center" style={{ color: '#8B8B85' }}>Loading current balances…</div>
               ) : (
                 rows.map((r) => (
-                  <div key={r.type} className="grid grid-cols-3 items-center px-4 py-3 border-b border-slate-50 last:border-0">
+                  <div key={r.type} className="grid grid-cols-3 min-w-70 items-center px-4 py-3 border-b border-slate-50 last:border-0">
                     <span className="text-sm font-medium" style={{ color: '#0A0A0A' }}>{r.label}</span>
                     <span className="text-center text-sm" style={{ color: '#8B8B85' }}>{r.current} days</span>
                     <div className="flex justify-center">
@@ -711,6 +712,7 @@ function EditLeaveBalanceModal({
                   </div>
                 ))
               )}
+              </div>{/* /overflow-x-auto */}
             </div>
           )}
           {selectedUid && rows.some((r) => fieldErrors[r.type]) && (

@@ -2,8 +2,11 @@ import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Search, Edit2, Download, UserPlus, Shield, Eye,
-  LogOut, UserCheck, AlertTriangle, CheckSquare, X,
+  LogOut, UserCheck, AlertTriangle, CheckSquare, X, Users,
 } from 'lucide-react';
+import { Badge } from '../../../components/ui/Badge';
+import { Button } from '../../../components/ui/Button';
+import { EmptyState } from '../../../components/ui/EmptyState';
 import {
   updateDoc, doc, addDoc, collection, getDocs,
   serverTimestamp, writeBatch,
@@ -652,11 +655,9 @@ export function EmployeesPage() {
                 style={{ borderColor: '#E2E8F0', color: '#2A2A2A' }}>
                 <Download size={14} /> Export CSV
               </button>
-              <button onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg transition-opacity hover:opacity-80"
-                style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
-                <UserPlus size={14} /> Add Employee
-              </button>
+              <Button variant="primary" icon={<UserPlus size={14} />} onClick={() => setShowAddModal(true)}>
+                Add Employee
+              </Button>
             </div>
           )}
         </div>
@@ -692,7 +693,7 @@ export function EmployeesPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left">
+              <table className="w-full text-left min-w-160">
                 <thead>
                   <tr style={{ backgroundColor: '#FAFAF7', borderBottom: '1px solid #E2E8F0' }}>
                     {/* Select-all checkbox — admin/HR only */}
@@ -716,12 +717,12 @@ export function EmployeesPage() {
                     const isSA = isSuperAdmin(emp.userId);
                     const isSelected = selectedIds.has(emp.userId);
                     const loginStatus = isInactive
-                      ? { label: 'Inactive',          bg: '#F1F5F9', text: '#475569' }
+                      ? { label: 'Inactive',          variant: 'muted'  as const }
                       : emp.needsEmailSetup
-                      ? { label: 'Needs Email Setup', bg: '#FFFBEB', text: '#92400E' }
+                      ? { label: 'Needs Email Setup', variant: 'amber'  as const }
                       : emp.mustResetPassword
-                      ? { label: 'Reset Pending',     bg: '#FFFBEB', text: '#92400E' }
-                      : { label: 'Active',            bg: '#D1FAE5', text: '#065F46' };
+                      ? { label: 'Reset Pending',     variant: 'amber'  as const }
+                      : { label: 'Active',            variant: 'green'  as const };
 
                     return (
                       <tr key={emp.userId}
@@ -759,14 +760,10 @@ export function EmployeesPage() {
                             <div>
                               <p className="text-sm font-medium" style={{ color: '#0A0A0A' }}>{emp.displayName}</p>
                               {isSA && (
-                                <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-widest"
-                                  style={{ backgroundColor: '#FEF3C7', color: '#92400E' }}>
-                                  ★ Super Admin
-                                </span>
+                                <Badge variant="navy" size="sm">★ Super Admin</Badge>
                               )}
                               {!isSA && isInactive && (
-                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide"
-                                  style={{ backgroundColor: '#F1F5F9', color: '#475569' }}>Inactive</span>
+                                <Badge variant="muted" size="sm">Inactive</Badge>
                               )}
                             </div>
                           </button>
@@ -775,16 +772,15 @@ export function EmployeesPage() {
                         <td className="px-4 py-3 text-sm" style={{ color: '#2A2A2A' }}>{emp.department ?? '—'}</td>
                         <td className="px-4 py-3 text-sm" style={{ color: '#2A2A2A' }}>{emp.designation ?? '—'}</td>
                         <td className="px-4 py-3 text-xs" style={{ color: '#475569' }}>{emp.email || '—'}</td>
-                        <td className="px-4 py-3 text-xs capitalize" style={{ color: isInactive ? '#475569' : '#065F46' }}>
-                          {emp.employeeStatus ?? 'active'}
+                        <td className="px-4 py-3">
+                          <Badge variant={isInactive ? 'red' : 'green'} size="sm" className="capitalize">
+                            {emp.employeeStatus ?? 'active'}
+                          </Badge>
                         </td>
 
                         {canManage && (
                           <td className="px-4 py-3">
-                            <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"
-                              style={{ backgroundColor: loginStatus.bg, color: loginStatus.text }}>
-                              {loginStatus.label}
-                            </span>
+                            <Badge variant={loginStatus.variant} size="sm">{loginStatus.label}</Badge>
                           </td>
                         )}
 
@@ -823,8 +819,12 @@ export function EmployeesPage() {
                   })}
                   {filtered.length === 0 && (
                     <tr>
-                      <td colSpan={colCount} className="px-4 py-12 text-center text-sm" style={{ color: '#8B8B85' }}>
-                        No employees found.
+                      <td colSpan={colCount}>
+                        <EmptyState
+                          icon={Users}
+                          title="No employees found"
+                          body={search ? 'Try adjusting your search.' : 'No employees match the current filter.'}
+                        />
                       </td>
                     </tr>
                   )}

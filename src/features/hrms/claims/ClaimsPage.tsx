@@ -8,24 +8,24 @@ import type { ClaimType, ClaimStatus, Claim, ClaimTravelDetails } from '../../..
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const CLAIM_TYPE_META: Record<ClaimType, { label: string; icon: typeof Car; color: string }> = {
-  travel:               { label: 'Travel',               icon: Car,         color: '#3B82F6' },
-  mobile:               { label: 'Mobile',               icon: Smartphone,  color: '#8B5CF6' },
-  medical:              { label: 'Medical',              icon: Heart,       color: '#EF4444' },
-  petrol:               { label: 'Petrol',               icon: Fuel,        color: '#F59E0B' },
-  client_entertainment: { label: 'Client Entertainment', icon: Users,       color: '#10B981' },
-  other:                { label: 'Other',                icon: HelpCircle,  color: '#8B8B85' },
+  travel:               { label: 'Travel',               icon: Car,         color: '#60a5fa' },
+  mobile:               { label: 'Mobile',               icon: Smartphone,  color: '#a78bfa' },
+  medical:              { label: 'Medical',              icon: Heart,       color: '#f87171' },
+  petrol:               { label: 'Petrol',               icon: Fuel,        color: '#fbbf24' },
+  client_entertainment: { label: 'Client Entertainment', icon: Users,       color: '#34d399' },
+  other:                { label: 'Other',                icon: HelpCircle,  color: 'rgba(240,236,224,0.40)' },
 };
 
 const STATUS_STYLES: Record<ClaimStatus, { label: string; bg: string; color: string }> = {
-  pending:  { label: 'Pending',  bg: '#FFFBEB', color: '#92400E' },
-  approved: { label: 'Approved', bg: '#EFF6FF', color: '#1D4ED8' },
-  rejected: { label: 'Rejected', bg: '#FFF1F2', color: '#BE123C' },
-  paid:     { label: 'Paid',     bg: '#F0FDF4', color: '#166534' },
+  pending:  { label: 'Pending',  bg: 'rgba(251,191,36,0.15)',  color: '#fbbf24' },
+  approved: { label: 'Approved', bg: 'rgba(96,165,250,0.15)',  color: '#60a5fa' },
+  rejected: { label: 'Rejected', bg: 'rgba(248,113,113,0.15)', color: '#f87171' },
+  paid:     { label: 'Paid',     bg: 'rgba(52,211,153,0.15)',  color: '#34d399' },
 };
 
-function toTs(ts: any): Date | null {
+function toTs(ts: unknown): Date | null {
   if (!ts) return null;
-  if (typeof ts.toDate === 'function') return ts.toDate();
+  if (typeof (ts as { toDate?: unknown }).toDate === 'function') return (ts as { toDate: () => Date }).toDate();
   return null;
 }
 
@@ -75,23 +75,33 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
     }
   };
 
-  const inp = 'w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-navy/10 focus:border-navy';
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-slate-100">
-          <h3 className="text-lg font-semibold" style={{ color: '#0A0A0A' }}>New Claim</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100">
-            <X size={18} style={{ color: '#8B8B85' }} />
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.60)', backdropFilter: 'blur(4px)' }}
+    >
+      <div
+        className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl"
+        style={{
+          backgroundColor:     'rgba(11,21,56,0.92)',
+          border:              '1px solid rgba(255,255,255,0.12)',
+          backdropFilter:      'blur(20px)',
+          WebkitBackdropFilter:'blur(20px)',
+          boxShadow:           '0 24px 64px rgba(0,0,0,0.50)',
+        }}
+      >
+        <div className="flex items-center justify-between p-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>New Claim</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:bg-white/10">
+            <X size={18} style={{ color: 'var(--text-muted)' }} />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
               Claim Type
             </label>
-            <select className={inp} value={claimType} onChange={(e) => setClaimType(e.target.value as ClaimType)}>
+            <select className="glass-inp w-full text-sm" value={claimType} onChange={(e) => setClaimType(e.target.value as ClaimType)}>
               {Object.entries(CLAIM_TYPE_META).map(([k, v]) => (
                 <option key={k} value={k}>{v.label}</option>
               ))}
@@ -99,58 +109,62 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
           </div>
 
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
               Amount (₹) *
             </label>
-            <input type="number" className={inp} value={amount} onChange={(e) => setAmount(e.target.value)}
+            <input type="number" className="glass-inp w-full text-sm" value={amount} onChange={(e) => setAmount(e.target.value)}
               placeholder="0.00" min="1" max="50000" step="0.01" />
           </div>
 
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
               Description *
             </label>
-            <textarea className={`${inp} resize-none`} rows={3} value={description}
+            <textarea className="glass-inp w-full text-sm resize-none" rows={3} value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Brief description of the expense…" maxLength={500} />
           </div>
 
           {isTravel && (
-            <div className="space-y-3 p-4 rounded-xl" style={{ backgroundColor: '#F2EFE7' }}>
-              <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: '#8B8B85' }}>Travel Details</p>
+            <div className="space-y-3 p-4 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)' }}>
+              <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Travel Details</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs mb-1" style={{ color: '#8B8B85' }}>From</label>
-                  <input className={inp} value={from} onChange={(e) => setFrom(e.target.value)} placeholder="Office" />
+                  <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>From</label>
+                  <input className="glass-inp w-full text-sm" value={from} onChange={(e) => setFrom(e.target.value)} placeholder="Office" />
                 </div>
                 <div>
-                  <label className="block text-xs mb-1" style={{ color: '#8B8B85' }}>To</label>
-                  <input className={inp} value={to} onChange={(e) => setTo(e.target.value)} placeholder="Client site" />
+                  <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>To</label>
+                  <input className="glass-inp w-full text-sm" value={to} onChange={(e) => setTo(e.target.value)} placeholder="Client site" />
                 </div>
                 <div>
-                  <label className="block text-xs mb-1" style={{ color: '#8B8B85' }}>Distance (km)</label>
-                  <input type="number" className={inp} value={distance} onChange={(e) => setDistance(e.target.value)}
+                  <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Distance (km)</label>
+                  <input type="number" className="glass-inp w-full text-sm" value={distance} onChange={(e) => setDistance(e.target.value)}
                     placeholder="0" min="0" step="0.1" />
                 </div>
                 <div>
-                  <label className="block text-xs mb-1" style={{ color: '#8B8B85' }}>Mode</label>
-                  <input className={inp} value={mode} onChange={(e) => setMode(e.target.value)} placeholder="Auto / Own vehicle" />
+                  <label className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>Mode</label>
+                  <input className="glass-inp w-full text-sm" value={mode} onChange={(e) => setMode(e.target.value)} placeholder="Auto / Own vehicle" />
                 </div>
               </div>
             </div>
           )}
 
-          {error && <p className="text-sm" style={{ color: '#DC2626' }}>{error}</p>}
+          {error && <p className="text-sm" style={{ color: '#f87171' }}>{error}</p>}
 
           <div className="flex gap-3 pt-2">
             <button type="submit" disabled={submitting}
-              className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-50"
-              style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110 disabled:opacity-50"
+              style={{
+                background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
+                color:      '#0B1538',
+                border:     '1px solid rgba(201,169,97,0.40)',
+              }}>
               {submitting ? 'Submitting…' : 'Submit Claim'}
             </button>
             <button type="button" onClick={onClose}
-              className="px-5 py-2.5 rounded-xl text-sm border border-slate-200 hover:bg-slate-50 transition-colors"
-              style={{ color: '#2A2A2A' }}>
+              className="px-5 py-2.5 rounded-xl text-sm transition-colors hover:bg-white/10"
+              style={{ color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.12)' }}>
               Cancel
             </button>
           </div>
@@ -164,29 +178,37 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
 
 function ClaimRow({ claim, onCancel }: { claim: Claim; onCancel: () => void }) {
   const meta = CLAIM_TYPE_META[claim.claimType];
-  const style = STATUS_STYLES[claim.status];
+  const st = STATUS_STYLES[claim.status];
   const Icon = meta.icon;
   const submittedDate = toTs(claim.submittedAt);
 
   return (
-    <div className="flex items-center gap-4 py-3 border-b border-slate-50 last:border-0">
-      <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-        style={{ backgroundColor: meta.color + '15', color: meta.color }}>
+    <div className="flex items-center gap-4 py-3 last:border-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+      <div
+        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+        style={{ backgroundColor: meta.color + '20', color: meta.color }}
+      >
         <Icon size={16} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-ink truncate">{claim.description}</p>
-        <p className="text-xs text-mute">
+        <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{claim.description}</p>
+        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
           {meta.label} · {submittedDate ? format(submittedDate, 'dd MMM yyyy') : '—'}
         </p>
       </div>
-      <p className="text-sm font-semibold text-ink shrink-0">₹{claim.amount.toLocaleString('en-IN')}</p>
-      <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide shrink-0"
-        style={{ backgroundColor: style.bg, color: style.color }}>
-        {style.label}
+      <p className="text-sm font-semibold shrink-0" style={{ color: 'var(--text-primary)' }}>₹{claim.amount.toLocaleString('en-IN')}</p>
+      <span
+        className="px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide shrink-0"
+        style={{ backgroundColor: st.bg, color: st.color }}
+      >
+        {st.label}
       </span>
       {claim.status === 'pending' && (
-        <button onClick={onCancel} className="text-xs text-mute hover:text-red-600 transition-colors shrink-0">
+        <button
+          onClick={onCancel}
+          className="text-xs transition-colors hover:opacity-60 shrink-0"
+          style={{ color: 'var(--text-muted)' }}
+        >
           Cancel
         </button>
       )}
@@ -219,53 +241,66 @@ export function ClaimsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
             My Claims
           </h2>
-          <p className="text-sm" style={{ color: '#8B8B85' }}>Submit and track your expense reimbursements.</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Submit and track your expense reimbursements.</p>
         </div>
-        <button onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold"
-          style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
+          style={{
+            background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
+            color:      '#0B1538',
+            border:     '1px solid rgba(201,169,97,0.40)',
+          }}
+        >
           <PlusCircle size={16} />
           New Claim
         </button>
       </div>
 
       {/* Summary strip */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Claimed', value: total, color: '#0A0A0A' },
-          { label: 'Approved', value: approved, color: '#1D4ED8' },
-          { label: 'Pending', value: pending, color: '#92400E' },
-          { label: 'Paid', value: paid, color: '#166534' },
+          { label: 'Claimed',  value: total,    color: 'var(--text-primary)' },
+          { label: 'Approved', value: approved, color: '#60a5fa'             },
+          { label: 'Pending',  value: pending,  color: '#fbbf24'             },
+          { label: 'Paid',     value: paid,     color: '#34d399'             },
         ].map(({ label, value, color }) => (
-          <div key={label} className="bg-white border border-slate-200 rounded-2xl p-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-mute mb-1">{label}</p>
+          <div key={label} className="glass-panel glass-card p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
             <p className="text-lg font-bold" style={{ color }}>₹{value.toLocaleString('en-IN')}</p>
-            <p className="text-xs text-mute">this month</p>
+            <p className="text-xs" style={{ color: 'var(--text-dim)' }}>this month</p>
           </div>
         ))}
       </div>
 
       {/* Claims list */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
+      <div className="glass-panel p-6">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#475569' }}>All Claims</p>
+          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>All Claims</p>
           <div className="flex items-center gap-1.5">
-            <ReceiptText size={14} style={{ color: '#8B8B85' }} />
-            <span className="text-xs text-mute">{claims.length} total</span>
+            <ReceiptText size={14} style={{ color: 'var(--text-muted)' }} />
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{claims.length} total</span>
           </div>
         </div>
 
         {loading ? (
-          <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-12 bg-slate-100 rounded-lg animate-pulse" />)}</div>
+          <div className="space-y-3">
+            {[1,2,3].map(i => (
+              <div key={i} className="h-12 rounded-lg animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }} />
+            ))}
+          </div>
         ) : claims.length === 0 ? (
           <div className="text-center py-10">
-            <ReceiptText size={40} className="mx-auto mb-3" style={{ color: '#CBD5E1' }} />
-            <p className="text-sm text-mute">No claims submitted yet.</p>
-            <button onClick={() => setShowModal(true)} className="mt-3 text-sm underline hover:opacity-70 transition-opacity"
-              style={{ color: '#0B1538' }}>
+            <ReceiptText size={40} className="mx-auto mb-3" style={{ color: 'rgba(201,169,97,0.30)' }} />
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No claims submitted yet.</p>
+            <button
+              onClick={() => setShowModal(true)}
+              className="mt-3 text-sm underline transition-opacity hover:opacity-70"
+              style={{ color: '#C9A961' }}
+            >
               Submit your first claim
             </button>
           </div>

@@ -257,7 +257,7 @@ function AddRevisionModal({
             <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#8B8B85' }}>
               Breakdown (optional)
             </p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {[['basicSalary', 'Basic'], ['hra', 'HRA'], ['otherAllowances', 'Other Allow.']] .map(([k, label]) => (
                 <div key={k}>
                   <label className="block text-[10px] font-medium mb-0.5" style={{ color: '#8B8B85' }}>{label}</label>

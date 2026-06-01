@@ -160,7 +160,7 @@ export function CrmPerformanceWidget({ employeeUid, employeeName: _employeeName 
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
@@ -171,7 +171,7 @@ export function CrmPerformanceWidget({ employeeUid, employeeName: _employeeName 
         </p>
       ) : (
         <>
-          <div className="flex gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <StatCard label="Active Leads"        value={stats!.totalLeads} />
             <StatCard
               label="Disbursals"

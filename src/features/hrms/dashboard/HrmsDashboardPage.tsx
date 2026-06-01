@@ -104,7 +104,7 @@ function BirthdaySection({
   return (
     <div className="mb-6">
       {employees.length > 1 && (
-        <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#8B8B85' }}>
+        <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
           {employees.length} birthdays today 🎉
         </p>
       )}
@@ -126,11 +126,11 @@ function BirthdaySection({
 
             {/* Content */}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold" style={{ color: '#0B1538' }}>
+              <p className="text-sm font-semibold" style={{ color: '#C9A961' }}>
                 Happy Birthday, {emp.displayName}! 🎉
               </p>
               {(emp.department || emp.designation) && (
-                <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                   {[emp.department, emp.designation].filter(Boolean).join(' · ')}
                 </p>
               )}
@@ -161,8 +161,8 @@ function UpcomingBirthdaysSection({ employees }: { employees: UpcomingBirthdayEm
   if (employees.length === 0) return null;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-6">
-      <p className="text-[10px] font-bold uppercase tracking-widest mb-4" style={{ color: '#8B8B85' }}>
+    <div className="glass-panel glass-card p-6 mb-6">
+      <p className="text-[10px] font-bold uppercase tracking-widest mb-4" style={{ color: 'var(--text-muted)' }}>
         Upcoming Birthdays
       </p>
       <div className="space-y-3">
@@ -188,11 +188,11 @@ function UpcomingBirthdaysSection({ employees }: { employees: UpcomingBirthdayEm
 
               {/* Name + dept */}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate" style={{ color: '#0A0A0A' }}>
+                <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
                   {emp.displayName}
                 </p>
                 {emp.designation && (
-                  <p className="text-xs truncate" style={{ color: '#8B8B85' }}>{emp.designation}</p>
+                  <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{emp.designation}</p>
                 )}
               </div>
 
@@ -222,7 +222,7 @@ function AnniversarySection({
   return (
     <div className="mb-6">
       {employees.length > 1 && (
-        <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#8B8B85' }}>
+        <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
           {employees.length} work anniversaries today 🏅
         </p>
       )}
@@ -246,7 +246,7 @@ function AnniversarySection({
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-semibold" style={{ color: '#0B1538' }}>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                     {emp.displayName}
                   </p>
                   <span
@@ -260,7 +260,7 @@ function AnniversarySection({
                   </span>
                 </div>
                 {(emp.department || emp.designation) && (
-                  <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                     {[emp.department, emp.designation].filter(Boolean).join(' · ')}
                   </p>
                 )}
@@ -288,8 +288,8 @@ function UpcomingAnniversariesSection({ employees }: { employees: UpcomingAnnive
   if (employees.length === 0) return null;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-6">
-      <p className="text-[10px] font-bold uppercase tracking-widest mb-4" style={{ color: '#8B8B85' }}>
+    <div className="glass-panel glass-card p-6 mb-6">
+      <p className="text-[10px] font-bold uppercase tracking-widest mb-4" style={{ color: 'var(--text-muted)' }}>
         Upcoming Anniversaries
       </p>
       <div className="space-y-3">
@@ -308,15 +308,15 @@ function UpcomingAnniversariesSection({ employees }: { employees: UpcomingAnnive
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate" style={{ color: '#0A0A0A' }}>
+                <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
                   {emp.displayName}
                 </p>
-                <p className="text-xs truncate" style={{ color: '#8B8B85' }}>
+                <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
                   {milestoneLabel(emp.yearsCompleted)}
                   {isMilestone && ' 🏅'}
                 </p>
               </div>
-              <span className="text-xs font-semibold whitespace-nowrap" style={{ color: '#0B1538' }}>
+              <span className="text-xs font-semibold whitespace-nowrap" style={{ color: '#C9A961' }}>
                 in {emp.daysUntil} day{emp.daysUntil !== 1 ? 's' : ''} 🗓️
               </span>
             </div>
@@ -395,8 +395,8 @@ function HolidayBanner({ holidays }: { holidays: Array<{ id: string; date: strin
           >
             <span className="text-2xl shrink-0 select-none" aria-hidden>🎉</span>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold" style={{ color: '#0B1538' }}>{name}</p>
-              <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>{subtext}</p>
+              <p className="text-sm font-semibold" style={{ color: '#C9A961' }}>{name}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{subtext}</p>
             </div>
             <span
               className="text-xs font-bold px-2.5 py-1 rounded-full shrink-0"
@@ -441,33 +441,33 @@ function AnnouncementBanner({
     <div
       className="rounded-2xl border px-5 py-4 flex items-center gap-4 mb-6"
       style={{
-        backgroundColor: isUrgent ? '#FFF1F2' : isImportant ? '#FFFBEB' : '#EFF6FF',
-        borderColor:     isUrgent ? '#FECDD3' : isImportant ? '#FCD34D' : '#BFDBFE',
+        backgroundColor: isUrgent ? 'rgba(248,113,113,0.10)' : isImportant ? 'rgba(201,169,97,0.10)' : 'rgba(96,165,250,0.10)',
+        borderColor:     isUrgent ? 'rgba(248,113,113,0.25)' : isImportant ? 'rgba(201,169,97,0.25)' : 'rgba(96,165,250,0.20)',
       }}
     >
       <div className="shrink-0">
         {isUrgent || isImportant ? (
-          <AlertTriangle size={18} style={{ color: isUrgent ? '#BE123C' : '#92400E' }} />
+          <AlertTriangle size={18} style={{ color: isUrgent ? '#f87171' : '#C9A961' }} />
         ) : (
-          <Megaphone size={18} style={{ color: '#1D4ED8' }} />
+          <Megaphone size={18} style={{ color: '#60a5fa' }} />
         )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           {top.pinned && <Pin size={12} style={{ color: '#C9A961' }} />}
-          <span className="text-sm font-semibold text-ink">{top.title}</span>
+          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{top.title}</span>
           {unread.length > 1 && (
-            <span className="text-xs text-mute">+{unread.length - 1} more</span>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>+{unread.length - 1} more</span>
           )}
         </div>
-        <p className="text-xs text-mute mt-0.5 truncate">{top.body}</p>
+        <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>{top.body}</p>
       </div>
       <button
         onClick={() => markAnnouncementRead(top.id, userId)}
-        className="p-1.5 rounded-lg hover:bg-black/5 transition-colors shrink-0"
+        className="p-1.5 rounded-lg hover:bg-white/10 transition-colors shrink-0"
         title="Dismiss"
       >
-        <X size={14} style={{ color: '#8B8B85' }} />
+        <X size={14} style={{ color: 'var(--text-muted)' }} />
       </button>
     </div>
   );
@@ -484,21 +484,21 @@ function StatCard({
   const navigate = useNavigate();
   return (
     <button onClick={() => navigate(link)}
-      className="group w-full text-left bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-md transition-all">
+      className="group w-full text-left glass-panel glass-card p-6 transition-all">
       <div className="flex items-center justify-between mb-4">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ backgroundColor: (accent ?? '#0B1538') + '15', color: accent ?? '#0B1538' }}>
+          style={{ backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961' }}>
           {icon}
         </div>
-        <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500 transition-colors" />
+        <ChevronRight size={14} style={{ color: 'rgba(240,236,224,0.25)' }} className="group-hover:opacity-70 transition-opacity" />
       </div>
-      <p className="text-[10px] font-bold uppercase tracking-widest mb-1 text-mute">{label}</p>
+      <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
       {loading ? (
-        <div className="h-8 w-24 bg-slate-100 rounded animate-pulse" />
+        <div className="h-8 w-24 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
       ) : (
-        <p className="text-2xl font-bold text-ink">{value}</p>
+        <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
       )}
-      {sub && <p className="text-xs text-mute mt-1">{sub}</p>}
+      {sub && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
     </button>
   );
 }
@@ -517,21 +517,21 @@ function LeaveCard({ loading, balance }: {
   ];
   return (
     <button onClick={() => navigate('/hrms/leave')}
-      className="group w-full text-left bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-md transition-all">
+      className="group w-full text-left glass-panel glass-card p-6 transition-all">
       <div className="flex items-center justify-between mb-4">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ backgroundColor: '#C9A96115', color: '#C9A961' }}>
+          style={{ backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961' }}>
           <CalendarOff size={18} />
         </div>
-        <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500 transition-colors" />
+        <ChevronRight size={14} style={{ color: 'rgba(240,236,224,0.25)' }} className="group-hover:opacity-70 transition-opacity" />
       </div>
-      <p className="text-[10px] font-bold uppercase tracking-widest mb-3 text-mute">Leave Balance</p>
+      <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Leave Balance</p>
       {loading ? (
         <div className="space-y-2">
-          {[1,2,3].map(i => <div key={i} className="h-4 bg-slate-100 rounded animate-pulse" />)}
+          {[1,2,3].map(i => <div key={i} className="h-4 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />)}
         </div>
       ) : !balance ? (
-        <p className="text-sm text-mute">No balance set yet</p>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No balance set yet</p>
       ) : (
         <div className="space-y-2.5">
           {types.map(({ key, label, color }) => {
@@ -540,10 +540,10 @@ function LeaveCard({ loading, balance }: {
             return (
               <div key={key}>
                 <div className="flex justify-between text-xs mb-1">
-                  <span className="text-ink-soft">{label}</span>
-                  <span className="font-semibold text-ink">{b.remaining} / {b.total}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+                  <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{b.remaining} / {b.total}</span>
                 </div>
-                <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
                   <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
                 </div>
               </div>
@@ -563,31 +563,31 @@ function HolidaysCard({ holidays, loading }: { holidays: { date: string; name: s
   const upcoming = holidays.filter((h) => h.date >= today).slice(0, 3);
   return (
     <button onClick={() => navigate('/hrms/holidays')}
-      className="group w-full text-left bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-md transition-all">
+      className="group w-full text-left glass-panel glass-card p-6 transition-all">
       <div className="flex items-center justify-between mb-4">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ backgroundColor: '#C9A96120', color: '#C9A961' }}>
+          style={{ backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961' }}>
           <CalendarDays size={18} />
         </div>
-        <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500 transition-colors" />
+        <ChevronRight size={14} style={{ color: 'rgba(240,236,224,0.25)' }} className="group-hover:opacity-70 transition-opacity" />
       </div>
-      <p className="text-[10px] font-bold uppercase tracking-widest mb-3 text-mute">Upcoming Holidays</p>
+      <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Upcoming Holidays</p>
       {loading ? (
-        <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-5 bg-slate-100 rounded animate-pulse" />)}</div>
+        <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-5 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />)}</div>
       ) : upcoming.length === 0 ? (
-        <p className="text-sm text-mute">No upcoming holidays</p>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No upcoming holidays</p>
       ) : (
         <div className="space-y-2">
           {upcoming.map((h) => (
             <div key={h.date} className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-ink">{h.name}</p>
-                <p className="text-xs text-mute">{format(parseISO(h.date), 'EEE, dd MMM yyyy')}</p>
+                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{h.name}</p>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{format(parseISO(h.date), 'EEE, dd MMM yyyy')}</p>
               </div>
               <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded"
                 style={{
-                  backgroundColor: h.type === 'national' ? '#EFF6FF' : h.type === 'regional' ? '#FFFBEB' : '#FAFAF7',
-                  color:           h.type === 'national' ? '#1D4ED8' : h.type === 'regional' ? '#92400E' : '#C9A961',
+                  backgroundColor: h.type === 'national' ? 'rgba(96,165,250,0.15)' : h.type === 'regional' ? 'rgba(201,169,97,0.15)' : 'rgba(255,255,255,0.06)',
+                  color:           h.type === 'national' ? '#60a5fa' : h.type === 'regional' ? '#C9A961' : 'var(--text-muted)',
                 }}>
                 {h.type}
               </span>
@@ -605,27 +605,27 @@ function TeamTodayCard({ present, leave, absent, loading }: { present: number; l
   const navigate = useNavigate();
   return (
     <button onClick={() => navigate('/hrms/admin/attendance')}
-      className="group w-full text-left bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-md transition-all">
+      className="group w-full text-left glass-panel glass-card p-6 transition-all">
       <div className="flex items-center justify-between mb-4">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ backgroundColor: '#10B98115', color: '#065F46' }}>
+          style={{ backgroundColor: 'rgba(52,211,153,0.12)', color: '#34d399' }}>
           <Clock size={18} />
         </div>
-        <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500 transition-colors" />
+        <ChevronRight size={14} style={{ color: 'rgba(240,236,224,0.25)' }} className="group-hover:opacity-70 transition-opacity" />
       </div>
-      <p className="text-[10px] font-bold uppercase tracking-widest mb-3 text-mute">Team Today</p>
+      <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Team Today</p>
       {loading ? (
-        <div className="h-8 w-24 bg-slate-100 rounded animate-pulse" />
+        <div className="h-8 w-24 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
       ) : (
         <div className="space-y-1.5 text-sm">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: '#16A34A' }} />
-            <span className="text-ink-soft">{present} present / checked in</span>
+            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: '#34d399' }} />
+            <span style={{ color: 'var(--text-muted)' }}>{present} present / checked in</span>
           </div>
           {leave > 0 && (
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: '#2563EB' }} />
-              <span className="text-ink-soft">{leave} on leave</span>
+              <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: '#60a5fa' }} />
+              <span style={{ color: 'var(--text-muted)' }}>{leave} on leave</span>
             </div>
           )}
         </div>
@@ -716,8 +716,8 @@ function HrPendingActionsPanel({
   if (total === 0) return null;
 
   return (
-    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 mb-6">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700 mb-3">
+    <div className="glass-panel p-5 mb-6" style={{ borderColor: 'rgba(201,169,97,0.20)' }}>
+      <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#C9A961' }}>
         {total} pending action{total !== 1 ? 's' : ''} need your review
       </p>
       <div className="space-y-1.5">
@@ -725,18 +725,18 @@ function HrPendingActionsPanel({
           <button
             key={label}
             onClick={() => navigate(path)}
-            className="group w-full flex items-center justify-between bg-white rounded-xl px-4 py-2.5 hover:shadow-sm transition-all border border-transparent hover:border-slate-100">
+            className="group w-full flex items-center justify-between glass-panel px-4 py-2.5 transition-all">
             <div className="flex items-center gap-3">
               <span
-                className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0"
-                style={{ backgroundColor: color }}>
+                className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+                style={{ backgroundColor: color + '30', color }}>
                 {count}
               </span>
-              <span className="text-sm text-ink">
+              <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
                 {count > 1 ? `${count} ${labelPlural}` : `${count} ${label}`} pending
               </span>
             </div>
-            <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
+            <ChevronRight size={14} style={{ color: 'rgba(240,236,224,0.25)' }} className="group-hover:opacity-70 transition-opacity shrink-0" />
           </button>
         ))}
       </div>
@@ -752,30 +752,30 @@ function HeadcountCard({ total, byDept }: { total: number; byDept: [string, numb
   return (
     <button
       onClick={() => navigate('/hrms/admin/employees')}
-      className="group w-full text-left bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-md transition-all">
+      className="group w-full text-left glass-panel glass-card p-6 transition-all">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ backgroundColor: '#0B153810', color: '#0B1538' }}>
+            style={{ backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961' }}>
             <Users size={18} />
           </div>
           <div className="text-left">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-mute">Headcount</p>
-            <p className="text-2xl font-bold text-ink">{total} active</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Headcount</p>
+            <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{total} active</p>
           </div>
         </div>
-        <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500 transition-colors" />
+        <ChevronRight size={14} style={{ color: 'rgba(240,236,224,0.25)' }} className="group-hover:opacity-70 transition-opacity" />
       </div>
       {byDept.length > 0 && (
         <div className="space-y-2">
           {byDept.slice(0, 5).map(([dept, count]) => (
             <div key={dept} className="flex items-center gap-2">
-              <span className="text-xs text-ink-soft w-44 truncate shrink-0 text-left">{dept}</span>
-              <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <span className="text-xs w-44 truncate shrink-0 text-left" style={{ color: 'var(--text-muted)' }}>{dept}</span>
+              <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
                 <div className="h-full rounded-full transition-all"
-                  style={{ width: `${(count / (total || 1)) * 100}%`, backgroundColor: '#1B2A4E' }} />
+                  style={{ width: `${(count / (total || 1)) * 100}%`, backgroundColor: 'rgba(201,169,97,0.50)' }} />
               </div>
-              <span className="text-xs font-semibold text-ink w-4 text-right tabular-nums shrink-0">{count}</span>
+              <span className="text-xs font-semibold w-4 text-right tabular-nums shrink-0" style={{ color: 'var(--text-primary)' }}>{count}</span>
             </div>
           ))}
         </div>
@@ -902,14 +902,14 @@ export function HrmsDashboardPage() {
     <div className="max-w-5xl mx-auto">
       {/* Greeting */}
       <div className="mb-6">
-        <h2 className="text-4xl mb-1 text-ink"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300 }}>
+        <h2 className="text-4xl mb-1"
+          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
           {profile?.displayName ? greeting(profile.displayName) : 'Welcome back.'}
         </h2>
-        <p className="text-sm text-mute">
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           {format(today, 'EEEE, dd MMMM yyyy')}
           {myPendingLeave > 0 && (
-            <span className="ml-3 inline-flex items-center gap-1 text-amber-700">
+            <span className="ml-3 inline-flex items-center gap-1" style={{ color: '#C9A961' }}>
               <AlertCircle size={12} /> {myPendingLeave} leave application{myPendingLeave > 1 ? 's' : ''} pending
             </span>
           )}
@@ -928,7 +928,7 @@ export function HrmsDashboardPage() {
       {/* Announcements banner — pinned/urgent only */}
       <AnnouncementBanner userId={uid} announcements={announcements} />
 
-      {/* 4-card grid */}
+      {/* 4-card grid — 1 col on mobile, 2 on tablet, 4 on desktop */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
         <StatCard
           icon={<Clock size={18} />}
@@ -990,19 +990,19 @@ export function HrmsDashboardPage() {
       <UpcomingAnniversariesSection employees={upcomingAnniversaries} />
 
       {/* Quick Actions */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
-        <p className="text-[10px] font-bold uppercase tracking-widest mb-4 text-mute">Quick Actions</p>
+      <div className="glass-panel p-6">
+        <p className="text-[10px] font-bold uppercase tracking-widest mb-4" style={{ color: 'var(--text-muted)' }}>Quick Actions</p>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {[
-            { label: 'Apply for Leave',  path: '/hrms/leave/apply',       color: '#1D4ED8' },
-            { label: 'Clock In / Out',   path: '/hrms/attendance',        color: '#0B1538' },
-            { label: 'Submit Claim',     path: '/hrms/claims',            color: '#7C3AED' },
-            { label: 'View Payslips',    path: '/hrms/payslips',          color: '#166534' },
+            { label: 'Apply for Leave',  path: '/hrms/leave/apply',       color: '#60a5fa' },
+            { label: 'Clock In / Out',   path: '/hrms/attendance',        color: '#34d399' },
+            { label: 'Submit Claim',     path: '/hrms/claims',            color: '#a78bfa' },
+            { label: 'View Payslips',    path: '/hrms/payslips',          color: '#34d399' },
             { label: 'Refer a Lead',     path: '/crm/referrals/new',      color: '#C9A961' },
           ].map(({ label, path, color }) => (
             <button key={path} onClick={() => navigate(path)}
-              className="px-4 py-3 rounded-xl text-sm font-semibold text-center transition-opacity hover:opacity-80"
-              style={{ backgroundColor: color + '10', color }}>
+              className="px-4 py-3 rounded-xl text-sm font-semibold text-center transition-opacity hover:opacity-80 glass-panel"
+              style={{ color }}>
               {label}
             </button>
           ))}
@@ -1013,14 +1013,14 @@ export function HrmsDashboardPage() {
       {unreadCount > 0 && (
         <button
           onClick={() => navigate('/hrms/announcements')}
-          className="w-full mt-4 group flex items-center justify-between bg-white border border-slate-200 rounded-2xl px-6 py-4 hover:shadow-sm transition-all">
+          className="w-full mt-4 group flex items-center justify-between glass-panel glass-card px-6 py-4 transition-all">
           <div className="flex items-center gap-3">
-            <Megaphone size={18} style={{ color: '#0B1538' }} />
-            <p className="text-sm font-semibold" style={{ color: '#0B1538' }}>
+            <Megaphone size={18} style={{ color: '#C9A961' }} />
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
               {unreadCount} unread announcement{unreadCount > 1 ? 's' : ''}
             </p>
           </div>
-          <ChevronRight size={16} className="text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+          <ChevronRight size={16} style={{ color: 'rgba(240,236,224,0.25)' }} className="group-hover:opacity-70 transition-all" />
         </button>
       )}
     </div>

@@ -400,7 +400,7 @@ export function ImportEmployeesPage() {
       {step === 2 && (
         <div className="space-y-4">
           {/* Summary counts */}
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: 'Total in sheet', value: employees.length, color: '#0A0A0A' },
               { label: 'Active',         value: active,           color: '#065F46' },

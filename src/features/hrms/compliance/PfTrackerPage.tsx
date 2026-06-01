@@ -232,7 +232,7 @@ export function PfTrackerPage() {
       {!loading && rows.length > 0 && (
         <>
           {/* Summary cards */}
-          <div className="grid grid-cols-4 gap-3 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
             {[
               { label: 'Employees Covered', value: rows.length, isNum: false },
               { label: 'Employee Contribution', value: fmt(totals.empContrib), isNum: false },

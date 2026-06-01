@@ -587,7 +587,7 @@ function EditProfileModal({ profile, userId, userDetails, sensitiveData, onSave,
           </div>
 
           {sHead('Salary Structure (Monthly ₹)')}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {([['Basic', salaryBasic, setSalaryBasic], ['HRA', salaryHra, setSalaryHra],
                ['Conveyance', salaryConveyance, setSalaryConveyance], ['Medical', salaryMedical, setSalaryMedical],
                ['Other', salaryOther, setSalaryOther]] as [string, string, (v: string) => void][]).map(([label, val, setter]) => (

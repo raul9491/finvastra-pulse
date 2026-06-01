@@ -9,6 +9,7 @@ import {
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { VideoLogo } from '../ui/VideoLogo';
+import { ThemeToggle } from '../ui/ThemeProvider';
 
 type NavEntry = { path: string; label: string; icon: ElementType; adminOnly: boolean };
 
@@ -218,8 +219,9 @@ export function MisShell() {
             <h1 className="text-base font-semibold truncate min-w-0" style={{ color: 'var(--text-primary)' }}>{pageTitle}</h1>
           </div>
 
-          {/* Right: user + sign out */}
+          {/* Right: theme toggle + user + sign out */}
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+            <ThemeToggle />
             {profile?.photoURL ? (
               <img src={profile.photoURL} alt={profile.displayName} className="w-8 h-8 rounded-full object-cover" />
             ) : (

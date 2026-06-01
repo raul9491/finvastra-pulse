@@ -133,7 +133,7 @@ export function SearchableSelect({
 
   return (
     <div ref={containerRef} className={`relative ${className ?? ''}`} onKeyDown={handleKeyDown}>
-      {/* Trigger */}
+      {/* Trigger — uses CSS vars so it adapts to dark/light mode automatically */}
       <div
         role="combobox"
         aria-expanded={isOpen}
@@ -145,14 +145,18 @@ export function SearchableSelect({
         tabIndex={disabled ? -1 : 0}
         onClick={open}
         className={[
-          'w-full px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-lg',
+          'w-full px-3.5 py-2.5 text-sm rounded-lg',
           'flex items-center justify-between gap-2 cursor-pointer select-none',
           'outline-none transition-all',
-          isOpen  ? 'ring-2 ring-[#0B1538]' : '',
-          disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-300',
+          disabled ? 'opacity-50 cursor-not-allowed' : '',
         ].join(' ')}
+        style={{
+          backgroundColor: 'var(--ss-bg)',
+          border: '1px solid var(--ss-border)',
+          boxShadow: isOpen ? '0 0 0 3px var(--ss-ring)' : undefined,
+        }}
       >
-        <span className={selectedOption ? 'text-[#0A0A0A]' : 'text-[#8B8B85]'}>
+        <span style={{ color: selectedOption ? 'var(--ss-text)' : 'var(--ss-placeholder)' }}>
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <span className="flex items-center gap-1 shrink-0">
@@ -163,13 +167,15 @@ export function SearchableSelect({
               tabIndex={0}
               onClick={clear}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') clear(e as unknown as React.MouseEvent); }}
-              className="text-[#8B8B85] hover:text-[#0A0A0A] leading-none px-0.5 outline-none focus:text-[#0A0A0A]"
+              className="leading-none px-0.5 outline-none transition-opacity hover:opacity-70"
+              style={{ color: 'var(--ss-muted)' }}
             >
               ×
             </span>
           )}
           <svg
-            className={`w-4 h-4 text-[#8B8B85] transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            style={{ color: 'var(--ss-muted)' }}
             viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"
           >
             <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
@@ -183,24 +189,39 @@ export function SearchableSelect({
           id={listboxId}
           role="listbox"
           aria-label={label}
-          className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50"
-          style={{ maxHeight: 280, overflowY: 'auto' }}
+          className="absolute left-0 right-0 mt-1 rounded-lg shadow-lg z-50"
+          style={{
+            maxHeight: 280,
+            overflowY: 'auto',
+            backgroundColor: 'var(--ss-bg)',
+            border: '1px solid var(--ss-border)',
+          }}
         >
           {/* Filter input */}
-          <div className="sticky top-0 bg-white border-b border-slate-100">
+          <div
+            className="sticky top-0"
+            style={{
+              backgroundColor: 'var(--ss-bg-sticky)',
+              borderBottom: '1px solid var(--ss-border)',
+            }}
+          >
             <input
               ref={inputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Type to search…"
-              className="w-full px-3 py-2 text-sm outline-none bg-white"
+              className="w-full px-3 py-2 text-sm outline-none"
+              style={{
+                backgroundColor: 'transparent',
+                color: 'var(--ss-text)',
+              }}
             />
           </div>
 
           {/* Options */}
           {filtered.length === 0 ? (
-            <div className="px-3.5 py-5 text-sm text-center" style={{ color: '#8B8B85' }}>
+            <div className="px-3.5 py-5 text-sm text-center" style={{ color: 'var(--ss-muted)' }}>
               {emptyMessage}
             </div>
           ) : (
@@ -219,19 +240,22 @@ export function SearchableSelect({
                   onMouseEnter={() => setHighlightIdx(idx)}
                   className={[
                     'px-3.5 py-2.5 text-sm cursor-pointer flex items-center justify-between gap-2',
-                    isHighlighted || isSelected ? 'bg-[#F2EFE7]' : '',
-                    isSelected ? 'font-semibold text-[#0B1538]' : 'text-[#0A0A0A]',
+                    isSelected ? 'font-semibold' : '',
                     opt.disabled ? 'opacity-40 cursor-not-allowed' : '',
                   ].join(' ')}
+                  style={{
+                    backgroundColor: isHighlighted || isSelected ? 'var(--ss-selected-bg)' : undefined,
+                    color: isSelected ? 'var(--ss-selected-text)' : 'var(--ss-text)',
+                  }}
                 >
                   <span className="flex flex-col gap-0.5 min-w-0">
                     <span className="truncate">{opt.label}</span>
                     {opt.description && (
-                      <span className="text-xs" style={{ color: '#8B8B85' }}>{opt.description}</span>
+                      <span className="text-xs" style={{ color: 'var(--ss-muted)' }}>{opt.description}</span>
                     )}
                   </span>
                   {isSelected && (
-                    <span className="shrink-0 text-[#0B1538]">✓</span>
+                    <span className="shrink-0" style={{ color: 'var(--ss-selected-text)' }}>✓</span>
                   )}
                 </div>
               );
@@ -364,7 +388,7 @@ export function MultiSearchableSelect({
 
   return (
     <div ref={containerRef} className={`relative ${className ?? ''}`} onKeyDown={handleKeyDown}>
-      {/* Trigger */}
+      {/* Trigger — uses CSS vars so it adapts to dark/light mode automatically */}
       <div
         role="combobox"
         aria-expanded={isOpen}
@@ -376,18 +400,23 @@ export function MultiSearchableSelect({
         tabIndex={disabled ? -1 : 0}
         onClick={open}
         className={[
-          'w-full px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-lg',
+          'w-full px-3.5 py-2.5 text-sm rounded-lg',
           'flex items-center justify-between gap-2 cursor-pointer select-none',
           'outline-none transition-all',
-          isOpen  ? 'ring-2 ring-[#0B1538]' : '',
-          disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-300',
+          disabled ? 'opacity-50 cursor-not-allowed' : '',
         ].join(' ')}
+        style={{
+          backgroundColor: 'var(--ss-bg)',
+          border: '1px solid var(--ss-border)',
+          boxShadow: isOpen ? '0 0 0 3px var(--ss-ring)' : undefined,
+        }}
       >
-        <span className={triggerLabel ? 'text-[#0A0A0A]' : 'text-[#8B8B85]'}>
+        <span style={{ color: triggerLabel ? 'var(--ss-text)' : 'var(--ss-placeholder)' }}>
           {triggerLabel ?? placeholder}
         </span>
         <svg
-          className={`w-4 h-4 text-[#8B8B85] transition-transform shrink-0 ${isOpen ? 'rotate-180' : ''}`}
+          className={`w-4 h-4 transition-transform shrink-0 ${isOpen ? 'rotate-180' : ''}`}
+          style={{ color: 'var(--ss-muted)' }}
           viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"
         >
           <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
@@ -401,24 +430,36 @@ export function MultiSearchableSelect({
           role="listbox"
           aria-multiselectable="true"
           aria-label={label}
-          className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50"
-          style={{ maxHeight: 280, overflowY: 'auto' }}
+          className="absolute left-0 right-0 mt-1 rounded-lg shadow-lg z-50"
+          style={{
+            maxHeight: 280,
+            overflowY: 'auto',
+            backgroundColor: 'var(--ss-bg)',
+            border: '1px solid var(--ss-border)',
+          }}
         >
           {/* Filter input */}
-          <div className="sticky top-0 bg-white border-b border-slate-100">
+          <div
+            className="sticky top-0"
+            style={{
+              backgroundColor: 'var(--ss-bg-sticky)',
+              borderBottom: '1px solid var(--ss-border)',
+            }}
+          >
             <input
               ref={inputRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Type to search…"
-              className="w-full px-3 py-2 text-sm outline-none bg-white"
+              className="w-full px-3 py-2 text-sm outline-none"
+              style={{ backgroundColor: 'transparent', color: 'var(--ss-text)' }}
             />
           </div>
 
           {/* Options */}
           {filtered.length === 0 ? (
-            <div className="px-3.5 py-5 text-sm text-center" style={{ color: '#8B8B85' }}>
+            <div className="px-3.5 py-5 text-sm text-center" style={{ color: 'var(--ss-muted)' }}>
               {emptyMessage}
             </div>
           ) : (
@@ -437,19 +478,24 @@ export function MultiSearchableSelect({
                   onMouseEnter={() => setHighlightIdx(idx)}
                   className={[
                     'px-3.5 py-2.5 text-sm cursor-pointer flex items-center gap-2.5',
-                    isHighlighted ? 'bg-[#F2EFE7]' : '',
                     opt.disabled ? 'opacity-40 cursor-not-allowed' : '',
                   ].join(' ')}
+                  style={{
+                    backgroundColor: isHighlighted ? 'var(--ss-hover-bg)' : undefined,
+                  }}
                 >
-                  <span className="text-base shrink-0" style={{ color: '#0B1538' }}>
+                  <span className="text-base shrink-0" style={{ color: 'var(--ss-selected-text)' }}>
                     {isSelected ? '☑' : '□'}
                   </span>
                   <span className="flex flex-col gap-0.5 min-w-0">
-                    <span className={`truncate ${isSelected ? 'font-semibold text-[#0B1538]' : 'text-[#0A0A0A]'}`}>
+                    <span
+                      className={`truncate ${isSelected ? 'font-semibold' : ''}`}
+                      style={{ color: isSelected ? 'var(--ss-selected-text)' : 'var(--ss-text)' }}
+                    >
                       {opt.label}
                     </span>
                     {opt.description && (
-                      <span className="text-xs" style={{ color: '#8B8B85' }}>{opt.description}</span>
+                      <span className="text-xs" style={{ color: 'var(--ss-muted)' }}>{opt.description}</span>
                     )}
                   </span>
                 </div>
@@ -459,11 +505,17 @@ export function MultiSearchableSelect({
 
           {/* Clear all */}
           {value.length > 0 && (
-            <div className="sticky bottom-0 bg-white border-t border-slate-100 px-3.5 py-2">
+            <div
+              className="sticky bottom-0 px-3.5 py-2"
+              style={{
+                backgroundColor: 'var(--ss-bg-sticky)',
+                borderTop: '1px solid var(--ss-border)',
+              }}
+            >
               <button
                 onMouseDown={clearAll}
-                className="text-xs font-semibold underline"
-                style={{ color: '#8B8B85' }}
+                className="text-xs font-semibold underline transition-opacity hover:opacity-70"
+                style={{ color: 'var(--ss-muted)' }}
               >
                 Clear all
               </button>

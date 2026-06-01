@@ -17,6 +17,7 @@ import { useAuth } from '../../features/auth/AuthContext';
 import { isSuperAdmin } from '../../config/hrmsConfig';
 import { VideoLogo } from '../ui/VideoLogo';
 import { NotificationBell } from '../ui/NotificationBell';
+import { ThemeToggle } from '../ui/ThemeProvider';
 import { useUnreadAnnouncementCount, getUnseenHolidayCount } from '../../features/hrms/hooks/useAnnouncements';
 import { useHolidays } from '../../features/hrms/hooks/useHolidays';
 import { useMyItDeclaration, usePendingItDeclarationCount, currentFinancialYear } from '../../features/hrms/hooks/useItDeclarations';
@@ -647,6 +648,7 @@ export function HrmsShell() {
 
           {/* Right: notifications + user + sign out */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <ThemeToggle />
             {/* Notification bell — HRMS employees get leave/claim status updates */}
             {user && <NotificationBell uid={user.uid} />}
             <div className="w-px h-5 hidden sm:block" style={{ backgroundColor: 'rgba(255,255,255,0.10)' }} />

@@ -12,6 +12,7 @@ import { useAuth } from '../../features/auth/AuthContext';
 import { useMyLeads } from '../../features/crm/hooks/useMyLeads';
 import { VideoLogo } from '../ui/VideoLogo';
 import { NotificationBell } from '../ui/NotificationBell';
+import { ThemeToggle } from '../ui/ThemeProvider';
 
 type NavEntry = { path: string; label: string; icon: ElementType; live: boolean; end?: boolean; badge?: number };
 
@@ -325,6 +326,7 @@ export function CrmShell() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <ThemeToggle />
             {/* Notification bell — CRM users get new_lead alerts from webhook intake */}
             {user && <NotificationBell uid={user.uid} />}
             <div className="w-px h-5 hidden sm:block" style={{ backgroundColor: 'rgba(255,255,255,0.10)' }} />

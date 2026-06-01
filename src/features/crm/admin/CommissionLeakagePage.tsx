@@ -36,14 +36,9 @@ interface LeakageReport {
 // ─── Issue badge ──────────────────────────────────────────────────────────────
 
 function IssueBadge({ issue }: { issue: LeakageEntry['issue'] }) {
-  const label  = issue === 'no_commission_record' ? 'No Record' : 'No Slab Match';
-  const colour = issue === 'no_commission_record' ? '#DC2626' : '#D97706';
-  const bg     = issue === 'no_commission_record' ? '#FEF2F2' : '#FFFBEB';
+  const label = issue === 'no_commission_record' ? 'No Record' : 'No Slab Match';
   return (
-    <span
-      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold"
-      style={{ backgroundColor: bg, color: colour }}
-    >
+    <span className={issue === 'no_commission_record' ? 'badge-glass-danger' : 'badge-glass-warning'}>
       {label}
     </span>
   );
@@ -146,11 +141,11 @@ export function CommissionLeakagePage() {
         <div>
           <h2
             className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}
+            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}
           >
             Commission Leakage
           </h2>
-          <p className="text-sm" style={{ color: '#8B8B85' }}>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
             Disbursed deals with missing or unmatched commission records — admin only.
           </p>
         </div>
@@ -171,8 +166,9 @@ export function CommissionLeakagePage() {
         <div
           className="px-4 py-3 rounded-xl text-sm font-medium"
           style={{
-            backgroundColor: runResult.startsWith('Error') ? '#FEF2F2' : '#F0FDF4',
-            color:           runResult.startsWith('Error') ? '#DC2626'  : '#166534',
+            backgroundColor: runResult.startsWith('Error') ? 'rgba(248,113,113,0.10)' : 'rgba(52,211,153,0.10)',
+            color:           runResult.startsWith('Error') ? '#f87171'  : '#34d399',
+            border: `1px solid ${runResult.startsWith('Error') ? 'rgba(248,113,113,0.25)' : 'rgba(52,211,153,0.25)'}`,
           }}
         >
           {runResult}
@@ -181,26 +177,26 @@ export function CommissionLeakagePage() {
 
       {/* Summary card */}
       {!loading && report && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-5">
-          <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>
+        <div className="glass-panel p-5">
+          <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
             Last Report
           </p>
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm" style={{ color: '#2A2A2A' }}>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm" style={{ color: 'var(--text-primary)' }}>
             <span>
-              <span style={{ color: '#8B8B85' }}>Run at: </span>
+              <span style={{ color: 'var(--text-muted)' }}>Run at: </span>
               {fmtRunAt(report.runAt)}
             </span>
             <span>
-              <span style={{ color: '#8B8B85' }}>Period: </span>
+              <span style={{ color: 'var(--text-muted)' }}>Period: </span>
               {fmtDate(report.periodStart)} – {fmtDate(report.periodEnd)}
             </span>
-            <span className="font-semibold" style={{ color: visibleLeaks.length > 0 ? '#DC2626' : '#166534' }}>
+            <span className="font-semibold" style={{ color: visibleLeaks.length > 0 ? '#f87171' : '#34d399' }}>
               {visibleLeaks.length} potential leak{visibleLeaks.length !== 1 ? 's' : ''}
             </span>
             {report.totalEstimatedLoss > 0 && (
               <span>
-                <span style={{ color: '#8B8B85' }}>Est. loss: </span>
-                <span className="font-semibold" style={{ color: '#D97706' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Est. loss: </span>
+                <span className="font-semibold" style={{ color: '#C9A961' }}>
                   ₹{report.totalEstimatedLoss.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                 </span>
               </span>
@@ -210,29 +206,31 @@ export function CommissionLeakagePage() {
       )}
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="glass-panel overflow-hidden">
         {loading ? (
-          <div className="animate-pulse divide-y divide-slate-100">
-            {[...Array(3)].map((_, i) => <div key={i} className="h-12 bg-slate-50" />)}
+          <div className="animate-pulse divide-y" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-12" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }} />
+            ))}
           </div>
         ) : !report ? (
           <div className="py-16 text-center">
-            <p className="text-sm" style={{ color: '#8B8B85' }}>No leakage report found. Run a check to scan for issues.</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No leakage report found. Run a check to scan for issues.</p>
           </div>
         ) : visibleLeaks.length === 0 ? (
           <div className="py-16 text-center">
-            <p className="text-sm font-medium" style={{ color: '#166534' }}>No leakage detected in the last check.</p>
+            <p className="text-sm font-medium" style={{ color: '#34d399' }}>No leakage detected in the last check.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr style={{ backgroundColor: '#FAFAF7', borderBottom: '1px solid #E2E8F0' }}>
+                <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                   {['Provider', 'Lead ID', 'Disbursed Amount', 'Disbursed At', 'Issue', 'Actions'].map((h) => (
                     <th
                       key={h}
                       className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest"
-                      style={{ color: '#8B8B85' }}
+                      style={{ color: 'var(--text-muted)' }}
                     >
                       {h}
                     </th>
@@ -241,17 +239,17 @@ export function CommissionLeakagePage() {
               </thead>
               <tbody>
                 {visibleLeaks.map((leak) => (
-                  <tr key={leak.submissionId} className="border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 text-sm font-medium" style={{ color: '#0A0A0A' }}>
+                  <tr key={leak.submissionId} className="hover:bg-white/5 transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <td className="px-4 py-3 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                       {leak.providerName}
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs" style={{ color: '#2A2A2A' }}>
+                    <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--text-primary)' }}>
                       {leak.leadId.slice(0, 10)}…
                     </td>
-                    <td className="px-4 py-3 text-sm font-semibold" style={{ color: '#0A0A0A' }}>
+                    <td className="px-4 py-3 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                       ₹{leak.disbursedAmount.toLocaleString('en-IN')}
                     </td>
-                    <td className="px-4 py-3 text-sm" style={{ color: '#2A2A2A' }}>
+                    <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-primary)' }}>
                       {fmtDate(leak.disbursedAt)}
                     </td>
                     <td className="px-4 py-3">
@@ -262,14 +260,15 @@ export function CommissionLeakagePage() {
                         <Link
                           to={`/crm/leads/${leak.leadId}/opportunities/${leak.opportunityId}/submissions/${leak.submissionId}`}
                           className="text-xs font-semibold underline"
-                          style={{ color: '#0B1538' }}
+                          style={{ color: '#60a5fa' }}
                         >
                           Investigate →
                         </Link>
                         <button
                           onClick={() => handleMarkResolved(leak)}
                           disabled={resolvingId === leak.submissionId}
-                          className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 disabled:opacity-50 transition-colors"
+                          className="flex items-center gap-1 text-xs disabled:opacity-50 transition-colors hover:opacity-80"
+                          style={{ color: 'var(--text-muted)' }}
                         >
                           <AlertTriangle size={11} />
                           {resolvingId === leak.submissionId ? 'Saving…' : 'Mark resolved'}

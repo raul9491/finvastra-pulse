@@ -20,9 +20,9 @@ const TYPE_ICONS: Record<OpportunityType, React.ReactNode> = {
   insurance: <ShieldCheck size={16} />,
 };
 const TYPE_COLORS: Record<OpportunityType, { bg: string; text: string }> = {
-  loan:      { bg: '#EFF6FF', text: '#1D4ED8' },
-  wealth:    { bg: '#F0FDF4', text: '#166534' },
-  insurance: { bg: '#FFF7ED', text: '#9A3412' },
+  loan:      { bg: 'rgba(96,165,250,0.15)', text: '#60a5fa' },
+  wealth:    { bg: 'rgba(52,211,153,0.15)', text: '#34d399' },
+  insurance: { bg: 'rgba(251,146,60,0.15)', text: '#fb923c' },
 };
 const ACTIVITY_ICONS: Record<ActivityType, string> = {
   note: '📝', status_change: '🔄', ownership_change: '🔁', commission_calculated: '💰', call: '📞', email: '✉️', whatsapp: '💬', meeting: '🤝',
@@ -54,24 +54,21 @@ function LostReasonModal({ onConfirm, onCancel, loading }: {
     });
   };
 
-  const inputClass =
-    'w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 transition-colors bg-white';
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 space-y-4 shadow-xl">
-        <h3 className="text-base font-semibold" style={{ color: '#0A0A0A' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center glass-modal-overlay">
+      <div className="glass-modal-panel p-6 w-full max-w-md mx-4 space-y-4">
+        <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
           Mark as Lost — Capture Reason
         </h3>
 
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
             Reason *
           </label>
           <select
             value={reason}
             onChange={(e) => setReason(e.target.value as LostReason | '')}
-            className={inputClass}
+            className="glass-inp w-full text-sm"
           >
             <option value="">Select reason…</option>
             {(Object.entries(LOST_REASON_LABELS) as [LostReason, string][]).map(([v, l]) => (
@@ -83,7 +80,7 @@ function LostReasonModal({ onConfirm, onCancel, loading }: {
         {isCompetitorReason && (
           <div className="space-y-3">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+              <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
                 Competitor Name
               </label>
               <input
@@ -91,12 +88,12 @@ function LostReasonModal({ onConfirm, onCancel, loading }: {
                 value={competitorName}
                 onChange={(e) => setCompetitorName(e.target.value)}
                 placeholder="e.g. Bajaj Finserv"
-                className={inputClass}
+                className="glass-inp w-full text-sm"
               />
             </div>
             {reason === 'lower_rate_competitor' && (
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+                <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
                   Competitor Rate (%)
                 </label>
                 <input
@@ -105,7 +102,7 @@ function LostReasonModal({ onConfirm, onCancel, loading }: {
                   value={competitorRate}
                   onChange={(e) => setCompetitorRate(e.target.value)}
                   placeholder="8.5"
-                  className={inputClass}
+                  className="glass-inp w-full text-sm"
                 />
               </div>
             )}
@@ -113,22 +110,22 @@ function LostReasonModal({ onConfirm, onCancel, loading }: {
         )}
 
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
             Notes (optional)
           </label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
-            className={`${inputClass} resize-none`}
+            className="glass-inp w-full text-sm resize-none"
           />
         </div>
 
         <div className="flex gap-3 pt-1">
           <button
             onClick={onCancel}
-            className="flex-1 px-4 py-2.5 text-sm border border-slate-200 rounded-xl hover:bg-slate-50"
-            style={{ color: '#2A2A2A' }}
+            className="flex-1 px-4 py-2.5 text-sm border rounded-xl hover:bg-white/5 transition-colors"
+            style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}
           >
             Cancel
           </button>
@@ -136,7 +133,7 @@ function LostReasonModal({ onConfirm, onCancel, loading }: {
             onClick={handleConfirm}
             disabled={!reason || loading}
             className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-40"
-            style={{ backgroundColor: '#EF4444', color: '#FFFFFF' }}
+            style={{ backgroundColor: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.30)' }}
           >
             {loading ? '…' : 'Confirm Lost'}
           </button>
@@ -160,25 +157,25 @@ function StageStepper({ stages, current, isLost }: { stages: string[]; current: 
             <div className="flex flex-col items-center min-w-15">
               <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                 style={{
-                  backgroundColor: done ? '#0B1538' : active ? '#C9A961' : '#E2E8F0',
-                  color: done ? '#C9A961' : active ? '#0B1538' : '#94A3B8',
+                  backgroundColor: done ? '#C9A961' : active ? '#C9A961' : 'rgba(255,255,255,0.08)',
+                  color: done ? '#0B1538' : active ? '#0B1538' : 'var(--text-dim)',
                 }}>
                 {done ? '✓' : i + 1}
               </div>
               <p className="text-[9px] font-medium mt-1 text-center leading-tight"
-                style={{ color: active ? '#0B1538' : done ? '#475569' : '#94A3B8' }}>
+                style={{ color: active ? '#C9A961' : done ? 'var(--text-muted)' : 'var(--text-dim)' }}>
                 {stage}
               </p>
             </div>
             {i < stages.length - 1 && (
               <div className="w-6 h-0.5 mb-5 shrink-0"
-                style={{ backgroundColor: done ? '#0B1538' : '#E2E8F0' }} />
+                style={{ backgroundColor: done ? '#C9A961' : 'rgba(255,255,255,0.08)' }} />
             )}
           </div>
         );
       })}
       {isLost && (
-        <div className="ml-3 self-start mt-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-600">
+        <div className="ml-3 self-start mt-1 badge-glass-danger px-2.5 py-0.5">
           Lost
         </div>
       )}
@@ -249,9 +246,9 @@ export function OpportunityDetailPage() {
   if (loading || !opportunity) {
     return (
       <div className="max-w-3xl mx-auto animate-pulse space-y-4">
-        <div className="h-5 bg-slate-200 rounded w-32" />
-        <div className="h-8 bg-slate-200 rounded w-48" />
-        <div className="h-40 bg-slate-100 rounded-2xl" />
+        <div className="h-5 rounded w-32" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+        <div className="h-8 rounded w-48" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+        <div className="h-40 rounded-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }} />
       </div>
     );
   }
@@ -265,12 +262,12 @@ export function OpportunityDetailPage() {
       {/* Breadcrumb */}
       <button onClick={() => navigate(`/crm/leads/${leadId}`)}
         className="flex items-center gap-1.5 text-sm transition-opacity hover:opacity-70"
-        style={{ color: '#8B8B85' }}>
+        style={{ color: 'var(--text-muted)' }}>
         <ArrowLeft size={15} /> {lead?.displayName ?? 'Customer'}
       </button>
 
       {/* Header card */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
+      <div className="glass-panel p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center"
@@ -278,39 +275,36 @@ export function OpportunityDetailPage() {
               {TYPE_ICONS[opportunity.opportunityType]}
             </div>
             <div>
-              <h2 className="text-xl font-semibold" style={{ color: '#0A0A0A' }}>{opportunity.product}</h2>
-              <p className="text-sm capitalize" style={{ color: '#8B8B85' }}>{opportunity.opportunityType}</p>
+              <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>{opportunity.product}</h2>
+              <p className="text-sm capitalize" style={{ color: 'var(--text-muted)' }}>{opportunity.opportunityType}</p>
             </div>
           </div>
-          <span className={`text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full ${
-            isWon  ? 'bg-emerald-50 text-emerald-700' :
-            isLost ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-700'
-          }`}>
+          <span className={isWon ? 'badge-glass-success' : isLost ? 'badge-glass-danger' : 'badge-glass-warning'}>
             {opportunity.status}
           </span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Deal Size</p>
-            <p className="text-lg font-semibold" style={{ color: '#0A0A0A' }}>₹{opportunity.dealSize.toLocaleString('en-IN')}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Deal Size</p>
+            <p className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>₹{opportunity.dealSize.toLocaleString('en-IN')}</p>
           </div>
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>RM</p>
-            <p className="text-sm" style={{ color: '#0A0A0A' }}>{authorName(opportunity.ownerId)}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>RM</p>
+            <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{authorName(opportunity.ownerId)}</p>
           </div>
           {opportunity.expectedCloseDate && (
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Expected Close</p>
-              <p className="text-sm" style={{ color: '#0A0A0A' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Expected Close</p>
+              <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
                 {format(new Date(opportunity.expectedCloseDate), 'dd MMM yyyy')}
               </p>
             </div>
           )}
           {opportunity.actualCloseDate && (
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Closed On</p>
-              <p className="text-sm" style={{ color: '#0A0A0A' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Closed On</p>
+              <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
                 {format(new Date(opportunity.actualCloseDate), 'dd MMM yyyy')}
               </p>
             </div>
@@ -319,12 +313,12 @@ export function OpportunityDetailPage() {
       </div>
 
       {/* Stage stepper + controls */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#8B8B85' }}>Pipeline Stage</h3>
+      <div className="glass-panel p-6">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'var(--text-muted)' }}>Pipeline Stage</h3>
         {stages.length > 0 ? (
           <StageStepper stages={stages} current={opportunity.stage} isLost={isLost} />
         ) : (
-          <p className="text-sm" style={{ color: '#8B8B85' }}>Loading stage config…</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading stage config…</p>
         )}
 
         {canAct && !isTerminal && (
@@ -338,7 +332,7 @@ export function OpportunityDetailPage() {
               </button>
             )}
             <button onClick={handleMarkLost} disabled={stageLoading}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium border border-red-200 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50">
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 btn-glass-danger">
               <TrendingDown size={15} /> Mark as Lost
             </button>
           </div>
@@ -387,13 +381,13 @@ export function OpportunityDetailPage() {
       />
 
       {/* Activity timeline */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#8B8B85' }}>Activity</h3>
+      <div className="glass-panel p-6">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'var(--text-muted)' }}>Activity</h3>
 
         <div className="flex gap-2 mb-5">
           <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)}
             placeholder="Add a note…" rows={2}
-            className="flex-1 text-sm px-3.5 py-2.5 border border-slate-200 rounded-lg outline-none resize-none focus:ring-2 transition-colors" />
+            className="glass-inp flex-1 text-sm resize-none" />
           <button onClick={handleAddNote} disabled={!noteText.trim() || savingNote}
             className="shrink-0 self-end flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold transition-opacity disabled:opacity-40"
             style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
@@ -402,15 +396,15 @@ export function OpportunityDetailPage() {
           </button>
         </div>
 
-        <div className="divide-y divide-slate-100">
+        <div>
           {activities.length === 0 ? (
-            <p className="text-sm py-4 text-center" style={{ color: '#8B8B85' }}>No activity yet.</p>
-          ) : activities.map((a) => (
-            <div key={a.id} className="flex gap-3 py-3">
+            <p className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>No activity yet.</p>
+          ) : activities.map((a, idx) => (
+            <div key={a.id} className="flex gap-3 py-3" style={{ borderBottom: idx < activities.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
               <span className="text-base shrink-0 mt-0.5">{ACTIVITY_ICONS[a.type] ?? '📌'}</span>
               <div className="flex-1 min-w-0">
-                <p className="text-sm" style={{ color: '#2A2A2A' }}>{a.content}</p>
-                <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{a.content}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-dim)' }}>
                   {authorName(a.by)}
                   {a.at?.toDate ? ` · ${format(a.at.toDate(), 'dd MMM yyyy, HH:mm')}` : ''}
                 </p>

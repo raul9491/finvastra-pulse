@@ -22,22 +22,22 @@ const STATUS_LABELS: Record<BankSubmissionStatus, string> = {
   disbursed:  'Disbursed',
   rejected:   'Rejected',
 };
-const STATUS_STYLES: Record<BankSubmissionStatus, { bg: string; text: string }> = {
-  preparing:  { bg: '#F1F5F9', text: '#475569' },
-  submitted:  { bg: '#EFF6FF', text: '#1D4ED8' },
-  in_review:  { bg: '#FFFBEB', text: '#92400E' },
-  sanctioned: { bg: '#F0FDF4', text: '#166534' },
-  disbursed:  { bg: '#DCFCE7', text: '#14532D' },
-  rejected:   { bg: '#FFF1F2', text: '#9F1239' },
+const STATUS_STYLES: Record<BankSubmissionStatus, { bg: string; text: string; badgeClass: string }> = {
+  preparing:  { bg: 'rgba(255,255,255,0.08)', text: 'var(--text-muted)',  badgeClass: 'badge-glass-muted'   },
+  submitted:  { bg: 'rgba(96,165,250,0.12)',  text: '#60a5fa',            badgeClass: 'badge-glass-info'    },
+  in_review:  { bg: 'rgba(201,169,97,0.12)', text: '#C9A961',             badgeClass: 'badge-glass-warning' },
+  sanctioned: { bg: 'rgba(52,211,153,0.12)', text: '#34d399',             badgeClass: 'badge-glass-success' },
+  disbursed:  { bg: 'rgba(52,211,153,0.18)', text: '#34d399',             badgeClass: 'badge-glass-success' },
+  rejected:   { bg: 'rgba(248,113,113,0.12)', text: '#f87171',            badgeClass: 'badge-glass-danger'  },
 };
 
 // ─── Document status pill styles ─────────────────────────────────────────────
-const DOC_STATUS_STYLES: Record<DocumentStatus, { bg: string; text: string; label: string }> = {
-  pending:   { bg: '#F1F5F9', text: '#475569', label: 'Pending'   },
-  collected: { bg: '#FFFBEB', text: '#92400E', label: 'Collected' },
-  submitted: { bg: '#EFF6FF', text: '#1D4ED8', label: 'Submitted' },
-  accepted:  { bg: '#F0FDF4', text: '#166534', label: 'Accepted'  },
-  rejected:  { bg: '#FFF1F2', text: '#9F1239', label: 'Rejected'  },
+const DOC_STATUS_STYLES: Record<DocumentStatus, { badgeClass: string; label: string }> = {
+  pending:   { badgeClass: 'badge-glass-muted',   label: 'Pending'   },
+  collected: { badgeClass: 'badge-glass-warning', label: 'Collected' },
+  submitted: { badgeClass: 'badge-glass-info',    label: 'Submitted' },
+  accepted:  { badgeClass: 'badge-glass-success', label: 'Accepted'  },
+  rejected:  { badgeClass: 'badge-glass-danger',  label: 'Rejected'  },
 };
 
 // ─── Status Stepper ───────────────────────────────────────────────────────────
@@ -55,26 +55,25 @@ function StatusStepper({ current }: { current: BankSubmissionStatus }) {
             <div className="flex flex-col items-center min-w-[72px]">
               <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
                 style={{
-                  backgroundColor: done ? '#0B1538' : active ? '#C9A961' : '#E2E8F0',
-                  color: done ? '#C9A961' : active ? '#0B1538' : '#94A3B8',
+                  backgroundColor: done ? '#0B1538' : active ? '#C9A961' : 'rgba(255,255,255,0.10)',
+                  color: done ? '#C9A961' : active ? '#0B1538' : 'var(--text-dim)',
                 }}>
                 {done ? '✓' : i + 1}
               </div>
               <p className="text-[9px] font-medium mt-1 text-center"
-                style={{ color: active ? '#0B1538' : done ? '#475569' : '#94A3B8' }}>
+                style={{ color: active ? '#C9A961' : done ? 'var(--text-muted)' : 'var(--text-dim)' }}>
                 {STATUS_LABELS[status]}
               </p>
             </div>
             {i < STATUS_ORDER.length - 1 && (
               <div className="w-6 h-0.5 mb-5"
-                style={{ backgroundColor: done ? '#0B1538' : '#E2E8F0' }} />
+                style={{ backgroundColor: done ? '#0B1538' : 'rgba(255,255,255,0.10)' }} />
             )}
           </div>
         );
       })}
       {isRejected && (
-        <div className="ml-3 self-start mt-1 flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold"
-          style={{ backgroundColor: '#FFF1F2', color: '#9F1239' }}>
+        <div className="ml-3 self-start mt-1 flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold badge-glass-danger">
           <X size={10} /> Rejected
         </div>
       )}
@@ -117,7 +116,7 @@ function NextActionControls({
           >
             <Star size={14} /> {loading ? '…' : 'Mark as Primary Disbursement'}
           </button>
-          {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
+          {error && <p className="mt-2 text-sm" style={{ color: '#f87171' }}>{error}</p>}
         </div>
       );
     }
@@ -154,30 +153,28 @@ function NextActionControls({
     finally { setLoading(false); }
   };
 
-  const inputClass = "w-full px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 transition-colors";
-
   return (
     <div className="mt-5 space-y-4">
       {needsFields && nextStatus === 'sanctioned' && (
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Sanctioned ₹</label>
-            <input type="number" value={sanctionedAmount} onChange={(e) => setSanctionedAmount(e.target.value)} placeholder="Required" className={inputClass} />
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Sanctioned ₹</label>
+            <input type="number" value={sanctionedAmount} onChange={(e) => setSanctionedAmount(e.target.value)} placeholder="Required" className="glass-inp w-full text-sm" />
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Interest %</label>
-            <input type="number" step="0.01" value={interestRate} onChange={(e) => setInterestRate(e.target.value)} placeholder="8.5" className={inputClass} />
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Interest %</label>
+            <input type="number" step="0.01" value={interestRate} onChange={(e) => setInterestRate(e.target.value)} placeholder="8.5" className="glass-inp w-full text-sm" />
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Tenure (mo.)</label>
-            <input type="number" value={tenureMonths} onChange={(e) => setTenureMonths(e.target.value)} placeholder="240" className={inputClass} />
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Tenure (mo.)</label>
+            <input type="number" value={tenureMonths} onChange={(e) => setTenureMonths(e.target.value)} placeholder="240" className="glass-inp w-full text-sm" />
           </div>
         </div>
       )}
       {needsFields && nextStatus === 'disbursed' && (
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Disbursed Amount ₹</label>
-          <input type="number" value={disbursedAmount} onChange={(e) => setDisbursedAmount(e.target.value)} placeholder="Required" className={`${inputClass} max-w-xs`} />
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Disbursed Amount ₹</label>
+          <input type="number" value={disbursedAmount} onChange={(e) => setDisbursedAmount(e.target.value)} placeholder="Required" className="glass-inp text-sm max-w-xs" />
         </div>
       )}
 
@@ -195,15 +192,15 @@ function NextActionControls({
             <input type="text" value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
               placeholder="Rejection reason (optional)"
-              className="text-sm px-3.5 py-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 transition-colors w-52" />
+              className="glass-inp text-sm w-52" />
             <button onClick={doReject} disabled={loading}
-              className="px-4 py-2.5 rounded-lg text-sm font-medium border border-red-200 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 whitespace-nowrap">
+              className="px-4 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 whitespace-nowrap btn-glass-danger">
               Reject
             </button>
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="text-sm" style={{ color: '#f87171' }}>{error}</p>}
     </div>
   );
 }
@@ -280,9 +277,9 @@ export function BankSubmissionDetailPage() {
   if (loading || !sub) {
     return (
       <div className="max-w-3xl mx-auto animate-pulse space-y-4">
-        <div className="h-5 bg-slate-200 rounded w-40" />
-        <div className="h-8 bg-slate-200 rounded w-56" />
-        <div className="h-40 bg-slate-100 rounded-2xl" />
+        <div className="h-5 rounded w-40" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+        <div className="h-8 rounded w-56" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+        <div className="h-40 rounded-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }} />
       </div>
     );
   }
@@ -295,7 +292,7 @@ export function BankSubmissionDetailPage() {
       <button
         onClick={() => navigate(`/crm/leads/${leadId}/opportunities/${oppId}`)}
         className="flex items-center gap-1.5 text-sm transition-opacity hover:opacity-70"
-        style={{ color: '#8B8B85' }}>
+        style={{ color: 'var(--text-muted)' }}>
         <ArrowLeft size={15} /> {opportunity?.product ?? 'Opportunity'}
       </button>
 
@@ -306,29 +303,33 @@ export function BankSubmissionDetailPage() {
             <button
               onClick={handleGenerateTrackerLink}
               disabled={generatingToken}
-              className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-50"
-              style={{ color: '#2A2A2A' }}>
+              className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg border transition-colors disabled:opacity-50"
+              style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
               {generatingToken ? '…' : '🔗 Share tracker with customer'}
             </button>
           ) : (
             <div className="flex items-center gap-2 flex-wrap">
               <code
                 className="text-xs px-3 py-1.5 rounded-lg font-mono"
-                style={{ backgroundColor: '#F2EFE7', color: '#0B1538' }}>
+                style={{ backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961' }}>
                 {window.location.origin}/track/{trackerToken}
               </code>
               <button
                 onClick={handleCopyLink}
-                className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
-                style={{ color: copySuccess ? '#166534' : '#2A2A2A' }}>
+                className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
+                style={{
+                  color: copySuccess ? '#34d399' : 'var(--text-primary)',
+                  borderColor: 'rgba(255,255,255,0.15)',
+                  backgroundColor: 'rgba(255,255,255,0.04)',
+                }}>
                 {copySuccess ? '✓ Copied!' : 'Copy'}
               </button>
               <a
                 href={`https://wa.me/?text=${encodeURIComponent(`Hi ${lead?.displayName ?? ''}, track your loan application here: ${window.location.origin}/track/${trackerToken}`)}`}
                 target="_blank"
                 rel="noreferrer"
-                className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
-                style={{ color: '#166534' }}>
+                className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
+                style={{ color: '#34d399', borderColor: 'rgba(52,211,153,0.25)', backgroundColor: 'rgba(52,211,153,0.06)' }}>
                 WhatsApp
               </a>
             </div>
@@ -337,26 +338,24 @@ export function BankSubmissionDetailPage() {
       )}
 
       {/* Header card */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
+      <div className="glass-panel p-6">
         <div className="flex items-start justify-between mb-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-xl font-semibold" style={{ color: '#0A0A0A' }}>
+              <h2 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {provider?.name ?? sub.providerId.slice(0, 8)}
               </h2>
               {sub.isPrimary && (
-                <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full"
-                  style={{ backgroundColor: '#FEF3C7', color: '#92400E' }}>
+                <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full badge-glass-warning">
                   <Star size={10} className="fill-current" /> Primary
                 </span>
               )}
             </div>
-            <p className="text-sm" style={{ color: '#8B8B85' }}>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               {lead?.displayName ?? 'Customer'} · {opportunity?.product}
             </p>
           </div>
-          <span className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full"
-            style={{ backgroundColor: st.bg, color: st.text }}>
+          <span className={st.badgeClass}>
             {STATUS_LABELS[sub.status]}
           </span>
         </div>
@@ -374,68 +373,65 @@ export function BankSubmissionDetailPage() {
             { label: 'Disbursed',  value: fmtDate(sub.disbursedAt) },
           ].filter((f) => f.value !== null).map(({ label, value }) => (
             <div key={label}>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: '#8B8B85' }}>{label}</p>
-              <p className="text-sm font-medium" style={{ color: '#0A0A0A' }}>{value}</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
+              <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{value}</p>
             </div>
           ))}
         </div>
 
         {sub.notes && (
-          <p className="text-sm italic border-t border-slate-100 pt-3 mt-3" style={{ color: '#8B8B85' }}>
+          <p className="text-sm italic pt-3 mt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-muted)' }}>
             {sub.notes}
           </p>
         )}
         {sub.rejectionReason && (
-          <p className="text-sm italic mt-2" style={{ color: '#9F1239' }}>
+          <p className="text-sm italic mt-2" style={{ color: '#f87171' }}>
             Rejection reason: "{sub.rejectionReason}"
           </p>
         )}
       </div>
 
       {/* Status stepper + controls */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#8B8B85' }}>Status</h3>
+      <div className="glass-panel p-6">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'var(--text-muted)' }}>Status</h3>
         <StatusStepper current={sub.status} />
         <NextActionControls sub={sub} leadId={leadId!} oppId={oppId!} canAct={canAct} hasPrimary={hasPrimary} />
       </div>
 
       {/* Required Documents */}
       {resolvedDocuments.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6">
+        <div className="glass-panel p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>Required Documents</h3>
-            <span className="text-xs" style={{ color: '#8B8B85' }}>
+            <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Required Documents</h3>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
               {Object.values(documentStatus).filter((s) => s === 'accepted').length} / {resolvedDocuments.length} accepted
             </span>
           </div>
-          <div className="divide-y divide-slate-100">
+          <div>
             {resolvedDocuments.map((docId) => {
               const dtLabel = docTypes.find((d) => d.id === docId)?.label ?? docId;
               const status: DocumentStatus = documentStatus[docId] ?? 'pending';
-              const st = DOC_STATUS_STYLES[status];
+              const dst = DOC_STATUS_STYLES[status];
               const canAdvance = canAct && status !== 'accepted' && status !== 'rejected';
               return (
-                <div key={docId} className="flex items-center justify-between py-3 gap-3">
-                  <p className="text-sm flex-1" style={{ color: '#2A2A2A' }}>{dtLabel}</p>
+                <div key={docId} className="flex items-center justify-between py-3 gap-3"
+                  style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <p className="text-sm flex-1" style={{ color: 'var(--text-primary)' }}>{dtLabel}</p>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span
-                      className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full"
-                      style={{ backgroundColor: st.bg, color: st.text }}>
-                      {st.label}
-                    </span>
+                    <span className={dst.badgeClass}>{dst.label}</span>
                     {canAdvance && (
                       <button
                         onClick={() => advanceDocumentStatus(leadId!, oppId!, subId!, docId, status, user!.uid)}
-                        className="text-xs px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
-                        style={{ color: '#2A2A2A' }}>
+                        className="text-xs px-2.5 py-1 rounded-lg border transition-colors hover:bg-white/5"
+                        style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.15)' }}>
                         Advance
                       </button>
                     )}
                     {canAct && status !== 'rejected' && (
                       <button
                         onClick={() => rejectDocument(leadId!, oppId!, subId!, docId, status, user!.uid)}
-                        className="text-xs px-2.5 py-1 rounded-lg border border-red-100 hover:bg-red-50 transition-colors"
-                        style={{ color: '#9F1239' }}>
+                        className="text-xs px-2.5 py-1 rounded-lg border transition-colors hover:bg-white/5"
+                        style={{ color: '#f87171', borderColor: 'rgba(248,113,113,0.25)' }}>
                         Reject
                       </button>
                     )}
@@ -449,18 +445,19 @@ export function BankSubmissionDetailPage() {
 
       {/* Status history */}
       {sub.statusHistory.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#8B8B85' }}>History</h3>
-          <div className="divide-y divide-slate-100">
+        <div className="glass-panel p-6">
+          <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'var(--text-muted)' }}>History</h3>
+          <div>
             {[...sub.statusHistory].reverse().map((entry, i) => (
-              <div key={i} className="py-3 flex gap-3">
+              <div key={i} className="py-3 flex gap-3"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                 <span className="text-base shrink-0">🔄</span>
                 <div>
-                  <p className="text-sm" style={{ color: '#2A2A2A' }}>
+                  <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
                     {STATUS_LABELS[entry.from]} → {STATUS_LABELS[entry.to]}
                     {entry.notes ? ` — ${entry.notes}` : ''}
                   </p>
-                  <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                     {format(new Date(entry.at), 'dd MMM yyyy, HH:mm')}
                   </p>
                 </div>

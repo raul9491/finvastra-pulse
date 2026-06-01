@@ -14,15 +14,15 @@ interface Props {
 
 // ─── Source pill styles ───────────────────────────────────────────────────────
 const SOURCE_STYLES: Record<LeadSource, { bg: string; text: string }> = {
-  website:           { bg: '#EFF6FF', text: '#1D4ED8' },
-  social_meta:       { bg: '#1B2A4E20', text: '#C9A961' },
-  instagram:         { bg: '#1B2A4E20', text: '#C9A961' },
-  facebook:          { bg: '#1B2A4E20', text: '#C9A961' },
-  offline_bulk:      { bg: '#F1F5F9', text: '#475569' },
-  walkin:            { bg: '#F0FDF4', text: '#166534' },
-  referral:          { bg: '#F0FDF4', text: '#166534' },
-  broker:            { bg: '#F1F5F9', text: '#475569' },
-  employee_referral: { bg: '#FEF3C7', text: '#92400E' },
+  website:           { bg: 'rgba(96,165,250,0.15)', text: '#60a5fa' },
+  social_meta:       { bg: 'rgba(201,169,97,0.15)', text: '#C9A961' },
+  instagram:         { bg: 'rgba(201,169,97,0.15)', text: '#C9A961' },
+  facebook:          { bg: 'rgba(201,169,97,0.15)', text: '#C9A961' },
+  offline_bulk:      { bg: 'rgba(255,255,255,0.06)', text: 'rgba(240,236,224,0.50)' },
+  walkin:            { bg: 'rgba(52,211,153,0.15)', text: '#34d399' },
+  referral:          { bg: 'rgba(52,211,153,0.15)', text: '#34d399' },
+  broker:            { bg: 'rgba(255,255,255,0.06)', text: 'rgba(240,236,224,0.50)' },
+  employee_referral: { bg: 'rgba(201,169,97,0.15)', text: '#C9A961' },
 };
 
 const SOURCE_LABELS: Record<LeadSource, string> = {
@@ -68,15 +68,6 @@ export function MyQueueRow({ item, onRefresh }: Props) {
   const sourcePill = SOURCE_STYLES[lead.source] ?? SOURCE_STYLES.broker;
   const sla        = formatSlaStatus(lead.slaDeadline);
 
-  // SLA colour
-  const slaColor = sla
-    ? sla.overdue
-      ? { bg: '#FFF1F2', text: '#9F1239' }
-      : sla.hoursLeft < 2
-      ? { bg: '#FFFBEB', text: '#92400E' }
-      : { bg: '#F0FDF4', text: '#166534' }
-    : null;
-
   const handleLogSubmit = async () => {
     if (!user) return;
     if (!opp?.id) {
@@ -105,14 +96,14 @@ export function MyQueueRow({ item, onRefresh }: Props) {
   return (
     <>
       {/* ─── Main row ──────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="glass-panel overflow-hidden">
         <div className="flex items-center gap-4 px-5 py-4">
           {/* Name */}
           <div className="w-32 shrink-0">
-            <p className="text-sm font-semibold truncate" style={{ color: '#0A0A0A' }}>
+            <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
               {shortName(lead.displayName)}
             </p>
-            <p className="text-[11px] mt-0.5 truncate" style={{ color: '#8B8B85' }}>
+            <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
               {lead.phone}
             </p>
           </div>
@@ -121,13 +112,12 @@ export function MyQueueRow({ item, onRefresh }: Props) {
           <div className="w-36 shrink-0">
             {opp?.product ? (
               <span
-                className="inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full truncate max-w-full"
-                style={{ backgroundColor: '#FFFBEB', color: '#92400E' }}
+                className="inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full truncate max-w-full badge-glass-warning"
               >
                 {opp.product}
               </span>
             ) : (
-              <span className="text-xs" style={{ color: '#8B8B85' }}>—</span>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>
             )}
           </div>
 
@@ -143,21 +133,20 @@ export function MyQueueRow({ item, onRefresh }: Props) {
 
           {/* SLA */}
           <div className="w-32 shrink-0">
-            {sla && slaColor ? (
+            {sla ? (
               <span
-                className="inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
-                style={{ backgroundColor: slaColor.bg, color: slaColor.text }}
+                className={`inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${sla.overdue ? 'badge-glass-danger' : sla.hoursLeft < 2 ? 'badge-glass-warning' : 'badge-glass-success'}`}
               >
                 {sla.label}
               </span>
             ) : (
-              <span className="text-xs" style={{ color: '#8B8B85' }}>No SLA</span>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>No SLA</span>
             )}
           </div>
 
           {/* Stage */}
           <div className="flex-1 min-w-0">
-            <p className="text-xs truncate" style={{ color: '#2A2A2A' }}>
+            <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
               {opp?.stage ?? '—'}
             </p>
           </div>
@@ -167,8 +156,8 @@ export function MyQueueRow({ item, onRefresh }: Props) {
             <button
               onClick={() => setLogOpen((v) => !v)}
               title="Log call"
-              className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors font-medium"
-              style={{ color: '#0B1538' }}
+              className="text-xs px-3 py-1.5 rounded-lg border hover:bg-white/5 transition-colors font-medium"
+              style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.12)' }}
             >
               📞 Log call
             </button>
@@ -177,8 +166,8 @@ export function MyQueueRow({ item, onRefresh }: Props) {
               onClick={() => setTransferOpen(true)}
               disabled={!opp}
               title={opp ? 'Transfer to specialist' : 'No open opportunity'}
-              className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ color: '#0B1538' }}
+              className="text-xs px-3 py-1.5 rounded-lg border hover:bg-white/5 transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.12)' }}
             >
               → Transfer
             </button>
@@ -197,25 +186,24 @@ export function MyQueueRow({ item, onRefresh }: Props) {
         {/* ─── Inline log panel ───────────────────────────────────────────── */}
         {logOpen && (
           <div
-            className="px-5 py-4 border-t border-slate-100 space-y-3"
-            style={{ backgroundColor: '#FAFAF7' }}
+            className="px-5 py-4 space-y-3"
+            style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderTop: '1px solid rgba(255,255,255,0.08)' }}
           >
             {saved ? (
-              <p className="text-sm font-semibold py-1" style={{ color: '#166534' }}>
+              <p className="text-sm font-semibold py-1" style={{ color: 'var(--status-success)' }}>
                 Saved ✓
               </p>
             ) : (
               <>
                 <div className="flex flex-wrap gap-3 items-end">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>
+                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
                       Outcome
                     </p>
                     <select
                       value={outcome}
                       onChange={(e) => setOutcome(e.target.value)}
-                      className="text-sm px-3 py-1.5 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-blue-100 transition-colors"
-                      style={{ color: '#0A0A0A' }}
+                      className="glass-inp text-sm"
                     >
                       {CALL_OUTCOMES.map((o) => (
                         <option key={o} value={o}>{o}</option>
@@ -224,7 +212,7 @@ export function MyQueueRow({ item, onRefresh }: Props) {
                   </div>
 
                   <div className="flex-1 min-w-48">
-                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>
+                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
                       Notes (optional)
                     </p>
                     <input
@@ -232,8 +220,7 @@ export function MyQueueRow({ item, onRefresh }: Props) {
                       placeholder="Notes (optional)…"
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
-                      className="w-full text-sm px-3 py-1.5 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-blue-100 transition-colors"
-                      style={{ color: '#0A0A0A' }}
+                      className="glass-inp w-full text-sm"
                     />
                   </div>
 
@@ -248,8 +235,8 @@ export function MyQueueRow({ item, onRefresh }: Props) {
                     </button>
                     <button
                       onClick={() => { setLogOpen(false); setNotes(''); setOutcome(CALL_OUTCOMES[0]); }}
-                      className="text-sm px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors"
-                      style={{ color: '#2A2A2A' }}
+                      className="text-sm px-3 py-1.5 border rounded-lg hover:bg-white/5 transition-colors"
+                      style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}
                     >
                       Cancel
                     </button>
@@ -258,14 +245,14 @@ export function MyQueueRow({ item, onRefresh }: Props) {
 
                 {outcome === 'Called - Not interested' && (
                   <p className="text-xs px-3 py-2 rounded-lg"
-                    style={{ backgroundColor: '#FFF7ED', color: '#9A3412', border: '1px solid #FED7AA' }}>
+                    style={{ backgroundColor: 'rgba(251,146,60,0.10)', color: '#fb923c', border: '1px solid rgba(251,146,60,0.25)' }}>
                     Consider marking this opportunity as lost.
                   </p>
                 )}
 
                 {!opp && (
                   <p className="text-xs px-3 py-2 rounded-lg"
-                    style={{ backgroundColor: '#FFF1F2', color: '#9F1239' }}>
+                    style={{ backgroundColor: 'rgba(248,113,113,0.10)', color: '#f87171', border: '1px solid rgba(248,113,113,0.25)' }}>
                     No open opportunity on this lead — log will not be saved.
                   </p>
                 )}

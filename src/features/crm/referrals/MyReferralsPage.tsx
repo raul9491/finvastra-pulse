@@ -12,13 +12,11 @@ import type { Lead, Opportunity } from '../../../types';
 // ─── Opportunity stage badge ──────────────────────────────────────────────────
 
 function StageBadge({ stage, status }: { stage: string; status: string }) {
-  const color =
-    status === 'won'  ? { bg: '#D1FAE5', text: '#065F46' } :
-    status === 'lost' ? { bg: '#FEE2E2', text: '#991B1B' } :
-                        { bg: '#EFF6FF', text: '#1D4ED8' };
+  const badgeClass =
+    status === 'won'  ? 'badge-glass-success' :
+    status === 'lost' ? 'badge-glass-danger'  : 'badge-glass-info';
   return (
-    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
-      style={{ backgroundColor: color.bg, color: color.text }}>
+    <span className={badgeClass}>
       {status === 'won' ? '✓ Won' : status === 'lost' ? '✗ Lost' : stage}
     </span>
   );
@@ -31,22 +29,8 @@ function LeadRow({ lead }: { lead: Lead }) {
   const [opps, setOpps]         = useState<Opportunity[]>([]);
   const [oppsLoading, setOppsLoading] = useState(false);
 
-  const toggleExpand = () => {
-    if (!expanded && opps.length === 0) {
-      setOppsLoading(true);
-      const q = query(
-        collection(db, 'leads', lead.id, 'opportunities'),
-        orderBy('createdAt', 'desc'),
-      );
-      const unsub = onSnapshot(q, (snap) => {
-        setOpps(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Opportunity)));
-        setOppsLoading(false);
-      }, () => setOppsLoading(false));
-      // Store unsub; simplified: just fire once. For a real-time refresh, keep it mounted.
-      return unsub;
-    }
-    setExpanded((v) => !v);
-  };
+  // suppress unused warning — toggleExpand kept for ref compatibility
+  void useEffect;
 
   const handleClick = () => {
     if (!expanded && opps.length === 0 && !oppsLoading) {
@@ -74,7 +58,8 @@ function LeadRow({ lead }: { lead: Lead }) {
   return (
     <>
       <tr
-        className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
+        className="hover:bg-white/5 cursor-pointer transition-colors"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
         onClick={handleClick}
       >
         {/* Name */}
@@ -84,77 +69,76 @@ function LeadRow({ lead }: { lead: Lead }) {
               style={{ backgroundColor: '#1B2A4E', color: '#C9A961' }}>
               {lead.displayName.charAt(0).toUpperCase()}
             </div>
-            <span className="text-sm font-medium" style={{ color: '#0A0A0A' }}>{lead.displayName}</span>
+            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{lead.displayName}</span>
           </div>
         </td>
 
         {/* Phone */}
-        <td className="py-3.5 px-3 text-sm" style={{ color: '#2A2A2A' }}>
+        <td className="py-3.5 px-3 text-sm" style={{ color: 'var(--text-primary)' }}>
           <span className="font-mono">{lead.phone}</span>
         </td>
 
         {/* Product interest */}
         <td className="py-3.5 px-3">
           {productTag ? (
-            <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full"
-              style={{ backgroundColor: '#FEF3C7', color: '#92400E' }}>
+            <span className="badge-glass-warning inline-flex items-center gap-1">
               <Tag size={10} />
               {productTag}
             </span>
           ) : (
-            <span className="text-xs" style={{ color: '#8B8B85' }}>—</span>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>
           )}
         </td>
 
         {/* Stage */}
         <td className="py-3.5 px-3">
           {oppsLoading && !expanded ? (
-            <Loader2 size={13} className="animate-spin" style={{ color: '#8B8B85' }} />
+            <Loader2 size={13} className="animate-spin" style={{ color: 'var(--text-muted)' }} />
           ) : opps.length > 0 ? (
             <StageBadge stage={opps[0].stage} status={opps[0].status} />
           ) : expanded ? (
-            <span className="text-xs" style={{ color: '#8B8B85' }}>No opportunities yet</span>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>No opportunities yet</span>
           ) : (
-            <span className="text-xs" style={{ color: '#8B8B85' }}>—</span>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>
           )}
         </td>
 
         {/* Submitted */}
-        <td className="py-3.5 px-3 text-xs" style={{ color: '#8B8B85' }}>
+        <td className="py-3.5 px-3 text-xs" style={{ color: 'var(--text-muted)' }}>
           {submittedAt}
         </td>
 
         {/* Expand toggle */}
         <td className="py-3.5 pr-5 pl-3 text-right">
           {oppsLoading ? (
-            <Loader2 size={14} className="animate-spin ml-auto" style={{ color: '#8B8B85' }} />
+            <Loader2 size={14} className="animate-spin ml-auto" style={{ color: 'var(--text-muted)' }} />
           ) : expanded ? (
-            <ChevronUp size={14} style={{ color: '#8B8B85', marginLeft: 'auto' }} />
+            <ChevronUp size={14} style={{ color: 'var(--text-muted)', marginLeft: 'auto' }} />
           ) : (
-            <ChevronDown size={14} style={{ color: '#8B8B85', marginLeft: 'auto' }} />
+            <ChevronDown size={14} style={{ color: 'var(--text-muted)', marginLeft: 'auto' }} />
           )}
         </td>
       </tr>
 
       {/* Expanded detail */}
       {expanded && (
-        <tr className="border-b border-slate-100">
-          <td colSpan={6} className="px-5 py-4" style={{ backgroundColor: '#F8F9FC' }}>
+        <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <td colSpan={6} className="px-5 py-4" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
             <div className="space-y-4">
 
               {/* Lead contact info */}
               <div className="flex flex-wrap gap-4 text-sm">
-                <div className="flex items-center gap-1.5" style={{ color: '#2A2A2A' }}>
-                  <Phone size={13} style={{ color: '#8B8B85' }} />
+                <div className="flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                  <Phone size={13} style={{ color: 'var(--text-muted)' }} />
                   <span className="font-mono">{lead.phone}</span>
                 </div>
                 {lead.email && (
-                  <div className="flex items-center gap-1.5" style={{ color: '#2A2A2A' }}>
-                    <Mail size={13} style={{ color: '#8B8B85' }} />
+                  <div className="flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                    <Mail size={13} style={{ color: 'var(--text-muted)' }} />
                     {lead.email}
                   </div>
                 )}
-                <div className="flex items-center gap-1.5 text-xs" style={{ color: '#8B8B85' }}>
+                <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
                   <Clock size={12} />
                   Submitted {submittedAt}
                 </div>
@@ -164,10 +148,7 @@ function LeadRow({ lead }: { lead: Lead }) {
               {lead.tags && lead.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {lead.tags.map((t) => (
-                    <span key={t} className="text-[11px] px-2 py-0.5 rounded-full"
-                      style={{ backgroundColor: '#FEF3C7', color: '#92400E' }}>
-                      {t}
-                    </span>
+                    <span key={t} className="badge-glass-warning">{t}</span>
                   ))}
                 </div>
               )}
@@ -175,23 +156,20 @@ function LeadRow({ lead }: { lead: Lead }) {
               {/* Opportunities */}
               {opps.length > 0 ? (
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#8B8B85' }}>
+                  <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                     Opportunities
                   </p>
                   <div className="space-y-2">
                     {opps.map((opp) => (
-                      <div key={opp.id} className="flex items-center justify-between px-3 py-2 rounded-lg border"
-                        style={{ borderColor: '#E2E8F0', backgroundColor: '#FFFFFF' }}>
+                      <div key={opp.id} className="flex items-center justify-between px-3 py-2 rounded-lg"
+                        style={{ border: '1px solid rgba(255,255,255,0.10)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
                         <div className="flex items-center gap-3">
-                          <span className="text-sm font-medium" style={{ color: '#0A0A0A' }}>{opp.product}</span>
-                          <span className="text-xs px-2 py-0.5 rounded"
-                            style={{ backgroundColor: '#F1F5F9', color: '#475569' }}>
-                            {opp.opportunityType}
-                          </span>
+                          <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{opp.product}</span>
+                          <span className="badge-glass-muted">{opp.opportunityType}</span>
                         </div>
                         <div className="flex items-center gap-3">
                           {opp.dealSize > 0 && (
-                            <span className="text-xs font-mono" style={{ color: '#2A2A2A' }}>
+                            <span className="text-xs font-mono" style={{ color: 'var(--text-primary)' }}>
                               ₹{(opp.dealSize / 100000).toFixed(1)}L
                             </span>
                           )}
@@ -202,7 +180,7 @@ function LeadRow({ lead }: { lead: Lead }) {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm" style={{ color: '#8B8B85' }}>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
                   No opportunities added yet — a tele-caller will pick this lead up and create an opportunity.
                 </p>
               )}
@@ -229,16 +207,16 @@ export function MyReferralsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold" style={{ color: '#0A0A0A' }}>My Referrals</h2>
-          <p className="text-sm mt-0.5" style={{ color: '#8B8B85' }}>
+          <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>My Referrals</h2>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
             Track leads you've submitted — follow their progress through the CRM pipeline.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate('/crm/referrals/import')}
-            className="flex items-center gap-1.5 text-sm px-3.5 py-2 rounded-lg border transition-colors hover:bg-slate-50"
-            style={{ borderColor: '#E2E8F0', color: '#2A2A2A' }}
+            className="flex items-center gap-1.5 text-sm px-3.5 py-2 rounded-lg border transition-colors hover:bg-white/5"
+            style={{ borderColor: 'rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
           >
             <Upload size={14} />
             Import CSV
@@ -255,7 +233,7 @@ export function MyReferralsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="glass-panel overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 size={22} className="animate-spin" style={{ color: '#C9A961' }} />
@@ -264,13 +242,13 @@ export function MyReferralsPage() {
           /* Empty state */
           <div className="flex flex-col items-center justify-center py-20 px-8 text-center">
             <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4"
-              style={{ backgroundColor: '#FEF3C7' }}>
+              style={{ backgroundColor: 'rgba(201,169,97,0.12)' }}>
               <Tag size={22} style={{ color: '#C9A961' }} />
             </div>
-            <h3 className="text-base font-semibold mb-1" style={{ color: '#0A0A0A' }}>
+            <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
               No referrals yet
             </h3>
-            <p className="text-sm mb-6 max-w-xs" style={{ color: '#8B8B85' }}>
+            <p className="text-sm mb-6 max-w-xs" style={{ color: 'var(--text-muted)' }}>
               Know someone looking for a home loan, insurance, or investment? Submit their details and
               our team will take it from there.
             </p>
@@ -286,17 +264,17 @@ export function MyReferralsPage() {
         ) : (
           <table className="w-full">
             <thead>
-              <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                 <th className="py-3 pl-5 pr-3 text-left text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: '#8B8B85' }}>Name</th>
+                  style={{ color: 'var(--text-muted)' }}>Name</th>
                 <th className="py-3 px-3 text-left text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: '#8B8B85' }}>Phone</th>
+                  style={{ color: 'var(--text-muted)' }}>Phone</th>
                 <th className="py-3 px-3 text-left text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: '#8B8B85' }}>Product Interest</th>
+                  style={{ color: 'var(--text-muted)' }}>Product Interest</th>
                 <th className="py-3 px-3 text-left text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: '#8B8B85' }}>Stage</th>
+                  style={{ color: 'var(--text-muted)' }}>Stage</th>
                 <th className="py-3 px-3 text-left text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: '#8B8B85' }}>Submitted</th>
+                  style={{ color: 'var(--text-muted)' }}>Submitted</th>
                 <th className="py-3 pr-5 pl-3" />
               </tr>
             </thead>
@@ -310,7 +288,7 @@ export function MyReferralsPage() {
       </div>
 
       {leads.length > 0 && (
-        <p className="text-xs text-center" style={{ color: '#8B8B85' }}>
+        <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
           {leads.length} referral{leads.length === 1 ? '' : 's'} submitted · Click any row to see pipeline details
         </p>
       )}

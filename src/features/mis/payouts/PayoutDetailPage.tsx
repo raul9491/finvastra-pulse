@@ -24,18 +24,19 @@ function formatPeriod(start: string, end: string): string {
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: RmPayout['status'] }) {
-  const styles: Record<RmPayout['status'], { bg: string; color: string; label: string }> = {
-    draft:    { bg: '#F1F5F9', color: '#64748B', label: 'Draft' },
-    approved: { bg: '#DBEAFE', color: '#1D4ED8', label: 'Approved' },
-    paid:     { bg: '#D1FAE5', color: '#065F46', label: 'Paid' },
+  const cls: Record<RmPayout['status'], string> = {
+    draft:    'badge-glass-muted',
+    approved: 'badge-glass-info',
+    paid:     'badge-glass-success',
   };
-  const s = styles[status];
+  const label: Record<RmPayout['status'], string> = {
+    draft:    'Draft',
+    approved: 'Approved',
+    paid:     'Paid',
+  };
   return (
-    <span
-      className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold"
-      style={{ backgroundColor: s.bg, color: s.color }}
-    >
-      {s.label}
+    <span className={`${cls[status]} text-sm px-3 py-1`}>
+      {label[status]}
     </span>
   );
 }
@@ -79,8 +80,8 @@ function MarkPaidModal({ isOpen, onClose, payoutId, rmDisplayName }: MarkPaidMod
         <>
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-semibold rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
-            style={{ color: '#0A0A0A' }}
+            className="px-4 py-2 text-sm font-semibold rounded-lg hover:bg-white/5 transition-colors"
+            style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
           >
             Cancel
           </button>
@@ -97,19 +98,19 @@ function MarkPaidModal({ isOpen, onClose, payoutId, rmDisplayName }: MarkPaidMod
     >
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium" style={{ color: '#0A0A0A' }}>
-            Payment Reference <span className="text-red-500">*</span>
+          <label className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            Payment Reference <span style={{ color: '#f87171' }}>*</span>
           </label>
           <input
             type="text"
             value={reference}
             onChange={(e) => setReference(e.target.value)}
             placeholder="UTR / transaction ID"
-            className="px-3.5 py-2.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-navy"
+            className="glass-inp text-sm"
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium" style={{ color: '#0A0A0A' }}>
+          <label className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             Notes
           </label>
           <textarea
@@ -117,11 +118,16 @@ function MarkPaidModal({ isOpen, onClose, payoutId, rmDisplayName }: MarkPaidMod
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Optional notes…"
             rows={3}
-            className="px-3.5 py-2.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-navy resize-none"
+            className="glass-inp text-sm resize-none"
           />
         </div>
         {error && (
-          <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+          <p
+            className="text-sm rounded-lg px-3 py-2"
+            style={{ color: '#f87171', backgroundColor: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.25)' }}
+          >
+            {error}
+          </p>
         )}
       </div>
     </Modal>
@@ -250,7 +256,7 @@ export function PayoutDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24 text-sm" style={{ color: '#8B8B85' }}>
+      <div className="flex items-center justify-center py-24 text-sm" style={{ color: 'var(--text-muted)' }}>
         Loading payout…
       </div>
     );
@@ -259,11 +265,11 @@ export function PayoutDetailPage() {
   if (notFound || !payout) {
     return (
       <div className="max-w-lg mx-auto py-20 text-center">
-        <p className="text-lg font-semibold mb-2" style={{ color: '#0B1538' }}>Payout not found</p>
+        <p className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Payout not found</p>
         <button
           onClick={() => navigate('/mis/payouts')}
           className="text-sm underline"
-          style={{ color: '#8B8B85' }}
+          style={{ color: 'var(--text-muted)' }}
         >
           Back to Payouts
         </button>
@@ -277,19 +283,19 @@ export function PayoutDetailPage() {
       <button
         onClick={() => navigate('/mis/payouts')}
         className="text-sm mb-4 transition-opacity hover:opacity-60 block"
-        style={{ color: '#8B8B85' }}
+        style={{ color: 'var(--text-muted)' }}
       >
         ← Payouts
       </button>
 
       {/* Header card */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
+      <div className="glass-panel p-6 mb-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div className="flex items-center gap-3 mb-1">
               <h1
                 className="text-2xl"
-                style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic', color: '#0B1538' }}
+                style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic', color: 'var(--text-primary)' }}
               >
                 {payout.rmDisplayName}
               </h1>
@@ -303,8 +309,8 @@ export function PayoutDetailPage() {
                 </Link>
               )}
             </div>
-            <p className="text-sm mb-2" style={{ color: '#8B8B85' }}>
-              Period: <strong style={{ color: '#0A0A0A' }}>{formatPeriod(payout.periodStart, payout.periodEnd)}</strong>
+            <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>
+              Period: <strong style={{ color: 'var(--text-primary)' }}>{formatPeriod(payout.periodStart, payout.periodEnd)}</strong>
             </p>
             <StatusBadge status={payout.status} />
           </div>
@@ -316,7 +322,7 @@ export function PayoutDetailPage() {
                 onClick={handleApprove}
                 disabled={approving}
                 className="px-4 py-2 text-sm font-semibold rounded-lg disabled:opacity-50 transition-colors"
-                style={{ backgroundColor: '#0B1538', color: '#FFFFFF' }}
+                style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
               >
                 {approving ? 'Approving…' : 'Approve'}
               </button>
@@ -332,8 +338,8 @@ export function PayoutDetailPage() {
             )}
             <button
               onClick={() => generatePayoutPdf(payout, profile?.displayName ?? '')}
-              className="px-4 py-2 text-sm font-semibold rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
-              style={{ color: '#0B1538' }}
+              className="px-4 py-2 text-sm font-semibold rounded-lg hover:bg-white/5 transition-colors"
+              style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
             >
               Download Payout Summary
             </button>
@@ -341,24 +347,38 @@ export function PayoutDetailPage() {
         </div>
 
         {actionError && (
-          <p className="mt-3 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{actionError}</p>
+          <p
+            className="mt-3 text-sm rounded-lg px-3 py-2"
+            style={{ color: '#f87171', backgroundColor: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.25)' }}
+          >
+            {actionError}
+          </p>
         )}
 
         {/* Payment details (when paid) */}
         {payout.status === 'paid' && (
-          <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-4 text-sm">
+          <div
+            className="mt-4 pt-4 grid grid-cols-2 gap-4 text-sm"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}
+          >
             <div>
-              <span className="block text-xs font-semibold uppercase tracking-wide mb-0.5" style={{ color: '#8B8B85' }}>
+              <span
+                className="block text-xs font-semibold uppercase tracking-wide mb-0.5"
+                style={{ color: 'var(--text-muted)' }}
+              >
                 Payment Reference
               </span>
-              <span style={{ color: '#0A0A0A' }}>{payout.paymentReference ?? '—'}</span>
+              <span style={{ color: 'var(--text-primary)' }}>{payout.paymentReference ?? '—'}</span>
             </div>
             {payout.paymentNotes && (
               <div>
-                <span className="block text-xs font-semibold uppercase tracking-wide mb-0.5" style={{ color: '#8B8B85' }}>
+                <span
+                  className="block text-xs font-semibold uppercase tracking-wide mb-0.5"
+                  style={{ color: 'var(--text-muted)' }}
+                >
                   Notes
                 </span>
-                <span style={{ color: '#0A0A0A' }}>{payout.paymentNotes}</span>
+                <span style={{ color: 'var(--text-primary)' }}>{payout.paymentNotes}</span>
               </div>
             )}
           </div>
@@ -367,75 +387,91 @@ export function PayoutDetailPage() {
 
       {/* Summary metrics */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-4">
-          <span className="block text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#8B8B85' }}>
+        <div className="glass-panel glass-card px-5 py-4">
+          <span
+            className="block text-xs font-semibold uppercase tracking-wide mb-1"
+            style={{ color: 'var(--text-muted)' }}
+          >
             Total Received (Base)
           </span>
-          <span className="text-2xl font-bold" style={{ color: '#0B1538' }}>
+          <span className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             {formatCurrency(payout.totalReceivedBase)}
           </span>
         </div>
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-4">
-          <span className="block text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#8B8B85' }}>
+        <div className="glass-panel glass-card px-5 py-4">
+          <span
+            className="block text-xs font-semibold uppercase tracking-wide mb-1"
+            style={{ color: 'var(--text-muted)' }}
+          >
             RM Payout
           </span>
           <span className="text-2xl font-bold" style={{ color: '#C9A961' }}>
             {formatCurrency(payout.totalPayout)}
           </span>
         </div>
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-4">
-          <span className="block text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#8B8B85' }}>
+        <div className="glass-panel glass-card px-5 py-4">
+          <span
+            className="block text-xs font-semibold uppercase tracking-wide mb-1"
+            style={{ color: 'var(--text-muted)' }}
+          >
             Line Items
           </span>
-          <span className="text-2xl font-bold" style={{ color: '#0B1538' }}>
+          <span className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
             {payout.lineItems.length}
           </span>
         </div>
       </div>
 
       {/* Line items table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100">
-          <h2 className="text-base font-semibold" style={{ color: '#0B1538' }}>Commission Line Items</h2>
-          <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>
+      <div className="glass-panel overflow-hidden">
+        <div
+          className="px-6 py-4"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Commission Line Items</h2>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
             Each row is one paid commission record included in this payout.
           </p>
         </div>
         {payout.lineItems.length === 0 ? (
-          <div className="px-8 py-10 text-center text-sm" style={{ color: '#8B8B85' }}>
+          <div className="px-8 py-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
             No line items.
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ backgroundColor: '#F2EFE7' }}>
-                <th className="px-5 py-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: '#0B1538' }}>Customer</th>
-                <th className="px-5 py-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: '#0B1538' }}>Product</th>
-                <th className="px-5 py-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: '#0B1538' }}>Bank / Provider</th>
-                <th className="px-5 py-3 text-right font-semibold text-xs uppercase tracking-wide" style={{ color: '#0B1538' }}>Received</th>
-                <th className="px-5 py-3 text-center font-semibold text-xs uppercase tracking-wide" style={{ color: '#0B1538' }}>%</th>
-                <th className="px-5 py-3 text-right font-semibold text-xs uppercase tracking-wide" style={{ color: '#0B1538' }}>Payout Amount</th>
+              <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <th className="px-5 py-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Customer</th>
+                <th className="px-5 py-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Product</th>
+                <th className="px-5 py-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Bank / Provider</th>
+                <th className="px-5 py-3 text-right font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Received</th>
+                <th className="px-5 py-3 text-center font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>%</th>
+                <th className="px-5 py-3 text-right font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Payout Amount</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              {payout.lineItems.map((item, idx) => (
-                <tr key={item.commissionRecordId} className={idx % 2 === 0 ? 'bg-white' : 'bg-paper'}>
-                  <td className="px-5 py-3 font-mono text-xs" style={{ color: '#8B8B85' }}>
+            <tbody>
+              {payout.lineItems.map((item) => (
+                <tr
+                  key={item.commissionRecordId}
+                  className="hover:bg-white/5 transition-colors"
+                  style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                >
+                  <td className="px-5 py-3 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
                     …{item.leadId.slice(-8)}
                   </td>
-                  <td className="px-5 py-3" style={{ color: '#0A0A0A' }}>
+                  <td className="px-5 py-3" style={{ color: 'var(--text-primary)' }}>
                     {item.product}
                   </td>
-                  <td className="px-5 py-3" style={{ color: '#0A0A0A' }}>
+                  <td className="px-5 py-3" style={{ color: 'var(--text-primary)' }}>
                     {item.providerName}
                   </td>
-                  <td className="px-5 py-3 text-right tabular-nums font-semibold" style={{ color: '#0A0A0A' }}>
+                  <td className="px-5 py-3 text-right tabular-nums font-semibold" style={{ color: 'var(--text-primary)' }}>
                     {formatCurrency(item.receivedAmount)}
                   </td>
-                  <td className="px-5 py-3 text-center tabular-nums" style={{ color: '#8B8B85' }}>
+                  <td className="px-5 py-3 text-center tabular-nums" style={{ color: 'var(--text-muted)' }}>
                     {item.payoutPercentage}%
                   </td>
-                  <td className="px-5 py-3 text-right tabular-nums font-bold" style={{ color: '#0B1538' }}>
+                  <td className="px-5 py-3 text-right tabular-nums font-bold" style={{ color: '#C9A961' }}>
                     {formatCurrency(item.payoutAmount)}
                   </td>
                 </tr>

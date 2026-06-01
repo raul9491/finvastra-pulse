@@ -167,9 +167,6 @@ export function RateNegotiationMemoryPage() {
   const maxRate = rates.length > 0 ? Math.max(...rates) : null;
   const medRate = rates.length > 0 ? median(rates) : null;
 
-  const inputClass =
-    'px-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 transition-colors bg-white';
-
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
@@ -180,20 +177,20 @@ export function RateNegotiationMemoryPage() {
             fontFamily: '"Fraunces", Georgia, serif',
             fontStyle: 'italic',
             fontWeight: 300,
-            color: '#0A0A0A',
+            color: 'var(--text-primary)',
           }}
         >
           Rate Negotiation Memory
         </h2>
-        <p className="text-sm" style={{ color: '#8B8B85' }}>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Sanctioned and disbursed loan rates — use this to benchmark negotiation
         </p>
       </div>
 
       {loading ? (
         <div className="animate-pulse space-y-3">
-          <div className="h-24 bg-slate-100 rounded-2xl" />
-          <div className="h-64 bg-slate-100 rounded-2xl" />
+          <div className="h-24 rounded-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+          <div className="h-64 rounded-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
         </div>
       ) : (
         <>
@@ -202,7 +199,7 @@ export function RateNegotiationMemoryPage() {
             <select
               value={filterProduct}
               onChange={(e) => setFilterProduct(e.target.value)}
-              className={inputClass}
+              className="glass-inp text-sm"
             >
               <option value="">All loan types</option>
               {productOptions.map((p) => (
@@ -213,7 +210,7 @@ export function RateNegotiationMemoryPage() {
             <select
               value={filterProvider}
               onChange={(e) => setFilterProvider(e.target.value)}
-              className={inputClass}
+              className="glass-inp text-sm"
             >
               <option value="">All providers</option>
               {providerOptions.map((p) => (
@@ -226,18 +223,18 @@ export function RateNegotiationMemoryPage() {
           {rates.length > 0 && (
             <div
               className="rounded-2xl px-6 py-4 text-sm"
-              style={{ backgroundColor: '#F2EFE7', border: '1px solid #C9A961' }}
+              style={{ backgroundColor: 'rgba(201,169,97,0.08)', border: '1px solid rgba(201,169,97,0.25)' }}
             >
-              <span style={{ color: '#9A7E3F', fontWeight: 600 }}>
+              <span style={{ color: '#C9A961', fontWeight: 600 }}>
                 Rate range:
               </span>{' '}
-              <span style={{ color: '#0A0A0A' }}>
+              <span style={{ color: 'var(--text-primary)' }}>
                 {minRate?.toFixed(2)}% – {maxRate?.toFixed(2)}%
               </span>
-              <span style={{ color: '#8B8B85' }}>{' · '}</span>
-              <span style={{ color: '#9A7E3F', fontWeight: 600 }}>Median:</span>{' '}
-              <span style={{ color: '#0A0A0A' }}>{medRate?.toFixed(2)}%</span>
-              <span style={{ color: '#8B8B85' }}>
+              <span style={{ color: 'var(--text-muted)' }}>{' · '}</span>
+              <span style={{ color: '#C9A961', fontWeight: 600 }}>Median:</span>{' '}
+              <span style={{ color: 'var(--text-primary)' }}>{medRate?.toFixed(2)}%</span>
+              <span style={{ color: 'var(--text-muted)' }}>
                 {' '}· Based on {rates.length} sanctioned application
                 {rates.length !== 1 ? 's' : ''}
               </span>
@@ -245,11 +242,11 @@ export function RateNegotiationMemoryPage() {
           )}
 
           {/* Table */}
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="glass-panel overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100">
+                  <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                     {[
                       'Provider',
                       'Loan Type',
@@ -262,7 +259,7 @@ export function RateNegotiationMemoryPage() {
                       <th
                         key={h}
                         className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest"
-                        style={{ color: '#8B8B85' }}
+                        style={{ color: 'var(--text-muted)' }}
                       >
                         {h}
                       </th>
@@ -275,7 +272,7 @@ export function RateNegotiationMemoryPage() {
                       <td
                         colSpan={7}
                         className="px-4 py-8 text-center text-sm"
-                        style={{ color: '#8B8B85' }}
+                        style={{ color: 'var(--text-muted)' }}
                       >
                         No sanctioned applications with recorded interest rates.
                       </td>
@@ -288,20 +285,21 @@ export function RateNegotiationMemoryPage() {
                       return (
                         <tr
                           key={`${r.leadId}-${r.oppId}-${r.submission.id}`}
-                          className="border-b border-slate-50 hover:bg-slate-50 transition-colors"
+                          className="hover:bg-white/5 transition-colors"
+                          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
                         >
                           <td
                             className="px-4 py-3 font-medium"
-                            style={{ color: '#0A0A0A' }}
+                            style={{ color: 'var(--text-primary)' }}
                           >
                             {r.providerName}
                           </td>
-                          <td className="px-4 py-3" style={{ color: '#2A2A2A' }}>
+                          <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>
                             {r.product || '—'}
                           </td>
                           <td
                             className="px-4 py-3 whitespace-nowrap"
-                            style={{ color: '#2A2A2A' }}
+                            style={{ color: 'var(--text-primary)' }}
                           >
                             {r.dealSize > 0
                               ? `₹${r.dealSize.toLocaleString('en-IN')}`
@@ -312,34 +310,34 @@ export function RateNegotiationMemoryPage() {
                               style={{
                                 color:
                                   (r.submission.interestRate ?? 0) <= 9
-                                    ? '#166534'
+                                    ? '#34d399'
                                     : (r.submission.interestRate ?? 0) <= 12
-                                    ? '#9A3412'
-                                    : '#2A2A2A',
+                                    ? '#C9A961'
+                                    : 'var(--text-primary)',
                               }}
                             >
                               {r.submission.interestRate?.toFixed(2)}%
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-right" style={{ color: '#2A2A2A' }}>
+                          <td className="px-4 py-3 text-right" style={{ color: 'var(--text-primary)' }}>
                             {r.submission.tenureMonths != null
                               ? `${r.submission.tenureMonths} mo`
                               : '—'}
                           </td>
-                          <td className="px-4 py-3" style={{ color: '#2A2A2A' }}>
+                          <td className="px-4 py-3">
                             <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+                              className={
                                 r.submission.status === 'disbursed'
-                                  ? 'bg-emerald-50 text-emerald-700'
-                                  : 'bg-amber-50 text-amber-700'
-                              }`}
+                                  ? 'badge-glass-success'
+                                  : 'badge-glass-warning'
+                              }
                             >
                               {r.submission.status}
                             </span>
                           </td>
                           <td
                             className="px-4 py-3 whitespace-nowrap"
-                            style={{ color: '#2A2A2A' }}
+                            style={{ color: 'var(--text-primary)' }}
                           >
                             {date ? format(date, 'dd MMM yyyy') : '—'}
                           </td>

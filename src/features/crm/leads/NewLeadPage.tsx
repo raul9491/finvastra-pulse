@@ -15,17 +15,17 @@ function Field({ label, error, children, hint }: {
 }) {
   return (
     <div>
-      <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+      <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
         {label}
       </label>
       {children}
-      {hint && !error && <p className="mt-1 text-xs" style={{ color: '#8B8B85' }}>{hint}</p>}
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {hint && !error && <p className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>{hint}</p>}
+      {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
     </div>
   );
 }
 
-const inputClass = "w-full px-3.5 py-3 text-sm bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:border-navy transition-colors";
+const inputClass = "glass-inp w-full text-sm";
 const selectClass = inputClass + " cursor-pointer";
 
 export function NewLeadPage() {
@@ -81,21 +81,21 @@ export function NewLeadPage() {
     <div className="max-w-2xl mx-auto">
       <button onClick={() => navigate('/crm/leads')}
         className="flex items-center gap-1.5 text-sm mb-6 transition-opacity hover:opacity-70"
-        style={{ color: '#8B8B85' }}>
+        style={{ color: 'var(--text-muted)' }}>
         <ArrowLeft size={15} /> Back to Customers
       </button>
 
-      <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+      <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
         New Customer
       </h2>
-      <p className="text-sm mb-8" style={{ color: '#8B8B85' }}>
+      <p className="text-sm mb-8" style={{ color: 'var(--text-muted)' }}>
         Person details only. Add loan, wealth, or insurance opportunities after saving.
       </p>
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         {/* Person details */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5 mb-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#0B1538' }}>Contact Details</h3>
+        <div className="glass-panel p-6 space-y-5 mb-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#C9A961' }}>Contact Details</h3>
 
           <Field label="Full Name *" error={errors.displayName?.message}>
             <input {...register('displayName')} placeholder="Full name as per PAN" className={inputClass} />
@@ -164,10 +164,10 @@ export function NewLeadPage() {
 
         {/* Consent */}
         <div className="rounded-2xl p-6 mb-6 space-y-4"
-          style={{ backgroundColor: '#F2EFE7', border: '1px solid #C9A961' }}>
+          style={{ backgroundColor: 'rgba(201,169,97,0.08)', border: '1px solid rgba(201,169,97,0.25)' }}>
           <div className="flex items-start gap-2">
-            <AlertCircle size={16} className="mt-0.5 shrink-0" style={{ color: '#9A7E3F' }} />
-            <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#9A7E3F' }}>
+            <AlertCircle size={16} className="mt-0.5 shrink-0" style={{ color: '#C9A961' }} />
+            <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#C9A961' }}>
               Customer Consent — Required by DPDP Act 2023
             </h3>
           </div>
@@ -179,7 +179,7 @@ export function NewLeadPage() {
                   <input type="checkbox" checked={field.value as boolean}
                     onChange={(e) => field.onChange(e.target.checked)}
                     className="mt-0.5 w-4 h-4 rounded shrink-0" />
-                  <span className="text-sm leading-relaxed" style={{ color: '#2A2A2A' }}>
+                  <span className="text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>
                     The customer has given consent to process their personal data for
                     financial services purposes in accordance with DPDP Act 2023.
                   </span>
@@ -192,7 +192,7 @@ export function NewLeadPage() {
             <div className="flex gap-6">
               {(['verbal', 'written', 'digital'] as const).map((method) => (
                 <label key={method} className="flex items-center gap-2 cursor-pointer text-sm capitalize"
-                  style={{ color: '#2A2A2A' }}>
+                  style={{ color: 'var(--text-muted)' }}>
                   <input {...register('consentMethod')} type="radio" value={method} />
                   {method}
                 </label>
@@ -202,7 +202,7 @@ export function NewLeadPage() {
         </div>
 
         {submitError && (
-          <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600">
+          <div className="mb-4 px-4 py-3 rounded-lg text-sm" style={{ backgroundColor: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.25)', color: '#f87171' }}>
             {submitError}
           </div>
         )}
@@ -214,8 +214,8 @@ export function NewLeadPage() {
             {isSubmitting ? 'Saving…' : 'Save Customer'}
           </button>
           <button type="button" onClick={() => navigate('/crm/leads')}
-            className="px-6 py-3 rounded-lg text-sm font-medium border border-slate-200 hover:bg-slate-50 transition-colors"
-            style={{ color: '#2A2A2A' }}>
+            className="px-6 py-3 rounded-lg text-sm font-medium border hover:bg-white/5 transition-colors"
+            style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>
             Cancel
           </button>
         </div>

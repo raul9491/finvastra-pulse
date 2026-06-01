@@ -23,11 +23,18 @@ const API_BASE = 'https://pulse-api-787616231546.asia-south1.run.app';
 const WEBSITE_WEBHOOK_URL = `${API_BASE}/api/leads/intake/website`;
 const META_WEBHOOK_URL    = `${API_BASE}/api/leads/intake/meta`;
 
-const RESULT_COLORS: Record<WebhookLog['result'], { bg: string; text: string; label: string }> = {
-  success:   { bg: '#D1FAE5', text: '#065F46', label: 'Success'   },
-  duplicate: { bg: '#FEF3C7', text: '#92400E', label: 'Duplicate' },
-  invalid:   { bg: '#FEE2E2', text: '#991B1B', label: 'Invalid'   },
-  error:     { bg: '#FEE2E2', text: '#991B1B', label: 'Error'     },
+const RESULT_BADGE: Record<WebhookLog['result'], string> = {
+  success:   'badge-glass-success',
+  duplicate: 'badge-glass-warning',
+  invalid:   'badge-glass-danger',
+  error:     'badge-glass-danger',
+};
+
+const RESULT_LABELS: Record<WebhookLog['result'], string> = {
+  success:   'Success',
+  duplicate: 'Duplicate',
+  invalid:   'Invalid',
+  error:     'Error',
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -42,8 +49,8 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   return (
     <button
       onClick={copy}
-      className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors font-medium shrink-0"
-      style={{ color: copied ? '#059669' : '#2A2A2A' }}
+      className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors font-medium shrink-0 hover:bg-white/5"
+      style={{ color: copied ? '#34d399' : 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.15)' }}
       title={`Copy ${label}`}
     >
       {copied ? <CheckCheck size={12} /> : <Copy size={12} />}
@@ -56,7 +63,7 @@ function LogTable({ logs, source }: { logs: WebhookLog[]; source: 'website' | 's
   const filtered = logs.filter((l) => l.source === source).slice(0, 5);
   if (filtered.length === 0) {
     return (
-      <p className="text-sm py-3" style={{ color: '#8B8B85' }}>
+      <p className="text-sm py-3" style={{ color: 'var(--text-muted)' }}>
         No webhook calls recorded yet.
       </p>
     );
@@ -65,10 +72,10 @@ function LogTable({ logs, source }: { logs: WebhookLog[]; source: 'website' | 's
     <div className="overflow-x-auto">
       <table className="w-full text-xs text-left">
         <thead>
-          <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
             {['Time', 'Result', 'Lead ID', 'Notes'].map((h) => (
               <th key={h} className="pb-2 font-bold uppercase tracking-widest whitespace-nowrap pr-4"
-                style={{ color: '#8B8B85' }}>
+                style={{ color: 'var(--text-muted)' }}>
                 {h}
               </th>
             ))}
@@ -76,23 +83,19 @@ function LogTable({ logs, source }: { logs: WebhookLog[]; source: 'website' | 's
         </thead>
         <tbody>
           {filtered.map((log) => {
-            const rc = RESULT_COLORS[log.result];
             const dt = log.receivedAt ? (() => {
               try { return format(new Date(log.receivedAt), 'dd MMM HH:mm'); } catch { return '—'; }
             })() : '—';
             return (
-              <tr key={log.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                <td className="py-2 pr-4 whitespace-nowrap" style={{ color: '#2A2A2A' }}>{dt}</td>
+              <tr key={log.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <td className="py-2 pr-4 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{dt}</td>
                 <td className="py-2 pr-4">
-                  <span className="px-2 py-0.5 rounded-full font-semibold text-[10px]"
-                    style={{ backgroundColor: rc.bg, color: rc.text }}>
-                    {rc.label}
-                  </span>
+                  <span className={RESULT_BADGE[log.result]}>{RESULT_LABELS[log.result]}</span>
                 </td>
-                <td className="py-2 pr-4 font-mono" style={{ color: '#8B8B85' }}>
+                <td className="py-2 pr-4 font-mono" style={{ color: 'var(--text-muted)' }}>
                   {log.leadId ? log.leadId.slice(-8).toUpperCase() : '—'}
                 </td>
-                <td className="py-2" style={{ color: '#8B8B85', maxWidth: '200px' }}>
+                <td className="py-2" style={{ color: 'var(--text-muted)', maxWidth: '200px' }}>
                   <span className="truncate block">{log.errorMessage ?? '—'}</span>
                 </td>
               </tr>
@@ -145,25 +148,25 @@ export function WebhookConfigPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold" style={{ color: '#0A0A0A', fontFamily: 'Fraunces, Georgia, serif' }}>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Fraunces, Georgia, serif' }}>
           Webhook Configuration
         </h1>
-        <p className="text-sm mt-1" style={{ color: '#8B8B85' }}>
+        <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
           Configure external sources to push new leads directly into Finvastra Pulse.
           Leads are assigned automatically using workload-aware assignment.
         </p>
       </div>
 
       {/* ── Website Webhook ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <div className="px-6 py-4 flex items-center gap-3" style={{ borderBottom: '1px solid #F1F5F9' }}>
+      <div className="glass-panel overflow-hidden">
+        <div className="px-6 py-4 flex items-center gap-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
           <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: '#DBEAFE' }}>
-            <Globe size={16} style={{ color: '#1D4ED8' }} />
+            style={{ backgroundColor: 'rgba(96,165,250,0.15)' }}>
+            <Globe size={16} style={{ color: '#60a5fa' }} />
           </div>
           <div>
-            <h2 className="text-sm font-bold" style={{ color: '#0A0A0A' }}>Website Form Webhook</h2>
-            <p className="text-xs" style={{ color: '#8B8B85' }}>
+            <h2 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Website Form Webhook</h2>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
               Receives leads from your website contact / loan enquiry form
             </p>
           </div>
@@ -173,12 +176,12 @@ export function WebhookConfigPage() {
 
           {/* Webhook URL */}
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+            <p className="text-xs font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
               Endpoint URL
             </p>
             <div className="flex items-center gap-2 p-3 rounded-xl"
-              style={{ backgroundColor: '#FAFAF7', border: '1px solid #E2E8F0' }}>
-              <code className="flex-1 text-xs break-all" style={{ color: '#0B1538' }}>
+              style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)' }}>
+              <code className="flex-1 text-xs break-all" style={{ color: '#C9A961' }}>
                 {WEBSITE_WEBHOOK_URL}
               </code>
               <CopyButton text={WEBSITE_WEBHOOK_URL} label="URL" />
@@ -187,19 +190,19 @@ export function WebhookConfigPage() {
 
           {/* Header */}
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+            <p className="text-xs font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
               Authentication Header
             </p>
             <div className="p-3 rounded-xl font-mono text-xs space-y-1"
-              style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
+              style={{ backgroundColor: '#0B1538', color: '#C9A961', border: '1px solid rgba(201,169,97,0.20)' }}>
               <div>
-                <span style={{ color: '#94A3B8' }}>Header: </span>
+                <span style={{ color: 'rgba(201,169,97,0.50)' }}>Header: </span>
                 X-Finvastra-Webhook-Secret
               </div>
               <div>
-                <span style={{ color: '#94A3B8' }}>Value: </span>
+                <span style={{ color: 'rgba(201,169,97,0.50)' }}>Value: </span>
                 {masked('WEBSITE_WEBHOOK_SECRET')}
-                &nbsp;<span style={{ color: '#475569', fontFamily: 'sans-serif', fontSize: '10px' }}>
+                &nbsp;<span style={{ color: 'rgba(201,169,97,0.40)', fontFamily: 'sans-serif', fontSize: '10px' }}>
                   (set in Cloud Run env — WEBSITE_WEBHOOK_SECRET)
                 </span>
               </div>
@@ -208,11 +211,11 @@ export function WebhookConfigPage() {
 
           {/* Payload schema */}
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+            <p className="text-xs font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
               Expected JSON Payload
             </p>
             <pre className="p-3 rounded-xl text-[11px] overflow-x-auto leading-relaxed"
-              style={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', color: '#334155' }}>
+              style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', color: 'var(--text-primary)' }}>
 {`{
   "name":        "string  (required, min 2 chars)",
   "phone":       "string  (required, 10-digit Indian mobile)",
@@ -230,12 +233,12 @@ export function WebhookConfigPage() {
           {/* Recent calls */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
                 Recent Calls (last 5)
               </p>
               <button onClick={fetchLogs}
-                className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors"
-                style={{ color: '#8B8B85' }}>
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg hover:bg-white/5 transition-colors"
+                style={{ color: 'var(--text-muted)' }}>
                 <RefreshCw size={11} className={logsLoading ? 'animate-spin' : ''} />
                 Refresh
               </button>
@@ -243,11 +246,11 @@ export function WebhookConfigPage() {
             {logsLoading ? (
               <div className="space-y-2">
                 {[1,2,3].map((i) => (
-                  <div key={i} className="h-6 bg-slate-100 rounded animate-pulse" />
+                  <div key={i} className="h-6 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
                 ))}
               </div>
             ) : logsError ? (
-              <p className="text-xs" style={{ color: '#DC2626' }}>{logsError}</p>
+              <p className="text-xs" style={{ color: '#f87171' }}>{logsError}</p>
             ) : (
               <LogTable logs={logs} source="website" />
             )}
@@ -256,15 +259,15 @@ export function WebhookConfigPage() {
       </div>
 
       {/* ── Meta Lead Ads Webhook ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <div className="px-6 py-4 flex items-center gap-3" style={{ borderBottom: '1px solid #F1F5F9' }}>
+      <div className="glass-panel overflow-hidden">
+        <div className="px-6 py-4 flex items-center gap-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
           <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: '#EDE9FE' }}>
-            <Facebook size={16} style={{ color: '#7C3AED' }} />
+            style={{ backgroundColor: 'rgba(139,92,246,0.15)' }}>
+            <Facebook size={16} style={{ color: '#a78bfa' }} />
           </div>
           <div>
-            <h2 className="text-sm font-bold" style={{ color: '#0A0A0A' }}>Meta Lead Ads Webhook</h2>
-            <p className="text-xs" style={{ color: '#8B8B85' }}>
+            <h2 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Meta Lead Ads Webhook</h2>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
               Receives leads from Facebook / Instagram Lead Ads forms in real-time
             </p>
           </div>
@@ -274,12 +277,12 @@ export function WebhookConfigPage() {
 
           {/* Webhook URL */}
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+            <p className="text-xs font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
               Webhook URL
             </p>
             <div className="flex items-center gap-2 p-3 rounded-xl"
-              style={{ backgroundColor: '#FAFAF7', border: '1px solid #E2E8F0' }}>
-              <code className="flex-1 text-xs break-all" style={{ color: '#0B1538' }}>
+              style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)' }}>
+              <code className="flex-1 text-xs break-all" style={{ color: '#C9A961' }}>
                 {META_WEBHOOK_URL}
               </code>
               <CopyButton text={META_WEBHOOK_URL} label="URL" />
@@ -288,25 +291,25 @@ export function WebhookConfigPage() {
 
           {/* Verify token */}
           <div>
-            <p className="text-xs font-bold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+            <p className="text-xs font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
               Verify Token
             </p>
             <div className="p-3 rounded-xl font-mono text-xs"
-              style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
-              <span style={{ color: '#94A3B8' }}>Value: </span>
+              style={{ backgroundColor: '#0B1538', color: '#C9A961', border: '1px solid rgba(201,169,97,0.20)' }}>
+              <span style={{ color: 'rgba(201,169,97,0.50)' }}>Value: </span>
               {masked('META_WEBHOOK_SECRET')}
-              &nbsp;<span style={{ color: '#475569', fontFamily: 'sans-serif', fontSize: '10px' }}>
+              &nbsp;<span style={{ color: 'rgba(201,169,97,0.40)', fontFamily: 'sans-serif', fontSize: '10px' }}>
                 (set in Cloud Run env — META_WEBHOOK_SECRET)
               </span>
             </div>
           </div>
 
           {/* Setup instructions */}
-          <div className="p-4 rounded-xl" style={{ backgroundColor: '#FFFBEB', border: '1px solid #FDE68A' }}>
-            <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#92400E' }}>
+          <div className="p-4 rounded-xl" style={{ backgroundColor: 'rgba(201,169,97,0.08)', border: '1px solid rgba(201,169,97,0.25)' }}>
+            <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#C9A961' }}>
               Setup Instructions — Meta Business Suite
             </p>
-            <ol className="text-xs space-y-1.5 list-decimal list-inside" style={{ color: '#78350F' }}>
+            <ol className="text-xs space-y-1.5 list-decimal list-inside" style={{ color: 'rgba(201,169,97,0.80)' }}>
               <li>Go to <strong>Meta Business Suite → All Tools → Leads Centre</strong></li>
               <li>Select your Facebook page and click <strong>Instant Forms</strong></li>
               <li>Click <strong>Set up CRM integration</strong></li>
@@ -315,7 +318,7 @@ export function WebhookConfigPage() {
               <li>Click <strong>Verify and Save</strong> — Meta sends a test GET request</li>
               <li>
                 Map form fields to these field names in your Instant Form:
-                <span className="font-mono ml-1" style={{ color: '#92400E' }}>
+                <span className="font-mono ml-1" style={{ color: '#C9A961' }}>
                   full_name, phone_number, email, loan_type, loan_amount
                 </span>
               </li>
@@ -325,12 +328,12 @@ export function WebhookConfigPage() {
           {/* Recent calls */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
                 Recent Calls (last 5)
               </p>
               <button onClick={fetchLogs}
-                className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors"
-                style={{ color: '#8B8B85' }}>
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg hover:bg-white/5 transition-colors"
+                style={{ color: 'var(--text-muted)' }}>
                 <RefreshCw size={11} className={logsLoading ? 'animate-spin' : ''} />
                 Refresh
               </button>
@@ -338,11 +341,11 @@ export function WebhookConfigPage() {
             {logsLoading ? (
               <div className="space-y-2">
                 {[1,2,3].map((i) => (
-                  <div key={i} className="h-6 bg-slate-100 rounded animate-pulse" />
+                  <div key={i} className="h-6 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
                 ))}
               </div>
             ) : logsError ? (
-              <p className="text-xs" style={{ color: '#DC2626' }}>{logsError}</p>
+              <p className="text-xs" style={{ color: '#f87171' }}>{logsError}</p>
             ) : (
               <LogTable logs={logs} source="social_meta" />
             )}
@@ -351,17 +354,17 @@ export function WebhookConfigPage() {
       </div>
 
       {/* ── Cloud Run deployment note ── */}
-      <div className="p-5 rounded-2xl" style={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
-        <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#475569' }}>
+      <div className="p-5 rounded-2xl glass-panel">
+        <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
           Production Setup — Cloud Run
         </p>
-        <pre className="text-[11px] overflow-x-auto" style={{ color: '#334155' }}>
+        <pre className="text-[11px] overflow-x-auto" style={{ color: 'var(--text-primary)' }}>
 {`gcloud run services update pulse-api \\
   --set-env-vars \\
   "WEBSITE_WEBHOOK_SECRET=<strong-random-secret>,META_WEBHOOK_SECRET=<meta-verify-token>" \\
   --region asia-south1`}
         </pre>
-        <p className="text-xs mt-2" style={{ color: '#8B8B85' }}>
+        <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
           Use a long random string for WEBSITE_WEBHOOK_SECRET (≥32 chars). The META_WEBHOOK_SECRET
           is the same token you enter in Meta Business Suite as the "verify token".
         </p>

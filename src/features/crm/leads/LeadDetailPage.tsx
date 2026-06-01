@@ -22,15 +22,15 @@ const TYPE_ICONS: Record<OpportunityType, React.ReactNode> = {
 };
 
 const TYPE_COLORS: Record<OpportunityType, { bg: string; text: string }> = {
-  loan:      { bg: '#EFF6FF', text: '#1D4ED8' },
-  wealth:    { bg: '#F0FDF4', text: '#166534' },
-  insurance: { bg: '#FFF7ED', text: '#9A3412' },
+  loan:      { bg: 'rgba(96,165,250,0.15)', text: '#60a5fa' },
+  wealth:    { bg: 'rgba(52,211,153,0.15)', text: '#34d399' },
+  insurance: { bg: 'rgba(251,146,60,0.15)', text: '#fb923c' },
 };
 
 const STATUS_STYLES: Record<OpportunityStatus, string> = {
-  open: 'bg-amber-50 text-amber-700',
-  won:  'bg-emerald-50 text-emerald-700',
-  lost: 'bg-red-50 text-red-600',
+  open: 'badge-glass-warning',
+  won:  'badge-glass-success',
+  lost: 'badge-glass-danger',
 };
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -48,7 +48,7 @@ function OpportunityCard({ opp, leadId, ownerName }: {
   return (
     <button
       onClick={() => navigate(`/crm/leads/${leadId}/opportunities/${opp.id}`)}
-      className="w-full text-left bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md transition-all group"
+      className="w-full text-left glass-panel p-5 hover:shadow-md transition-all group"
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
@@ -57,31 +57,31 @@ function OpportunityCard({ opp, leadId, ownerName }: {
             {TYPE_ICONS[opp.opportunityType]}
           </div>
           <div>
-            <p className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>{opp.product}</p>
-            <p className="text-xs capitalize" style={{ color: '#8B8B85' }}>{opp.opportunityType}</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{opp.product}</p>
+            <p className="text-xs capitalize" style={{ color: 'var(--text-muted)' }}>{opp.opportunityType}</p>
           </div>
         </div>
-        <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${STATUS_STYLES[opp.status]}`}>
+        <span className={STATUS_STYLES[opp.status]}>
           {opp.status}
         </span>
       </div>
 
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs" style={{ color: '#8B8B85' }}>Deal Size</p>
-          <p className="text-base font-semibold" style={{ color: '#0A0A0A' }}>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Deal Size</p>
+          <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
             ₹{opp.dealSize.toLocaleString('en-IN')}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-xs" style={{ color: '#8B8B85' }}>Stage</p>
-          <p className="text-sm" style={{ color: '#2A2A2A' }}>{opp.stage}</p>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Stage</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{opp.stage}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs" style={{ color: '#8B8B85' }}>RM</p>
-          <p className="text-sm" style={{ color: '#2A2A2A' }}>{ownerName}</p>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>RM</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{ownerName}</p>
         </div>
-        <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-500 transition-colors" />
+        <ChevronRight size={16} style={{ color: 'var(--text-dim)' }} className="group-hover:opacity-80 transition-opacity" />
       </div>
     </button>
   );
@@ -175,9 +175,9 @@ export function LeadDetailPage() {
   if (leadLoading) {
     return (
       <div className="max-w-3xl mx-auto animate-pulse space-y-4">
-        <div className="h-5 bg-slate-200 rounded w-28" />
-        <div className="h-8 bg-slate-200 rounded w-56" />
-        <div className="h-40 bg-slate-100 rounded-2xl" />
+        <div className="h-5 rounded w-28" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+        <div className="h-8 rounded w-56" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+        <div className="h-40 rounded-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }} />
       </div>
     );
   }
@@ -185,8 +185,8 @@ export function LeadDetailPage() {
   if (!lead) {
     return (
       <div className="text-center py-20">
-        <p style={{ color: '#8B8B85' }}>Customer not found.</p>
-        <button onClick={() => navigate('/crm/leads')} className="mt-3 text-sm underline" style={{ color: '#0B1538' }}>
+        <p style={{ color: 'var(--text-muted)' }}>Customer not found.</p>
+        <button onClick={() => navigate('/crm/leads')} className="mt-3 text-sm underline" style={{ color: '#C9A961' }}>
           Back to Customers
         </button>
       </div>
@@ -197,7 +197,7 @@ export function LeadDetailPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       <button onClick={() => navigate('/crm/leads')}
         className="flex items-center gap-1.5 text-sm transition-opacity hover:opacity-70"
-        style={{ color: '#8B8B85' }}>
+        style={{ color: 'var(--text-muted)' }}>
         <ArrowLeft size={15} /> Back to Customers
       </button>
 
@@ -216,7 +216,7 @@ export function LeadDetailPage() {
       {/* Just-created banner */}
       {justCreated && (
         <div className="rounded-xl px-5 py-3 text-sm font-medium flex items-center justify-between"
-          style={{ backgroundColor: '#F2EFE7', color: '#9A7E3F', border: '1px solid #C9A961' }}>
+          style={{ backgroundColor: 'rgba(201,169,97,0.10)', color: '#C9A961', border: '1px solid rgba(201,169,97,0.30)' }}>
           <span>Customer saved. Now add the first opportunity.</span>
           <button onClick={() => navigate(`/crm/leads/${leadId}/opportunities/new`)}
             className="font-bold underline ml-4">
@@ -226,13 +226,13 @@ export function LeadDetailPage() {
       )}
 
       {/* Customer card */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
+      <div className="glass-panel p-6">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h2 className="text-2xl" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+            <h2 className="text-2xl" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
               {lead.displayName}
             </h2>
-            <p className="text-sm mt-0.5 flex items-center gap-2 flex-wrap" style={{ color: '#8B8B85' }}>
+            <p className="text-sm mt-0.5 flex items-center gap-2 flex-wrap" style={{ color: 'var(--text-muted)' }}>
               <span>{SOURCE_LABELS[lead.source] ?? lead.source} · Primary RM: {ownerName(lead.primaryOwnerId)}</span>
               {isAdmin && lead.primaryOwnerId && (
                 <Link
@@ -246,7 +246,7 @@ export function LeadDetailPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold">
+            <span className="badge-glass-success">
               Consent ✓
             </span>
             {/* SLA indicator */}
@@ -254,8 +254,7 @@ export function LeadDetailPage() {
               const sla = formatSlaStatus(lead.slaDeadline);
               if (!sla) return null;
               return (
-                <span className="text-xs px-2.5 py-1 rounded-full font-semibold"
-                  style={{ backgroundColor: sla.overdue ? '#FFF1F2' : sla.hoursLeft < 4 ? '#FFFBEB' : '#EFF6FF', color: sla.overdue ? '#9F1239' : sla.hoursLeft < 4 ? '#92400E' : '#1D4ED8' }}>
+                <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${sla.overdue ? 'badge-glass-danger' : sla.hoursLeft < 4 ? 'badge-glass-warning' : 'badge-glass-info'}`}>
                   SLA: {sla.label}
                 </span>
               );
@@ -264,48 +263,48 @@ export function LeadDetailPage() {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Phone</p>
-            <p className="text-sm font-medium" style={{ color: '#0A0A0A' }}>{lead.phone}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Phone</p>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{lead.phone}</p>
           </div>
           {lead.email && (
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Email</p>
-              <p className="text-sm" style={{ color: '#0A0A0A' }}>{lead.email}</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Email</p>
+              <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{lead.email}</p>
             </div>
           )}
           {getMaskedPan(lead) && (
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: '#8B8B85' }}>PAN</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-muted)' }}>PAN</p>
               <div className="flex items-center gap-2">
-                <p className="text-sm font-mono" style={{ color: '#0A0A0A' }}>
+                <p className="text-sm font-mono" style={{ color: 'var(--text-primary)' }}>
                   {revealedPan ?? getMaskedPan(lead)}
                 </p>
                 {canRevealPan && !revealedPan && (
                   <button onClick={handleRevealPan} disabled={revealingPan}
-                    className="text-xs px-2 py-0.5 rounded border border-slate-200 hover:bg-slate-50 transition-colors"
-                    style={{ color: '#8B8B85' }}>
+                    className="text-xs px-2 py-0.5 rounded border hover:bg-white/5 transition-colors"
+                    style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>
                     {revealingPan ? '…' : 'Reveal'}
                   </button>
                 )}
                 {revealedPan && (
-                  <span className="text-xs" style={{ color: '#8B8B85' }}>visible for {revealCountdown}s</span>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>visible for {revealCountdown}s</span>
                 )}
               </div>
-              {revealError && <p className="text-xs text-red-500 mt-0.5">{revealError}</p>}
+              {revealError && <p className="text-xs text-red-400 mt-0.5">{revealError}</p>}
             </div>
           )}
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Added</p>
-            <p className="text-sm" style={{ color: '#0A0A0A' }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Added</p>
+            <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
               {lead.createdAt?.toDate ? format(lead.createdAt.toDate(), 'dd MMM yyyy') : '—'}
             </p>
           </div>
           {(lead.tags ?? []).length > 0 && (
             <div className="col-span-2">
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Tags</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Tags</p>
               <div className="flex flex-wrap gap-1">
                 {lead.tags.map((tag) => (
-                  <span key={tag} className="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-600">{tag}</span>
+                  <span key={tag} className="px-2 py-0.5 rounded text-xs bg-white/8" style={{ color: 'var(--text-muted)' }}>{tag}</span>
                 ))}
               </div>
             </div>
@@ -313,13 +312,13 @@ export function LeadDetailPage() {
         </div>
 
         {/* ─── Financials section ─────────────────────────────────────────────── */}
-        <div className="mt-5 pt-4 border-t border-slate-100">
+        <div className="mt-5 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>Financials</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Financials</p>
             {canEditFinancials && !editingFinancials && (
               <button onClick={handleEditFinancials}
-                className="text-xs px-2.5 py-1 rounded border border-slate-200 hover:bg-slate-50 transition-colors"
-                style={{ color: '#8B8B85' }}>
+                className="text-xs px-2.5 py-1 rounded border hover:bg-white/5 transition-colors"
+                style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>
                 Edit
               </button>
             )}
@@ -327,14 +326,14 @@ export function LeadDetailPage() {
           {editingFinancials ? (
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Monthly Income ₹</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Monthly Income ₹</p>
                 <input type="number" value={incomeInput} onChange={e => setIncomeInput(e.target.value)}
-                  className="text-sm px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none w-full focus:ring-2 transition-colors" />
+                  className="glass-inp text-sm w-full" />
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Existing EMIs ₹/month</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Existing EMIs ₹/month</p>
                 <input type="number" value={emisInput} onChange={e => setEmisInput(e.target.value)}
-                  className="text-sm px-2.5 py-1.5 border border-slate-200 rounded-lg outline-none w-full focus:ring-2 transition-colors" />
+                  className="glass-inp text-sm w-full" />
               </div>
               <div className="col-span-2 flex gap-2">
                 <button onClick={handleSaveFinancials} disabled={savingFinancials}
@@ -343,8 +342,8 @@ export function LeadDetailPage() {
                   {savingFinancials ? 'Saving…' : 'Save'}
                 </button>
                 <button onClick={() => setEditingFinancials(false)}
-                  className="px-4 py-2 text-sm border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-                  style={{ color: '#2A2A2A' }}>
+                  className="px-4 py-2 text-sm border rounded-lg hover:bg-white/5 transition-colors"
+                  style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>
                   Cancel
                 </button>
               </div>
@@ -352,14 +351,14 @@ export function LeadDetailPage() {
           ) : (
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Monthly Income</p>
-                <p className="text-sm" style={{ color: '#0A0A0A' }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Monthly Income</p>
+                <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
                   {lead.monthlyIncome ? `₹${lead.monthlyIncome.toLocaleString('en-IN')}` : '—'}
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Existing EMIs</p>
-                <p className="text-sm" style={{ color: '#0A0A0A' }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Existing EMIs</p>
+                <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
                   {lead.existingEmis ? `₹${lead.existingEmis.toLocaleString('en-IN')}/mo` : '—'}
                 </p>
               </div>
@@ -376,10 +375,10 @@ export function LeadDetailPage() {
             { label: 'Won',   value: closedOpps.filter(o => o.status === 'won').length.toString(), sub: `₹${totalWon.toLocaleString('en-IN')} closed` },
             { label: 'Total', value: opportunities.length.toString(), sub: 'all time' },
           ].map(({ label, value, sub }) => (
-            <div key={label} className="bg-white rounded-xl border border-slate-200 p-4 text-center">
-              <p className="text-2xl font-bold" style={{ color: '#0B1538' }}>{value}</p>
-              <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5" style={{ color: '#8B8B85' }}>{label}</p>
-              <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>{sub}</p>
+            <div key={label} className="glass-panel glass-card p-4 text-center">
+              <p className="text-2xl font-bold" style={{ color: '#C9A961' }}>{value}</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{sub}</p>
             </div>
           ))}
         </div>
@@ -391,7 +390,7 @@ export function LeadDetailPage() {
       {/* Opportunities section */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+          <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
             Opportunities ({opportunities.length})
           </h3>
           <button
@@ -405,14 +404,14 @@ export function LeadDetailPage() {
 
         {oppsLoading ? (
           <div className="space-y-3">
-            {[1, 2].map((i) => <div key={i} className="h-24 bg-slate-100 rounded-xl animate-pulse" />)}
+            {[1, 2].map((i) => <div key={i} className="h-24 rounded-xl animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }} />)}
           </div>
         ) : opportunities.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-dashed border-slate-300 py-14 text-center">
-            <p className="text-sm" style={{ color: '#8B8B85' }}>No opportunities yet.</p>
+          <div className="glass-panel py-14 text-center" style={{ borderStyle: 'dashed' }}>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No opportunities yet.</p>
             <button
               onClick={() => navigate(`/crm/leads/${leadId}/opportunities/new`)}
-              className="mt-3 text-sm font-semibold underline" style={{ color: '#0B1538' }}>
+              className="mt-3 text-sm font-semibold underline" style={{ color: '#C9A961' }}>
               Add the first opportunity →
             </button>
           </div>

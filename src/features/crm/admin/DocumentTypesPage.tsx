@@ -114,7 +114,7 @@ export function DocumentTypesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <p className="text-sm" style={{ color: '#8B8B85' }}>Loading document types…</p>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading document types…</p>
       </div>
     );
   }
@@ -128,53 +128,53 @@ export function DocumentTypesPage() {
             fontFamily: '"Fraunces", Georgia, serif',
             fontStyle: 'italic',
             fontWeight: 300,
-            color: '#0A0A0A',
+            color: 'var(--text-primary)',
           }}
         >
           Document Types
         </h2>
-        <p className="text-sm" style={{ color: '#8B8B85' }}>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Configure expiry windows for each document type. Expired documents are automatically flagged on submissions.
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="glass-panel overflow-hidden">
         {/* Table header */}
         <div
-          className="grid grid-cols-[1fr_160px_140px_120px] gap-4 px-6 py-3 border-b border-slate-100"
-          style={{ backgroundColor: '#FAFAF7' }}
+          className="grid grid-cols-[1fr_160px_140px_120px] gap-4 px-6 py-3"
+          style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
         >
-          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
             Document Type
           </p>
-          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
             Expiry (Days)
           </p>
-          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
             Never Expires
           </p>
-          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
             Action
           </p>
         </div>
 
         {/* Table rows */}
-        {docTypes.map((row, idx) => {
+        {docTypes.map((row) => {
           const state = rowStates[row.id];
           if (!state) return null;
 
           return (
             <div
               key={row.id}
-              className="grid grid-cols-[1fr_160px_140px_120px] gap-4 items-center px-6 py-4 border-b border-slate-100 last:border-0"
-              style={{ backgroundColor: idx % 2 === 0 ? '#FFFFFF' : '#FAFAF7' }}
+              className="grid grid-cols-[1fr_160px_140px_120px] gap-4 items-center px-6 py-4 hover:bg-white/5 transition-colors"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
             >
               {/* Label */}
               <div>
-                <p className="text-sm font-medium" style={{ color: '#0A0A0A' }}>
+                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                   {row.label}
                 </p>
-                <p className="text-[10px] mt-0.5 font-mono" style={{ color: '#8B8B85' }}>
+                <p className="text-[10px] mt-0.5 font-mono" style={{ color: 'var(--text-muted)' }}>
                   {row.id}
                 </p>
               </div>
@@ -191,14 +191,13 @@ export function DocumentTypesPage() {
                     setField(row.id, 'draft', e.target.value);
                     setField(row.id, 'saved', false);
                   }}
-                  className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ ['--tw-ring-color' as string]: '#C9A961' }}
+                  className="glass-inp w-full text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                 />
               </div>
 
               {/* Never expires toggle */}
               <div className="flex items-center">
-                <label className="flex items-center gap-2 cursor-pointer text-sm" style={{ color: '#2A2A2A' }}>
+                <label className="flex items-center gap-2 cursor-pointer text-sm" style={{ color: 'var(--text-primary)' }}>
                   <input
                     type="checkbox"
                     checked={state.neverExpires}
@@ -225,7 +224,7 @@ export function DocumentTypesPage() {
                   {state.saving ? 'Saving…' : state.saved ? 'Saved ✓' : 'Save'}
                 </button>
                 {state.error && (
-                  <p className="text-[10px]" style={{ color: '#9F1239' }}>
+                  <p className="text-[10px]" style={{ color: '#f87171' }}>
                     {state.error}
                   </p>
                 )}
@@ -235,7 +234,7 @@ export function DocumentTypesPage() {
         })}
       </div>
 
-      <p className="mt-4 text-xs" style={{ color: '#8B8B85' }}>
+      <p className="mt-4 text-xs" style={{ color: 'var(--text-muted)' }}>
         {docTypes.length} document types · Expiry is calculated from the date a document was marked as
         <em> collected</em>. The daily server job flags documents past their window.
       </p>

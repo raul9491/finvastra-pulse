@@ -110,29 +110,38 @@ export function LineMatchModal({ isOpen, onClose, statementId, line, reconciledB
     >
       <div className="flex flex-col gap-5">
         {/* ── Statement line summary ── */}
-        <div className="rounded-xl border border-slate-200 bg-paper p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-mute mb-3">
+        <div
+          className="rounded-xl p-4"
+          style={{ border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.04)' }}
+        >
+          <p
+            className="text-xs font-semibold uppercase tracking-wide mb-3"
+            style={{ color: 'var(--text-muted)' }}
+          >
             Statement Line
           </p>
           <div className="grid grid-cols-3 gap-3 text-sm">
             <div>
-              <p className="text-xs text-mute mb-0.5">Date</p>
-              <p className="font-medium text-ink">{line.parsedDate}</p>
+              <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Date</p>
+              <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{line.parsedDate}</p>
             </div>
             <div className="col-span-2">
-              <p className="text-xs text-mute mb-0.5">Description</p>
-              <p className="font-medium text-ink truncate">{line.rawDescription}</p>
+              <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Description</p>
+              <p className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>{line.rawDescription}</p>
             </div>
             <div>
-              <p className="text-xs text-mute mb-0.5">Amount</p>
-              <p className="font-semibold text-navy text-base">{fmt(line.parsedAmount)}</p>
+              <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Amount</p>
+              <p className="font-semibold text-base" style={{ color: '#C9A961' }}>{fmt(line.parsedAmount)}</p>
             </div>
           </div>
         </div>
 
         {/* ── Commission record search ── */}
         <div className="flex flex-col gap-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-mute">
+          <p
+            className="text-xs font-semibold uppercase tracking-wide"
+            style={{ color: 'var(--text-muted)' }}
+          >
             Search Commission Records
           </p>
 
@@ -145,19 +154,22 @@ export function LineMatchModal({ isOpen, onClose, statementId, line, reconciledB
               setConfirming(false);
             }}
             placeholder="Search by lead ID, opportunity ID, provider…"
-            className="w-full px-3.5 py-2.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-navy"
+            className="glass-inp w-full text-sm"
           />
 
           {recordsLoading && (
-            <p className="text-sm text-mute py-4 text-center">Loading records…</p>
+            <p className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>Loading records…</p>
           )}
 
           {!recordsLoading && filtered.length === 0 && (
-            <p className="text-sm text-mute py-4 text-center">No matching records found.</p>
+            <p className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>No matching records found.</p>
           )}
 
           {!recordsLoading && filtered.length > 0 && (
-            <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-200 divide-y divide-slate-100">
+            <div
+              className="max-h-64 overflow-y-auto rounded-lg"
+              style={{ border: '1px solid rgba(255,255,255,0.12)' }}
+            >
               {filtered.map((record) => {
                 const isSelected = selected?.id === record.id;
                 return (
@@ -165,35 +177,38 @@ export function LineMatchModal({ isOpen, onClose, statementId, line, reconciledB
                     key={record.id}
                     type="button"
                     onClick={() => { setSelected(record); setConfirming(true); }}
-                    className={[
-                      'w-full text-left px-4 py-3 text-sm transition-colors',
-                      isSelected ? 'bg-paper-warm' : 'bg-white hover:bg-paper',
-                    ].join(' ')}
+                    className="w-full text-left px-4 py-3 text-sm transition-colors"
+                    style={{
+                      backgroundColor: isSelected ? 'rgba(201,169,97,0.10)' : 'transparent',
+                      borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    }}
+                    onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
+                    onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent'; }}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex flex-col gap-0.5 min-w-0">
-                        <span className="font-medium text-navy truncate">
+                        <span className="font-medium truncate" style={{ color: 'var(--text-primary)' }}>
                           {record.providerId}
                         </span>
-                        <span className="text-xs text-mute truncate">
+                        <span className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
                           Lead: {record.leadId.slice(0, 12)}… &middot; Opp: {record.opportunityId.slice(0, 12)}…
                         </span>
-                        <span className="text-xs text-mute">
+                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                           Expected payout: {record.expectedPayoutDate}
                         </span>
                       </div>
                       <div className="shrink-0 text-right">
-                        <span className="font-semibold text-ink">
+                        <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
                           {fmt(record.calculatedCommission)}
                         </span>
                         <span
                           className={[
-                            'ml-1.5 text-xs font-medium px-1.5 py-0.5 rounded',
+                            'ml-1.5 text-xs font-medium',
                             record.status === 'paid'
-                              ? 'bg-green-100 text-green-700'
+                              ? 'badge-glass-success'
                               : record.status === 'clawed_back'
-                              ? 'bg-red-100 text-red-700'
-                              : 'bg-amber-100 text-amber-700',
+                              ? 'badge-glass-danger'
+                              : 'badge-glass-warning',
                           ].join(' ')}
                         >
                           {record.status}
@@ -209,27 +224,32 @@ export function LineMatchModal({ isOpen, onClose, statementId, line, reconciledB
 
         {/* ── Confirmation panel ── */}
         {confirming && selected !== null && (
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-mute mb-3">
+          <div
+            className="rounded-xl p-4"
+            style={{ border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.04)' }}
+          >
+            <p
+              className="text-xs font-semibold uppercase tracking-wide mb-3"
+              style={{ color: 'var(--text-muted)' }}
+            >
               Match Preview
             </p>
-            <div className="flex items-center gap-4 text-sm mb-4">
-              <span className="text-ink">
+            <div className="flex items-center gap-4 text-sm mb-4 flex-wrap">
+              <span style={{ color: 'var(--text-primary)' }}>
                 Statement: <strong>{fmt(line.parsedAmount)}</strong>
               </span>
-              <span className="text-mute">&#8594;</span>
-              <span className="text-ink">
+              <span style={{ color: 'var(--text-muted)' }}>&#8594;</span>
+              <span style={{ color: 'var(--text-primary)' }}>
                 Our record: <strong>{fmt(selected.calculatedCommission)}</strong>
               </span>
               <span
-                className={[
-                  'font-semibold ml-auto',
-                  diff === 0
-                    ? 'text-green-600'
-                    : Math.abs(diff) / Math.max(selected.calculatedCommission, 1) <= 0.02
-                    ? 'text-green-600'
-                    : 'text-amber-600',
-                ].join(' ')}
+                className="font-semibold ml-auto"
+                style={{
+                  color:
+                    diff === 0 || Math.abs(diff) / Math.max(selected.calculatedCommission, 1) <= 0.02
+                      ? '#34d399'
+                      : '#C9A961',
+                }}
               >
                 Difference: {diffSign(diff)}
               </span>
@@ -237,13 +257,19 @@ export function LineMatchModal({ isOpen, onClose, statementId, line, reconciledB
 
             {Math.abs(diff) > 0 &&
               Math.abs(diff) / Math.max(selected.calculatedCommission, 1) > 0.02 && (
-              <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-3">
+              <p
+                className="text-xs rounded-lg px-3 py-2 mb-3"
+                style={{ color: '#C9A961', backgroundColor: 'rgba(201,169,97,0.08)', border: '1px solid rgba(201,169,97,0.25)' }}
+              >
                 Amount differs by more than 2%. This will be flagged as a discrepancy.
               </p>
             )}
 
             {error && (
-              <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-3">
+              <p
+                className="text-sm rounded-lg px-3 py-2 mb-3"
+                style={{ color: '#f87171', backgroundColor: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.25)' }}
+              >
                 {error}
               </p>
             )}
@@ -253,7 +279,8 @@ export function LineMatchModal({ isOpen, onClose, statementId, line, reconciledB
                 type="button"
                 onClick={handleConfirmMatch}
                 disabled={saving}
-                className="px-4 py-2 rounded-lg text-sm font-semibold bg-navy text-white disabled:opacity-50 hover:bg-navy-soft transition-colors"
+                className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors"
+                style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
               >
                 {saving ? 'Saving…' : 'Match anyway →'}
               </button>
@@ -261,7 +288,8 @@ export function LineMatchModal({ isOpen, onClose, statementId, line, reconciledB
                 type="button"
                 onClick={() => { setSelected(null); setConfirming(false); }}
                 disabled={saving}
-                className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-200 text-ink hover:bg-slate-50 transition-colors"
+                className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-white/5"
+                style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
               >
                 Cancel
               </button>

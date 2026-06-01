@@ -25,9 +25,9 @@ import type { CrmDocument } from '../../../types';
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fileIcon(contentType: string) {
-  if (contentType.startsWith('image/'))      return <FileImage size={16} className="text-blue-500" />;
-  if (contentType === 'application/pdf')     return <FileText  size={16} className="text-red-500"  />;
-  return <File size={16} className="text-slate-400" />;
+  if (contentType.startsWith('image/'))      return <FileImage size={16} style={{ color: '#60a5fa' }} />;
+  if (contentType === 'application/pdf')     return <FileText  size={16} style={{ color: '#f87171' }} />;
+  return <File size={16} style={{ color: 'var(--text-muted)' }} />;
 }
 
 function fmtSize(bytes: number): string {
@@ -53,22 +53,23 @@ function DeleteConfirm({ doc: d, onConfirm, onCancel, loading }: {
   loading: boolean;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl p-6 max-w-sm mx-4 shadow-xl">
-        <h3 className="text-base font-semibold mb-2" style={{ color: '#0A0A0A' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center glass-modal-overlay">
+      <div className="glass-modal-panel p-6 max-w-sm mx-4">
+        <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
           Delete document?
         </h3>
-        <p className="text-sm mb-4" style={{ color: '#2A2A2A' }}>
+        <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
           "<strong>{d.originalName}</strong>" will be removed from this opportunity.
           This action cannot be undone.
         </p>
         <div className="flex gap-3 justify-end">
           <button onClick={onCancel}
-            className="px-4 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
+            className="px-4 py-2 text-sm rounded-lg border hover:bg-white/5 transition-colors"
+            style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>
             Cancel
           </button>
           <button onClick={onConfirm} disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-60 transition-colors">
+            className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg disabled:opacity-60 transition-colors btn-glass-danger">
             {loading && <Loader2 size={14} className="animate-spin" />}
             Delete
           </button>
@@ -147,7 +148,7 @@ export function CrmDocumentVault({ opportunityId, leadId, canWrite }: Props) {
   const canDelete = (d: CrmDocument) => isAdmin || d.uploadedBy === user?.uid;
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200">
+    <div className="glass-panel">
       {/* Header */}
       <button
         type="button"
@@ -156,22 +157,21 @@ export function CrmDocumentVault({ opportunityId, leadId, canWrite }: Props) {
       >
         <div className="flex items-center gap-3">
           <Paperclip size={17} style={{ color: '#C9A961' }} />
-          <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+          <span className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
             Documents
           </span>
           {documents.length > 0 && (
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
-              style={{ backgroundColor: '#F0F4FF', color: '#1D4ED8' }}>
+            <span className="badge-glass-info">
               {documents.length}
             </span>
           )}
         </div>
-        {expanded ? <ChevronUp size={16} style={{ color: '#8B8B85' }} />
-                  : <ChevronDown size={16} style={{ color: '#8B8B85' }} />}
+        {expanded ? <ChevronUp size={16} style={{ color: 'var(--text-muted)' }} />
+                  : <ChevronDown size={16} style={{ color: 'var(--text-muted)' }} />}
       </button>
 
       {expanded && (
-        <div className="px-6 pb-6 space-y-4 border-t border-slate-100 pt-4">
+        <div className="px-6 pb-6 space-y-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
 
           {/* Upload row */}
           {canWrite && (
@@ -180,8 +180,7 @@ export function CrmDocumentVault({ opportunityId, leadId, canWrite }: Props) {
               <select
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
-                className="text-sm px-3 py-2 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 transition-colors min-w-[180px]"
-                style={{ color: selectedType ? '#0A0A0A' : '#8B8B85' }}
+                className="glass-inp text-sm min-w-[180px]"
               >
                 <option value="">Select doc type (optional)</option>
                 {docTypes.map((t) => (
@@ -217,7 +216,7 @@ export function CrmDocumentVault({ opportunityId, leadId, canWrite }: Props) {
           {/* Error banner */}
           {uploadError && (
             <div className="flex items-center gap-2 p-3 rounded-lg text-sm"
-              style={{ backgroundColor: '#FEF2F2', color: '#DC2626' }}>
+              style={{ backgroundColor: 'rgba(248,113,113,0.10)', color: '#f87171', border: '1px solid rgba(248,113,113,0.20)' }}>
               <AlertCircle size={14} />
               {uploadError}
             </div>
@@ -225,11 +224,11 @@ export function CrmDocumentVault({ opportunityId, leadId, canWrite }: Props) {
 
           {/* Document list */}
           {loading ? (
-            <div className="flex items-center gap-2 py-4 text-sm" style={{ color: '#8B8B85' }}>
+            <div className="flex items-center gap-2 py-4 text-sm" style={{ color: 'var(--text-muted)' }}>
               <Loader2 size={14} className="animate-spin" /> Loading documents…
             </div>
           ) : documents.length === 0 ? (
-            <p className="text-sm py-4 text-center" style={{ color: '#8B8B85' }}>
+            <p className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>
               No documents attached yet.
               {canWrite && ' Use the upload button above to add files.'}
             </p>
@@ -243,7 +242,8 @@ export function CrmDocumentVault({ opportunityId, leadId, canWrite }: Props) {
                 return (
                   <div
                     key={d.id}
-                    className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors"
+                    className="flex items-center gap-3 p-3 rounded-xl transition-colors hover:bg-white/5"
+                    style={{ border: '1px solid rgba(255,255,255,0.08)' }}
                   >
                     {/* File icon */}
                     <div className="shrink-0">
@@ -252,24 +252,23 @@ export function CrmDocumentVault({ opportunityId, leadId, canWrite }: Props) {
 
                     {/* Name + meta */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate" style={{ color: '#0A0A0A' }}>
+                      <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
                         {d.originalName}
                       </p>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
                         {typeName && (
-                          <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded"
-                            style={{ backgroundColor: '#F0F4FF', color: '#1D4ED8' }}>
+                          <span className="badge-glass-info text-[11px]">
                             {typeName}
                           </span>
                         )}
-                        <span className="text-xs" style={{ color: '#8B8B85' }}>
+                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                           {fmtSize(d.fileSize)}
                         </span>
-                        <span className="text-xs" style={{ color: '#8B8B85' }}>
+                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                           {d.uploadedByName}
                         </span>
                         {uploadedDate && (
-                          <span className="text-xs" style={{ color: '#8B8B85' }}>
+                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                             {format(uploadedDate, 'dd MMM yyyy')}
                           </span>
                         )}
@@ -282,19 +281,19 @@ export function CrmDocumentVault({ opportunityId, leadId, canWrite }: Props) {
                         href={d.storageUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
                         title="Download / View"
                       >
-                        <Download size={15} style={{ color: '#2A2A2A' }} />
+                        <Download size={15} style={{ color: 'var(--text-muted)' }} />
                       </a>
                       {canDelete(d) && (
                         <button
                           type="button"
                           onClick={() => setDeleteTarget(d)}
-                          className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
                           title="Delete"
                         >
-                          <Trash2 size={15} className="text-red-400" />
+                          <Trash2 size={15} style={{ color: '#f87171' }} />
                         </button>
                       )}
                     </div>
@@ -306,7 +305,7 @@ export function CrmDocumentVault({ opportunityId, leadId, canWrite }: Props) {
 
           {/* File format note */}
           {canWrite && (
-            <p className="text-xs" style={{ color: '#8B8B85' }}>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
               Accepted: PDF, Word, Excel, PNG/JPG, ZIP · Max 10 MB per file
             </p>
           )}

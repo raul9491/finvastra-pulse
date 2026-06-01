@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { differenceInDays, parseISO } from 'date-fns';
+import { differenceInDays } from 'date-fns';
 import { ChevronRight, Search } from 'lucide-react';
 import { useAllOpenOpportunities } from '../hooks/useOpportunities';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
@@ -13,9 +13,9 @@ const TYPE_LABELS: Record<OpportunityType, string> = {
 };
 
 const TYPE_COLORS: Record<OpportunityType, { bg: string; text: string }> = {
-  loan:      { bg: '#DBEAFE', text: '#1D4ED8' },
-  wealth:    { bg: '#D1FAE5', text: '#065F46' },
-  insurance: { bg: '#FEF3C7', text: '#92400E' },
+  loan:      { bg: 'rgba(96,165,250,0.15)', text: '#60a5fa' },
+  wealth:    { bg: 'rgba(52,211,153,0.15)', text: '#34d399' },
+  insurance: { bg: 'rgba(201,169,97,0.15)', text: '#C9A961' },
 };
 
 function fmt(n: number) {
@@ -70,8 +70,8 @@ export function PipelinePage() {
   }, [filtered]);
 
   const chipBase = 'text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors cursor-pointer select-none';
-  const chipActive = 'bg-navy text-white border-navy';
-  const chipInactive = 'bg-white text-slate-600 border-slate-200 hover:border-slate-400';
+  const chipActive = 'border-transparent' ;
+  const chipInactive = 'hover:bg-white/5';
 
   return (
     <div className="space-y-6">
@@ -79,27 +79,27 @@ export function PipelinePage() {
       <div>
         <h2
           className="text-3xl mb-1"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}
+          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}
         >
           Pipeline
         </h2>
-        <p className="text-sm" style={{ color: '#8B8B85' }}>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           All open deals across loans, wealth &amp; insurance
         </p>
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-4 gap-4">
-        <div className="rounded-2xl p-4 bg-white border border-slate-200">
-          <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>Total Pipeline</p>
-          <p className="text-2xl font-bold" style={{ color: '#0A0A0A' }}>{fmt(totalValue)}</p>
-          <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>{filtered.length} open deals</p>
+        <div className="glass-panel glass-card p-4">
+          <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Total Pipeline</p>
+          <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{fmt(totalValue)}</p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{filtered.length} open deals</p>
         </div>
         {(['loan', 'wealth', 'insurance'] as OpportunityType[]).map((t) => (
-          <div key={t} className="rounded-2xl p-4 bg-white border border-slate-200">
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>{TYPE_LABELS[t]}</p>
-            <p className="text-2xl font-bold" style={{ color: '#0A0A0A' }}>{fmt(byType[t].value)}</p>
-            <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>{byType[t].count} deals</p>
+          <div key={t} className="glass-panel glass-card p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>{TYPE_LABELS[t]}</p>
+            <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{fmt(byType[t].value)}</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{byType[t].count} deals</p>
           </div>
         ))}
       </div>
@@ -108,13 +108,13 @@ export function PipelinePage() {
       <div className="flex flex-wrap items-center gap-3">
         {/* Search */}
         <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#8B8B85' }} />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
           <input
             type="text"
             placeholder="Search customer or product…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="text-sm pl-8 pr-3 py-1.5 rounded-full border border-slate-200 outline-none focus:ring-2 focus:ring-navy bg-white"
+            className="glass-inp text-sm pl-8 pr-3 py-1.5 rounded-full"
             style={{ minWidth: 220 }}
           />
         </div>
@@ -126,6 +126,10 @@ export function PipelinePage() {
               key={t}
               onClick={() => setTypeFilter(t)}
               className={`${chipBase} ${typeFilter === t ? chipActive : chipInactive}`}
+              style={typeFilter === t
+                ? { backgroundColor: '#C9A961', color: '#0B1538', borderColor: '#C9A961' }
+                : { backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }
+              }
             >
               {t === 'all' ? 'All types' : TYPE_LABELS[t]}
             </button>
@@ -137,8 +141,7 @@ export function PipelinePage() {
           <select
             value={rmFilter}
             onChange={(e) => setRmFilter(e.target.value)}
-            className="text-sm border border-slate-200 rounded-full px-3 py-1.5 bg-white outline-none focus:ring-2 focus:ring-navy"
-            style={{ color: '#0A0A0A' }}
+            className="glass-inp text-sm rounded-full px-3 py-1.5"
           >
             <option value="all">All RMs</option>
             {allRMs.map((id) => (
@@ -152,8 +155,7 @@ export function PipelinePage() {
           <select
             value={stageFilter}
             onChange={(e) => setStageFilter(e.target.value)}
-            className="text-sm border border-slate-200 rounded-full px-3 py-1.5 bg-white outline-none focus:ring-2 focus:ring-navy"
-            style={{ color: '#0A0A0A' }}
+            className="glass-inp text-sm rounded-full px-3 py-1.5"
           >
             <option value="all">All stages</option>
             {allStages.map((s) => (
@@ -164,19 +166,19 @@ export function PipelinePage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-2xl overflow-hidden bg-white border border-slate-200">
+      <div className="glass-panel overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-sm" style={{ color: '#8B8B85' }}>Loading pipeline…</div>
+          <div className="p-12 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Loading pipeline…</div>
         ) : filtered.length === 0 ? (
-          <div className="p-12 text-center text-sm" style={{ color: '#8B8B85' }}>
+          <div className="p-12 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
             {rows.length === 0 ? 'No open deals yet.' : 'No deals match the current filters.'}
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ borderBottom: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}>
+              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
                 {['Customer', 'Product', 'Type', 'Stage', 'Deal Size', 'RM', 'Expected Close', 'Age'].map((h) => (
-                  <th key={h} className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: '#475569' }}>
+                  <th key={h} className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                     {h}
                   </th>
                 ))}
@@ -186,7 +188,6 @@ export function PipelinePage() {
             <tbody>
               {filtered.map((row, idx) => {
                 const typeColor = TYPE_COLORS[row.opportunityType];
-                const isEven    = idx % 2 === 0;
                 const daysOpen  = row.createdAt?.toDate
                   ? differenceInDays(new Date(), row.createdAt.toDate())
                   : '—';
@@ -196,16 +197,13 @@ export function PipelinePage() {
                   <tr
                     key={row.oppId}
                     onClick={() => navigate(`/crm/leads/${row.leadId}/opportunities/${row.oppId}`)}
-                    className="cursor-pointer transition-colors hover:bg-slate-50"
-                    style={{
-                      backgroundColor: isEven ? '#FFFFFF' : '#FAFAF7',
-                      borderBottom: idx < filtered.length - 1 ? '1px solid #F1F5F9' : 'none',
-                    }}
+                    className="cursor-pointer transition-colors hover:bg-white/5"
+                    style={{ borderBottom: idx < filtered.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}
                   >
-                    <td className="px-5 py-3 font-medium" style={{ color: '#0A0A0A' }}>
+                    <td className="px-5 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>
                       {row.leadDisplayName}
                     </td>
-                    <td className="px-5 py-3" style={{ color: '#2A2A2A' }}>
+                    <td className="px-5 py-3" style={{ color: 'var(--text-muted)' }}>
                       {row.product}
                     </td>
                     <td className="px-5 py-3">
@@ -216,23 +214,23 @@ export function PipelinePage() {
                         {TYPE_LABELS[row.opportunityType]}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-xs" style={{ color: '#475569' }}>
+                    <td className="px-5 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
                       {row.stage}
                     </td>
-                    <td className="px-5 py-3 font-medium tabular-nums" style={{ color: '#0A0A0A' }}>
+                    <td className="px-5 py-3 font-medium tabular-nums" style={{ color: 'var(--text-primary)' }}>
                       {fmt(row.dealSize ?? 0)}
                     </td>
-                    <td className="px-5 py-3" style={{ color: '#2A2A2A' }}>
+                    <td className="px-5 py-3" style={{ color: 'var(--text-muted)' }}>
                       {rmMap[row.ownerId] ?? '—'}
                     </td>
-                    <td className="px-5 py-3 tabular-nums" style={{ color: overdue ? '#DC2626' : '#475569' }}>
+                    <td className="px-5 py-3 tabular-nums" style={{ color: overdue ? 'var(--status-danger)' : 'var(--text-muted)' }}>
                       {row.expectedCloseDate ?? '—'}
                     </td>
-                    <td className="px-5 py-3 tabular-nums text-xs" style={{ color: '#8B8B85' }}>
+                    <td className="px-5 py-3 tabular-nums text-xs" style={{ color: 'var(--text-muted)' }}>
                       {typeof daysOpen === 'number' ? `${daysOpen}d` : '—'}
                     </td>
                     <td className="px-5 py-3">
-                      <ChevronRight size={14} style={{ color: '#94A3B8' }} />
+                      <ChevronRight size={14} style={{ color: 'var(--text-dim)' }} />
                     </td>
                   </tr>
                 );

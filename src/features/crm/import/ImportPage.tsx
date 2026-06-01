@@ -104,22 +104,22 @@ export function ImportPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+        <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
           Bulk Import
         </h2>
-        <p className="text-sm" style={{ color: '#8B8B85' }}>Import leads from a Google Sheet.</p>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Import leads from a Google Sheet.</p>
       </div>
 
       {/* Step 1 — Sheet URL + access check */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
-        <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>Step 1 — Sheet Access</h3>
+      <div className="glass-panel p-6 space-y-4">
+        <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Step 1 — Sheet Access</h3>
 
         {saEmail && (
-          <div className="text-sm p-3 rounded-lg" style={{ backgroundColor: '#F2EFE7', color: '#2A2A2A' }}>
-            Share your Sheet with: <code className="font-mono font-bold">{saEmail}</code>
+          <div className="text-sm p-3 rounded-lg" style={{ backgroundColor: 'rgba(201,169,97,0.08)', color: 'var(--text-primary)', border: '1px solid rgba(201,169,97,0.20)' }}>
+            Share your Sheet with: <code className="font-mono font-bold" style={{ color: '#C9A961' }}>{saEmail}</code>
             {templateUrl && templateUrl.includes('REPLACE') === false && (
               <a href={templateUrl} target="_blank" rel="noreferrer"
-                className="ml-3 inline-flex items-center gap-1 font-semibold underline" style={{ color: '#0B1538' }}>
+                className="ml-3 inline-flex items-center gap-1 font-semibold underline" style={{ color: '#C9A961' }}>
                 Get template <ExternalLink size={12} />
               </a>
             )}
@@ -129,26 +129,27 @@ export function ImportPage() {
         <div className="flex gap-2">
           <input type="text" value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)}
             placeholder="Paste Google Sheet URL or ID…"
-            className="flex-1 text-sm px-3.5 py-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2" />
+            className="glass-inp flex-1 text-sm" />
           <button onClick={handleCheck} disabled={!sheetUrl.trim() || checkStatus === 'checking'}
-            className="px-5 py-2.5 text-sm font-semibold rounded-lg disabled:opacity-50 border border-slate-200 hover:bg-slate-50">
+            className="px-5 py-2.5 text-sm font-semibold rounded-lg disabled:opacity-50 border transition-colors hover:bg-white/5"
+            style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.15)' }}>
             {checkStatus === 'checking' ? <Loader2 size={14} className="animate-spin" /> : 'Check Access'}
           </button>
         </div>
 
         {checkStatus === 'ok' && (
-          <p className="flex items-center gap-1.5 text-sm text-emerald-700"><CheckCircle2 size={14} />{checkMsg}</p>
+          <p className="flex items-center gap-1.5 text-sm" style={{ color: '#34d399' }}><CheckCircle2 size={14} />{checkMsg}</p>
         )}
         {checkStatus === 'error' && (
-          <p className="flex items-center gap-1.5 text-sm text-red-500"><AlertCircle size={14} />{checkMsg}</p>
+          <p className="flex items-center gap-1.5 text-sm" style={{ color: '#f87171' }}><AlertCircle size={14} />{checkMsg}</p>
         )}
       </div>
 
       {/* Step 2 — Preview */}
       {checkStatus === 'ok' && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+        <div className="glass-panel p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>Step 2 — Preview (first 50 rows)</h3>
+            <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Step 2 — Preview (first 50 rows)</h3>
             <button onClick={handlePreview} disabled={previewLoading}
               className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-lg"
               style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
@@ -157,35 +158,39 @@ export function ImportPage() {
             </button>
           </div>
 
-          {previewError && <p className="text-sm text-red-500">{previewError}</p>}
+          {previewError && <p className="text-sm" style={{ color: '#f87171' }}>{previewError}</p>}
 
           {previewRows.length > 0 && (
             <>
-              <p className="text-sm" style={{ color: '#8B8B85' }}>
-                Total rows in sheet: <strong>{totalRows}</strong> ·
-                Valid in preview: <strong className="text-emerald-700">{previewRows.filter(r=>r.valid).length}</strong> ·
-                Errors: <strong className="text-red-500">{errorCount}</strong>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                Total rows in sheet: <strong style={{ color: 'var(--text-primary)' }}>{totalRows}</strong> ·
+                Valid in preview: <strong style={{ color: '#34d399' }}>{previewRows.filter(r=>r.valid).length}</strong> ·
+                Errors: <strong style={{ color: '#f87171' }}>{errorCount}</strong>
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr style={{ backgroundColor: '#FAFAF7', borderBottom: '1px solid #E2E8F0' }}>
-                      <th className="px-3 py-2 font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>#</th>
+                    <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                      <th className="px-3 py-2 font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>#</th>
                       {COLUMNS.map((k) => (
-                        <th key={k} className="px-3 py-2 font-bold uppercase tracking-widest whitespace-nowrap" style={{ color: '#8B8B85' }}>{COL_LABELS[k]}</th>
+                        <th key={k} className="px-3 py-2 font-bold uppercase tracking-widest whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{COL_LABELS[k]}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {previewRows.map((row) => (
                       <tr key={row.rowNumber}
-                        className="border-b border-slate-100 last:border-0"
-                        style={{ backgroundColor: row.valid ? undefined : '#FFF1F2' }}
+                        className="last:border-0"
+                        style={{
+                          borderBottom: '1px solid rgba(255,255,255,0.06)',
+                          backgroundColor: row.valid ? undefined : 'rgba(248,113,113,0.07)',
+                        }}
                         title={row.valid ? '' : row.errors.join('\n')}>
-                        <td className="px-3 py-2" style={{ color: '#8B8B85' }}>{row.rowNumber}</td>
+                        <td className="px-3 py-2" style={{ color: 'var(--text-muted)' }}>{row.rowNumber}</td>
                         {COLUMNS.map((k) => (
-                          <td key={k} className="px-3 py-2 max-w-[120px] truncate" style={{ color: row.valid ? '#2A2A2A' : '#9F1239' }}>
-                            {row.data[k] || <span style={{ color: '#CBD5E1' }}>—</span>}
+                          <td key={k} className="px-3 py-2 max-w-[120px] truncate"
+                            style={{ color: row.valid ? 'var(--text-primary)' : '#f87171' }}>
+                            {row.data[k] || <span style={{ color: 'var(--text-dim)' }}>—</span>}
                           </td>
                         ))}
                       </tr>
@@ -194,9 +199,9 @@ export function ImportPage() {
                 </table>
               </div>
               {errorCount > 0 && (
-                <div className="text-sm p-3 rounded-lg" style={{ backgroundColor: '#FFF1F2', color: '#9F1239' }}>
+                <div className="text-sm p-3 rounded-lg" style={{ backgroundColor: 'rgba(248,113,113,0.08)', color: '#f87171', border: '1px solid rgba(248,113,113,0.20)' }}>
                   {errorCount} row(s) have validation errors (hover for details).
-                  <label className="ml-3 flex items-center gap-2 cursor-pointer">
+                  <label className="ml-3 flex items-center gap-2 cursor-pointer mt-1">
                     <input type="checkbox" checked={skipErrors} onChange={(e) => setSkipErrors(e.target.checked)} />
                     Skip rows with errors and import valid rows only
                   </label>
@@ -209,10 +214,10 @@ export function ImportPage() {
 
       {/* Step 3 — Run */}
       {canRun && previewRows.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>Step 3 — Run Import</h3>
-          <p className="text-sm" style={{ color: '#8B8B85' }}>
-            Will import <strong>{totalRows}</strong> total rows
+        <div className="glass-panel p-6 space-y-4">
+          <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Step 3 — Run Import</h3>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            Will import <strong style={{ color: 'var(--text-primary)' }}>{totalRows}</strong> total rows
             {skipErrors && errorCount > 0 ? ` (${errorCount} skipped)` : ''}.
             Leads will be assigned round-robin to active lead generators.
           </p>
@@ -222,26 +227,25 @@ export function ImportPage() {
             {runLoading ? <Loader2 size={14} className="animate-spin" /> : null}
             {runLoading ? 'Starting…' : 'Run Full Import'}
           </button>
-          {runError && <p className="text-sm text-red-500">{runError}</p>}
+          {runError && <p className="text-sm" style={{ color: '#f87171' }}>{runError}</p>}
         </div>
       )}
 
       {/* Live progress */}
       {liveJob && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+        <div className="glass-panel p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>Import Progress</h3>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
-              style={{
-                backgroundColor: liveJob.status === 'completed' ? '#F0FDF4' : liveJob.status === 'failed' ? '#FFF1F2' : '#FFFBEB',
-                color: liveJob.status === 'completed' ? '#166534' : liveJob.status === 'failed' ? '#9F1239' : '#92400E',
-              }}>
+            <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Import Progress</h3>
+            <span className={
+              liveJob.status === 'completed' ? 'badge-glass-success' :
+              liveJob.status === 'failed'    ? 'badge-glass-danger'  : 'badge-glass-warning'
+            }>
               {liveJob.status}
             </span>
           </div>
-          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
             <div className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${jobPct}%`, backgroundColor: liveJob.status === 'failed' ? '#EF4444' : '#0B1538' }} />
+              style={{ width: `${jobPct}%`, backgroundColor: liveJob.status === 'failed' ? '#f87171' : '#C9A961' }} />
           </div>
           <div className="grid grid-cols-3 gap-4 text-center">
             {[
@@ -249,20 +253,20 @@ export function ImportPage() {
               { label: 'Imported',  value: liveJob.successCount },
               { label: 'Errors',    value: liveJob.errorCount },
             ].map(({ label, value }) => (
-              <div key={label} className="bg-slate-50 rounded-xl p-3">
-                <p className="text-lg font-bold" style={{ color: '#0A0A0A' }}>{value}</p>
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>{label}</p>
+              <div key={label} className="rounded-xl p-3" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{label}</p>
               </div>
             ))}
           </div>
           {jobDone && (
             <div className="flex gap-3">
               <button onClick={() => navigate('/crm/leads')}
-                className="text-sm font-semibold underline" style={{ color: '#0B1538' }}>
+                className="text-sm font-semibold hover:underline" style={{ color: '#C9A961' }}>
                 View imported leads →
               </button>
               <button onClick={() => navigate('/crm/import/history')}
-                className="text-sm font-semibold underline" style={{ color: '#8B8B85' }}>
+                className="text-sm font-semibold hover:underline" style={{ color: 'var(--text-muted)' }}>
                 Import history
               </button>
             </div>

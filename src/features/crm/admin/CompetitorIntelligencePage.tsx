@@ -133,9 +133,6 @@ export function CompetitorIntelligencePage() {
     return median(rates);
   }, [opps]);
 
-  const inputClass =
-    'px-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 transition-colors bg-white';
-
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
@@ -146,78 +143,78 @@ export function CompetitorIntelligencePage() {
             fontFamily: '"Fraunces", Georgia, serif',
             fontStyle: 'italic',
             fontWeight: 300,
-            color: '#0A0A0A',
+            color: 'var(--text-primary)',
           }}
         >
           Competitor Intelligence
         </h2>
-        <p className="text-sm" style={{ color: '#8B8B85' }}>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Lost opportunities — last 90 days
         </p>
       </div>
 
       {loading ? (
         <div className="animate-pulse space-y-3">
-          <div className="h-24 bg-slate-100 rounded-2xl" />
-          <div className="h-64 bg-slate-100 rounded-2xl" />
+          <div className="h-24 rounded-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+          <div className="h-64 rounded-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
         </div>
       ) : (
         <>
           {/* Summary stats */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white rounded-2xl border border-slate-200 p-5">
+            <div className="glass-panel glass-card p-5">
               <p
                 className="text-[10px] font-bold uppercase tracking-widest mb-1"
-                style={{ color: '#8B8B85' }}
+                style={{ color: 'var(--text-muted)' }}
               >
                 Total Lost
               </p>
-              <p className="text-3xl font-semibold" style={{ color: '#0A0A0A' }}>
+              <p className="text-3xl font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {opps.length}
               </p>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 p-5">
+            <div className="glass-panel glass-card p-5">
               <p
                 className="text-[10px] font-bold uppercase tracking-widest mb-1"
-                style={{ color: '#8B8B85' }}
+                style={{ color: 'var(--text-muted)' }}
               >
                 Top Reason
               </p>
               {topReason ? (
                 <>
-                  <p className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                     {LOST_REASON_LABELS[topReason]}
                   </p>
-                  <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                     {reasonCounts.get(topReason)} of {opps.length} (
                     {Math.round(((reasonCounts.get(topReason) ?? 0) / opps.length) * 100)}%)
                   </p>
                 </>
               ) : (
-                <p className="text-sm" style={{ color: '#8B8B85' }}>—</p>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>—</p>
               )}
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-200 p-5">
+            <div className="glass-panel glass-card p-5">
               <p
                 className="text-[10px] font-bold uppercase tracking-widest mb-1"
-                style={{ color: '#8B8B85' }}
+                style={{ color: 'var(--text-muted)' }}
               >
                 Most Mentioned Competitor
               </p>
               {topCompetitor ? (
                 <>
-                  <p className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                     {topCompetitor.name}
                   </p>
-                  <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                     {topCompetitor.count} mentions
                     {medianRate > 0 ? ` · median rate ${medianRate.toFixed(2)}%` : ''}
                   </p>
                 </>
               ) : (
-                <p className="text-sm" style={{ color: '#8B8B85' }}>—</p>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>—</p>
               )}
             </div>
           </div>
@@ -227,7 +224,7 @@ export function CompetitorIntelligencePage() {
             <select
               value={reasonFilter}
               onChange={(e) => setReasonFilter(e.target.value as LostReason | '')}
-              className={inputClass}
+              className="glass-inp text-sm"
             >
               <option value="">All reasons</option>
               {(Object.entries(LOST_REASON_LABELS) as [LostReason, string][]).map(([v, l]) => (
@@ -239,22 +236,22 @@ export function CompetitorIntelligencePage() {
               placeholder="Search competitor…"
               value={competitorSearch}
               onChange={(e) => setCompetitorSearch(e.target.value)}
-              className={`${inputClass} w-52`}
+              className="glass-inp text-sm w-52"
             />
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="glass-panel overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100">
+                  <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                     {['Date', 'Product', 'Deal Size', 'Reason', 'Competitor', 'Rate (%)', 'RM'].map(
                       (h) => (
                         <th
                           key={h}
                           className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest"
-                          style={{ color: '#8B8B85' }}
+                          style={{ color: 'var(--text-muted)' }}
                         >
                           {h}
                         </th>
@@ -265,7 +262,7 @@ export function CompetitorIntelligencePage() {
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-sm" style={{ color: '#8B8B85' }}>
+                      <td colSpan={7} className="px-4 py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
                         No lost opportunities found for the selected filters.
                       </td>
                     </tr>
@@ -273,28 +270,28 @@ export function CompetitorIntelligencePage() {
                     filtered.map((o) => {
                       const capturedAt = parseCapturedAt(o.lostDetails?.capturedAt);
                       return (
-                        <tr key={`${o.leadId}-${o.id}`} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                          <td className="px-4 py-3 whitespace-nowrap" style={{ color: '#2A2A2A' }}>
+                        <tr key={`${o.leadId}-${o.id}`} className="hover:bg-white/5 transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                          <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                             {capturedAt ? format(capturedAt, 'dd MMM yyyy') : '—'}
                           </td>
-                          <td className="px-4 py-3" style={{ color: '#2A2A2A' }}>{o.product}</td>
-                          <td className="px-4 py-3 whitespace-nowrap" style={{ color: '#2A2A2A' }}>
+                          <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>{o.product}</td>
+                          <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                             ₹{o.dealSize.toLocaleString('en-IN')}
                           </td>
-                          <td className="px-4 py-3" style={{ color: '#2A2A2A' }}>
+                          <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>
                             {o.lostDetails?.reason
                               ? LOST_REASON_LABELS[o.lostDetails.reason]
-                              : <span style={{ color: '#8B8B85' }}>—</span>}
+                              : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                           </td>
-                          <td className="px-4 py-3" style={{ color: '#2A2A2A' }}>
-                            {o.lostDetails?.competitorName ?? <span style={{ color: '#8B8B85' }}>—</span>}
+                          <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>
+                            {o.lostDetails?.competitorName ?? <span style={{ color: 'var(--text-muted)' }}>—</span>}
                           </td>
-                          <td className="px-4 py-3 text-right" style={{ color: '#2A2A2A' }}>
+                          <td className="px-4 py-3 text-right" style={{ color: 'var(--text-primary)' }}>
                             {o.lostDetails?.competitorRate != null
                               ? `${o.lostDetails.competitorRate}%`
-                              : <span style={{ color: '#8B8B85' }}>—</span>}
+                              : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                           </td>
-                          <td className="px-4 py-3" style={{ color: '#2A2A2A' }}>
+                          <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>
                             {authorName(o.ownerId)}
                           </td>
                         </tr>

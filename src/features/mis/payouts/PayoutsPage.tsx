@@ -21,18 +21,19 @@ function formatPeriod(start: string, end: string): string {
 // ─── Status pill ──────────────────────────────────────────────────────────────
 
 function StatusPill({ status }: { status: RmPayout['status'] }) {
-  const styles: Record<RmPayout['status'], { bg: string; color: string; label: string }> = {
-    draft:    { bg: '#F1F5F9', color: '#64748B', label: 'Draft' },
-    approved: { bg: '#DBEAFE', color: '#1D4ED8', label: 'Approved' },
-    paid:     { bg: '#D1FAE5', color: '#065F46', label: 'Paid' },
+  const cls: Record<RmPayout['status'], string> = {
+    draft:    'badge-glass-muted',
+    approved: 'badge-glass-info',
+    paid:     'badge-glass-success',
   };
-  const s = styles[status];
+  const label: Record<RmPayout['status'], string> = {
+    draft:    'Draft',
+    approved: 'Approved',
+    paid:     'Paid',
+  };
   return (
-    <span
-      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold"
-      style={{ backgroundColor: s.bg, color: s.color }}
-    >
-      {s.label}
+    <span className={cls[status]}>
+      {label[status]}
     </span>
   );
 }
@@ -92,11 +93,11 @@ export function PayoutsPage() {
         <div>
           <h1
             className="text-3xl mb-1"
-            style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic', color: '#0B1538' }}
+            style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic', color: 'var(--text-primary)' }}
           >
             RM Payouts
           </h1>
-          <p className="text-sm" style={{ color: '#8B8B85' }}>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
             Monthly commission payouts per Relationship Manager, based on received commissions.
           </p>
         </div>
@@ -120,7 +121,7 @@ export function PayoutsPage() {
               type="month"
               value={filterPeriod}
               onChange={(e) => setFilterPeriod(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#0B1538]"
+              className="glass-inp w-full text-sm"
               placeholder="Period"
             />
           </div>
@@ -143,8 +144,8 @@ export function PayoutsPage() {
           {(filterPeriod || filterRm || filterStatus) && (
             <button
               onClick={() => { setFilterPeriod(''); setFilterRm(''); setFilterStatus(''); }}
-              className="text-xs px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
-              style={{ color: '#8B8B85' }}
+              className="text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors"
+              style={{ color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.15)' }}
             >
               Clear filters
             </button>
@@ -153,17 +154,17 @@ export function PayoutsPage() {
       )}
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="glass-panel overflow-hidden">
         {loading ? (
-          <div className="px-8 py-12 text-center text-sm" style={{ color: '#8B8B85' }}>
+          <div className="px-8 py-12 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
             Loading payouts…
           </div>
         ) : filtered.length === 0 ? (
           <div className="px-8 py-12 text-center">
-            <p className="text-sm font-medium mb-1" style={{ color: '#0A0A0A' }}>
+            <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
               {payouts.length === 0 ? 'No payouts generated yet' : 'No payouts match your filters'}
             </p>
-            <p className="text-sm" style={{ color: '#8B8B85' }}>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               {isAdmin && payouts.length === 0
                 ? 'Use "Generate Payouts" to create monthly RM payout records.'
                 : 'Try adjusting your filters.'}
@@ -172,28 +173,32 @@ export function PayoutsPage() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ backgroundColor: '#F2EFE7' }}>
-                <th className="px-5 py-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: '#0B1538' }}>RM Name</th>
-                <th className="px-5 py-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: '#0B1538' }}>Period</th>
-                <th className="px-5 py-3 text-right font-semibold text-xs uppercase tracking-wide" style={{ color: '#0B1538' }}>Total Received</th>
-                <th className="px-5 py-3 text-right font-semibold text-xs uppercase tracking-wide" style={{ color: '#0B1538' }}>Payout Amount</th>
-                <th className="px-5 py-3 text-center font-semibold text-xs uppercase tracking-wide" style={{ color: '#0B1538' }}>Status</th>
-                <th className="px-5 py-3 text-right font-semibold text-xs uppercase tracking-wide" style={{ color: '#0B1538' }}>Actions</th>
+              <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <th className="px-5 py-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>RM Name</th>
+                <th className="px-5 py-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Period</th>
+                <th className="px-5 py-3 text-right font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Total Received</th>
+                <th className="px-5 py-3 text-right font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Payout Amount</th>
+                <th className="px-5 py-3 text-center font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Status</th>
+                <th className="px-5 py-3 text-right font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filtered.map((payout, idx) => (
-                <tr key={payout.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#FAFAF7]'}>
-                  <td className="px-5 py-3 font-medium" style={{ color: '#0A0A0A' }}>
+            <tbody>
+              {filtered.map((payout) => (
+                <tr
+                  key={payout.id}
+                  className="hover:bg-white/5 transition-colors"
+                  style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                >
+                  <td className="px-5 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>
                     {payout.rmDisplayName}
                   </td>
-                  <td className="px-5 py-3 text-xs font-mono" style={{ color: '#8B8B85' }}>
+                  <td className="px-5 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
                     {formatPeriod(payout.periodStart, payout.periodEnd)}
                   </td>
-                  <td className="px-5 py-3 text-right font-semibold" style={{ color: '#0A0A0A' }}>
+                  <td className="px-5 py-3 text-right font-semibold" style={{ color: 'var(--text-primary)' }}>
                     {formatCurrency(payout.totalReceivedBase)}
                   </td>
-                  <td className="px-5 py-3 text-right font-bold" style={{ color: '#0B1538' }}>
+                  <td className="px-5 py-3 text-right font-bold" style={{ color: '#C9A961' }}>
                     {formatCurrency(payout.totalPayout)}
                   </td>
                   <td className="px-5 py-3 text-center">
@@ -202,8 +207,8 @@ export function PayoutsPage() {
                   <td className="px-5 py-3 text-right">
                     <button
                       onClick={() => navigate(`/mis/payouts/${payout.id}`)}
-                      className="text-xs px-3 py-1.5 rounded-md font-semibold border border-slate-200 hover:bg-slate-50 transition-colors"
-                      style={{ color: '#0B1538' }}
+                      className="text-xs px-3 py-1.5 rounded-md font-semibold hover:bg-white/5 transition-colors"
+                      style={{ color: '#C9A961', border: '1px solid rgba(201,169,97,0.30)' }}
                     >
                       View
                     </button>
@@ -217,11 +222,11 @@ export function PayoutsPage() {
 
       {/* Summary footer */}
       {filtered.length > 0 && (
-        <div className="mt-4 flex items-center justify-between text-xs" style={{ color: '#8B8B85' }}>
+        <div className="mt-4 flex items-center justify-between text-xs" style={{ color: 'var(--text-muted)' }}>
           <span>{filtered.length} payout{filtered.length !== 1 ? 's' : ''}</span>
           <span>
             Total:{' '}
-            <span className="font-semibold" style={{ color: '#0B1538' }}>
+            <span className="font-semibold" style={{ color: '#C9A961' }}>
               {formatCurrency(filtered.reduce((sum, p) => sum + p.totalPayout, 0))}
             </span>
           </span>

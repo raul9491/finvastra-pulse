@@ -81,13 +81,13 @@ function SlabFormModal({ slab, onClose, userId }: {
     } catch (e) { setError(e instanceof Error ? e.message : 'Failed.'); setSaving(false); }
   };
 
-  const inputClass = "w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:bg-white transition-colors";
-
   return (
     <Modal isOpen onClose={onClose} title={slab ? 'Edit Commission Slab' : 'Add Commission Slab'} size="md"
       footer={
         <>
-          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-slate-200 rounded-xl hover:bg-slate-50" style={{ color: '#2A2A2A' }}>Cancel</button>
+          <button onClick={onClose}
+            className="px-5 py-2.5 text-sm border rounded-xl hover:bg-white/5 transition-colors"
+            style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>Cancel</button>
           <button onClick={handleSubmit(onSubmit)} disabled={saving}
             className="px-7 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-50"
             style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
@@ -98,7 +98,7 @@ function SlabFormModal({ slab, onClose, userId }: {
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Bank *</label>
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Bank *</label>
             <Controller
               name="providerId"
               control={control}
@@ -112,10 +112,10 @@ function SlabFormModal({ slab, onClose, userId }: {
                 />
               )}
             />
-            {errors.providerId && <p className="mt-1 text-xs text-red-500">{errors.providerId.message}</p>}
+            {errors.providerId && <p className="mt-1 text-xs" style={{ color: '#f87171' }}>{errors.providerId.message}</p>}
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Product *</label>
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Product *</label>
             <Controller
               name="product"
               control={control}
@@ -129,29 +129,29 @@ function SlabFormModal({ slab, onClose, userId }: {
                 />
               )}
             />
-            {errors.product && <p className="mt-1 text-xs text-red-500">{errors.product.message}</p>}
+            {errors.product && <p className="mt-1 text-xs" style={{ color: '#f87171' }}>{errors.product.message}</p>}
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Min Ticket ₹ *</label>
-            <input type="number" {...register('minTicket', { valueAsNumber: true })} className={inputClass} placeholder="0" />
-            {errors.minTicket && <p className="mt-1 text-xs text-red-500">{errors.minTicket.message}</p>}
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Min Ticket ₹ *</label>
+            <input type="number" {...register('minTicket', { valueAsNumber: true })} className="glass-inp w-full text-sm" placeholder="0" />
+            {errors.minTicket && <p className="mt-1 text-xs" style={{ color: '#f87171' }}>{errors.minTicket.message}</p>}
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Max Ticket ₹ (blank = no limit)</label>
-            <input type="number" {...register('maxTicket', { setValueAs: v => v === '' ? null : Number(v) })} className={inputClass} placeholder="No limit" />
-            {errors.maxTicket && <p className="mt-1 text-xs text-red-500">{errors.maxTicket.message}</p>}
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Max Ticket ₹ (blank = no limit)</label>
+            <input type="number" {...register('maxTicket', { setValueAs: v => v === '' ? null : Number(v) })} className="glass-inp w-full text-sm" placeholder="No limit" />
+            {errors.maxTicket && <p className="mt-1 text-xs" style={{ color: '#f87171' }}>{errors.maxTicket.message}</p>}
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4 items-end">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#8B8B85' }}>Rate Type *</label>
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Rate Type *</label>
             <div className="flex gap-4">
               {(['percentage', 'flatFee'] as const).map((rt) => (
-                <label key={rt} className="flex items-center gap-1.5 text-sm cursor-pointer" style={{ color: '#2A2A2A' }}>
+                <label key={rt} className="flex items-center gap-1.5 text-sm cursor-pointer" style={{ color: 'var(--text-primary)' }}>
                   <input type="radio" {...register('rateType')} value={rt} />
                   {rt === 'percentage' ? '% Rate' : 'Flat ₹'}
                 </label>
@@ -159,18 +159,18 @@ function SlabFormModal({ slab, onClose, userId }: {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
               {rateType === 'percentage' ? 'Rate (%)' : 'Flat Fee (₹)'} *
             </label>
             <input type="number" step="0.01" {...register('rateValue', { valueAsNumber: true })}
-              className={inputClass} placeholder={rateType === 'percentage' ? '0.50' : '5000'} />
-            {errors.rateValue && <p className="mt-1 text-xs text-red-500">{errors.rateValue.message}</p>}
+              className="glass-inp w-full text-sm" placeholder={rateType === 'percentage' ? '0.50' : '5000'} />
+            {errors.rateValue && <p className="mt-1 text-xs" style={{ color: '#f87171' }}>{errors.rateValue.message}</p>}
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#8B8B85' }}>Basis On *</label>
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Basis On *</label>
             <div className="flex gap-4">
               {(['disbursed', 'sanctioned'] as const).map((b) => (
-                <label key={b} className="flex items-center gap-1.5 text-sm cursor-pointer capitalize" style={{ color: '#2A2A2A' }}>
+                <label key={b} className="flex items-center gap-1.5 text-sm cursor-pointer capitalize" style={{ color: 'var(--text-primary)' }}>
                   <input type="radio" {...register('basisOn')} value={b} /> {b}
                 </label>
               ))}
@@ -180,20 +180,20 @@ function SlabFormModal({ slab, onClose, userId }: {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Effective From *</label>
-            <input type="date" {...register('effectiveFrom')} className={inputClass} />
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Effective From *</label>
+            <input type="date" {...register('effectiveFrom')} className="glass-inp w-full text-sm" />
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Effective To (blank = open-ended)</label>
-            <input type="date" {...register('effectiveTo', { setValueAs: v => v === '' ? null : v })} className={inputClass} />
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Effective To (blank = open-ended)</label>
+            <input type="date" {...register('effectiveTo', { setValueAs: v => v === '' ? null : v })} className="glass-inp w-full text-sm" />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Notes</label>
-          <input type="text" {...register('notes')} className={inputClass} placeholder="Optional" />
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Notes</label>
+          <input type="text" {...register('notes')} className="glass-inp w-full text-sm" placeholder="Optional" />
         </div>
-        {error && <p className="text-sm text-red-500">{error}</p>}
+        {error && <p className="text-sm" style={{ color: '#f87171' }}>{error}</p>}
       </div>
     </Modal>
   );
@@ -223,7 +223,9 @@ function CopyBankModal({ onClose, userId }: { onClose: () => void; userId: strin
         <button onClick={onClose} className="px-6 py-2.5 text-sm font-semibold rounded-xl" style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>Done</button>
       ) : (
         <>
-          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-slate-200 rounded-xl" style={{ color: '#2A2A2A' }}>Cancel</button>
+          <button onClick={onClose}
+            className="px-5 py-2.5 text-sm border rounded-xl hover:bg-white/5 transition-colors"
+            style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>Cancel</button>
           <button onClick={handleCopy} disabled={!from || !to || from === to || saving}
             className="px-6 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-50" style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
             {saving ? 'Copying…' : 'Copy Active Slabs'}
@@ -231,12 +233,12 @@ function CopyBankModal({ onClose, userId }: { onClose: () => void; userId: strin
         </>
       )}>
       {result ? (
-        <p className="text-sm" style={{ color: result.startsWith('Error') ? '#EF4444' : '#166534' }}>{result}</p>
+        <p className="text-sm" style={{ color: result.startsWith('Error') ? '#f87171' : '#34d399' }}>{result}</p>
       ) : (
         <div className="space-y-4">
-          <p className="text-sm" style={{ color: '#8B8B85' }}>Creates copies of all active slabs from the source bank under the target bank.</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Creates copies of all active slabs from the source bank under the target bank.</p>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>From Bank</label>
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>From Bank</label>
             <SearchableSelect
               options={banks.map((b) => ({ value: b.id, label: b.name }))}
               value={from}
@@ -246,7 +248,7 @@ function CopyBankModal({ onClose, userId }: { onClose: () => void; userId: strin
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>To Bank</label>
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>To Bank</label>
             <SearchableSelect
               options={banks.filter((b) => b.id !== from).map((b) => ({ value: b.id, label: b.name }))}
               value={to}
@@ -303,17 +305,17 @@ export function CommissionSlabsPage() {
       <div>
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+            <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
               Commission Slabs
             </h2>
-            <p className="text-sm" style={{ color: '#8B8B85' }}>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               {slabs.filter(s => s.active).length} active — admin only
             </p>
           </div>
           <div className="flex gap-2">
             <button onClick={() => setCopyModalOpen(true)}
-              className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
-              style={{ color: '#2A2A2A' }}>
+              className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg border transition-colors hover:bg-white/5"
+              style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.15)' }}>
               <Copy size={14} /> Copy Bank
             </button>
             <button onClick={openCreate}
@@ -335,22 +337,24 @@ export function CommissionSlabsPage() {
             onChange={(v) => setFilterBank(v)}
             label="Filter by bank"
           />
-          <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: '#2A2A2A' }}>
+          <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-primary)' }}>
             <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
             Show inactive
           </label>
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="glass-panel overflow-hidden">
           {loading ? (
-            <div className="animate-pulse divide-y divide-slate-100">
-              {[...Array(4)].map((_, i) => <div key={i} className="h-12 bg-slate-50" />)}
+            <div className="animate-pulse">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-12" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.02)' }} />
+              ))}
             </div>
           ) : filtered.length === 0 ? (
             <div className="py-16 text-center">
-              <p className="text-sm" style={{ color: '#8B8B85' }}>No slabs match your filters.</p>
-              <button onClick={openCreate} className="mt-2 text-sm font-semibold underline" style={{ color: '#0B1538' }}>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No slabs match your filters.</p>
+              <button onClick={openCreate} className="mt-2 text-sm font-semibold hover:underline" style={{ color: '#C9A961' }}>
                 Add the first slab →
               </button>
             </div>
@@ -358,38 +362,38 @@ export function CommissionSlabsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr style={{ backgroundColor: '#FAFAF7', borderBottom: '1px solid #E2E8F0' }}>
+                  <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                     {['Bank', 'Product', 'Ticket Range', 'Rate', 'Basis', 'Effective', 'Active', ''].map((h) => (
-                      <th key={h} className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>{h}</th>
+                      <th key={h} className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((s) => (
-                    <tr key={s.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3 text-sm font-medium" style={{ color: '#0A0A0A' }}>
+                    <tr key={s.id} className="hover:bg-white/5 transition-colors"
+                      style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <td className="px-4 py-3 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                         {providerMap.get(s.providerId) ?? s.providerId.slice(0, 8)}
                       </td>
-                      <td className="px-4 py-3 text-sm" style={{ color: '#2A2A2A' }}>{s.product}</td>
-                      <td className="px-4 py-3 text-sm" style={{ color: '#2A2A2A' }}>
+                      <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-primary)' }}>{s.product}</td>
+                      <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-primary)' }}>
                         {fmtTicket(s.minTicket)} – {fmtTicket(s.maxTicket)}
                       </td>
-                      <td className="px-4 py-3 text-sm font-semibold" style={{ color: '#0A0A0A' }}>{fmtRate(s)}</td>
-                      <td className="px-4 py-3 text-sm capitalize" style={{ color: '#2A2A2A' }}>{s.basisOn}</td>
-                      <td className="px-4 py-3 text-xs" style={{ color: '#8B8B85' }}>
+                      <td className="px-4 py-3 text-sm font-semibold" style={{ color: '#C9A961' }}>{fmtRate(s)}</td>
+                      <td className="px-4 py-3 text-sm capitalize" style={{ color: 'var(--text-muted)' }}>{s.basisOn}</td>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
                         {fmtDate(s.effectiveFrom)} – {fmtDate(s.effectiveTo)}
                       </td>
                       <td className="px-4 py-3">
                         <button
                           onClick={() => toggleSlabActive(s.id, !s.active, user!.uid)}
-                          className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                          style={{ backgroundColor: s.active ? '#F0FDF4' : '#F1F5F9', color: s.active ? '#166534' : '#64748B' }}
+                          className={s.active ? 'badge-glass-success' : 'badge-glass-muted'}
                         >
                           {s.active ? 'Active' : 'Inactive'}
                         </button>
                       </td>
                       <td className="px-4 py-3">
-                        <button onClick={() => openEdit(s)} className="p-1.5 text-slate-400 hover:text-slate-700 transition-colors">
+                        <button onClick={() => openEdit(s)} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}>
                           <Edit2 size={14} />
                         </button>
                       </td>

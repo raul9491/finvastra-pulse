@@ -30,37 +30,37 @@ export function CommissionDashboardCard() {
   const label = isAdmin ? 'Total expected this month' : 'Your expected commission this month';
 
   if (loading) {
-    return <div className="h-28 bg-white rounded-2xl border border-slate-200 animate-pulse" />;
+    return <div className="h-28 glass-panel animate-pulse" />;
   }
 
   return (
     <button
       onClick={() => navigate('/crm/commissions')}
-      className="group w-full text-left bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-md transition-all"
+      className="group w-full text-left glass-panel glass-card p-6 hover:bg-white/5 transition-all"
     >
       <div className="flex items-start justify-between mb-4">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
             Commissions
           </p>
-          <p className="text-sm" style={{ color: '#8B8B85' }}>{label}</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{label}</p>
         </div>
-        <ChevronRight size={16} className="text-slate-300 group-hover:text-slate-500 transition-colors mt-1" />
+        <ChevronRight size={16} style={{ color: 'var(--text-dim)' }} className="group-hover:opacity-100 transition-opacity mt-1" />
       </div>
 
       <div className="flex items-end gap-6">
         <div>
-          <p className="text-2xl font-bold" style={{ color: '#0B1538' }}>
+          <p className="text-2xl font-bold" style={{ color: '#C9A961' }}>
             ₹{expected.toLocaleString('en-IN')}
           </p>
-          <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>expected ({pendingCount} pending)</p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>expected ({pendingCount} pending)</p>
         </div>
         {received > 0 && (
           <div>
-            <p className="text-lg font-semibold" style={{ color: '#166534' }}>
+            <p className="text-lg font-semibold" style={{ color: '#34d399' }}>
               ₹{received.toLocaleString('en-IN')}
             </p>
-            <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>received</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>received</p>
           </div>
         )}
       </div>

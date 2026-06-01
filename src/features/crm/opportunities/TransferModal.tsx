@@ -62,8 +62,8 @@ export function TransferModal({ isOpen, onClose, leadId, opportunityId, opportun
       <button
         onClick={onClose}
         disabled={submitting}
-        className="px-4 py-2 text-sm border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
-        style={{ color: '#2A2A2A' }}
+        className="px-4 py-2 text-sm border rounded-lg hover:bg-white/5 transition-colors disabled:opacity-50"
+        style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}
       >
         Cancel
       </button>
@@ -88,7 +88,7 @@ export function TransferModal({ isOpen, onClose, leadId, opportunityId, opportun
     >
       {success ? (
         <div className="py-6 text-center">
-          <p className="text-sm font-semibold" style={{ color: '#166534' }}>
+          <p className="text-sm font-semibold" style={{ color: 'var(--status-success)' }}>
             Opportunity transferred successfully.
           </p>
         </div>
@@ -97,18 +97,18 @@ export function TransferModal({ isOpen, onClose, leadId, opportunityId, opportun
           {loading ? (
             <div className="space-y-2">
               {[1, 2].map((i) => (
-                <div key={i} className="h-14 bg-slate-100 rounded-lg animate-pulse" />
+                <div key={i} className="h-14 rounded-lg animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
               ))}
             </div>
           ) : specialists.length === 0 ? (
             <div className="rounded-lg px-4 py-5 text-sm text-center"
-              style={{ backgroundColor: '#FFF7ED', color: '#9A3412', border: '1px solid #FED7AA' }}>
+              style={{ backgroundColor: 'rgba(251,146,60,0.10)', color: '#fb923c', border: '1px solid rgba(251,146,60,0.25)' }}>
               No {VERTICAL_LABELS[opportunityType].toLowerCase()} specialists available.
               Ask admin to assign a Lead Convertor with the {VERTICAL_LABELS[opportunityType]} vertical.
             </div>
           ) : (
             <>
-              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
                 Select Specialist
               </p>
               <div className="space-y-2">
@@ -121,21 +121,18 @@ export function TransferModal({ isOpen, onClose, leadId, opportunityId, opportun
                       className="w-full text-left px-4 py-3 rounded-lg border transition-all"
                       style={
                         isSelected
-                          ? { backgroundColor: '#EFF6FF', borderColor: '#1D4ED8', color: '#1D4ED8' }
-                          : { backgroundColor: '#FAFAF7', borderColor: '#E2E8F0', color: '#0A0A0A' }
+                          ? { backgroundColor: 'rgba(96,165,250,0.15)', borderColor: '#60a5fa', color: '#60a5fa' }
+                          : { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.10)', color: 'var(--text-primary)' }
                       }
                     >
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-semibold">{specialist.displayName}</p>
-                          <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>
+                          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                             {specialist.designation ?? 'Specialist'}
                           </p>
                         </div>
-                        <span
-                          className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
-                          style={{ backgroundColor: '#F0FDF4', color: '#166534' }}
-                        >
+                        <span className="badge-glass-success">
                           {VERTICAL_LABELS[opportunityType]}
                         </span>
                       </div>
@@ -145,7 +142,7 @@ export function TransferModal({ isOpen, onClose, leadId, opportunityId, opportun
               </div>
 
               <div>
-                <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>
+                <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
                   Transfer Note (optional)
                 </p>
                 <input
@@ -153,8 +150,7 @@ export function TransferModal({ isOpen, onClose, leadId, opportunityId, opportun
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Add a handoff note…"
-                  className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-100 transition-colors"
-                  style={{ color: '#0A0A0A' }}
+                  className="glass-inp w-full text-sm"
                 />
               </div>
             </>
@@ -162,7 +158,7 @@ export function TransferModal({ isOpen, onClose, leadId, opportunityId, opportun
 
           {error && (
             <p className="text-xs font-medium px-3 py-2 rounded-lg"
-              style={{ backgroundColor: '#FFF1F2', color: '#9F1239' }}>
+              style={{ backgroundColor: 'rgba(248,113,113,0.10)', color: '#f87171', border: '1px solid rgba(248,113,113,0.20)' }}>
               {error}
             </p>
           )}

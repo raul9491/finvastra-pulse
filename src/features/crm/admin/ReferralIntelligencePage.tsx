@@ -134,32 +134,32 @@ export function ReferralIntelligencePage() {
             fontFamily: '"Fraunces", Georgia, serif',
             fontStyle: 'italic',
             fontWeight: 300,
-            color: '#0A0A0A',
+            color: 'var(--text-primary)',
           }}
         >
           Referral Intelligence
         </h2>
-        <p className="text-sm" style={{ color: '#8B8B85' }}>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Performance by referrer — all time
         </p>
       </div>
 
       {loading ? (
         <div className="animate-pulse space-y-3">
-          <div className="h-64 bg-slate-100 rounded-2xl" />
+          <div className="h-64 rounded-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
         </div>
       ) : rows.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
-          <p className="text-sm" style={{ color: '#8B8B85' }}>
+        <div className="glass-panel p-12 text-center">
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
             No referral leads found. Referral leads show up here once created with source = Referral.
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="glass-panel overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100">
+                <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                   {[
                     '#',
                     'Referrer Name',
@@ -173,7 +173,7 @@ export function ReferralIntelligencePage() {
                     <th
                       key={h}
                       className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest"
-                      style={{ color: '#8B8B85' }}
+                      style={{ color: 'var(--text-muted)' }}
                     >
                       {h}
                     </th>
@@ -193,9 +193,10 @@ export function ReferralIntelligencePage() {
                   return (
                     <tr
                       key={r.name}
-                      className="border-b border-slate-50 hover:bg-slate-50 transition-colors"
+                      className="hover:bg-white/5 transition-colors"
+                      style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
                     >
-                      <td className="px-4 py-3 text-center" style={{ color: '#8B8B85' }}>
+                      <td className="px-4 py-3 text-center" style={{ color: 'var(--text-muted)' }}>
                         {isTopThree ? (
                           <span title="Top 3 by conversion rate">&#x1F451;</span>
                         ) : (
@@ -204,14 +205,14 @@ export function ReferralIntelligencePage() {
                       </td>
                       <td
                         className="px-4 py-3 font-medium"
-                        style={{ color: '#0A0A0A' }}
+                        style={{ color: 'var(--text-primary)' }}
                       >
                         {r.name}
                       </td>
-                      <td className="px-4 py-3 text-right" style={{ color: '#2A2A2A' }}>
+                      <td className="px-4 py-3 text-right" style={{ color: 'var(--text-primary)' }}>
                         {r.leads.length}
                       </td>
-                      <td className="px-4 py-3 text-right" style={{ color: '#2A2A2A' }}>
+                      <td className="px-4 py-3 text-right" style={{ color: 'var(--text-primary)' }}>
                         {r.converted}
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -220,24 +221,24 @@ export function ReferralIntelligencePage() {
                           style={{
                             color:
                               rate >= 60
-                                ? '#166534'
+                                ? '#34d399'
                                 : rate >= 30
-                                ? '#9A3412'
-                                : '#2A2A2A',
+                                ? '#C9A961'
+                                : 'var(--text-primary)',
                           }}
                         >
                           {rate}%
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap" style={{ color: '#2A2A2A' }}>
+                      <td className="px-4 py-3 text-right whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                         {r.totalDealSize > 0
                           ? `₹${r.totalDealSize.toLocaleString('en-IN')}`
                           : '—'}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap" style={{ color: '#2A2A2A' }}>
+                      <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                         {first ? format(first, 'dd MMM yyyy') : '—'}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap" style={{ color: '#2A2A2A' }}>
+                      <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                         {last ? format(last, 'dd MMM yyyy') : '—'}
                       </td>
                     </tr>

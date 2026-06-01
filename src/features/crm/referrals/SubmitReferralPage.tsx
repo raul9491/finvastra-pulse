@@ -8,15 +8,12 @@ import { useAuth } from '../../auth/AuthContext';
 
 type FieldKey = 'displayName' | 'phone' | 'consentMethod';
 
-const baseInp =
-  'w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-white transition-colors';
-
 function inp(fieldErrors: Record<string, string>, field?: FieldKey) {
-  return `${baseInp} ${
-    field && fieldErrors[field]
-      ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30'
-      : 'border-slate-200 focus:ring-[#C9A961]/40'
-  }`;
+  const base = 'glass-inp w-full text-sm';
+  if (field && fieldErrors[field]) {
+    return `${base} border-red-400/60`;
+  }
+  return base;
 }
 
 function fLabel(
@@ -27,11 +24,11 @@ function fLabel(
 ) {
   return (
     <label className="block text-xs font-semibold uppercase tracking-wider mb-1"
-      style={{ color: field && fieldErrors[field] ? '#DC2626' : '#8B8B85' }}>
+      style={{ color: field && fieldErrors[field] ? '#f87171' : 'var(--text-muted)' }}>
       {text}
-      {required && <span className="text-red-500 ml-0.5">*</span>}
+      {required && <span className="ml-0.5" style={{ color: '#f87171' }}>*</span>}
       {field && fieldErrors[field] && (
-        <span className="ml-2 text-red-500 font-medium normal-case tracking-normal">
+        <span className="ml-2 font-medium normal-case tracking-normal" style={{ color: '#f87171' }}>
           — {fieldErrors[field]}
         </span>
       )}
@@ -129,17 +126,20 @@ export function SubmitReferralPage() {
     }
   };
 
+  // suppress unused warning
+  void profile;
+
   // ── Success screen ─────────────────────────────────────────────────────────
   if (success) {
     return (
       <div className="max-w-lg mx-auto pt-12 text-center space-y-5">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full"
-          style={{ backgroundColor: '#D1FAE5' }}>
-          <CheckCircle2 size={32} style={{ color: '#059669' }} />
+          style={{ backgroundColor: 'rgba(52,211,153,0.15)' }}>
+          <CheckCircle2 size={32} style={{ color: '#34d399' }} />
         </div>
-        <h2 className="text-xl font-bold" style={{ color: '#0A0A0A' }}>Lead submitted!</h2>
-        <p className="text-sm" style={{ color: '#8B8B85' }}>
-          <strong>{form.displayName}</strong> has been added to the referral queue. A tele-caller
+        <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Lead submitted!</h2>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+          <strong style={{ color: 'var(--text-primary)' }}>{form.displayName}</strong> has been added to the referral queue. A tele-caller
           will pick it up shortly. You can track progress from My Referrals.
         </p>
         <div className="flex items-center justify-center gap-3 pt-2">
@@ -148,8 +148,8 @@ export function SubmitReferralPage() {
               setSuccess(false);
               setForm({ displayName: '', phone: '', email: '', productInterest: '', notes: '', consentMethod: '', consentGiven: false });
             }}
-            className="text-sm px-4 py-2 rounded-lg border transition-colors hover:bg-slate-50"
-            style={{ borderColor: '#E2E8F0', color: '#2A2A2A' }}
+            className="text-sm px-4 py-2 rounded-lg border transition-colors hover:bg-white/5"
+            style={{ borderColor: 'rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
           >
             Submit another
           </button>
@@ -173,15 +173,15 @@ export function SubmitReferralPage() {
       <button
         onClick={() => navigate('/crm/referrals')}
         className="flex items-center gap-1.5 text-sm transition-opacity hover:opacity-70"
-        style={{ color: '#8B8B85' }}
+        style={{ color: 'var(--text-muted)' }}
       >
         <ArrowLeft size={15} />
         My Referrals
       </button>
 
       <div>
-        <h2 className="text-2xl font-bold" style={{ color: '#0A0A0A' }}>Submit a Lead</h2>
-        <p className="text-sm mt-0.5" style={{ color: '#8B8B85' }}>
+        <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Submit a Lead</h2>
+        <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
           Know someone who needs a loan, insurance, or investment? Fill in their details and
           our team will follow up.
         </p>
@@ -190,12 +190,12 @@ export function SubmitReferralPage() {
       {/* Server error */}
       {serverError && (
         <div className="px-4 py-3 rounded-lg text-sm"
-          style={{ backgroundColor: '#FEE2E2', color: '#991B1B', border: '1px solid #FCA5A5' }}>
+          style={{ backgroundColor: 'rgba(248,113,113,0.10)', color: '#f87171', border: '1px solid rgba(248,113,113,0.25)' }}>
           {serverError}
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-5">
+      <div className="glass-panel p-6 space-y-5">
 
         {/* Full Name */}
         <div>
@@ -226,7 +226,7 @@ export function SubmitReferralPage() {
         <div>
           {fLabel(fieldErrors, 'Email (optional)', undefined, false)}
           <input
-            className={`${baseInp} border-slate-200 focus:ring-[#C9A961]/40`}
+            className="glass-inp w-full text-sm"
             placeholder="customer@email.com"
             type="email"
             value={form.email}
@@ -238,13 +238,13 @@ export function SubmitReferralPage() {
         <div>
           {fLabel(fieldErrors, 'Product Interest (optional)', undefined, false)}
           <input
-            className={`${baseInp} border-slate-200 focus:ring-[#C9A961]/40`}
+            className="glass-inp w-full text-sm"
             placeholder='e.g. Home Loan ₹50L, Term Insurance, SIP'
             value={form.productInterest}
             onChange={(e) => set('productInterest', e.target.value)}
             maxLength={100}
           />
-          <p className="text-[11px] mt-1" style={{ color: '#8B8B85' }}>
+          <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
             Stored as a tag on the lead — helps the tele-caller prioritise.
           </p>
         </div>
@@ -253,7 +253,7 @@ export function SubmitReferralPage() {
         <div>
           {fLabel(fieldErrors, 'Notes for tele-caller (optional)', undefined, false)}
           <textarea
-            className={`${baseInp} border-slate-200 focus:ring-[#C9A961]/40 resize-none`}
+            className="glass-inp w-full text-sm resize-none"
             placeholder="Any context — urgency, existing relationship, specific requirements…"
             rows={3}
             value={form.notes}
@@ -281,7 +281,10 @@ export function SubmitReferralPage() {
         {/* Consent checkbox */}
         <div
           className="flex items-start gap-3 px-4 py-3 rounded-lg"
-          style={{ backgroundColor: '#FFFBEB', border: `1px solid ${fieldErrors.consentGiven ? '#FCA5A5' : '#FDE68A'}` }}
+          style={{
+            backgroundColor: 'rgba(201,169,97,0.08)',
+            border: `1px solid ${fieldErrors.consentGiven ? 'rgba(248,113,113,0.40)' : 'rgba(201,169,97,0.25)'}`,
+          }}
         >
           <input
             id="consent"
@@ -293,14 +296,14 @@ export function SubmitReferralPage() {
                 setFieldErrors((prev) => { const n = { ...prev }; delete n.consentGiven; return n; });
               }
             }}
-            className="mt-0.5 accent-amber-600"
+            className="mt-0.5 accent-amber-500"
           />
-          <label htmlFor="consent" className="text-xs leading-relaxed" style={{ color: '#92400E' }}>
+          <label htmlFor="consent" className="text-xs leading-relaxed" style={{ color: '#C9A961' }}>
             <strong>DPDP Act 2023 compliance:</strong> I confirm that the customer has given explicit
             consent for Finvastra to contact them and process their personal data for the purpose
             of financial product enquiry.
             {fieldErrors.consentGiven && (
-              <span className="block mt-1 text-red-500 font-medium">
+              <span className="block mt-1 font-medium" style={{ color: '#f87171' }}>
                 — {fieldErrors.consentGiven}
               </span>
             )}

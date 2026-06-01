@@ -57,15 +57,12 @@ export function QuickContactBar({ lead, oppId }: Props) {
   };
 
   return (
-    <div
-      className="sticky top-0 z-10 rounded-xl border border-slate-200 overflow-hidden"
-      style={{ backgroundColor: '#FFFFFF' }}
-    >
+    <div className="sticky top-0 z-10 glass-panel overflow-hidden">
       {/* ─── Action bar ─────────────────────────────────────────────────── */}
-      <div className="px-6 py-3 flex items-center gap-3 flex-wrap border-b border-slate-100">
+      <div className="px-6 py-3 flex items-center gap-3 flex-wrap" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <span
           className="text-[10px] font-semibold uppercase tracking-widest"
-          style={{ color: '#8B8B85' }}
+          style={{ color: 'var(--text-muted)' }}
         >
           Quick Actions
         </span>
@@ -75,8 +72,8 @@ export function QuickContactBar({ lead, oppId }: Props) {
           onClick={() => oppId && setLogOpen((v) => !v)}
           disabled={!oppId}
           title={oppId ? 'Log a call outcome' : 'No open opportunity on this lead'}
-          className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 font-medium transition-colors hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
-          style={{ color: '#0B1538' }}
+          className="text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.12)' }}
         >
           📞 Log Call
         </button>
@@ -86,8 +83,8 @@ export function QuickContactBar({ lead, oppId }: Props) {
           href={waLink}
           target="_blank"
           rel="noreferrer"
-          className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 font-medium transition-colors hover:bg-slate-50 no-underline"
-          style={{ color: '#0B1538' }}
+          className="text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors hover:bg-white/5 no-underline"
+          style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.12)' }}
         >
           💬 WhatsApp
         </a>
@@ -96,8 +93,8 @@ export function QuickContactBar({ lead, oppId }: Props) {
         {lead.email && (
           <a
             href={`mailto:${lead.email}`}
-            className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 font-medium transition-colors hover:bg-slate-50 no-underline"
-            style={{ color: '#0B1538' }}
+            className="text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors hover:bg-white/5 no-underline"
+            style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.12)' }}
           >
             ✉ Email
           </a>
@@ -106,9 +103,9 @@ export function QuickContactBar({ lead, oppId }: Props) {
 
       {/* ─── Inline log form ────────────────────────────────────────────── */}
       {logOpen && (
-        <div className="px-6 py-4 space-y-3" style={{ backgroundColor: '#FAFAF7' }}>
+        <div className="px-6 py-4 space-y-3" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
           {saved ? (
-            <p className="text-sm font-semibold py-1" style={{ color: '#166534' }}>
+            <p className="text-sm font-semibold py-1" style={{ color: 'var(--status-success)' }}>
               Saved ✓
             </p>
           ) : (
@@ -117,15 +114,14 @@ export function QuickContactBar({ lead, oppId }: Props) {
                 <div>
                   <p
                     className="text-[10px] font-bold uppercase tracking-widest mb-1"
-                    style={{ color: '#8B8B85' }}
+                    style={{ color: 'var(--text-muted)' }}
                   >
                     Outcome
                   </p>
                   <select
                     value={outcome}
                     onChange={(e) => setOutcome(e.target.value)}
-                    className="text-sm px-3 py-1.5 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-blue-100 transition-colors"
-                    style={{ color: '#0A0A0A' }}
+                    className="glass-inp text-sm"
                   >
                     {CALL_OUTCOMES.map((o) => (
                       <option key={o} value={o}>{o}</option>
@@ -136,7 +132,7 @@ export function QuickContactBar({ lead, oppId }: Props) {
                 <div className="flex-1 min-w-48">
                   <p
                     className="text-[10px] font-bold uppercase tracking-widest mb-1"
-                    style={{ color: '#8B8B85' }}
+                    style={{ color: 'var(--text-muted)' }}
                   >
                     Notes (optional)
                   </p>
@@ -145,8 +141,7 @@ export function QuickContactBar({ lead, oppId }: Props) {
                     placeholder="Notes (optional)…"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    className="w-full text-sm px-3 py-1.5 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-blue-100 transition-colors"
-                    style={{ color: '#0A0A0A' }}
+                    className="glass-inp w-full text-sm"
                   />
                 </div>
 
@@ -165,8 +160,8 @@ export function QuickContactBar({ lead, oppId }: Props) {
                       setNotes('');
                       setOutcome(CALL_OUTCOMES[0]);
                     }}
-                    className="text-sm px-3 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors"
-                    style={{ color: '#2A2A2A' }}
+                    className="text-sm px-3 py-1.5 border rounded-lg hover:bg-white/5 transition-colors"
+                    style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}
                   >
                     Cancel
                   </button>
@@ -176,7 +171,7 @@ export function QuickContactBar({ lead, oppId }: Props) {
               {outcome === 'Called - Not interested' && (
                 <p
                   className="text-xs px-3 py-2 rounded-lg"
-                  style={{ backgroundColor: '#FFF7ED', color: '#9A3412', border: '1px solid #FED7AA' }}
+                  style={{ backgroundColor: 'rgba(251,146,60,0.10)', color: '#fb923c', border: '1px solid rgba(251,146,60,0.25)' }}
                 >
                   Consider marking this opportunity as lost.
                 </p>

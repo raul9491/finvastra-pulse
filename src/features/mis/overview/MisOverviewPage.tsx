@@ -8,21 +8,21 @@ import type { CommissionStatement, RmPayout } from '../../../types';
 
 // ─── Status pill ─────────────────────────────────────────────────────────────
 
-const STATUS_PILL_CLASSES: Record<string, string> = {
-  imported:     'bg-slate-100 text-slate-700',
-  reconciling:  'bg-blue-50 text-blue-700',
-  reconciled:   'bg-green-50 text-green-700',
-  discrepancy:  'bg-amber-50 text-amber-700',
-  closed:       'bg-slate-50 text-slate-500',
-  draft:        'bg-slate-100 text-slate-700',
-  approved:     'bg-green-50 text-green-700',
-  paid:         'bg-emerald-50 text-emerald-700',
+const STATUS_BADGE_CLASS: Record<string, string> = {
+  imported:     'badge-glass-muted',
+  reconciling:  'badge-glass-info',
+  reconciled:   'badge-glass-success',
+  discrepancy:  'badge-glass-warning',
+  closed:       'badge-glass-muted',
+  draft:        'badge-glass-muted',
+  approved:     'badge-glass-success',
+  paid:         'badge-glass-success',
 };
 
 function StatusPill({ status }: { status: string }) {
-  const cls = STATUS_PILL_CLASSES[status] ?? 'bg-slate-100 text-slate-600';
+  const cls = STATUS_BADGE_CLASS[status] ?? 'badge-glass-muted';
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold capitalize ${cls}`}>
+    <span className={`${cls} capitalize`}>
       {status.replace('_', ' ')}
     </span>
   );
@@ -37,10 +37,10 @@ interface SummaryCardProps {
 
 function SummaryCard({ label, children }: SummaryCardProps) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+    <div className="glass-panel glass-card p-6">
       <p
         className="text-xs font-bold uppercase tracking-widest mb-3"
-        style={{ color: '#8B8B85' }}
+        style={{ color: 'var(--text-muted)' }}
       >
         {label}
       </p>
@@ -93,11 +93,11 @@ export function MisOverviewPage() {
         <div>
           <h1
             className="text-3xl mb-1"
-            style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic', fontWeight: 300, color: '#0B1538' }}
+            style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}
           >
             Management Information System
           </h1>
-          <p className="text-sm" style={{ color: '#8B8B85' }}>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
             Commission reconciliation and RM payout overview.
           </p>
         </div>
@@ -105,28 +105,35 @@ export function MisOverviewPage() {
           type="month"
           value={selectedMonth}
           onChange={(e) => setSelectedMonth(e.target.value)}
-          className="px-3.5 py-2.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-navy bg-white"
+          className="glass-inp text-sm"
         />
       </div>
 
       {/* ── Seed slabs banner — dev only ── */}
       {import.meta.env.DEV && isAdmin && slabs.length === 0 && !seedSuccess && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-4 mb-6">
-          <p className="text-sm flex-1" style={{ color: '#92400E' }}>
+        <div
+          className="rounded-xl p-4 flex items-center gap-4 mb-6"
+          style={{ backgroundColor: 'rgba(201,169,97,0.08)', border: '1px solid rgba(201,169,97,0.25)' }}
+        >
+          <p className="text-sm flex-1" style={{ color: '#C9A961' }}>
             No payout slabs configured. Seed default slabs (20% generator, 50% convertor, 30% manager)?
           </p>
           <button
             onClick={handleSeedSlabs}
             disabled={seeding}
-            className="px-4 py-2 text-sm font-semibold rounded-lg bg-amber-700 text-white disabled:opacity-50 hover:bg-amber-800 transition-colors shrink-0"
+            className="px-4 py-2 text-sm font-semibold rounded-lg disabled:opacity-50 transition-colors shrink-0"
+            style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
           >
             {seeding ? 'Seeding…' : 'Seed Defaults'}
           </button>
         </div>
       )}
       {seedSuccess && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
-          <p className="text-sm text-green-800 font-medium">Default payout slabs seeded successfully.</p>
+        <div
+          className="rounded-xl p-4 mb-6"
+          style={{ backgroundColor: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.25)' }}
+        >
+          <p className="text-sm font-medium" style={{ color: '#34d399' }}>Default payout slabs seeded successfully.</p>
         </div>
       )}
 
@@ -136,29 +143,29 @@ export function MisOverviewPage() {
         {/* Card 1 — Commission received vs expected */}
         <SummaryCard label="Commission">
           {data.loading ? (
-            <div className="h-10 bg-slate-100 rounded animate-pulse" />
+            <div className="h-10 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
           ) : (
             <div className="flex items-end gap-3 flex-wrap">
               <div>
-                <p className="text-[10px] uppercase" style={{ color: '#8B8B85' }}>Received</p>
+                <p className="text-[10px] uppercase" style={{ color: 'var(--text-muted)' }}>Received</p>
                 <p
                   className="text-2xl font-semibold"
-                  style={{ color: data.variance >= 0 ? '#166534' : '#9F1239' }}
+                  style={{ color: data.variance >= 0 ? '#34d399' : '#f87171' }}
                 >
                   {formatLakhs(data.currentMonthReceived)}
                 </p>
               </div>
-              <span style={{ color: '#8B8B85' }}>vs</span>
+              <span style={{ color: 'var(--text-muted)' }}>vs</span>
               <div>
-                <p className="text-[10px] uppercase" style={{ color: '#8B8B85' }}>Expected</p>
-                <p className="text-lg font-medium" style={{ color: '#2A2A2A' }}>
+                <p className="text-[10px] uppercase" style={{ color: 'var(--text-muted)' }}>Expected</p>
+                <p className="text-lg font-medium" style={{ color: 'var(--text-primary)' }}>
                   {formatLakhs(data.currentMonthExpected)}
                 </p>
               </div>
               {data.variance !== 0 && (
                 <span
                   className="text-xs font-semibold"
-                  style={{ color: data.variance > 0 ? '#166534' : '#9F1239' }}
+                  style={{ color: data.variance > 0 ? '#34d399' : '#f87171' }}
                 >
                   {data.variance > 0 ? '+' : ''}₹{Math.abs(data.variance).toLocaleString('en-IN')}
                 </span>
@@ -170,13 +177,13 @@ export function MisOverviewPage() {
         {/* Card 2 — Open Statements */}
         <SummaryCard label="Open Statements">
           {data.loading ? (
-            <div className="h-10 bg-slate-100 rounded animate-pulse" />
+            <div className="h-10 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
           ) : (
             <div>
-              <p className="text-4xl font-bold" style={{ color: '#0B1538' }}>
+              <p className="text-4xl font-bold" style={{ color: 'var(--text-primary)' }}>
                 {data.openStatements}
               </p>
-              <p className="text-xs mt-1" style={{ color: '#8B8B85' }}>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
                 awaiting reconciliation
               </p>
             </div>
@@ -186,13 +193,13 @@ export function MisOverviewPage() {
         {/* Card 3 — Pending RM Payouts */}
         <SummaryCard label="Pending RM Payouts">
           {data.loading ? (
-            <div className="h-10 bg-slate-100 rounded animate-pulse" />
+            <div className="h-10 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
           ) : (
             <div>
-              <p className="text-2xl font-semibold" style={{ color: '#0B1538' }}>
+              <p className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {formatLakhs(data.pendingPayoutsAmount)}
               </p>
-              <p className="text-xs mt-1" style={{ color: '#8B8B85' }}>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
                 draft + approved
               </p>
             </div>
@@ -202,16 +209,16 @@ export function MisOverviewPage() {
         {/* Card 4 — Discrepancies */}
         <SummaryCard label="Discrepancies">
           {data.loading ? (
-            <div className="h-10 bg-slate-100 rounded animate-pulse" />
+            <div className="h-10 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
           ) : (
             <div>
               <p
                 className="text-4xl font-bold"
-                style={{ color: data.discrepancyCount > 0 ? '#9F1239' : '#166534' }}
+                style={{ color: data.discrepancyCount > 0 ? '#f87171' : '#34d399' }}
               >
                 {data.discrepancyCount}
               </p>
-              <p className="text-xs mt-1" style={{ color: '#8B8B85' }}>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
                 {data.discrepancyCount === 0 ? 'all clear' : 'lines need review'}
               </p>
             </div>
@@ -223,9 +230,12 @@ export function MisOverviewPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         {/* Recent statements */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-            <p className="text-sm font-semibold" style={{ color: '#0B1538' }}>Recent Statements</p>
+        <div className="glass-panel overflow-hidden">
+          <div
+            className="flex items-center justify-between px-5 py-4"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Recent Statements</p>
             <button
               onClick={() => navigate('/mis/statements')}
               className="text-xs font-medium hover:underline"
@@ -238,39 +248,40 @@ export function MisOverviewPage() {
           {data.loading ? (
             <div className="p-5 space-y-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-8 bg-slate-100 rounded animate-pulse" />
+                <div key={i} className="h-8 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
               ))}
             </div>
           ) : data.recentStatements.length === 0 ? (
-            <p className="px-5 py-8 text-sm text-center" style={{ color: '#8B8B85' }}>
+            <p className="px-5 py-8 text-sm text-center" style={{ color: 'var(--text-muted)' }}>
               No statements imported yet.
             </p>
           ) : (
             <table className="w-full text-xs">
               <thead>
-                <tr className="bg-paper">
-                  <th className="px-4 py-2.5 text-left font-semibold text-navy">Provider</th>
-                  <th className="px-4 py-2.5 text-left font-semibold text-navy">Period</th>
-                  <th className="px-4 py-2.5 text-right font-semibold text-navy">Total</th>
-                  <th className="px-4 py-2.5 text-left font-semibold text-navy">Status</th>
+                <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  <th className="px-4 py-2.5 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Provider</th>
+                  <th className="px-4 py-2.5 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Period</th>
+                  <th className="px-4 py-2.5 text-right font-semibold" style={{ color: 'var(--text-muted)' }}>Total</th>
+                  <th className="px-4 py-2.5 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {data.recentStatements.map((stmt: CommissionStatement, i: number) => (
+                {data.recentStatements.map((stmt: CommissionStatement) => (
                   <tr
                     key={stmt.id}
                     onClick={() => navigate(`/mis/statements/${stmt.id}`)}
-                    className={`cursor-pointer hover:bg-paper-warm transition-colors ${i % 2 === 0 ? 'bg-white' : 'bg-paper'}`}
+                    className="cursor-pointer hover:bg-white/5 transition-colors"
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
                   >
-                    <td className="px-4 py-2.5 font-medium text-ink truncate max-w-30">
+                    <td className="px-4 py-2.5 font-medium truncate max-w-30" style={{ color: 'var(--text-primary)' }}>
                       {stmt.providerId}
                     </td>
-                    <td className="px-4 py-2.5 text-ink-soft">
+                    <td className="px-4 py-2.5" style={{ color: 'var(--text-muted)' }}>
                       {stmt.periodStart === stmt.periodEnd
                         ? stmt.periodStart
                         : `${stmt.periodStart} – ${stmt.periodEnd}`}
                     </td>
-                    <td className="px-4 py-2.5 text-right font-medium text-ink">
+                    <td className="px-4 py-2.5 text-right font-medium" style={{ color: 'var(--text-primary)' }}>
                       ₹{stmt.totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                     </td>
                     <td className="px-4 py-2.5">
@@ -284,9 +295,12 @@ export function MisOverviewPage() {
         </div>
 
         {/* Recent payouts */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-            <p className="text-sm font-semibold" style={{ color: '#0B1538' }}>Recent RM Payouts</p>
+        <div className="glass-panel overflow-hidden">
+          <div
+            className="flex items-center justify-between px-5 py-4"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Recent RM Payouts</p>
             <button
               onClick={() => navigate('/mis/payouts')}
               className="text-xs font-medium hover:underline"
@@ -299,38 +313,39 @@ export function MisOverviewPage() {
           {data.loading ? (
             <div className="p-5 space-y-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-8 bg-slate-100 rounded animate-pulse" />
+                <div key={i} className="h-8 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
               ))}
             </div>
           ) : data.recentPayouts.length === 0 ? (
-            <p className="px-5 py-8 text-sm text-center" style={{ color: '#8B8B85' }}>
+            <p className="px-5 py-8 text-sm text-center" style={{ color: 'var(--text-muted)' }}>
               No payouts generated yet.
             </p>
           ) : (
             <table className="w-full text-xs">
               <thead>
-                <tr className="bg-paper">
-                  <th className="px-4 py-2.5 text-left font-semibold text-navy">RM</th>
-                  <th className="px-4 py-2.5 text-left font-semibold text-navy">Period</th>
-                  <th className="px-4 py-2.5 text-right font-semibold text-navy">Amount</th>
-                  <th className="px-4 py-2.5 text-left font-semibold text-navy">Status</th>
+                <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  <th className="px-4 py-2.5 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>RM</th>
+                  <th className="px-4 py-2.5 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Period</th>
+                  <th className="px-4 py-2.5 text-right font-semibold" style={{ color: 'var(--text-muted)' }}>Amount</th>
+                  <th className="px-4 py-2.5 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {data.recentPayouts.map((payout: RmPayout, i: number) => (
+                {data.recentPayouts.map((payout: RmPayout) => (
                   <tr
                     key={payout.id}
-                    className={i % 2 === 0 ? 'bg-white' : 'bg-paper'}
+                    className="hover:bg-white/5 transition-colors"
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
                   >
-                    <td className="px-4 py-2.5 font-medium text-ink truncate max-w-30">
+                    <td className="px-4 py-2.5 font-medium truncate max-w-30" style={{ color: 'var(--text-primary)' }}>
                       {payout.rmDisplayName}
                     </td>
-                    <td className="px-4 py-2.5 text-ink-soft">
+                    <td className="px-4 py-2.5" style={{ color: 'var(--text-muted)' }}>
                       {payout.periodStart === payout.periodEnd
                         ? payout.periodStart
                         : `${payout.periodStart} – ${payout.periodEnd}`}
                     </td>
-                    <td className="px-4 py-2.5 text-right font-medium text-ink">
+                    <td className="px-4 py-2.5 text-right font-medium" style={{ color: 'var(--text-primary)' }}>
                       ₹{payout.totalPayout.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                     </td>
                     <td className="px-4 py-2.5">

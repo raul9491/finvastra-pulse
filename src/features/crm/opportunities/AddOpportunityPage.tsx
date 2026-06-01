@@ -11,16 +11,16 @@ import type { OpportunityType, OpportunityTypeConfig, CustomFieldDefinition, Con
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TYPE_META: Record<OpportunityType, { label: string; icon: React.ReactNode; desc: string; color: string }> = {
-  loan:      { label: 'Loan',      icon: <Briefcase size={28} />,   desc: 'Home, Personal, Business, LAP, Auto and more', color: '#1D4ED8' },
-  wealth:    { label: 'Wealth',    icon: <TrendingUp size={28} />,  desc: 'Mutual Funds, PMS, AIF, Bonds, NPS and more',  color: '#166534' },
-  insurance: { label: 'Insurance', icon: <ShieldCheck size={28} />, desc: 'Term, Health, Motor, Travel and more',         color: '#9A3412' },
+  loan:      { label: 'Loan',      icon: <Briefcase size={28} />,   desc: 'Home, Personal, Business, LAP, Auto and more', color: '#60a5fa' },
+  wealth:    { label: 'Wealth',    icon: <TrendingUp size={28} />,  desc: 'Mutual Funds, PMS, AIF, Bonds, NPS and more',  color: '#34d399' },
+  insurance: { label: 'Insurance', icon: <ShieldCheck size={28} />, desc: 'Term, Health, Motor, Travel and more',         color: '#fb923c' },
 };
 
 const TYPE_BG: Record<OpportunityType, string> = {
-  loan: '#EFF6FF', wealth: '#F0FDF4', insurance: '#FFF7ED',
+  loan: 'rgba(96,165,250,0.10)', wealth: 'rgba(52,211,153,0.10)', insurance: 'rgba(251,146,60,0.10)',
 };
 
-const inputClass  = "w-full px-3.5 py-3 text-sm bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 transition-colors";
+const inputClass  = "glass-inp w-full text-sm";
 const selectClass = inputClass + " cursor-pointer";
 
 // ─── Dynamic field renderer (loan custom fields) ─────────────────────────────
@@ -50,14 +50,14 @@ function DynamicFieldRenderer({
           <label
             htmlFor={`cf-${fieldKey}`}
             className="block text-xs font-semibold uppercase tracking-widest mb-1.5"
-            style={{ color: '#8B8B85' }}
+            style={{ color: 'var(--text-muted)' }}
           >
             {def.label}{def.required && ' *'}
           </label>
         );
 
         const error = errors[fieldKey]
-          ? <p className="mt-1 text-xs text-red-500">{errors[fieldKey]}</p>
+          ? <p className="mt-1 text-xs text-red-400">{errors[fieldKey]}</p>
           : null;
 
         if (def.type === 'boolean') {
@@ -71,7 +71,7 @@ function DynamicFieldRenderer({
                   onChange={(e) => onChange({ ...values, [fieldKey]: e.target.checked })}
                   className="w-4 h-4 rounded border-slate-300 accent-navy"
                 />
-                <span style={{ color: '#0A0A0A' }}>{def.label}</span>
+                <span style={{ color: 'var(--text-primary)' }}>{def.label}</span>
               </label>
               {error}
             </div>
@@ -155,15 +155,15 @@ function DynamicFieldRenderer({
 function Step1({ onSelect }: { onSelect: (t: OpportunityType) => void }) {
   return (
     <div>
-      <p className="text-sm mb-6" style={{ color: '#8B8B85' }}>What type of opportunity is this?</p>
+      <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>What type of opportunity is this?</p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {(Object.entries(TYPE_META) as [OpportunityType, typeof TYPE_META[OpportunityType]][]).map(([type, meta]) => (
           <button key={type} onClick={() => onSelect(type)}
-            className="group text-left rounded-2xl border p-6 transition-all hover:shadow-md hover:-translate-y-0.5"
-            style={{ backgroundColor: TYPE_BG[type], borderColor: meta.color + '30' }}>
+            className="group text-left rounded-2xl p-6 transition-all hover:shadow-md hover:-translate-y-0.5"
+            style={{ backgroundColor: TYPE_BG[type], border: `1px solid ${meta.color}30` }}>
             <div className="mb-4" style={{ color: meta.color }}>{meta.icon}</div>
-            <h3 className="text-lg font-bold mb-1" style={{ color: '#0A0A0A' }}>{meta.label}</h3>
-            <p className="text-xs leading-relaxed" style={{ color: '#8B8B85' }}>{meta.desc}</p>
+            <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>{meta.label}</h3>
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>{meta.desc}</p>
             <div className="flex items-center gap-1 mt-4 text-xs font-semibold" style={{ color: meta.color }}>
               Select <ChevronRight size={12} />
             </div>
@@ -190,23 +190,23 @@ function Step2({
   return (
     <div>
       <button onClick={onBack} className="flex items-center gap-1.5 text-sm mb-4 transition-opacity hover:opacity-70"
-        style={{ color: '#8B8B85' }}>
+        style={{ color: 'var(--text-muted)' }}>
         <ArrowLeft size={14} /> Back
       </button>
-      <p className="text-sm mb-6" style={{ color: '#8B8B85' }}>
+      <p className="text-sm mb-6" style={{ color: 'var(--text-muted)' }}>
         Choose a <strong style={{ color: meta.color }}>{meta.label}</strong> product:
       </p>
 
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 animate-pulse">
-          {[...Array(6)].map((_, i) => <div key={i} className="h-12 bg-slate-100 rounded-xl" />)}
+          {[...Array(6)].map((_, i) => <div key={i} className="h-12 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />)}
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {filtered.map((tc) => (
             <button key={tc.id} onClick={() => onSelect(tc)}
-              className="text-left px-4 py-3 rounded-xl border bg-white hover:shadow-sm hover:border-slate-300 transition-all text-sm font-medium"
-              style={{ color: '#0A0A0A', borderColor: '#E2E8F0' }}>
+              className="text-left px-4 py-3 rounded-xl glass-panel hover:shadow-sm transition-all text-sm font-medium"
+              style={{ color: 'var(--text-primary)' }}>
               {tc.name}
             </button>
           ))}
@@ -266,50 +266,50 @@ function Step3({
     <form onSubmit={handleSubmit(handleFormSubmit)} noValidate>
       <button type="button" onClick={onBack}
         className="flex items-center gap-1.5 text-sm mb-6 transition-opacity hover:opacity-70"
-        style={{ color: '#8B8B85' }}>
+        style={{ color: 'var(--text-muted)' }}>
         <ArrowLeft size={14} /> Back
       </button>
 
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5 mb-6">
+      <div className="glass-panel p-6 space-y-5 mb-6">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-xs font-bold uppercase tracking-widest px-2.5 py-1 rounded-full"
             style={{ backgroundColor: TYPE_BG[selectedTypeConfig.businessLine], color: TYPE_META[selectedTypeConfig.businessLine].color }}>
             {selectedTypeConfig.businessLine}
           </span>
-          <span className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>{selectedTypeConfig.name}</span>
+          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{selectedTypeConfig.name}</span>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
               Deal Size ₹ *
             </label>
             <input {...register('dealSize', { valueAsNumber: true })} type="number"
               placeholder="500000" min={1} className={inputClass} />
-            {errors.dealSize && <p className="mt-1 text-xs text-red-500">{errors.dealSize.message}</p>}
+            {errors.dealSize && <p className="mt-1 text-xs text-red-400">{errors.dealSize.message}</p>}
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
               Assign to RM *
             </label>
             <select {...register('ownerId')} className={selectClass}>
               <option value="">Select RM…</option>
               {employees.map((e) => <option key={e.userId} value={e.userId}>{e.displayName}</option>)}
             </select>
-            {errors.ownerId && <p className="mt-1 text-xs text-red-500">{errors.ownerId.message}</p>}
+            {errors.ownerId && <p className="mt-1 text-xs text-red-400">{errors.ownerId.message}</p>}
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
             Expected Close Date
           </label>
           <input {...register('expectedCloseDate')} type="date" className={inputClass} />
         </div>
 
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
             Notes
           </label>
           <textarea {...register('notes')} rows={3} placeholder="Any context about this opportunity…"
@@ -319,8 +319,8 @@ function Step3({
         {selectedTypeConfig.businessLine === 'loan' &&
           selectedTypeConfig.customFieldsSchema &&
           Object.keys(selectedTypeConfig.customFieldsSchema).length > 0 && (
-          <div className="border-t border-slate-100 pt-5 space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+          <div className="pt-5 space-y-4" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
               Loan Details
             </h3>
             <DynamicFieldRenderer
@@ -334,14 +334,14 @@ function Step3({
         )}
 
         <div className="pt-1">
-          <p className="text-xs" style={{ color: '#8B8B85' }}>
-            Starting stage: <strong style={{ color: '#0A0A0A' }}>{selectedTypeConfig.stages[0]}</strong>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            Starting stage: <strong style={{ color: 'var(--text-primary)' }}>{selectedTypeConfig.stages[0]}</strong>
           </p>
         </div>
       </div>
 
       {submitError && (
-        <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600">
+        <div className="mb-4 px-4 py-3 rounded-lg text-sm" style={{ backgroundColor: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.25)', color: '#f87171' }}>
           {submitError}
         </div>
       )}
@@ -404,11 +404,11 @@ export function AddOpportunityPage() {
     <div className="max-w-2xl mx-auto">
       <button onClick={() => navigate(`/crm/leads/${leadId}`)}
         className="flex items-center gap-1.5 text-sm mb-6 transition-opacity hover:opacity-70"
-        style={{ color: '#8B8B85' }}>
+        style={{ color: 'var(--text-muted)' }}>
         <ArrowLeft size={15} /> Back to Customer
       </button>
 
-      <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+      <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
         Add Opportunity
       </h2>
 
@@ -423,15 +423,15 @@ export function AddOpportunityPage() {
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
                   style={{
-                    backgroundColor: done ? '#0B1538' : active ? '#C9A961' : '#E2E8F0',
-                    color: done ? '#C9A961' : active ? '#0B1538' : '#94A3B8',
+                    backgroundColor: done ? '#C9A961' : active ? '#C9A961' : 'rgba(255,255,255,0.08)',
+                    color: done ? '#0B1538' : active ? '#0B1538' : 'var(--text-dim)',
                   }}>
                   {done ? '✓' : n}
                 </div>
-                <span className="text-xs font-medium" style={{ color: active ? '#0A0A0A' : '#94A3B8' }}>{label}</span>
+                <span className="text-xs font-medium" style={{ color: active ? 'var(--text-primary)' : 'var(--text-dim)' }}>{label}</span>
               </div>
               {i < STEP_LABELS.length - 1 && (
-                <div className="w-8 h-px mx-2" style={{ backgroundColor: done ? '#0B1538' : '#E2E8F0' }} />
+                <div className="w-8 h-px mx-2" style={{ backgroundColor: done ? '#C9A961' : 'rgba(255,255,255,0.08)' }} />
               )}
             </div>
           );

@@ -10,17 +10,17 @@ import type { SearchableSelectOption } from '../../../components/ui/SearchableSe
 
 // ─── Status pill ─────────────────────────────────────────────────────────────
 
-const STATUS_STYLES: Record<CommissionStatementStatus, string> = {
-  imported:    'bg-slate-100 text-slate-700',
-  reconciling: 'bg-blue-50 text-blue-700',
-  reconciled:  'bg-green-50 text-green-700',
-  discrepancy: 'bg-amber-50 text-amber-700',
-  closed:      'bg-slate-50 text-slate-500',
+const STATUS_BADGE: Record<CommissionStatementStatus, string> = {
+  imported:    'badge-glass-muted',
+  reconciling: 'badge-glass-info',
+  reconciled:  'badge-glass-success',
+  discrepancy: 'badge-glass-warning',
+  closed:      'badge-glass-muted',
 };
 
 function StatusPill({ status }: { status: CommissionStatementStatus }) {
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold capitalize ${STATUS_STYLES[status]}`}>
+    <span className={`${STATUS_BADGE[status]} capitalize`}>
       {status}
     </span>
   );
@@ -95,18 +95,19 @@ export function StatementsPage() {
         <div>
           <h1
             className="text-3xl mb-1"
-            style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic', color: '#0B1538' }}
+            style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic', color: 'var(--text-primary)' }}
           >
             Commission Statements
           </h1>
-          <p className="text-sm" style={{ color: '#8B8B85' }}>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
             All imported commission statements from banks, AMCs and insurers.
           </p>
         </div>
         {isAdmin && (
           <button
             onClick={() => navigate('/mis/statements/upload')}
-            className="shrink-0 px-4 py-2.5 rounded-lg text-sm font-semibold bg-[#0B1538] text-white hover:bg-[#1B2A4E] transition-colors"
+            className="shrink-0 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+            style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
           >
             + Upload New Statement
           </button>
@@ -128,12 +129,12 @@ export function StatementsPage() {
           type="month"
           value={filterPeriod}
           onChange={(e) => setFilterPeriod(e.target.value)}
-          className="px-3.5 py-2.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#0B1538] bg-white"
+          className="glass-inp text-sm"
         />
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value as CommissionStatementStatus | '')}
-          className="px-3.5 py-2.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#0B1538] bg-white"
+          className="glass-inp text-sm"
         >
           <option value="">All statuses</option>
           <option value="imported">Imported</option>
@@ -146,7 +147,7 @@ export function StatementsPage() {
           <button
             onClick={() => { setFilterProviderId(''); setFilterPeriod(''); setFilterStatus(''); }}
             className="text-xs font-medium underline"
-            style={{ color: '#8B8B85' }}
+            style={{ color: 'var(--text-muted)' }}
           >
             Clear filters
           </button>
@@ -155,22 +156,25 @@ export function StatementsPage() {
 
       {/* ── Error banner ── */}
       {closeError && (
-        <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+        <div
+          className="mb-4 px-4 py-3 rounded-xl text-sm"
+          style={{ backgroundColor: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.25)', color: '#f87171' }}
+        >
           {closeError}
         </div>
       )}
 
       {/* ── Table ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="glass-panel overflow-hidden">
         {loading ? (
           <div className="p-6 space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-10 bg-slate-100 rounded animate-pulse" />
+              <div key={i} className="h-10 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
             ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className="py-16 text-center">
-            <p className="text-sm font-medium" style={{ color: '#2A2A2A' }}>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
               {statements.length === 0
                 ? 'No statements imported yet. Upload your first statement.'
                 : 'No statements match the selected filters.'}
@@ -178,7 +182,8 @@ export function StatementsPage() {
             {isAdmin && statements.length === 0 && (
               <button
                 onClick={() => navigate('/mis/statements/upload')}
-                className="mt-4 px-4 py-2 text-sm font-semibold rounded-lg bg-[#C9A961] text-[#0B1538] hover:bg-[#E5C97C] transition-colors"
+                className="mt-4 px-4 py-2 text-sm font-semibold rounded-lg transition-colors"
+                style={{ backgroundColor: '#C9A961', color: '#0B1538' }}
               >
                 Upload Statement
               </button>
@@ -188,56 +193,57 @@ export function StatementsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="bg-[#F2EFE7]">
-                  <th className="px-4 py-3 text-left font-semibold text-navy">Provider</th>
-                  <th className="px-4 py-3 text-left font-semibold text-navy">Period</th>
-                  <th className="px-4 py-3 text-left font-semibold text-navy">Received Date</th>
-                  <th className="px-4 py-3 text-right font-semibold text-navy">Total</th>
-                  <th className="px-4 py-3 text-right font-semibold text-navy">Lines</th>
-                  <th className="px-4 py-3 text-right font-semibold text-navy">Matched</th>
-                  <th className="px-4 py-3 text-right font-semibold text-navy">Disc.</th>
-                  <th className="px-4 py-3 text-right font-semibold text-navy">Unmatched</th>
-                  <th className="px-4 py-3 text-left font-semibold text-navy">Status</th>
-                  <th className="px-4 py-3 text-left font-semibold text-navy">Actions</th>
+                <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Provider</th>
+                  <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Period</th>
+                  <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Received Date</th>
+                  <th className="px-4 py-3 text-right font-semibold" style={{ color: 'var(--text-muted)' }}>Total</th>
+                  <th className="px-4 py-3 text-right font-semibold" style={{ color: 'var(--text-muted)' }}>Lines</th>
+                  <th className="px-4 py-3 text-right font-semibold" style={{ color: 'var(--text-muted)' }}>Matched</th>
+                  <th className="px-4 py-3 text-right font-semibold" style={{ color: 'var(--text-muted)' }}>Disc.</th>
+                  <th className="px-4 py-3 text-right font-semibold" style={{ color: 'var(--text-muted)' }}>Unmatched</th>
+                  <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Status</th>
+                  <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((stmt: CommissionStatement, i: number) => {
+                {filtered.map((stmt: CommissionStatement) => {
                   const providerName = providerMap.get(stmt.providerId) ?? stmt.providerId;
                   return (
                     <tr
                       key={stmt.id}
-                      className={i % 2 === 0 ? 'bg-white' : 'bg-[#FAFAF7]'}
+                      className="hover:bg-white/5 transition-colors"
+                      style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
                     >
-                      <td className="px-4 py-3 font-medium text-[#0A0A0A] max-w-[140px] truncate">
+                      <td className="px-4 py-3 font-medium max-w-[140px] truncate" style={{ color: 'var(--text-primary)' }}>
                         {providerName}
                       </td>
-                      <td className="px-4 py-3 text-[#2A2A2A] whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                         {stmt.periodStart === stmt.periodEnd
                           ? stmt.periodStart
                           : `${stmt.periodStart} – ${stmt.periodEnd}`}
                       </td>
-                      <td className="px-4 py-3 text-[#2A2A2A] whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                         {stmt.receivedDate
                           ? format(new Date(stmt.receivedDate), 'd MMM yyyy')
                           : '—'}
                       </td>
-                      <td className="px-4 py-3 text-right font-medium text-[#0A0A0A] whitespace-nowrap">
+                      <td className="px-4 py-3 text-right font-medium whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                         ₹{stmt.totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                       </td>
-                      <td className="px-4 py-3 text-right text-[#2A2A2A]">{stmt.lineCount}</td>
-                      <td className="px-4 py-3 text-right" style={{ color: '#166534' }}>
+                      <td className="px-4 py-3 text-right" style={{ color: 'var(--text-primary)' }}>{stmt.lineCount}</td>
+                      <td className="px-4 py-3 text-right" style={{ color: '#34d399' }}>
                         {stmt.matchedCount}
                       </td>
                       <td
                         className="px-4 py-3 text-right font-medium"
-                        style={{ color: stmt.discrepancyCount > 0 ? '#92400E' : '#2A2A2A' }}
+                        style={{ color: stmt.discrepancyCount > 0 ? '#C9A961' : 'var(--text-primary)' }}
                       >
                         {stmt.discrepancyCount}
                       </td>
                       <td
                         className="px-4 py-3 text-right font-medium"
-                        style={{ color: stmt.unmatchedCount > 0 ? '#9F1239' : '#2A2A2A' }}
+                        style={{ color: stmt.unmatchedCount > 0 ? '#f87171' : 'var(--text-primary)' }}
                       >
                         {stmt.unmatchedCount}
                       </td>
@@ -249,20 +255,23 @@ export function StatementsPage() {
                           {isAdmin && (
                             <button
                               onClick={() => navigate(`/mis/reconciliation?statementId=${stmt.id}`)}
-                              className="text-[11px] font-semibold text-[#0B1538] hover:underline whitespace-nowrap"
+                              className="text-[11px] font-semibold hover:underline whitespace-nowrap"
+                              style={{ color: '#60a5fa' }}
                             >
                               Reconcile
                             </button>
                           )}
                           <button
                             onClick={() => navigate(`/mis/statements/${stmt.id}`)}
-                            className="text-[11px] font-semibold text-[#C9A961] hover:underline"
+                            className="text-[11px] font-semibold hover:underline"
+                            style={{ color: '#C9A961' }}
                           >
                             View
                           </button>
                           <button
                             onClick={() => handleExport(stmt)}
-                            className="text-[11px] font-semibold text-[#8B8B85] hover:underline"
+                            className="text-[11px] font-semibold hover:underline"
+                            style={{ color: 'var(--text-muted)' }}
                           >
                             Export CSV
                           </button>
@@ -270,7 +279,8 @@ export function StatementsPage() {
                             <button
                               onClick={() => handleClose(stmt)}
                               disabled={closingId === stmt.id}
-                              className="text-[11px] font-semibold text-slate-500 hover:underline disabled:opacity-50"
+                              className="text-[11px] font-semibold hover:underline disabled:opacity-50"
+                              style={{ color: 'var(--text-muted)' }}
                             >
                               {closingId === stmt.id ? 'Closing…' : 'Close'}
                             </button>

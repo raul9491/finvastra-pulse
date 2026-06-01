@@ -8,33 +8,33 @@ import type { StatementLine, StatementLineStatus, CommissionStatementStatus } fr
 
 // ─── Status pills ─────────────────────────────────────────────────────────────
 
-const LINE_STATUS_STYLES: Record<StatementLineStatus, string> = {
-  unmatched:   'bg-red-50 text-red-700',
-  matched:     'bg-green-50 text-green-700',
-  discrepancy: 'bg-amber-50 text-amber-700',
-  unknown:     'bg-slate-100 text-slate-600',
-  excluded:    'bg-slate-50 text-slate-400',
+const LINE_STATUS_BADGE: Record<StatementLineStatus, string> = {
+  unmatched:   'badge-glass-danger',
+  matched:     'badge-glass-success',
+  discrepancy: 'badge-glass-warning',
+  unknown:     'badge-glass-muted',
+  excluded:    'badge-glass-muted',
 };
 
 function LinePill({ status }: { status: StatementLineStatus }) {
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold capitalize ${LINE_STATUS_STYLES[status]}`}>
+    <span className={`${LINE_STATUS_BADGE[status]} capitalize`}>
       {status}
     </span>
   );
 }
 
-const STMT_STATUS_STYLES: Record<CommissionStatementStatus, string> = {
-  imported:    'bg-slate-100 text-slate-700',
-  reconciling: 'bg-blue-50 text-blue-700',
-  reconciled:  'bg-green-50 text-green-700',
-  discrepancy: 'bg-amber-50 text-amber-700',
-  closed:      'bg-slate-50 text-slate-500',
+const STMT_STATUS_BADGE: Record<CommissionStatementStatus, string> = {
+  imported:    'badge-glass-muted',
+  reconciling: 'badge-glass-info',
+  reconciled:  'badge-glass-success',
+  discrepancy: 'badge-glass-warning',
+  closed:      'badge-glass-muted',
 };
 
 function StatementStatusPill({ status }: { status: CommissionStatementStatus }) {
   return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${STMT_STATUS_STYLES[status]}`}>
+    <span className={`${STMT_STATUS_BADGE[status]} capitalize`}>
       {status}
     </span>
   );
@@ -54,7 +54,7 @@ function StatBadge({
   return (
     <div className="flex items-center gap-1.5">
       <span className="text-sm font-bold" style={{ color }}>{count}</span>
-      <span className="text-xs" style={{ color: '#8B8B85' }}>{label}</span>
+      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{label}</span>
     </div>
   );
 }
@@ -86,9 +86,9 @@ export function StatementDetailPage() {
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-4">
-        <div className="h-6 w-32 bg-slate-100 rounded animate-pulse" />
-        <div className="h-40 bg-slate-100 rounded-2xl animate-pulse" />
-        <div className="h-64 bg-slate-100 rounded-2xl animate-pulse" />
+        <div className="h-6 w-32 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+        <div className="h-40 rounded-2xl animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+        <div className="h-64 rounded-2xl animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
       </div>
     );
   }
@@ -100,11 +100,11 @@ export function StatementDetailPage() {
         <button
           onClick={() => navigate('/mis/statements')}
           className="text-sm font-medium hover:underline mb-6 flex items-center gap-1"
-          style={{ color: '#8B8B85' }}
+          style={{ color: 'var(--text-muted)' }}
         >
           ← Statements
         </button>
-        <p className="text-sm text-center py-16" style={{ color: '#8B8B85' }}>
+        <p className="text-sm text-center py-16" style={{ color: 'var(--text-muted)' }}>
           Statement not found.
         </p>
       </div>
@@ -118,22 +118,22 @@ export function StatementDetailPage() {
       <button
         onClick={() => navigate('/mis/statements')}
         className="text-sm font-medium hover:underline mb-6 flex items-center gap-1"
-        style={{ color: '#8B8B85' }}
+        style={{ color: 'var(--text-muted)' }}
       >
         ← Commission Statements
       </button>
 
       {/* ── Header card ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-6">
+      <div className="glass-panel p-6 mb-6">
         <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
           <div>
             <h1
               className="text-2xl mb-1"
-              style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic', color: '#0B1538' }}
+              style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic', color: 'var(--text-primary)' }}
             >
               {providerName}
             </h1>
-            <p className="text-sm" style={{ color: '#8B8B85' }}>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               {statement.fileName}
             </p>
           </div>
@@ -142,55 +142,57 @@ export function StatementDetailPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Period</p>
-            <p className="font-medium text-[#0A0A0A]">
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Period</p>
+            <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
               {statement.periodStart === statement.periodEnd
                 ? statement.periodStart
                 : `${statement.periodStart} – ${statement.periodEnd}`}
             </p>
           </div>
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Statement Date</p>
-            <p className="font-medium text-[#0A0A0A]">
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Statement Date</p>
+            <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
               {statement.statementDate
                 ? format(new Date(statement.statementDate), 'd MMM yyyy')
                 : '—'}
             </p>
           </div>
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Received</p>
-            <p className="font-medium text-[#0A0A0A]">
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Received</p>
+            <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
               {statement.receivedDate
                 ? format(new Date(statement.receivedDate), 'd MMM yyyy')
                 : '—'}
             </p>
           </div>
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Source</p>
-            <p className="font-medium text-[#0A0A0A] capitalize">{statement.source}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Source</p>
+            <p className="font-medium capitalize" style={{ color: 'var(--text-primary)' }}>{statement.source}</p>
           </div>
         </div>
       </div>
 
       {/* ── Summary row ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-6 py-4 mb-6 flex items-center gap-6 flex-wrap">
-        <StatBadge label="Matched"     count={statement.matchedCount}     color="#166534" />
-        <div className="w-px h-4 bg-slate-200" />
-        <StatBadge label="Discrepancy" count={statement.discrepancyCount} color="#92400E" />
-        <div className="w-px h-4 bg-slate-200" />
-        <StatBadge label="Unmatched"   count={statement.unmatchedCount}   color="#9F1239" />
-        <div className="w-px h-4 bg-slate-200" />
+      <div
+        className="glass-panel px-6 py-4 mb-6 flex items-center gap-6 flex-wrap"
+      >
+        <StatBadge label="Matched"     count={statement.matchedCount}     color="#34d399" />
+        <div className="w-px h-4" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} />
+        <StatBadge label="Discrepancy" count={statement.discrepancyCount} color="#C9A961" />
+        <div className="w-px h-4" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} />
+        <StatBadge label="Unmatched"   count={statement.unmatchedCount}   color="#f87171" />
+        <div className="w-px h-4" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} />
         <StatBadge
           label="Excluded"
           count={lines.filter((l) => l.status === 'excluded').length}
-          color="#8B8B85"
+          color="var(--text-muted)"
         />
-        <div className="w-px h-4 bg-slate-200" />
+        <div className="w-px h-4" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} />
         <div className="flex items-center gap-1.5">
-          <span className="text-sm font-bold" style={{ color: '#0B1538' }}>
+          <span className="text-sm font-bold" style={{ color: '#C9A961' }}>
             ₹{statement.totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
           </span>
-          <span className="text-xs" style={{ color: '#8B8B85' }}>Total</span>
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Total</span>
         </div>
 
         {/* Action buttons pushed to right */}
@@ -198,14 +200,16 @@ export function StatementDetailPage() {
           {isAdmin && (
             <button
               onClick={() => navigate(`/mis/reconciliation?statementId=${statement.id}`)}
-              className="px-4 py-2 text-sm font-semibold rounded-lg bg-[#C9A961] text-[#0B1538] hover:bg-[#E5C97C] transition-colors"
+              className="px-4 py-2 text-sm font-semibold rounded-lg transition-colors"
+              style={{ backgroundColor: '#C9A961', color: '#0B1538' }}
             >
               Go to Reconciliation
             </button>
           )}
           <button
             onClick={handleExport}
-            className="px-4 py-2 text-sm font-semibold rounded-lg border border-slate-200 text-[#0A0A0A] hover:bg-slate-50 transition-colors"
+            className="px-4 py-2 text-sm font-semibold rounded-lg transition-colors hover:bg-white/5"
+            style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
           >
             Export CSV
           </button>
@@ -213,52 +217,55 @@ export function StatementDetailPage() {
       </div>
 
       {/* ── Lines table ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100">
-          <p className="text-sm font-semibold" style={{ color: '#0B1538' }}>
+      <div className="glass-panel overflow-hidden">
+        <div
+          className="px-5 py-4"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
             Statement Lines
-            <span className="ml-2 text-xs font-normal" style={{ color: '#8B8B85' }}>
+            <span className="ml-2 text-xs font-normal" style={{ color: 'var(--text-muted)' }}>
               ({lines.length} line{lines.length !== 1 ? 's' : ''})
             </span>
           </p>
-          <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
             View-only. Use Reconciliation to match or edit lines.
           </p>
         </div>
 
         {lines.length === 0 ? (
-          <p className="px-5 py-10 text-sm text-center" style={{ color: '#8B8B85' }}>
+          <p className="px-5 py-10 text-sm text-center" style={{ color: 'var(--text-muted)' }}>
             No lines loaded yet.
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="bg-[#F2EFE7]">
-                  <th className="px-4 py-3 text-left font-semibold text-navy whitespace-nowrap">Date</th>
-                  <th className="px-4 py-3 text-left font-semibold text-navy">Description</th>
-                  <th className="px-4 py-3 text-right font-semibold text-navy whitespace-nowrap">Amount</th>
-                  <th className="px-4 py-3 text-left font-semibold text-navy">Status</th>
-                  <th className="px-4 py-3 text-left font-semibold text-navy whitespace-nowrap">Matched Record</th>
+                <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  <th className="px-4 py-3 text-left font-semibold whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>Date</th>
+                  <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Description</th>
+                  <th className="px-4 py-3 text-right font-semibold whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>Amount</th>
+                  <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Status</th>
+                  <th className="px-4 py-3 text-left font-semibold whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>Matched Record</th>
                 </tr>
               </thead>
               <tbody>
-                {lines.map((line: StatementLine, i: number) => (
-                  <tr key={line.id} className={i % 2 === 0 ? 'bg-white' : 'bg-[#FAFAF7]'}>
-                    <td className="px-4 py-2.5 text-[#2A2A2A] whitespace-nowrap">
+                {lines.map((line: StatementLine) => (
+                  <tr key={line.id} className="hover:bg-white/5 transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <td className="px-4 py-2.5 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                       {line.parsedDate
                         ? format(new Date(line.parsedDate), 'd MMM yyyy')
                         : line.rawDate}
                     </td>
-                    <td className="px-4 py-2.5 text-[#0A0A0A] max-w-xs">
+                    <td className="px-4 py-2.5 max-w-xs" style={{ color: 'var(--text-primary)' }}>
                       <span className="line-clamp-2">{line.rawDescription}</span>
                     </td>
-                    <td className="px-4 py-2.5 text-right font-medium text-[#0A0A0A] whitespace-nowrap">
+                    <td className="px-4 py-2.5 text-right font-medium whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                       ₹{line.parsedAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                       {line.discrepancyAmount !== null && line.discrepancyAmount !== 0 && (
                         <span
                           className="ml-1 text-[10px]"
-                          style={{ color: line.discrepancyAmount > 0 ? '#166534' : '#9F1239' }}
+                          style={{ color: line.discrepancyAmount > 0 ? '#34d399' : '#f87171' }}
                         >
                           ({line.discrepancyAmount > 0 ? '+' : ''}
                           {line.discrepancyAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })})
@@ -268,7 +275,7 @@ export function StatementDetailPage() {
                     <td className="px-4 py-2.5">
                       <LinePill status={line.status} />
                     </td>
-                    <td className="px-4 py-2.5 text-[#8B8B85] font-mono text-[10px] truncate max-w-[160px]">
+                    <td className="px-4 py-2.5 font-mono text-[10px] truncate max-w-[160px]" style={{ color: 'var(--text-muted)' }}>
                       {line.matchedCommissionRecordId ?? '—'}
                     </td>
                   </tr>

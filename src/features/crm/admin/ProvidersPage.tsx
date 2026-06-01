@@ -60,15 +60,12 @@ function SLARowEdit({
     }
   };
 
-  const inputClass =
-    'w-20 px-2 py-1 text-sm text-center bg-slate-50 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white transition-colors';
-
   return (
     <>
-      <td className="px-4 py-3 text-sm font-medium" style={{ color: '#0A0A0A' }}>
+      <td className="px-4 py-3 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
         {provider.name}
       </td>
-      <td className="px-4 py-3 text-sm" style={{ color: '#2A2A2A' }}>
+      <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>
         {PROVIDER_TYPE_LABELS[provider.type]}
       </td>
       <td className="px-4 py-3">
@@ -77,7 +74,7 @@ function SLARowEdit({
           min={1}
           value={values.submitted_to_in_review}
           onChange={(e) => setValues((v) => ({ ...v, submitted_to_in_review: Number(e.target.value) }))}
-          className={inputClass}
+          className="glass-inp w-20 text-sm text-center"
           aria-label="Submitted to In-Review days"
         />
       </td>
@@ -87,7 +84,7 @@ function SLARowEdit({
           min={1}
           value={values.in_review_to_sanctioned}
           onChange={(e) => setValues((v) => ({ ...v, in_review_to_sanctioned: Number(e.target.value) }))}
-          className={inputClass}
+          className="glass-inp w-20 text-sm text-center"
           aria-label="In-Review to Sanctioned days"
         />
       </td>
@@ -97,24 +94,26 @@ function SLARowEdit({
           min={1}
           value={values.sanctioned_to_disbursed}
           onChange={(e) => setValues((v) => ({ ...v, sanctioned_to_disbursed: Number(e.target.value) }))}
-          className={inputClass}
+          className="glass-inp w-20 text-sm text-center"
           aria-label="Sanctioned to Disbursed days"
         />
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          {error && <span className="text-xs text-red-500">{error}</span>}
+          {error && <span className="text-xs" style={{ color: '#f87171' }}>{error}</span>}
           <button
             onClick={handleSave}
             disabled={saving}
-            className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 disabled:opacity-50 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-white/5 disabled:opacity-50 transition-colors"
+            style={{ color: '#34d399' }}
             title="Save"
           >
             <Check size={14} />
           </button>
           <button
             onClick={onCancel}
-            className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+            style={{ color: 'var(--text-muted)' }}
             title="Cancel"
           >
             <X size={14} />
@@ -139,26 +138,26 @@ function SLARowRead({
 
   return (
     <>
-      <td className="px-4 py-3 text-sm font-medium" style={{ color: '#0A0A0A' }}>
+      <td className="px-4 py-3 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
         {provider.name}
       </td>
-      <td className="px-4 py-3 text-sm" style={{ color: '#2A2A2A' }}>
+      <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-muted)' }}>
         {PROVIDER_TYPE_LABELS[provider.type]}
       </td>
       {isBank ? (
         <>
-          <td className="px-4 py-3 text-sm text-center" style={{ color: '#2A2A2A' }}>
+          <td className="px-4 py-3 text-sm text-center" style={{ color: 'var(--text-primary)' }}>
             {sla.submitted_to_in_review}d
           </td>
-          <td className="px-4 py-3 text-sm text-center" style={{ color: '#2A2A2A' }}>
+          <td className="px-4 py-3 text-sm text-center" style={{ color: 'var(--text-primary)' }}>
             {sla.in_review_to_sanctioned}d
           </td>
-          <td className="px-4 py-3 text-sm text-center" style={{ color: '#2A2A2A' }}>
+          <td className="px-4 py-3 text-sm text-center" style={{ color: 'var(--text-primary)' }}>
             {sla.sanctioned_to_disbursed}d
           </td>
         </>
       ) : (
-        <td className="px-4 py-3 text-xs text-center" colSpan={3} style={{ color: '#8B8B85' }}>
+        <td className="px-4 py-3 text-xs text-center" colSpan={3} style={{ color: 'var(--text-dim)' }}>
           N/A — not a bank
         </td>
       )}
@@ -166,7 +165,8 @@ function SLARowRead({
         {isBank && (
           <button
             onClick={onEdit}
-            className="p-1.5 text-slate-400 hover:text-slate-700 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+            style={{ color: 'var(--text-muted)' }}
             title="Edit SLA config"
           >
             <Edit2 size={14} />
@@ -209,25 +209,24 @@ export function ProvidersPage() {
       <div>
         <h2
           className="text-3xl mb-1"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}
+          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}
         >
           Providers
         </h2>
-        <p className="text-sm" style={{ color: '#8B8B85' }}>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Active providers and bank SLA turnaround configuration — admin only.
         </p>
       </div>
 
       {/* Filter */}
       <div className="flex items-center gap-3">
-        <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+        <label className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
           Type
         </label>
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value as ProviderType | '')}
-          className="px-3.5 py-2 text-sm bg-white border border-slate-200 rounded-lg outline-none hover:border-slate-300 transition-colors"
-          style={{ color: filterType ? '#0A0A0A' : '#8B8B85' }}
+          className="glass-inp text-sm"
         >
           <option value="">All types</option>
           <option value="bank">Bank</option>
@@ -235,22 +234,22 @@ export function ProvidersPage() {
           <option value="life_insurer">Life Insurer</option>
           <option value="general_insurer">General Insurer</option>
         </select>
-        <span className="text-xs" style={{ color: '#8B8B85' }}>
+        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
           {filtered.length} provider{filtered.length !== 1 ? 's' : ''}
         </span>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="glass-panel overflow-hidden">
         {filtered.length === 0 ? (
           <div className="py-16 text-center">
-            <p className="text-sm" style={{ color: '#8B8B85' }}>No providers found.</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No providers found.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr style={{ backgroundColor: '#FAFAF7', borderBottom: '1px solid #E2E8F0' }}>
+                <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                   {[
                     'Provider Name',
                     'Type',
@@ -262,7 +261,7 @@ export function ProvidersPage() {
                     <th
                       key={h}
                       className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-center first:text-left"
-                      style={{ color: '#8B8B85' }}
+                      style={{ color: 'var(--text-muted)' }}
                     >
                       {h}
                     </th>
@@ -273,7 +272,8 @@ export function ProvidersPage() {
                 {filtered.map((provider) => (
                   <tr
                     key={provider.id}
-                    className="border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors"
+                    className="hover:bg-white/5 transition-colors"
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
                   >
                     {editingId === provider.id && provider.type === 'bank' ? (
                       <SLARowEdit
@@ -295,7 +295,7 @@ export function ProvidersPage() {
         )}
       </div>
 
-      <p className="text-xs" style={{ color: '#8B8B85' }}>
+      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
         SLA values are used by the Bank SLA job to flag overdue submissions. Only bank-type providers support turnaround configuration.
       </p>
     </div>

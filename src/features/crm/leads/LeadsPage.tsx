@@ -24,14 +24,14 @@ const SOURCE_LABELS: Record<LeadSource, string> = {
 
 function TableSkeleton() {
   return (
-    <div className="animate-pulse divide-y divide-slate-100">
+    <div className="animate-pulse">
       {[...Array(5)].map((_, i) => (
-        <div key={i} className="flex items-center gap-4 px-6 py-4">
-          <div className="h-4 bg-slate-200 rounded w-40" />
-          <div className="h-4 bg-slate-100 rounded w-24 ml-auto" />
-          <div className="h-4 bg-slate-100 rounded w-20" />
-          <div className="h-4 bg-slate-100 rounded w-20" />
-          <div className="h-4 bg-slate-100 rounded w-24" />
+        <div key={i} className="flex items-center gap-4 px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="h-4 rounded w-40" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+          <div className="h-4 rounded w-24 ml-auto" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+          <div className="h-4 rounded w-20" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+          <div className="h-4 rounded w-20" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+          <div className="h-4 rounded w-24" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
         </div>
       ))}
     </div>
@@ -84,7 +84,7 @@ export function LeadsPage() {
   const rmName = (uid: string) =>
     employees.find((e) => e.userId === uid)?.displayName ?? uid.slice(0, 8);
 
-  const selectClass = "text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:outline-none";
+  const selectClass = "glass-inp text-sm w-full";
 
   // ─── Select-all toggle ────────────────────────────────────────────────────
   const allFilteredSelected =
@@ -184,10 +184,10 @@ export function LeadsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+          <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
             Customers
           </h2>
-          <p className="text-sm" style={{ color: '#8B8B85' }}>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
             {loading ? 'Loading…' : `${filtered.length} customer${filtered.length !== 1 ? 's' : ''} · each row is a person, not a deal`}
           </p>
         </div>
@@ -203,14 +203,15 @@ export function LeadsPage() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
           <input
             type="text" value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name or phone…"
-            className="text-sm border border-slate-200 rounded-lg pl-9 pr-4 py-2 bg-white focus:outline-none w-52"
+            className="glass-inp text-sm pl-9 pr-4 py-2 w-52"
           />
         </div>
-        <select className={selectClass} value={filterSource} onChange={(e) => setFilterSource(e.target.value)}>
+        <select className={selectClass} value={filterSource} onChange={(e) => setFilterSource(e.target.value)}
+          style={{ width: 'auto', minWidth: 120 }}>
           <option value="">All Sources</option>
           {(Object.keys(SOURCE_LABELS) as LeadSource[]).map((s) => (
             <option key={s} value={s}>{SOURCE_LABELS[s]}</option>
@@ -235,7 +236,7 @@ export function LeadsPage() {
             style={
               filterSource === 'employee_referral'
                 ? { backgroundColor: '#C9A961', color: '#0B1538', borderColor: '#C9A961' }
-                : { backgroundColor: '#FFFFFF', color: '#2A2A2A', borderColor: '#E2E8F0' }
+                : { backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }
             }
           >
             🔖 Referrals
@@ -244,17 +245,17 @@ export function LeadsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="glass-panel overflow-hidden">
         {loading ? (
           <TableSkeleton />
         ) : filtered.length === 0 ? (
           <div className="py-20 text-center">
-            <p className="text-lg mb-2" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', color: '#0A0A0A' }}>
+            <p className="text-lg mb-2" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', color: 'var(--text-primary)' }}>
               {leads.length === 0 ? 'No customers yet.' : 'No customers match your filters.'}
             </p>
             {leads.length === 0 && (
               <button onClick={() => navigate('/crm/leads/new')}
-                className="mt-3 text-sm font-semibold underline" style={{ color: '#0B1538' }}>
+                className="mt-3 text-sm font-semibold underline" style={{ color: '#C9A961' }}>
                 Add your first customer →
               </button>
             )}
@@ -263,7 +264,7 @@ export function LeadsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr style={{ backgroundColor: '#FAFAF7', borderBottom: '1px solid #E2E8F0' }}>
+                <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                   {/* Select-all checkbox */}
                   <th className="px-5 py-3.5 w-10">
                     <input
@@ -275,7 +276,7 @@ export function LeadsPage() {
                     />
                   </th>
                   {['Name', 'Phone', 'Source', 'Tags', 'Primary RM', 'Created'].map((h) => (
-                    <th key={h} className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>{h}</th>
+                    <th key={h} className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -283,7 +284,8 @@ export function LeadsPage() {
                 {filtered.map((lead: Lead) => (
                   <tr key={lead.id}
                     onClick={() => navigate(`/crm/leads/${lead.id}`)}
-                    className="cursor-pointer hover:bg-slate-50 border-b border-slate-100 last:border-0 transition-colors">
+                    className="cursor-pointer hover:bg-white/5 transition-colors"
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                     {/* Per-row checkbox — stopPropagation so clicking it doesn't navigate */}
                     <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
                       <input
@@ -295,23 +297,23 @@ export function LeadsPage() {
                       />
                     </td>
                     <td className="px-5 py-4">
-                      <p className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>{lead.displayName}</p>
+                      <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{lead.displayName}</p>
                     </td>
-                    <td className="px-5 py-4 text-sm" style={{ color: '#8B8B85' }}>{lead.phone}</td>
-                    <td className="px-5 py-4 text-sm" style={{ color: '#2A2A2A' }}>
+                    <td className="px-5 py-4 text-sm" style={{ color: 'var(--text-muted)' }}>{lead.phone}</td>
+                    <td className="px-5 py-4 text-sm" style={{ color: 'var(--text-muted)' }}>
                       {SOURCE_LABELS[lead.source] ?? lead.source}
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex flex-wrap gap-1">
                         {(lead.tags ?? []).map((tag) => (
-                          <span key={tag} className="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-600">{tag}</span>
+                          <span key={tag} className="px-2 py-0.5 rounded text-xs bg-white/8" style={{ color: 'var(--text-muted)' }}>{tag}</span>
                         ))}
                       </div>
                     </td>
-                    <td className="px-5 py-4 text-sm" style={{ color: '#2A2A2A' }}>
+                    <td className="px-5 py-4 text-sm" style={{ color: 'var(--text-muted)' }}>
                       {rmName(lead.primaryOwnerId)}
                     </td>
-                    <td className="px-5 py-4 text-xs" style={{ color: '#8B8B85' }}>
+                    <td className="px-5 py-4 text-xs" style={{ color: 'var(--text-muted)' }}>
                       {lead.createdAt?.toDate ? format(lead.createdAt.toDate(), 'dd MMM yy') : '—'}
                     </td>
                   </tr>

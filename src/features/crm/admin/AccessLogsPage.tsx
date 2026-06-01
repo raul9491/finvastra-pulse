@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useAuth } from '../../auth/AuthContext';
 import { db } from '../../../lib/firebase';
-import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import type { AccessLog, AccessLogAction } from '../../../types';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
@@ -92,21 +92,21 @@ export function AccessLogsPage() {
       {/* Page title */}
       <div>
         <h2 className="text-3xl mb-1"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
           Access Logs
         </h2>
-        <p className="text-sm" style={{ color: '#8B8B85' }}>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Sensitive data access events — PAN views, phone reveals, document downloads.
         </p>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5">
-        <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#8B8B85' }}>Filters</p>
+      <div className="glass-panel p-5">
+        <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Filters</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Actor filter */}
           <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: '#2A2A2A' }}>Actor</label>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-primary)' }}>Actor</label>
             <SearchableSelect
               options={actorOptions}
               value={actorFilter}
@@ -118,12 +118,11 @@ export function AccessLogsPage() {
 
           {/* Action filter */}
           <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: '#2A2A2A' }}>Action</label>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-primary)' }}>Action</label>
             <select
               value={actionFilter}
               onChange={(e) => setActionFilter(e.target.value as '' | AccessLogAction)}
-              className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-lg outline-none hover:border-slate-300 transition-colors"
-              style={{ color: actionFilter ? '#0A0A0A' : '#8B8B85' }}
+              className="glass-inp w-full text-sm"
             >
               <option value="">All actions</option>
               <option value="pan_view">PAN View</option>
@@ -134,39 +133,37 @@ export function AccessLogsPage() {
 
           {/* From date */}
           <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: '#2A2A2A' }}>From</label>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-primary)' }}>From</label>
             <input
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
-              className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-lg outline-none hover:border-slate-300 transition-colors"
-              style={{ color: fromDate ? '#0A0A0A' : '#8B8B85' }}
+              className="glass-inp w-full text-sm"
             />
           </div>
 
           {/* To date */}
           <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: '#2A2A2A' }}>To</label>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-primary)' }}>To</label>
             <input
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
-              className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-lg outline-none hover:border-slate-300 transition-colors"
-              style={{ color: toDate ? '#0A0A0A' : '#8B8B85' }}
+              className="glass-inp w-full text-sm"
             />
           </div>
         </div>
 
         {/* Active filter summary */}
         {(actorFilter || actionFilter || fromDate || toDate) && (
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
-            <p className="text-xs" style={{ color: '#8B8B85' }}>
+          <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
               Showing {filtered.length} of {logs.length} events
             </p>
             <button
               onClick={() => { setActorFilter(''); setActionFilter(''); setFromDate(''); setToDate(''); }}
-              className="text-xs font-semibold underline"
-              style={{ color: '#8B8B85' }}>
+              className="text-xs font-semibold hover:underline"
+              style={{ color: 'var(--text-muted)' }}>
               Clear filters
             </button>
           </div>
@@ -174,51 +171,52 @@ export function AccessLogsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="glass-panel overflow-hidden">
         {loading ? (
           <div className="p-8 text-center">
-            <p className="text-sm" style={{ color: '#8B8B85' }}>Loading access logs…</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading access logs…</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center">
-            <p className="text-sm" style={{ color: '#8B8B85' }}>No access events found.</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No access events found.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
+                <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                   {['Date / Time', 'Actor', 'Action', 'Target ID', 'IP Address', 'User Agent'].map((col) => (
                     <th key={col}
                       className="px-5 py-4 text-left text-[10px] font-bold uppercase tracking-widest"
-                      style={{ color: '#8B8B85' }}>
+                      style={{ color: 'var(--text-muted)' }}>
                       {col}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {filtered.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-5 py-4 whitespace-nowrap font-mono text-xs" style={{ color: '#2A2A2A' }}>
+                  <tr key={log.id} className="hover:bg-white/5 transition-colors"
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <td className="px-5 py-4 whitespace-nowrap font-mono text-xs" style={{ color: 'var(--text-primary)' }}>
                       {formatDate(log.accessedAt)}
                     </td>
                     <td className="px-5 py-4">
-                      <p className="font-medium" style={{ color: '#0A0A0A' }}>{actorName(log)}</p>
-                      <p className="text-xs" style={{ color: '#8B8B85' }}>{log.actorEmail}</p>
+                      <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{actorName(log)}</p>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{log.actorEmail}</p>
                     </td>
                     <td className="px-5 py-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700">
+                      <span className="badge-glass-warning">
                         {ACTION_LABELS[log.action] ?? log.action}
                       </span>
                     </td>
-                    <td className="px-5 py-4 font-mono text-xs" style={{ color: '#2A2A2A' }}>
+                    <td className="px-5 py-4 font-mono text-xs" style={{ color: 'var(--text-primary)' }}>
                       {log.targetId.slice(0, 12)}…
                     </td>
-                    <td className="px-5 py-4 font-mono text-xs" style={{ color: '#8B8B85' }}>
+                    <td className="px-5 py-4 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
                       {log.ipAddress || '—'}
                     </td>
-                    <td className="px-5 py-4 text-xs" style={{ color: '#8B8B85', maxWidth: 240 }}>
+                    <td className="px-5 py-4 text-xs" style={{ color: 'var(--text-muted)', maxWidth: 240 }}>
                       <span title={log.userAgent}>
                         {log.userAgent ? log.userAgent.slice(0, 40) + (log.userAgent.length > 40 ? '…' : '') : '—'}
                       </span>

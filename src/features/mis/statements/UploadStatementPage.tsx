@@ -46,23 +46,26 @@ function StepIndicator({ current }: { current: 1 | 2 | 3 }) {
           <div key={step} className="flex items-center">
             <div className="flex flex-col items-center gap-1">
               <div
-                className={[
-                  'w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold',
-                  isDone   ? 'bg-navy text-white'   : '',
-                  isActive ? 'bg-[#C9A961] text-navy' : '',
-                  !isDone && !isActive ? 'bg-slate-100 text-mute' : '',
-                ].join(' ')}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold"
+                style={{
+                  backgroundColor: isDone ? '#0B1538' : isActive ? '#C9A961' : 'rgba(255,255,255,0.10)',
+                  color: isDone ? '#C9A961' : isActive ? '#0B1538' : 'var(--text-muted)',
+                }}
               >
                 {isDone ? '✓' : step}
               </div>
               <span
-                className={`text-xs whitespace-nowrap ${isActive ? 'text-navy font-semibold' : 'text-mute'}`}
+                className="text-xs whitespace-nowrap"
+                style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: isActive ? 600 : undefined }}
               >
                 {label}
               </span>
             </div>
             {idx < steps.length - 1 && (
-              <div className={`w-16 h-px mx-2 mb-4 ${step < current ? 'bg-navy' : 'bg-slate-200'}`} />
+              <div
+                className="w-16 h-px mx-2 mb-4"
+                style={{ backgroundColor: step < current ? '#0B1538' : 'rgba(255,255,255,0.15)' }}
+              />
             )}
           </div>
         );
@@ -76,8 +79,8 @@ function StepIndicator({ current }: { current: 1 | 2 | 3 }) {
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium text-[#0A0A0A]">
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+      <label className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+        {label}{required && <span style={{ color: '#f87171' }} className="ml-0.5">*</span>}
       </label>
       {children}
     </div>
@@ -256,11 +259,11 @@ export function UploadStatementPage() {
       {/* Title */}
       <h1
         className="text-3xl mb-2"
-        style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic', color: '#0B1538' }}
+        style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic', color: 'var(--text-primary)' }}
       >
         Upload Statement
       </h1>
-      <p className="text-sm mb-8" style={{ color: '#8B8B85' }}>
+      <p className="text-sm mb-8" style={{ color: 'var(--text-muted)' }}>
         Import a commission statement from a bank, AMC, or insurer.
       </p>
 
@@ -268,8 +271,8 @@ export function UploadStatementPage() {
 
       {/* ── Step 1: File & Metadata ── */}
       {step === 1 && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-navy mb-5">File &amp; Metadata</h2>
+        <div className="glass-panel p-6">
+          <h2 className="text-lg font-semibold mb-5" style={{ color: 'var(--text-primary)' }}>File &amp; Metadata</h2>
           <div className="flex flex-col gap-5">
 
             <Field label="CSV File" required>
@@ -278,10 +281,13 @@ export function UploadStatementPage() {
                 type="file"
                 accept=".csv,.xlsx,.xls"
                 onChange={handleFileChange}
-                className="text-sm text-[#0A0A0A] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-[#F2EFE7] file:text-navy hover:file:bg-gold-bright cursor-pointer"
+                className="text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium cursor-pointer"
+                style={{
+                  color: 'var(--text-primary)',
+                }}
               />
               {fileName && (
-                <span className="text-xs text-mute mt-1">{fileName}</span>
+                <span className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{fileName}</span>
               )}
             </Field>
 
@@ -300,7 +306,7 @@ export function UploadStatementPage() {
                   type="month"
                   value={periodStart}
                   onChange={e => setPeriodStart(e.target.value)}
-                  className="px-3.5 py-2.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#0B1538]"
+                  className="glass-inp text-sm"
                 />
               </Field>
               <Field label="Period End">
@@ -308,7 +314,7 @@ export function UploadStatementPage() {
                   type="month"
                   value={periodEnd}
                   onChange={e => setPeriodEnd(e.target.value)}
-                  className="px-3.5 py-2.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#0B1538]"
+                  className="glass-inp text-sm"
                 />
               </Field>
             </div>
@@ -319,7 +325,7 @@ export function UploadStatementPage() {
                   type="date"
                   value={statementDate}
                   onChange={e => setStatementDate(e.target.value)}
-                  className="px-3.5 py-2.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#0B1538]"
+                  className="glass-inp text-sm"
                 />
               </Field>
               <Field label="Received Date">
@@ -327,19 +333,25 @@ export function UploadStatementPage() {
                   type="date"
                   value={receivedDate}
                   onChange={e => setReceivedDate(e.target.value)}
-                  className="px-3.5 py-2.5 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#0B1538]"
+                  className="glass-inp text-sm"
                 />
               </Field>
             </div>
 
             {error && (
-              <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+              <p
+                className="text-sm rounded-lg px-3 py-2"
+                style={{ backgroundColor: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.25)', color: '#f87171' }}
+              >
+                {error}
+              </p>
             )}
 
             <button
               onClick={handleUpload}
               disabled={submitting || !csvBase64 || !providerId || !periodStart}
-              className="mt-1 px-5 py-2.5 rounded-lg text-sm font-semibold bg-navy text-white disabled:opacity-50 hover:bg-navy-soft transition-colors self-start"
+              className="mt-1 px-5 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors self-start"
+              style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
             >
               {submitting ? 'Uploading…' : 'Upload & Detect'}
             </button>
@@ -349,9 +361,9 @@ export function UploadStatementPage() {
 
       {/* ── Step 2: Column Mapping ── */}
       {step === 2 && uploadResp && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-navy mb-1">Column Mapping</h2>
-          <p className="text-sm mb-5" style={{ color: '#8B8B85' }}>
+        <div className="glass-panel p-6">
+          <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Column Mapping</h2>
+          <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
             The server detected {uploadResp.headers.length} columns. Confirm which column contains
             each field before importing.
           </p>
@@ -379,28 +391,28 @@ export function UploadStatementPage() {
 
           {/* Preview table */}
           <div className="mb-6">
-            <p className="text-xs font-semibold uppercase tracking-wide text-mute mb-2">
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>
               Preview (first 5 rows)
             </p>
-            <div className="overflow-x-auto rounded-lg border border-slate-200">
+            <div className="overflow-x-auto rounded-lg" style={{ border: '1px solid rgba(255,255,255,0.10)' }}>
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="bg-[#F2EFE7]">
-                    <th className="px-3 py-2 text-left font-semibold text-navy">Date</th>
-                    <th className="px-3 py-2 text-left font-semibold text-navy">Description</th>
-                    <th className="px-3 py-2 text-right font-semibold text-navy">Amount</th>
+                  <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                    <th className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Date</th>
+                    <th className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Description</th>
+                    <th className="px-3 py-2 text-right font-semibold" style={{ color: 'var(--text-muted)' }}>Amount</th>
                   </tr>
                 </thead>
                 <tbody>
                   {uploadResp.previewRows.map((row, i) => (
-                    <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-[#FAFAF7]'}>
-                      <td className="px-3 py-1.5 text-[#0A0A0A]">
+                    <tr key={i} className="hover:bg-white/5 transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <td className="px-3 py-1.5" style={{ color: 'var(--text-primary)' }}>
                         {confirmedCols.dateCol >= 0 ? (row[confirmedCols.dateCol] ?? '—') : '—'}
                       </td>
-                      <td className="px-3 py-1.5 text-[#0A0A0A] max-w-xs truncate">
+                      <td className="px-3 py-1.5 max-w-xs truncate" style={{ color: 'var(--text-primary)' }}>
                         {confirmedCols.descCol >= 0 ? (row[confirmedCols.descCol] ?? '—') : '—'}
                       </td>
-                      <td className="px-3 py-1.5 text-right text-[#0A0A0A]">
+                      <td className="px-3 py-1.5 text-right" style={{ color: 'var(--text-primary)' }}>
                         {confirmedCols.amountCol >= 0 ? (row[confirmedCols.amountCol] ?? '—') : '—'}
                       </td>
                     </tr>
@@ -411,20 +423,27 @@ export function UploadStatementPage() {
           </div>
 
           {error && (
-            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-4">{error}</p>
+            <p
+              className="text-sm rounded-lg px-3 py-2 mb-4"
+              style={{ backgroundColor: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.25)', color: '#f87171' }}
+            >
+              {error}
+            </p>
           )}
 
           <div className="flex gap-3">
             <button
               onClick={() => { setStep(1); setError(null); }}
-              className="px-4 py-2.5 rounded-lg text-sm font-semibold border border-slate-200 text-[#0A0A0A] hover:bg-slate-50 transition-colors"
+              className="px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors hover:bg-white/5"
+              style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
             >
               Back
             </button>
             <button
               onClick={handleProcess}
               disabled={submitting}
-              className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-navy text-white disabled:opacity-50 hover:bg-navy-soft transition-colors"
+              className="px-5 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors"
+              style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
             >
               {submitting ? 'Importing…' : 'Process & Import'}
             </button>
@@ -434,44 +453,58 @@ export function UploadStatementPage() {
 
       {/* ── Step 3: Import Summary ── */}
       {step === 3 && processResp && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+        <div className="glass-panel p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-lg">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center text-lg"
+              style={{ backgroundColor: 'rgba(52,211,153,0.15)', color: '#34d399' }}
+            >
               ✓
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-navy">Import Complete</h2>
-              <p className="text-sm" style={{ color: '#8B8B85' }}>Statement saved and ready for reconciliation.</p>
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Import Complete</h2>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Statement saved and ready for reconciliation.</p>
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="rounded-xl bg-[#F2EFE7] px-4 py-3 text-center">
-              <div className="text-2xl font-bold text-navy">{processResp.lineCount}</div>
-              <div className="text-xs text-mute mt-0.5">Lines imported</div>
+            <div
+              className="rounded-xl px-4 py-3 text-center"
+              style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{processResp.lineCount}</div>
+              <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Lines imported</div>
             </div>
-            <div className="rounded-xl bg-[#F2EFE7] px-4 py-3 text-center">
-              <div className="text-2xl font-bold text-navy">
+            <div
+              className="rounded-xl px-4 py-3 text-center"
+              style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              <div className="text-2xl font-bold" style={{ color: '#C9A961' }}>
                 ₹{processResp.totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
               </div>
-              <div className="text-xs text-mute mt-0.5">Total amount</div>
+              <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Total amount</div>
             </div>
-            <div className="rounded-xl bg-[#F2EFE7] px-4 py-3 text-center">
-              <div className="text-2xl font-bold text-mute">{processResp.lineCount}</div>
-              <div className="text-xs text-mute mt-0.5">Unmatched lines</div>
+            <div
+              className="rounded-xl px-4 py-3 text-center"
+              style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              <div className="text-2xl font-bold" style={{ color: 'var(--text-muted)' }}>{processResp.lineCount}</div>
+              <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Unmatched lines</div>
             </div>
           </div>
 
           <div className="flex gap-3">
             <button
               onClick={() => navigate(`/mis/reconciliation/${processResp.statementId}`)}
-              className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-[#C9A961] text-navy hover:bg-gold-bright transition-colors"
+              className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors"
+              style={{ backgroundColor: '#C9A961', color: '#0B1538' }}
             >
               Go to Reconciliation
             </button>
             <button
               onClick={resetWizard}
-              className="px-4 py-2.5 rounded-lg text-sm font-semibold border border-slate-200 text-[#0A0A0A] hover:bg-slate-50 transition-colors"
+              className="px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors hover:bg-white/5"
+              style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
             >
               Upload Another Statement
             </button>

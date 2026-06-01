@@ -6,7 +6,7 @@ import {
   Briefcase, TrendingUp, ShieldCheck, ChevronDown, ChevronUp,
   CheckCircle2, Circle, Plus, X,
 } from 'lucide-react';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useLead } from '../hooks/useLeads';
@@ -1179,6 +1179,33 @@ export function OpportunityDetailPage() {
         stageData: { ...(opp.stageData ?? {}), [stageKey]: formData },
         updatedAt: serverTimestamp(),
       });
+
+      // 1.5 If disbursed — push reference numbers onto the linked commission_record
+      // so MIS can see Loan No, App No, etc. alongside the commission entry.
+      if (stageKey === 'disbursed') {
+        try {
+          const d = formData as unknown as DisbursedData;
+          const recSnap = await getDocs(
+            query(collection(db, 'commission_records'), where('opportunityId', '==', oppId))
+          );
+          for (const recDoc of recSnap.docs) {
+            await updateDoc(recDoc.ref, {
+              loanNo:              d.loanNo             || null,
+              applicationNo:       d.applicationNo      || null,
+              disbursedAmount:     d.disbursedAmount ? Number(d.disbursedAmount) : null,
+              disbursalDate:       d.disbursalDate       || null,
+              dsaCode:             d.dsaCode             || null,
+              dsaName:             d.dsaName             || null,
+              cityState:           d.cityState           || null,
+              customerCompanyName: d.customerCompanyName || null,
+              updatedAt:           serverTimestamp(),
+            });
+          }
+        } catch (_) {
+          // Non-fatal — stage advance still proceeds even if record enrichment fails
+        }
+      }
+
       // 2. Advance the stage (handles activity log + won status)
       await updateOpportunityStage(leadId, oppId, next, opp.stage, user.uid, isLast);
       setStageModalOpen(false);

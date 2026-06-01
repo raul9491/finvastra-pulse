@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { collection, query, where, getDocs, documentId } from 'firebase/firestore';
+import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useStatements, closeStatement } from '../hooks/useStatements';
 import { useLinesByStatus, autoMatch, unmatch, excludeLine } from '../hooks/useReconciliation';
@@ -9,6 +11,21 @@ import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { useToast } from '../../../components/ui/Toast';
 import type { CommissionStatement, StatementLine, StatementLineStatus } from '../../../types';
 import type { SearchableSelectOption } from '../../../components/ui/SearchableSelect';
+
+// ─── Commission record metadata (disbursal fields, for matched-line display) ──
+
+interface RecordMeta {
+  loanNo?: string;
+  applicationNo?: string;
+  customerCompanyName?: string;
+  disbursalDate?: string;
+  disbursedAmount?: number;
+  dsaCode?: string;
+  dsaName?: string;
+  cityState?: string;
+  leadId?: string;
+  opportunityId?: string;
+}
 
 // ─── StatChip ────────────────────────────────────────────────────────────────
 
@@ -70,6 +87,7 @@ type Tab = 'all' | 'unmatched' | 'discrepancy';
 export function ReconciliationPage() {
   const { user, profile } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const { statements, loading: statementsLoading } = useStatements();
@@ -88,6 +106,50 @@ export function ReconciliationPage() {
   const { allLines, byStatus, loading: linesLoading } = useLinesByStatus(
     selectedId || null,
   );
+
+  // ── Commission record metadata (Loan No, App No, CRM links) ──────────────
+  const [recordMeta, setRecordMeta] = useState<Record<string, RecordMeta>>({});
+
+  useEffect(() => {
+    const ids = [
+      ...new Set(
+        allLines
+          .filter((l) => l.matchedCommissionRecordId)
+          .map((l) => l.matchedCommissionRecordId as string),
+      ),
+    ];
+    if (ids.length === 0) { setRecordMeta({}); return; }
+
+    // Firestore 'in' queries support max 10 items — batch accordingly
+    const batches: string[][] = [];
+    for (let i = 0; i < ids.length; i += 10) batches.push(ids.slice(i, i + 10));
+
+    Promise.all(
+      batches.map((batch) =>
+        getDocs(query(collection(db, 'commission_records'), where(documentId(), 'in', batch))),
+      ),
+    ).then((snaps) => {
+      const map: Record<string, RecordMeta> = {};
+      snaps.forEach((snap) =>
+        snap.docs.forEach((d) => {
+          const data = d.data();
+          map[d.id] = {
+            loanNo:              data.loanNo,
+            applicationNo:       data.applicationNo,
+            customerCompanyName: data.customerCompanyName,
+            disbursalDate:       data.disbursalDate,
+            disbursedAmount:     data.disbursedAmount,
+            dsaCode:             data.dsaCode,
+            dsaName:             data.dsaName,
+            cityState:           data.cityState,
+            leadId:              data.leadId,
+            opportunityId:       data.opportunityId,
+          };
+        }),
+      );
+      setRecordMeta(map);
+    }).catch(() => {});
+  }, [allLines]);
 
   // ── Auto-match state ──────────────────────────────────────────────────────
   const [autoMatchRunning, setAutoMatchRunning] = useState(false);
@@ -333,10 +395,30 @@ export function ReconciliationPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-xs truncate max-w-xs" style={{ color: 'var(--text-muted)' }}>
-                        {line.matchedCommissionRecordId
-                          ? line.matchedCommissionRecordId.slice(0, 14) + '…'
-                          : '—'}
+                      <td className="px-4 py-3 text-xs max-w-xs" style={{ color: 'var(--text-muted)' }}>
+                        {line.matchedCommissionRecordId ? (() => {
+                          const meta = recordMeta[line.matchedCommissionRecordId];
+                          return (
+                            <div className="space-y-0.5">
+                              {meta?.loanNo && (
+                                <p className="font-mono font-semibold text-[10px]" style={{ color: '#C9A961' }}>
+                                  {meta.loanNo}
+                                </p>
+                              )}
+                              {meta?.applicationNo && (
+                                <p className="text-[10px]">App# {meta.applicationNo}</p>
+                              )}
+                              {meta?.customerCompanyName && (
+                                <p className="text-[10px] truncate max-w-28">{meta.customerCompanyName}</p>
+                              )}
+                              {!meta?.loanNo && !meta?.applicationNo && (
+                                <span className="font-mono text-[10px]">
+                                  {line.matchedCommissionRecordId.slice(0, 12)}…
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })() : '—'}
                       </td>
                       <td className="px-4 py-3">
                         <LineActions
@@ -403,46 +485,97 @@ export function ReconciliationPage() {
         title="Matched Record Details"
         size="sm"
       >
-        {viewingLine && (
-          <div className="text-sm flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Statement date</p>
-                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{viewingLine.parsedDate}</p>
+        {viewingLine && (() => {
+          const meta = viewingLine.matchedCommissionRecordId
+            ? recordMeta[viewingLine.matchedCommissionRecordId]
+            : undefined;
+          const disbursal: Array<{ label: string; value: string | number | undefined }> = [
+            { label: 'Loan No',     value: meta?.loanNo },
+            { label: 'App No',      value: meta?.applicationNo },
+            { label: 'Company',     value: meta?.customerCompanyName },
+            { label: 'Disbursal Date', value: meta?.disbursalDate },
+            { label: 'Disbursed',   value: meta?.disbursedAmount
+                ? `₹${Number(meta.disbursedAmount).toLocaleString('en-IN')}`
+                : undefined },
+            { label: 'City / State', value: meta?.cityState },
+            { label: 'DSA Name',    value: meta?.dsaName },
+            { label: 'DSA Code',    value: meta?.dsaCode },
+          ].filter((r) => r.value !== undefined && r.value !== null && r.value !== '');
+
+          return (
+            <div className="text-sm flex flex-col gap-3">
+              {/* Statement line details */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Statement date</p>
+                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{viewingLine.parsedDate}</p>
+                </div>
+                <div>
+                  <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Statement amount</p>
+                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                    ₹{viewingLine.parsedAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Statement amount</p>
-                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                  ₹{viewingLine.parsedAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                </p>
-              </div>
+
+              {/* Disbursal reference data from CRM */}
+              {disbursal.length > 0 && (
+                <div className="rounded-xl overflow-hidden"
+                  style={{ border: '1px solid rgba(201,169,97,0.20)' }}>
+                  <div className="px-3 py-2" style={{ backgroundColor: 'rgba(201,169,97,0.06)' }}>
+                    <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#C9A961' }}>
+                      CRM Disbursal Data
+                    </p>
+                  </div>
+                  {disbursal.map(({ label, value }, i) => (
+                    <div key={label} className="flex items-center justify-between px-3 py-2 text-xs"
+                      style={{
+                        backgroundColor: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
+                        borderTop: '1px solid rgba(255,255,255,0.05)',
+                      }}>
+                      <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+                      <span className="font-medium text-right max-w-40 truncate" style={{ color: 'var(--text-primary)' }}>
+                        {String(value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Discrepancy */}
+              {viewingLine.discrepancyAmount !== null && (
+                <div className="rounded-lg px-3 py-2"
+                  style={{ backgroundColor: 'rgba(201,169,97,0.08)', border: '1px solid rgba(201,169,97,0.20)' }}>
+                  <p className="text-xs font-medium" style={{ color: '#C9A961' }}>
+                    Discrepancy: ₹{viewingLine.discrepancyAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+              )}
+
+              {/* CRM link */}
+              {meta?.leadId && meta?.opportunityId && (
+                <button
+                  onClick={() => {
+                    navigate(`/crm/leads/${meta.leadId}/opportunities/${meta.opportunityId}`);
+                    setViewingLine(null);
+                  }}
+                  className="text-xs font-semibold hover:underline text-left"
+                  style={{ color: '#C9A961' }}
+                >
+                  View full opportunity in CRM →
+                </button>
+              )}
+
+              {/* Reconciled by */}
+              {viewingLine.reconciledBy && (
+                <div>
+                  <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Reconciled by</p>
+                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{viewingLine.reconciledBy}</p>
+                </div>
+              )}
             </div>
-            <div>
-              <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Matched commission record ID</p>
-              <p className="font-mono text-xs break-all" style={{ color: '#C9A961' }}>
-                {viewingLine.matchedCommissionRecordId ?? '—'}
-              </p>
-            </div>
-            {viewingLine.discrepancyAmount !== null && (
-              <div
-                className="rounded-lg px-3 py-2"
-                style={{ backgroundColor: 'rgba(201,169,97,0.08)', border: '1px solid rgba(201,169,97,0.20)' }}
-              >
-                <p className="text-xs font-medium" style={{ color: '#C9A961' }}>
-                  Discrepancy: ₹{viewingLine.discrepancyAmount.toLocaleString('en-IN', {
-                    maximumFractionDigits: 2,
-                  })}
-                </p>
-              </div>
-            )}
-            {viewingLine.reconciledBy && (
-              <div>
-                <p className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>Reconciled by</p>
-                <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{viewingLine.reconciledBy}</p>
-              </div>
-            )}
-          </div>
-        )}
+          );
+        })()}
       </Modal>
 
       {/* ── Exclude modal ── */}

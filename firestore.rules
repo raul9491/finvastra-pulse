@@ -441,12 +441,20 @@ service cloud.firestore {
                        incoming().rmOwnerId == request.auth.uid &&
                        incoming().status == 'pending' &&
                        incoming().calculatedCommission >= 0;
-      // Only admin can update (mark paid, clawback, etc.)
-      allow update: if isAdmin() &&
-                       incoming().diff(existing()).affectedKeys().hasOnly([
-                         'status', 'actualPayoutDate', 'actualAmount',
-                         'clawbackReason', 'notes', 'paidAt', 'updatedAt'
-                       ]);
+      // Admin updates: status, payment, clawback fields
+      // RM updates: disbursal reference fields only (Loan No, App No, etc.) on own record
+      allow update: if (isAdmin() &&
+                        incoming().diff(existing()).affectedKeys().hasOnly([
+                          'status', 'actualPayoutDate', 'actualAmount',
+                          'clawbackReason', 'notes', 'paidAt', 'updatedAt'
+                        ])) ||
+                       (hasCrmAccess() &&
+                        resource.data.rmOwnerId == request.auth.uid &&
+                        incoming().diff(existing()).affectedKeys().hasOnly([
+                          'loanNo', 'applicationNo', 'disbursedAmount',
+                          'disbursalDate', 'dsaCode', 'dsaName', 'cityState',
+                          'customerCompanyName', 'updatedAt'
+                        ]));
       // Never delete — audit trail integrity (aligns with MIS matchedRecordId references)
       allow delete: if false;
     }

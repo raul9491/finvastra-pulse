@@ -1,10 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useMisOverview } from '../hooks/useMisOverview';
 import { usePayoutSlabs, seedDefaultSlabs } from '../hooks/usePayouts';
-import type { CommissionStatement, RmPayout } from '../../../types';
+import type { CommissionStatement, RmPayout, CommissionRecord } from '../../../types';
+
+// Extended type — CommissionRecord + disbursal fields written by CRM Disbursed stage
+type DisbursalRecord = CommissionRecord & {
+  loanNo?: string;
+  applicationNo?: string;
+  customerCompanyName?: string;
+  disbursalDate?: string;
+  disbursedAmount?: number;
+  dsaCode?: string;
+  dsaName?: string;
+  cityState?: string;
+};
 
 // ─── Status pill ─────────────────────────────────────────────────────────────
 
@@ -57,12 +71,15 @@ function formatLakhs(amount: number): string {
 
 // ─── MisOverviewPage ──────────────────────────────────────────────────────────
 
+type MisTab = 'overview' | 'disbursals';
+
 export function MisOverviewPage() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
 
   const todayMonth = format(new Date(), 'yyyy-MM');
   const [selectedMonth, setSelectedMonth] = useState(todayMonth);
+  const [activeTab, setActiveTab] = useState<MisTab>('overview');
 
   const data = useMisOverview(selectedMonth);
 
@@ -73,6 +90,21 @@ export function MisOverviewPage() {
   const [seeding, setSeeding] = useState(false);
 
   const isAdmin = profile?.role === 'admin' || profile?.misAccess === 'admin';
+
+  // ── Disbursals tab — all commission_records, enriched with CRM disbursal data ──
+  const [disbursals, setDisbursals] = useState<DisbursalRecord[]>([]);
+  const [disbursalsLoading, setDisbursalsLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== 'disbursals' || !isAdmin) return;
+    setDisbursalsLoading(true);
+    getDocs(query(collection(db, 'commission_records'), orderBy('createdAt', 'desc')))
+      .then((snap) => {
+        setDisbursals(snap.docs.map((d) => ({ id: d.id, ...d.data() } as DisbursalRecord)));
+      })
+      .catch(() => {})
+      .finally(() => setDisbursalsLoading(false));
+  }, [activeTab, isAdmin]);
 
   async function handleSeedSlabs() {
     if (!user) return;
@@ -85,11 +117,17 @@ export function MisOverviewPage() {
     }
   }
 
+  // Filter disbursals by selected month (by disbursalDate if present, else expectedPayoutDate)
+  const filteredDisbursals = disbursals.filter((r) => {
+    const dateStr = r.disbursalDate ?? r.expectedPayoutDate ?? '';
+    return dateStr.startsWith(selectedMonth);
+  });
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
 
       {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-4 mb-8">
+      <div className="flex items-start justify-between gap-4 mb-6">
         <div>
           <h1
             className="text-3xl mb-1"
@@ -108,6 +146,129 @@ export function MisOverviewPage() {
           className="glass-inp text-sm"
         />
       </div>
+
+      {/* ── Tab strip ── */}
+      <div className="flex gap-1 rounded-lg p-1 mb-6 w-fit"
+        style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
+        {(['overview', 'disbursals'] as MisTab[]).map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            className="px-4 py-1.5 rounded-md text-sm font-medium transition-colors capitalize"
+            style={{
+              backgroundColor: activeTab === tab ? 'rgba(255,255,255,0.12)' : 'transparent',
+              color: activeTab === tab ? 'var(--text-primary)' : 'var(--text-muted)',
+            }}>
+            {tab === 'disbursals' ? 'Disbursals' : 'Overview'}
+          </button>
+        ))}
+      </div>
+
+      {/* ── DISBURSALS TAB ── */}
+      {activeTab === 'disbursals' && (
+        <div>
+          {disbursalsLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-12 rounded-xl animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+              ))}
+            </div>
+          ) : filteredDisbursals.length === 0 ? (
+            <div className="glass-panel py-16 text-center">
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                No commission records for {selectedMonth}.
+              </p>
+              <p className="text-xs mt-2" style={{ color: 'var(--text-dim, rgba(255,255,255,0.3))' }}>
+                Disbursal data is captured when the CRM opportunity moves to the Disbursed stage.
+              </p>
+            </div>
+          ) : (
+            <div className="glass-panel overflow-x-auto">
+              <div className="px-5 py-4 flex items-center justify-between"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    All Cases — {selectedMonth}
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    {filteredDisbursals.length} record{filteredDisbursals.length !== 1 ? 's' : ''} ·
+                    Commission: ₹{filteredDisbursals.reduce((s, r) => s + (r.calculatedCommission ?? 0), 0)
+                      .toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  </p>
+                </div>
+              </div>
+              <table className="w-full text-xs min-w-175">
+                <thead>
+                  <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                    <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Loan No</th>
+                    <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>App No</th>
+                    <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Company</th>
+                    <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Disbursal Date</th>
+                    <th className="px-4 py-3 text-right font-semibold" style={{ color: 'var(--text-muted)' }}>Amount</th>
+                    <th className="px-4 py-3 text-right font-semibold" style={{ color: 'var(--text-muted)' }}>Commission</th>
+                    <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>DSA Code</th>
+                    <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Status</th>
+                    <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>CRM</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredDisbursals.map((rec) => (
+                    <tr key={rec.id} className="hover:bg-white/5 transition-colors"
+                      style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <td className="px-4 py-3 font-mono font-semibold" style={{ color: '#C9A961' }}>
+                        {rec.loanNo ?? <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                      </td>
+                      <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>
+                        {rec.applicationNo ?? <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                      </td>
+                      <td className="px-4 py-3 max-w-32 truncate" style={{ color: 'var(--text-primary)' }}>
+                        {rec.customerCompanyName ?? '—'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
+                        {rec.disbursalDate
+                          ? format(new Date(rec.disbursalDate), 'd MMM yyyy')
+                          : <span style={{ color: 'var(--text-muted)' }}>Pending</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
+                        {rec.disbursedAmount
+                          ? `₹${Number(rec.disbursedAmount).toLocaleString('en-IN')}`
+                          : `₹${rec.basisAmount.toLocaleString('en-IN')}`}
+                      </td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap" style={{ color: '#34d399' }}>
+                        ₹{rec.calculatedCommission.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                      </td>
+                      <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>
+                        {rec.dsaCode ?? '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={
+                          rec.status === 'paid' ? 'badge-glass-success' :
+                          rec.status === 'clawed_back' ? 'badge-glass-danger' :
+                          'badge-glass-muted'
+                        }>
+                          {rec.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {rec.leadId && rec.opportunityId && (
+                          <button
+                            onClick={() => navigate(`/crm/leads/${rec.leadId}/opportunities/${rec.opportunityId}`)}
+                            className="text-[10px] font-semibold hover:underline"
+                            style={{ color: '#C9A961' }}
+                          >
+                            View →
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── OVERVIEW TAB ── */}
+      {activeTab === 'overview' && <>
 
       {/* ── Seed slabs banner — dev only ── */}
       {import.meta.env.DEV && isAdmin && slabs.length === 0 && !seedSuccess && (
@@ -358,6 +519,9 @@ export function MisOverviewPage() {
           )}
         </div>
       </div>
+
+      </>} {/* end overview tab */}
+
     </div>
   );
 }

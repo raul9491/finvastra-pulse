@@ -6,7 +6,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllPayslips, createPayslip } from '../hooks/usePayslips';
-import { writeNotification, sendHrEmailNotification, buildHrEmailHtml } from '../../../lib/notifications';
+import { writeNotification } from '../../../lib/notifications';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { generatePayslipPdf } from './payslipPdf';
 import type { Payslip, UserProfile, Attendance, PayslipExtras, LeaveBalance } from '../../../types';
@@ -225,10 +225,8 @@ export function GeneratePayslipPage() {
   // Map<userId, PayslipFormValues>
   const [formState, setFormState] = useState<Map<string, PayslipFormValues>>(new Map());
 
-  // Track which rows are being saved / emailing
+  // Track which rows are being saved
   const [saving, setSaving] = useState<Set<string>>(new Set());
-  const [sendingEmail, setSendingEmail] = useState<Set<string>>(new Set());
-  const [emailSent, setEmailSent] = useState<Set<string>>(new Set());
   const [generateAllBusy, setGenerateAllBusy] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -482,20 +480,6 @@ export function GeneratePayslipPage() {
         body: `Your payslip for ${monthLabel} (₹${netPay.toLocaleString('en-IN')}) has been generated.`,
         link: '/hrms/payslips',
       }).catch(() => {});
-      sendHrEmailNotification({
-        employeeId: emp.userId,
-        subject: `Your payslip for ${monthLabel} is ready`,
-        htmlBody: buildHrEmailHtml({
-          title: `Payslip Ready — ${monthLabel}`,
-          lines: [
-            { label: 'Month',        value: monthLabel },
-            { label: 'Net Pay',      value: `₹${netPay.toLocaleString('en-IN')}` },
-            { label: 'Working Days', value: `${values.presentDays} / ${values.workingDays}` },
-          ],
-          ctaLabel: 'View Payslip',
-          ctaLink: 'https://pulse.finvastra.com/hrms/payslips',
-        }),
-      }).catch(() => {});
     } finally {
       setSaving((prev) => {
         const next = new Set(prev);
@@ -541,51 +525,6 @@ export function GeneratePayslipPage() {
     generatePayslipPdf(payslip, emp, 'save', extras);
   }
 
-  // ─── Send payslip PDF by email ────────────────────────────────────────────
-
-  async function handleSendEmail(emp: UserProfile, payslip: Payslip) {
-    setSendingEmail((prev) => new Set(prev).add(emp.userId));
-    try {
-      const fetched = await fetchExtrasForEmployee(emp.userId, payslip.month);
-      const extras: PayslipExtras = {
-        ...fetched,
-        joiningDate: emp.joiningDate,
-        location:    emp.location ?? 'Hyderabad',
-      };
-      const base64 = generatePayslipPdf(payslip, emp, 'base64', extras) as string;
-      const fname  = emp.displayName.replace(/\s+/g, '-');
-      const monthLabel = format(new Date(`${payslip.month}-01`), 'MMMM yyyy');
-      const filename   = `Finvastra-Payslip-${fname}-${payslip.month}.pdf`;
-
-      await sendHrEmailNotification({
-        employeeId:  emp.userId,
-        subject:     `Your payslip for ${monthLabel} is ready`,
-        htmlBody:    buildHrEmailHtml({
-          title: `Payslip — ${monthLabel}`,
-          lines: [
-            { label: 'Month',        value: monthLabel },
-            { label: 'Net Pay',      value: `₹${payslip.netPay.toLocaleString('en-IN')}` },
-            { label: 'Working Days', value: `${payslip.presentDays} / ${payslip.workingDays}` },
-          ],
-          note:     'Your payslip is attached to this email as a PDF.',
-          ctaLabel: 'View on Pulse',
-          ctaLink:  'https://pulse.finvastra.com/hrms/payslips',
-        }),
-        pdfBase64:  base64,
-        pdfFilename: filename,
-      });
-
-      setEmailSent((prev) => new Set(prev).add(emp.userId));
-      // Reset the "sent" indicator after 4 seconds
-      setTimeout(() => {
-        setEmailSent((prev) => { const n = new Set(prev); n.delete(emp.userId); return n; });
-      }, 4000);
-    } catch {
-      // Non-fatal — UI shows nothing special on failure
-    } finally {
-      setSendingEmail((prev) => { const n = new Set(prev); n.delete(emp.userId); return n; });
-    }
-  }
 
   // ─── Loading state ────────────────────────────────────────────────────────
 
@@ -764,26 +703,6 @@ export function GeneratePayslipPage() {
                               ↓ PDF
                             </button>
 
-                            {/* Send Email */}
-                            {(() => {
-                              const isSending = sendingEmail.has(emp.userId);
-                              const wasSent   = emailSent.has(emp.userId);
-                              return (
-                                <button
-                                  onClick={() => existing && handleSendEmail(emp, existing)}
-                                  disabled={isSending || !existing}
-                                  className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-opacity hover:opacity-80 disabled:opacity-40"
-                                  style={{
-                                    backgroundColor: wasSent ? '#D1FAE5' : '#F0FDF4',
-                                    color:           wasSent ? '#065F46' : '#15803D',
-                                    border: '1px solid #BBF7D0',
-                                  }}
-                                  title="Email payslip PDF to employee"
-                                >
-                                  {isSending ? '…' : wasSent ? '✓ Sent' : '✉ Email'}
-                                </button>
-                              );
-                            })()}
                           </div>
                         </td>
                       </>

@@ -5,7 +5,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useAllClaims, approveClaim, rejectClaim, markClaimsPaid, exportClaimsCSV } from '../hooks/useClaims';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
-import { writeNotification, sendHrEmailNotification, buildHrEmailHtml } from '../../../lib/notifications';
+import { writeNotification } from '../../../lib/notifications';
 import type { ClaimType, ClaimStatus, Claim } from '../../../types';
 
 // ─── Helpers (same as ClaimsPage) ─────────────────────────────────────────────
@@ -47,28 +47,12 @@ function RejectModal({ claim, onClose }: { claim: Claim; onClose: () => void }) 
     if (!reason.trim()) return;
     setSaving(true);
     await rejectClaim(claim.id, reason.trim());
-    // Notify employee — in-app + email, both fire-and-forget
+    // Notify employee — in-app notification
     writeNotification(claim.employeeId, {
       type:  'claim_rejected',
       title: 'Claim Rejected',
       body:  `Your ₹${claim.amount.toLocaleString('en-IN')} ${claim.claimType} claim was rejected. Reason: ${reason.trim()}`,
       link:  '/hrms/claims',
-    }).catch(() => {});
-    sendHrEmailNotification({
-      employeeId: claim.employeeId,
-      subject:    'Expense Claim Rejected — Finvastra Pulse',
-      htmlBody:   buildHrEmailHtml({
-        title: 'Expense Claim Rejected',
-        lines: [
-          { label: 'Claim Type', value: claim.claimType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) },
-          { label: 'Amount',     value: `₹${claim.amount.toLocaleString('en-IN')}` },
-          { label: 'Month',      value: claim.month },
-          { label: 'Status',     value: 'Rejected' },
-        ],
-        note:     `Reason: ${reason.trim()}`,
-        ctaLabel: 'View My Claims',
-        ctaLink:  'https://pulse.finvastra.com/hrms/claims',
-      }),
     }).catch(() => {});
     onClose();
   };
@@ -106,29 +90,13 @@ function MarkPaidModal({ claims, totalAmount, onClose }: { claims: Claim[]; tota
     if (!ref.trim()) return;
     setSaving(true);
     await markClaimsPaid(claims.map((c) => c.id), ref.trim());
-    // Notify each employee — in-app + email, both fire-and-forget
+    // Notify each employee — in-app notification
     claims.forEach((c) => {
       writeNotification(c.employeeId, {
         type:  'claim_paid',
         title: 'Claim Paid',
         body:  `Your ₹${c.amount.toLocaleString('en-IN')} ${c.claimType} claim has been paid. Ref: ${ref.trim()}`,
         link:  '/hrms/claims',
-      }).catch(() => {});
-      sendHrEmailNotification({
-        employeeId: c.employeeId,
-        subject:    'Expense Claim Paid — Finvastra Pulse',
-        htmlBody:   buildHrEmailHtml({
-          title: 'Expense Claim Paid ✓',
-          lines: [
-            { label: 'Claim Type', value: c.claimType.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase()) },
-            { label: 'Amount',     value: `₹${c.amount.toLocaleString('en-IN')}` },
-            { label: 'Month',      value: c.month },
-            { label: 'Reference',  value: ref.trim() },
-            { label: 'Status',     value: 'Paid' },
-          ],
-          ctaLabel: 'View My Claims',
-          ctaLink:  'https://pulse.finvastra.com/hrms/claims',
-        }),
       }).catch(() => {});
     });
     onClose();
@@ -187,27 +155,12 @@ export function AdminClaimsPage() {
   const handleApprove = async (claim: Claim) => {
     if (!user) return;
     await approveClaim(claim.id, user.uid);
-    // Notify employee — in-app + email, both fire-and-forget
+    // Notify employee — in-app notification
     writeNotification(claim.employeeId, {
       type:  'claim_approved',
       title: 'Claim Approved',
       body:  `Your ₹${claim.amount.toLocaleString('en-IN')} ${claim.claimType} claim has been approved.`,
       link:  '/hrms/claims',
-    }).catch(() => {});
-    sendHrEmailNotification({
-      employeeId: claim.employeeId,
-      subject:    'Expense Claim Approved — Finvastra Pulse',
-      htmlBody:   buildHrEmailHtml({
-        title: 'Expense Claim Approved ✓',
-        lines: [
-          { label: 'Claim Type', value: claim.claimType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) },
-          { label: 'Amount',     value: `₹${claim.amount.toLocaleString('en-IN')}` },
-          { label: 'Month',      value: claim.month },
-          { label: 'Status',     value: 'Approved — awaiting payment' },
-        ],
-        ctaLabel: 'View My Claims',
-        ctaLink:  'https://pulse.finvastra.com/hrms/claims',
-      }),
     }).catch(() => {});
   };
 

@@ -9,7 +9,7 @@ import {
   Settings, LogOut, LayoutGrid, ClipboardList, FileText, UserPlus, Inbox,
   ReceiptText, FolderOpen, Megaphone, Building2, Calculator,
   Laptop, UserMinus, Lock, FileSearch2, GraduationCap, TrendingUp, Briefcase, BookOpen, LifeBuoy,
-  CalendarRange, BookUser, Network, RotateCcw, ScrollText, HelpCircle, Database,
+  BookUser, RotateCcw, ScrollText, HelpCircle, Database,
   Menu, X,
 } from 'lucide-react';
 import { auth, db } from '../../lib/firebase';
@@ -99,45 +99,70 @@ function useInterviewBadge(enabled: boolean): number {
 
 type NavEntry = { path: string; label: string; icon: ElementType; live: boolean };
 
+// Employee self-service nav — "Employees" omitted here; rendered conditionally below (admin/HR only)
 const NAV: NavEntry[] = [
-  { path: '/hrms/dashboard',      label: 'Dashboard',      icon: LayoutDashboard, live: true },
-  { path: '/hrms/employees',      label: 'Employees',      icon: Users,           live: true },
-  { path: '/hrms/directory',      label: 'Directory',      icon: BookUser,        live: true },
-  { path: '/hrms/attendance',     label: 'Attendance',     icon: Clock,           live: true },
-  { path: '/hrms/leave',               label: 'Leave',          icon: CalendarOff,   live: true },
-  { path: '/hrms/leave/team-calendar', label: 'Team Calendar',  icon: CalendarRange, live: true },
-  { path: '/hrms/payslips',       label: 'Payslips',       icon: Receipt,         live: true },
-  { path: '/hrms/holidays',       label: 'Holidays',       icon: CalendarDays,    live: true },
-  { path: '/hrms/claims',         label: 'My Claims',      icon: ReceiptText,     live: true },
-  { path: '/hrms/documents',      label: 'Documents',      icon: FolderOpen,      live: true },
-  { path: '/hrms/announcements',   label: 'Announcements',  icon: Megaphone,       live: true },
-  { path: '/hrms/it-declaration',  label: 'IT Declaration', icon: FileSearch2,     live: true },
-  { path: '/hrms/org-chart',       label: 'Org Chart',      icon: Network,         live: true },
-  { path: '/hrms/performance',     label: 'My Review',      icon: TrendingUp,      live: true },
-  { path: '/hrms/training',        label: 'My Training',    icon: BookOpen,        live: true },
-  { path: '/hrms/hr-helpdesk',     label: 'HR Helpdesk',    icon: LifeBuoy,        live: true },
-  { path: '/hrms/guide',           label: 'Pulse Guide',    icon: HelpCircle,      live: true },
-  { path: '/hrms/settings',        label: 'Settings',       icon: Settings,        live: true },
+  { path: '/hrms/dashboard',     label: 'Dashboard',      icon: LayoutDashboard, live: true },
+  { path: '/hrms/directory',     label: 'Directory',      icon: BookUser,        live: true },
+  { path: '/hrms/attendance',    label: 'Attendance',     icon: Clock,           live: true },
+  { path: '/hrms/leave',         label: 'Leave',          icon: CalendarOff,     live: true },
+  { path: '/hrms/payslips',      label: 'Payslips',       icon: Receipt,         live: true },
+  { path: '/hrms/claims',        label: 'My Claims',      icon: ReceiptText,     live: true },
+  { path: '/hrms/documents',     label: 'Documents',      icon: FolderOpen,      live: true },
+  { path: '/hrms/announcements', label: 'Announcements',  icon: Megaphone,       live: true },
+  { path: '/hrms/it-declaration',label: 'IT Declaration', icon: FileSearch2,     live: true },
+  { path: '/hrms/performance',   label: 'My Review',      icon: TrendingUp,      live: true },
+  { path: '/hrms/training',      label: 'My Training',    icon: BookOpen,        live: true },
+  { path: '/hrms/hr-helpdesk',   label: 'HR Helpdesk',    icon: LifeBuoy,        live: true },
+  { path: '/hrms/guide',         label: 'Pulse Guide',    icon: HelpCircle,      live: true },
+  { path: '/hrms/settings',      label: 'Settings',       icon: Settings,        live: true },
 ];
 
-const ADMIN_NAV: NavEntry[] = [
-  { path: '/hrms/admin/access-requests',   label: 'Access Requests',      icon: Inbox,         live: true },
-  { path: '/hrms/admin/import-employees',  label: 'Import Employees',     icon: UserPlus,      live: true },
-  { path: '/hrms/admin/attendance',        label: 'Attendance',           icon: Clock,         live: true },
-  { path: '/hrms/leave/admin',             label: 'Leave Approvals',      icon: ClipboardList, live: true },
-  { path: '/hrms/admin/comp-off',          label: 'Comp Off Credits',     icon: CalendarDays,  live: true },
-  { path: '/hrms/admin/leave-year-end',    label: 'Year-End Reset',       icon: RotateCcw,     live: true },
-  { path: '/hrms/admin/letters',           label: 'HR Letters',           icon: ScrollText,    live: true },
-  { path: '/hrms/admin/holidays',          label: 'Manage Holidays',      icon: CalendarDays,  live: true },
-  { path: '/hrms/admin/payslips',          label: 'Generate Payslips',    icon: FileText,      live: true },
-  { path: '/hrms/admin/claims',            label: 'Claims',               icon: ReceiptText,   live: true },
-  { path: '/hrms/admin/documents',         label: 'Documents',            icon: FolderOpen,    live: true },
-  { path: '/hrms/admin/announcements',     label: 'Announcements',        icon: Megaphone,     live: true },
-  { path: '/hrms/admin/it-declarations',  label: 'IT Declarations',      icon: FileSearch2,   live: true },
-  { path: '/hrms/admin/performance',     label: 'Performance Reviews',  icon: TrendingUp,    live: true },
-  { path: '/hrms/admin/training',        label: 'Training',             icon: BookOpen,      live: true },
-  { path: '/hrms/admin/salary-history',  label: 'Salary History',       icon: TrendingUp,    live: true },
-  { path: '/hrms/admin/hr-helpdesk',    label: 'HR Helpdesk',          icon: LifeBuoy,      live: true },
+// Admin nav split into sub-groups for scannability
+type AdminNavGroup = { label: string; items: NavEntry[] };
+const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
+  {
+    label: 'People',
+    items: [
+      { path: '/hrms/employees',              label: 'Employees',        icon: Users,         live: true },
+      { path: '/hrms/admin/access-requests',  label: 'Access Requests',  icon: Inbox,         live: true },
+      { path: '/hrms/admin/import-employees', label: 'Import Employees', icon: UserPlus,      live: true },
+    ],
+  },
+  {
+    label: 'Time & Leave',
+    items: [
+      { path: '/hrms/admin/attendance',      label: 'Attendance',       icon: Clock,         live: true },
+      { path: '/hrms/leave/admin',           label: 'Leave Approvals',  icon: ClipboardList, live: true },
+      { path: '/hrms/admin/comp-off',        label: 'Comp Off Credits', icon: CalendarDays,  live: true },
+      { path: '/hrms/admin/leave-year-end',  label: 'Year-End Reset',   icon: RotateCcw,     live: true },
+      { path: '/hrms/admin/holidays',        label: 'Manage Holidays',  icon: CalendarDays,  live: true },
+    ],
+  },
+  {
+    label: 'Payroll & Finance',
+    items: [
+      { path: '/hrms/admin/payslips',        label: 'Generate Payslips', icon: FileText,    live: true },
+      { path: '/hrms/admin/claims',          label: 'Claims',            icon: ReceiptText, live: true },
+      { path: '/hrms/admin/salary-history',  label: 'Salary History',    icon: TrendingUp,  live: true },
+      { path: '/hrms/admin/it-declarations', label: 'IT Declarations',   icon: FileSearch2, live: true },
+    ],
+  },
+  {
+    label: 'Content',
+    items: [
+      { path: '/hrms/admin/letters',       label: 'HR Letters',    icon: ScrollText, live: true },
+      { path: '/hrms/admin/documents',     label: 'Documents',     icon: FolderOpen, live: true },
+      { path: '/hrms/admin/announcements', label: 'Announcements', icon: Megaphone,  live: true },
+    ],
+  },
+  {
+    label: 'Performance',
+    items: [
+      { path: '/hrms/admin/performance', label: 'Performance Reviews', icon: TrendingUp, live: true },
+      { path: '/hrms/admin/training',    label: 'Training',            icon: BookOpen,   live: true },
+      { path: '/hrms/admin/hr-helpdesk', label: 'HR Helpdesk',         icon: LifeBuoy,   live: true },
+    ],
+  },
 ];
 
 const LIFECYCLE_NAV: NavEntry[] = [
@@ -385,38 +410,48 @@ export function HrmsShell() {
             </>
           )}
 
-          {ADMIN_NAV.map(({ path, label, icon: Icon }) => {
-            const badge =
-              path === '/hrms/admin/access-requests' && !onAccessRequestsPage ? pendingRequests       :
-              path === '/hrms/admin/attendance'                                ? pendingRegularizations :
-              path === '/hrms/leave/admin'                                     ? pendingEncashCount    :
-              path === '/hrms/admin/leave-year-end'                            ? leaveResetBadge       :
-              path === '/hrms/admin/it-declarations'                           ? itDeclAdminBadge      :
-              path === '/hrms/admin/performance'                               ? pendingReviewCount    :
-              path === '/hrms/admin/training'                                  ? trainingAdminBadge    :
-              path === '/hrms/admin/hr-helpdesk'                               ? openTicketCount       : 0;
-            return (
-              <NavLink key={path} to={path} end
-                className={({ isActive }) =>
-                  `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3 hover:bg-[rgba(255,255,255,0.04)]'}`
-                }
-                style={({ isActive }) =>
-                  isActive
-                    ? { backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961', borderColor: '#C9A961' }
-                    : { color: 'rgba(240,236,224,0.45)' }
-                }
-              >
-                <Icon size={17} className="shrink-0" />
-                <span className="text-sm flex-1">{label}</span>
-                {badge > 0 && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full mr-1 leading-none"
-                    style={{ backgroundColor: 'rgba(248,113,113,0.20)', color: '#f87171' }}>
-                    {badge}
-                  </span>
-                )}
-              </NavLink>
-            );
-          })}
+          {ADMIN_NAV_GROUPS.map(({ label: groupLabel, items }) => (
+            <div key={groupLabel}>
+              <div className="px-3 pt-3 pb-1">
+                <p className="text-[9px] font-bold uppercase tracking-[0.3em]"
+                  style={{ color: 'rgba(240,236,224,0.20)' }}>
+                  {groupLabel}
+                </p>
+              </div>
+              {items.map(({ path, label, icon: Icon }) => {
+                const badge =
+                  path === '/hrms/admin/access-requests' && !onAccessRequestsPage ? pendingRequests        :
+                  path === '/hrms/admin/attendance'                                ? pendingRegularizations :
+                  path === '/hrms/leave/admin'                                     ? pendingEncashCount     :
+                  path === '/hrms/admin/leave-year-end'                            ? leaveResetBadge        :
+                  path === '/hrms/admin/it-declarations'                           ? itDeclAdminBadge       :
+                  path === '/hrms/admin/performance'                               ? pendingReviewCount     :
+                  path === '/hrms/admin/training'                                  ? trainingAdminBadge     :
+                  path === '/hrms/admin/hr-helpdesk'                               ? openTicketCount        : 0;
+                return (
+                  <NavLink key={path} to={path} end
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3 hover:bg-[rgba(255,255,255,0.04)]'}`
+                    }
+                    style={({ isActive }) =>
+                      isActive
+                        ? { backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961', borderColor: '#C9A961' }
+                        : { color: 'rgba(240,236,224,0.45)' }
+                    }
+                  >
+                    <Icon size={17} className="shrink-0" />
+                    <span className="text-sm flex-1">{label}</span>
+                    {badge > 0 && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full mr-1 leading-none"
+                        style={{ backgroundColor: 'rgba(248,113,113,0.20)', color: '#f87171' }}>
+                        {badge}
+                      </span>
+                    )}
+                  </NavLink>
+                );
+              })}
+            </div>
+          ))}
 
           {/* Compliance section */}
           <div className="px-3 pt-4 pb-2 flex items-center gap-2">

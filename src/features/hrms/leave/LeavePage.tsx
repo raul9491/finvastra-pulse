@@ -179,18 +179,35 @@ export function LeavePage() {
             {year} balance &amp; applications
           </p>
         </div>
-        <Link
-          to="/hrms/leave/apply"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
-          style={{
-            background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
-            color:      '#0B1538',
-            border:     '1px solid rgba(201,169,97,0.40)',
-          }}
-        >
-          <Plus size={15} />
-          Apply for Leave
-        </Link>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Secondary links — surfaced here since they're removed from the main nav */}
+          <Link
+            to="/hrms/leave/team-calendar"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors hover:bg-white/10"
+            style={{ color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.10)' }}
+          >
+            Team Calendar →
+          </Link>
+          <Link
+            to="/hrms/holidays"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors hover:bg-white/10"
+            style={{ color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.10)' }}
+          >
+            Holidays →
+          </Link>
+          <Link
+            to="/hrms/leave/apply"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
+            style={{
+              background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
+              color:      '#0B1538',
+              border:     '1px solid rgba(201,169,97,0.40)',
+            }}
+          >
+            <Plus size={15} />
+            Apply for Leave
+          </Link>
+        </div>
       </div>
 
       {/* ── Balance cards ── */}

@@ -9,6 +9,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { Search, Mail, MapPin, Users, Filter } from 'lucide-react';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { useAuth } from '../../auth/AuthContext';
@@ -164,14 +165,21 @@ export function EmployeeDirectoryPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-3xl mb-1"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
-          Employee Directory
-        </h2>
-        <p className="text-sm text-mute">
-          {loading ? 'Loading…' : `${activeEmployees.length} active team member${activeEmployees.length !== 1 ? 's' : ''}`}
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-3xl mb-1"
+            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+            Employee Directory
+          </h2>
+          <p className="text-sm text-mute">
+            {loading ? 'Loading…' : `${activeEmployees.length} active team member${activeEmployees.length !== 1 ? 's' : ''}`}
+          </p>
+        </div>
+        <Link to="/hrms/org-chart"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors hover:bg-slate-100 shrink-0"
+          style={{ color: '#8B8B85', border: '1px solid #E2E8F0' }}>
+          Org Chart →
+        </Link>
       </div>
 
       {/* Search + filter bar */}

@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Briefcase, TrendingUp, ShieldCheck, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Briefcase, TrendingUp, ShieldCheck, ChevronRight, Settings } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { useOpportunityTypes, createOpportunity } from '../hooks/useOpportunities';
@@ -176,13 +176,14 @@ function Step1({ onSelect }: { onSelect: (t: OpportunityType) => void }) {
 
 // ─── Step 2: Choose product ───────────────────────────────────────────────────
 function Step2({
-  selectedType, types, loading, onSelect, onBack,
+  selectedType, types, loading, onSelect, onBack, isAdmin,
 }: {
   selectedType: OpportunityType;
   types: OpportunityTypeConfig[];
   loading: boolean;
   onSelect: (tc: OpportunityTypeConfig) => void;
   onBack: () => void;
+  isAdmin: boolean;
 }) {
   const filtered = types.filter((t) => t.businessLine === selectedType);
   const meta = TYPE_META[selectedType];
@@ -200,6 +201,27 @@ function Step2({
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 animate-pulse">
           {[...Array(6)].map((_, i) => <div key={i} className="h-12 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="glass-panel py-12 text-center space-y-3">
+          <Settings size={32} className="mx-auto opacity-30" style={{ color: 'var(--text-muted)' }} />
+          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            No {meta.label} products configured yet
+          </p>
+          <p className="text-xs leading-relaxed max-w-xs mx-auto" style={{ color: 'var(--text-muted)' }}>
+            {isAdmin
+              ? 'Run "Seed CRM Config" from the CRM Dashboard to load all product types, providers, and document templates.'
+              : 'Ask your admin to run CRM Setup from the Dashboard.'}
+          </p>
+          {isAdmin && (
+            <Link
+              to="/crm"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold mt-2"
+              style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
+            >
+              Go to Dashboard →
+            </Link>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -372,6 +394,8 @@ export function AddOpportunityPage() {
   const [submitError, setSubmitError] = useState('');
   const [customFields, setCustomFields] = useState<Record<string, unknown>>({});
 
+  const isAdmin = profile?.role === 'admin';
+
   const rmOptions = useMemo(
     () => employees.filter((e) => e.crmAccess === true || e.role === 'admin'),
     [employees],
@@ -448,6 +472,7 @@ export function AddOpportunityPage() {
           loading={typesLoading}
           onSelect={(tc) => { setSelectedTypeConfig(tc); setStep(3); }}
           onBack={() => setStep(1)}
+          isAdmin={isAdmin}
         />
       )}
       {step === 3 && selectedTypeConfig && (

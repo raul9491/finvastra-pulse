@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, Plus, TrendingUp, Briefcase, ShieldCheck, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Plus, TrendingUp, Briefcase, ShieldCheck, ChevronRight, Calendar } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useLead } from '../hooks/useLeads';
 import { formatSlaStatus } from '../../../lib/slaUtils';
-import { useOpportunities } from '../hooks/useOpportunities';
+import { useOpportunities, useOpportunityTypes } from '../hooks/useOpportunities';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { getMaskedPan } from './panUtils';
 import { auth, db } from '../../../lib/firebase';
@@ -38,21 +38,67 @@ const SOURCE_LABELS: Record<string, string> = {
   walkin: 'Walk-in', referral: 'Referral', broker: 'Broker',
 };
 
+// ─── Mini stage progress dots ─────────────────────────────────────────────────
+function MiniStageDots({ stages, current, isLost, isWon }: {
+  stages: string[]; current: string; isLost: boolean; isWon: boolean;
+}) {
+  if (stages.length === 0) return null;
+  const idx = stages.indexOf(current);
+
+  return (
+    <div className="flex items-center gap-1">
+      {stages.map((s, i) => {
+        const done   = isWon || i < idx;
+        const active = !isLost && !isWon && i === idx;
+        return (
+          <div key={s} title={s} className="flex items-center gap-0.5">
+            <div
+              className="w-2 h-2 rounded-full shrink-0 transition-colors"
+              style={{
+                backgroundColor: done
+                  ? '#C9A961'
+                  : active
+                  ? '#C9A961'
+                  : isLost
+                  ? 'rgba(248,113,113,0.30)'
+                  : 'rgba(255,255,255,0.12)',
+                outline: active ? '1.5px solid #C9A961' : 'none',
+                outlineOffset: '1px',
+              }}
+            />
+            {i < stages.length - 1 && (
+              <div className="w-2 h-px shrink-0"
+                style={{ backgroundColor: done ? 'rgba(201,169,97,0.40)' : 'rgba(255,255,255,0.08)' }} />
+            )}
+          </div>
+        );
+      })}
+      <span className="ml-1.5 text-[10px] font-medium truncate max-w-30"
+        style={{ color: isLost ? '#f87171' : isWon ? '#34d399' : 'var(--text-muted)' }}>
+        {isLost ? 'Lost' : isWon ? 'Won' : current}
+      </span>
+    </div>
+  );
+}
+
 // ─── Opportunity card ─────────────────────────────────────────────────────────
-function OpportunityCard({ opp, leadId, ownerName }: {
-  opp: Opportunity; leadId: string; ownerName: string;
+function OpportunityCard({ opp, leadId, ownerName, stages }: {
+  opp: Opportunity; leadId: string; ownerName: string; stages: string[];
 }) {
   const navigate = useNavigate();
   const col = TYPE_COLORS[opp.opportunityType];
+  const isLost = opp.status === 'lost';
+  const isWon  = opp.status === 'won';
 
   return (
     <button
       onClick={() => navigate(`/crm/leads/${leadId}/opportunities/${opp.id}`)}
       className="w-full text-left glass-panel p-5 hover:shadow-md transition-all group"
     >
+      {/* Row 1: type icon + product name + status badge */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center"
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
             style={{ backgroundColor: col.bg, color: col.text }}>
             {TYPE_ICONS[opp.opportunityType]}
           </div>
@@ -66,22 +112,33 @@ function OpportunityCard({ opp, leadId, ownerName }: {
         </span>
       </div>
 
-      <div className="flex items-center justify-between">
+      {/* Row 2: stage progress dots */}
+      <div className="mb-3">
+        <MiniStageDots stages={stages} current={opp.stage} isLost={isLost} isWon={isWon} />
+      </div>
+
+      {/* Row 3: deal size, RM, expected close */}
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Deal Size</p>
+          <p className="text-[10px] uppercase tracking-widest font-semibold mb-0.5" style={{ color: 'var(--text-muted)' }}>Deal Size</p>
           <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
             ₹{opp.dealSize.toLocaleString('en-IN')}
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Stage</p>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{opp.stage}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>RM</p>
+        <div>
+          <p className="text-[10px] uppercase tracking-widest font-semibold mb-0.5" style={{ color: 'var(--text-muted)' }}>RM</p>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{ownerName}</p>
         </div>
-        <ChevronRight size={16} style={{ color: 'var(--text-dim)' }} className="group-hover:opacity-80 transition-opacity" />
+        {opp.expectedCloseDate && (
+          <div>
+            <p className="text-[10px] uppercase tracking-widest font-semibold mb-0.5" style={{ color: 'var(--text-muted)' }}>Close By</p>
+            <p className="text-xs flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
+              <Calendar size={11} />
+              {format(new Date(opp.expectedCloseDate), 'dd MMM yyyy')}
+            </p>
+          </div>
+        )}
+        <ChevronRight size={16} style={{ color: 'var(--text-dim)' }} className="group-hover:opacity-80 transition-opacity shrink-0" />
       </div>
     </button>
   );
@@ -96,6 +153,7 @@ export function LeadDetailPage() {
   const { lead, loading: leadLoading } = useLead(leadId ?? null);
   const { opportunities, loading: oppsLoading } = useOpportunities(leadId ?? null);
   const { employees } = useAllEmployees();
+  const { types } = useOpportunityTypes();
 
   const justCreated = (state as { justCreated?: boolean } | null)?.justCreated;
 
@@ -417,10 +475,13 @@ export function LeadDetailPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {opportunities.map((opp) => (
-              <OpportunityCard key={opp.id} opp={opp} leadId={lead.id}
-                ownerName={ownerName(opp.ownerId)} />
-            ))}
+            {opportunities.map((opp) => {
+              const stages = types.find((t) => t.name === opp.product)?.stages ?? [];
+              return (
+                <OpportunityCard key={opp.id} opp={opp} leadId={lead.id}
+                  ownerName={ownerName(opp.ownerId)} stages={stages} />
+              );
+            })}
           </div>
         )}
       </div>

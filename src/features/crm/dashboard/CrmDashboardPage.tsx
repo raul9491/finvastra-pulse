@@ -637,15 +637,73 @@ export function CrmDashboardPage() {
         </button>
       )}
 
-      {/* Dev-only admin setup panel */}
+      {/* CRM first-time setup — visible to admin in all environments */}
+      {isAdmin && <CrmSetupPanel />}
+      {/* Dev-only dangerous tools (migration / sample slabs) */}
       {import.meta.env.DEV && isAdmin && <DevAdminTools />}
     </div>
   );
 }
 
-// ─── Dev-only seed tools (tree-shaken in prod) ────────────────────────────────
+// ─── CRM Setup Panel (production-safe, admin-only) ───────────────────────────
+// Seeds opportunity_types, providers, and document_types.
+// seedCrmConfig() is idempotent — safe to run multiple times (no-ops if data exists).
 
 import { seedCrmConfig } from '../config/seedCrmConfig';
+
+function CrmSetupPanel() {
+  const [status, setStatus] = useState<string>('');
+  const [running, setRunning] = useState(false);
+
+  const handleSeed = async () => {
+    if (!window.confirm('This will seed CRM product types, providers, and document types into Firestore. Safe to run multiple times. Continue?')) return;
+    setRunning(true);
+    setStatus('Seeding…');
+    try {
+      const r = await seedCrmConfig();
+      if (r.typed === 0 && r.providers === 0 && r.documentTypes === 0) {
+        setStatus('Already set up — no changes needed.');
+      } else {
+        setStatus(`Done! ${r.typed} product types · ${r.providers} providers · ${r.documentTypes} document types added.`);
+      }
+    } catch (e) {
+      setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <div className="glass-panel p-5 space-y-3">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
+            CRM Setup
+          </h3>
+          <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+            Seeds product types (Loan / Wealth / Insurance), bank providers, and document types.
+            Run this once after first deployment. Safe to run again — no duplicates created.
+          </p>
+        </div>
+        <button
+          onClick={handleSeed}
+          disabled={running}
+          className="shrink-0 px-5 py-2 rounded-lg text-sm font-semibold transition-opacity disabled:opacity-40"
+          style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
+        >
+          {running ? 'Running…' : 'Seed CRM Config'}
+        </button>
+      </div>
+      {status && (
+        <p className="text-sm" style={{ color: status.startsWith('Error') ? '#f87171' : '#34d399' }}>
+          {status}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ─── Dev-only seed tools (tree-shaken in prod) ────────────────────────────────
 import { migrateLeads } from '../config/migrate';
 import { createSlab } from '../hooks/useCommissionSlabs';
 import { seedDocumentTypes } from '../config/seedDocumentTypes';

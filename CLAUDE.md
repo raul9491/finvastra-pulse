@@ -53,6 +53,156 @@
 - **Sans font**: DM Sans.
 - **Aesthetic**: editorial-premium, same family as the Finvastra marketing site. Generous whitespace. Confident not flashy. No purple gradients, no generic SaaS-y rounded everything.
 
+## Feature Map — complete src/ tree (as of 2026-06-02)
+
+Quick navigation reference. Every file listed here exists and is live in production.
+
+```
+src/
+├── App.tsx                          router entry, wraps ThemeProvider > AuthProvider > ToastProvider
+├── main.tsx
+├── router.tsx                       all routes — DO NOT TOUCH
+├── types/index.ts                   all shared TypeScript types — DO NOT TOUCH
+│
+├── config/
+│   └── hrmsConfig.ts                SUPER_ADMIN_UIDS, DEPARTMENTS, DESIGNATIONS, isSuperAdmin()
+│
+├── styles/
+│   ├── glass.css                    glassmorphism design system; dark/light mode CSS vars
+│   └── tokens.css                   brand CSS custom properties (navy, gold, paper, ink)
+│
+├── lib/                             — DO NOT TOUCH any file in lib/
+│   ├── firebase.ts                  client SDK init (emulator-aware)
+│   ├── notifications.ts             writeNotification() + sendHrEmailNotification()
+│   ├── encryption.ts                AES-256-GCM PAN encrypt/decrypt
+│   ├── audit.ts                     Firestore audit log writer
+│   ├── cn.ts                        Tailwind class merge
+│   ├── pdfWatermark.ts              jsPDF watermark helper
+│   ├── pdfApplicationPacket.ts      5-page watermarked loan application packet PDF
+│   ├── slaUtils.ts                  SLA deadline helpers
+│   ├── envValidation.ts             startup env var validation (throws in prod if missing)
+│   ├── leadAnonymisation.ts         RTBF/DPDP anonymisation
+│   ├── leaveYearResetJob.ts         FY leave balance reset job logic
+│   ├── documentExpiryJob.ts         document expiry threshold checks
+│   ├── bankSLAJob.ts                bank SLA breach detection
+│   └── commissionLeakageJob.ts      commission leakage detection rules
+│
+├── components/
+│   ├── VastraLogo.tsx               re-export shim (canonical: components/ui/VastraLogo.tsx)
+│   └── layout/
+│   │   ├── HrmsShell.tsx            HRMS shell — sidebar, nav badges, mobile drawer
+│   │   ├── CrmShell.tsx             CRM shell — includes referral-only mode
+│   │   ├── MisShell.tsx             MIS shell
+│   │   └── NavItem.tsx              shared nav link primitive
+│   └── ui/
+│       ├── SearchableSelect.tsx     dropdown with search (+ MultiSearchableSelect)
+│       ├── MultiSearchableSelect.tsx re-export shim
+│       ├── ThemeProvider.tsx        dark/light mode context + ThemeToggle button (Sun/Moon)
+│       ├── NotificationBell.tsx     in-app notification dropdown (bell icon)
+│       ├── VideoLogo.tsx            animated logo
+│       ├── VastraLogo.tsx           brand mark (size/light/iconOnly props)
+│       ├── MercuryBackground.tsx    animated bg
+│       ├── Button.tsx               glass-styled button primitive
+│       ├── Badge.tsx                status badge
+│       ├── Modal.tsx                glass modal wrapper
+│       ├── Toast.tsx                toast notification system
+│       ├── EmptyState.tsx           empty state illustration
+│       ├── Skeleton.tsx             loading skeleton
+│       └── BulkActionBar.tsx        multi-select bulk action toolbar
+│
+└── features/
+    ├── auth/
+    │   ├── AuthContext.tsx           session, 30-min idle timeout, mustResetPassword
+    │   ├── LoginPage.tsx             Google + email/pw login, @finvastra.com domain guard
+    │   ├── ResetPasswordPage.tsx     forced reset on first login
+    │   ├── RequestAccessPage.tsx
+    │   └── AuthActionPage.tsx
+    │
+    ├── home/
+    │   └── LauncherPage.tsx          module selector (HRMS / CRM / MIS cards)
+    │
+    ├── public/
+    │   └── CustomerTrackerPage.tsx   /track/:token — public customer deal status
+    │
+    ├── hrms/                         /hrms/* — all employees by default (hrmsAccess)
+    │   ├── hooks/                    — DO NOT TOUCH any hook file
+    │   │   ├── useAttendance.ts      useHolidays.ts  useLeave.ts         usePayslips.ts
+    │   │   ├── useClaims.ts          useDocuments.ts useAnnouncements.ts useItDeclarations.ts
+    │   │   ├── useCompOff.ts         useBirthdayEmployees.ts             useWorkAnniversaries.ts
+    │   │   ├── useProbation.ts       usePerformance.ts  useTraining.ts   useHrTickets.ts
+    │   │   ├── useDocumentAcknowledgements.ts          useSalaryHistory.ts
+    │   │   ├── useLeaveEncashment.ts useLeaveYearReset.ts                useAttendanceRegularization.ts
+    │   │   └── useGeneratedLetters.ts
+    │   │
+    │   ├── dashboard/     HrmsDashboardPage — birthdays, announcements banner, team today, HR pending panel
+    │   ├── employees/     EmployeesPage, EmployeeProfilePage, AddEmployeeModal, ImportEmployeesPage
+    │   │                  CrmPerformanceWidget (shows CRM stats on HR profile)
+    │   ├── attendance/    AttendancePage (self), AdminAttendancePage (admin + regularization tab)
+    │   ├── leave/         LeavePage, ApplyLeavePage, AdminLeavePage, AdminCompOffPage,
+    │   │                  TeamCalendarPage, LeaveYearEndPage
+    │   ├── payslips/      PayslipsPage (employee view), GeneratePayslipPage (admin), payslipPdf.ts
+    │   ├── claims/        ClaimsPage (employee), AdminClaimsPage
+    │   ├── documents/     DocumentsPage (employee), AdminDocumentsPage; Firebase Storage
+    │   ├── announcements/ AnnouncementsPage, AdminAnnouncementsPage (readBy tracking, pinned, priority)
+    │   ├── itdeclaration/ ItDeclarationPage (employee), AdminItDeclarationsPage; 80C/80D/HRA/HomeLoan
+    │   ├── compliance/    ComplianceCalendarPage (TDS/PF/PT/ESIC), PfTrackerPage + ECR export
+    │   ├── letters/       HrLetterGeneratorPage (8 letter types), letterPdf.ts; Firebase Storage
+    │   ├── salary/        AdminSalaryHistoryPage — salary revision history per employee
+    │   ├── recruitment/   RecruitmentPage — job openings, candidate pipeline, Add-to-HRMS CTA
+    │   ├── assets/        AssetsPage — laptop/SIM/card assign/return tracking
+    │   ├── onboarding/    OnboardingPage — 20-item checklist per new employee, 4 categories
+    │   ├── probation/     ProbationPage — confirm/extend/fail probation, timeline
+    │   ├── offboarding/   OffboardingPage — 16-item checklist + FnF calculator + FnF PDF
+    │   ├── performance/   PerformancePage (self-assessment), AdminPerformancePage
+    │   ├── training/      TrainingPage (employee enroll), AdminTrainingPage
+    │   ├── helpdesk/      HrHelpdeskPage (raise ticket), AdminHelpdeskPage (POSH Act compliant)
+    │   ├── orgchart/      OrgChartPage — CSS flexbox hierarchy, collapse/expand, dept filter
+    │   ├── holidays/      HolidaysPage — Hyderabad 2026 calendar, auto-seeded
+    │   ├── guide/         PulseGuidePage — 12-section accordion quick-reference
+    │   ├── settings/      SettingsPage — Contact HR cards
+    │   ├── dataimport/    DataImportPage — bulk import (super admin only)
+    │   └── admin/         SuperAdminPermissionsPage — 3 protected accounts, read-only SA rows
+    │
+    ├── crm/                          /crm/* — crmAccess required; or /crm/referrals for referral-only
+    │   ├── hooks/                    — DO NOT TOUCH any hook file
+    │   │   ├── useLeads.ts           useOpportunities.ts  useBankSubmissions.ts
+    │   │   ├── useCommissionRecords.ts useCommissionSlabs.ts useDocumentChecklist.ts
+    │   │   ├── useMyLeads.ts         useWealthInvestments.ts  useInsurancePolicies.ts
+    │   │   ├── useCrmDocuments.ts    useBankEligibility.ts    useDocumentExpiry.ts
+    │   │   ├── useBankSLA.ts         useFOIR.ts               useImportJobs.ts
+    │   │   └── config/              seedData.ts, seedDocumentTypes.ts, seedCrmConfig.ts, migrate.ts
+    │   │
+    │   ├── dashboard/     CrmDashboardPage — RM performance table, pipeline by biz line, source breakdown
+    │   ├── leads/         LeadsPage, LeadDetailPage, NewLeadPage, MyQueuePage, QuickContactBar
+    │   │                  FOIRCalculator, duplicate detection, bulk actions, PAN masking
+    │   ├── opportunities/ OpportunityDetailPage (stage advance, activity timeline, stage data history)
+    │   │                  AddOpportunityPage (3-step wizard, dynamic custom fields)
+    │   │                  TransferModal, BankEligibilityCard, CrmDocumentVault
+    │   │   ├── loans/     AddBankSubmissionModal, BankSubmissionCard, BankSubmissionsSection,
+    │   │   │              BankSubmissionDetailPage, ApplicationPacketGenerator
+    │   │   ├── wealth/    WealthInvestmentsSection — investment tracking subcollection
+    │   │   └── insurance/ InsurancePoliciesSection — policy tracking + 30-day renewal alerts
+    │   ├── pipeline/      PipelinePage — Kanban board (stage columns per biz line, totals, Board/Table)
+    │   ├── commissions/   CommissionRecordsPage, CommissionDashboardCard; mark paid/clawback
+    │   ├── import/        ImportPage (Google Sheets bulk), ImportHistoryPage
+    │   ├── referrals/     MyReferralsPage, SubmitReferralPage, ImportReferralsPage (referral-only mode)
+    │   └── admin/         CommissionSlabsPage, ProvidersPage, DocumentTypesPage,
+    │                      EligibilityRulesPage, CommissionLeakagePage, CompetitorIntelligencePage,
+    │                      ReferralIntelligencePage, RateNegotiationMemoryPage,
+    │                      AccessLogsPage, RightToBeForgottenPage, WebhookConfigPage
+    │
+    └── mis/                          /mis/* — misAccess required
+        ├── hooks/                    — DO NOT TOUCH any hook file
+        │   ├── useStatements.ts      useReconciliation.ts  usePayouts.ts  useMisOverview.ts
+        ├── overview/      MisOverviewPage — KPI dashboard + Disbursals tab (CRM-MIS bridge)
+        ├── statements/    StatementsPage, StatementDetailPage, UploadStatementPage (CSV column mapping)
+        ├── reconciliation/ ReconciliationPage (auto-match + manual), LineMatchModal
+        │                   shows CRM Loan No/App No in Matched-To column
+        └── payouts/       PayoutsPage, PayoutDetailPage, GeneratePayoutsPage, PayoutSlabsPage
+```
+
+---
+
 ## Phasing — follow strictly, do not jump ahead
 
 | Phase | Weeks | Scope |
@@ -70,9 +220,9 @@ Production target: **end of October 2026.** *(Phase 4 MIS may push this — revi
 
 | Sub-phase | Status | Notes |
 |---|---|---|
-| 4.1 MIS shell + manual statement upload | ⬜ Pending | `MisShell` at `/mis/*`; `misAccess` guard; manual entry of received commission statements |
-| 4.2 Reconciliation UI | ⬜ Pending | Match `/commission_statements` lines to `/commission_records`; flag discrepancies |
-| 4.3 RM payout slabs + monthly generation | ⬜ Pending | `/rm_payouts` per RM per month; % of received (not expected) with its own slab config |
+| 4.1 MIS shell + manual statement upload | **✅ Complete** | `MisShell` at `/mis/*`; `misAccess` guard; CSV upload + column mapping |
+| 4.2 Reconciliation UI | **✅ Complete** | Auto-match (amount ±5% + date ±30d, score ≥50), manual match, close statement |
+| 4.3 RM payout slabs + monthly generation | **✅ Complete** | `/rm_payouts` per RM per month; user-specific overrides role-based slabs |
 | 4.4 Workspace integration | ⬜ Pending | Google Drive folder watcher + Sheets monthly export |
 | 4.5 Provider-specific statement parsers | ⬜ Pending | CSV/PDF parsers per bank/AMC/insurer format |
 | 4.6 Wealth AUM tracking + insurance renewal events | ⬜ Pending | Recurring revenue events that feed commission_records automatically |
@@ -91,12 +241,12 @@ Production target: **end of October 2026.** *(Phase 4 MIS may push this — revi
 | Post-2.6 Security | **✅ Complete** | AES-256-GCM PAN encryption; /access_logs; RTBF/DPDP anonymisation; PDF watermark; new-device login alerts; device fingerprinting + login_history; Firestore offline persistence; bulk lead actions |
 | Post-2.6 Operational Analytics | **✅ Complete** | Document expiry engine (threshold-based); duplicate lead detection; bank SLA breach alerts (day-count threshold); commission leakage detection (rules-based); lost-reason capture; competitor/referral/rate analysis pages |
 | Post-2.6 Differentiators | **✅ Complete** | Public customer tracker (/track/:token); application packet PDF (jsPDF, 5-page, watermarked); FOIR pre-qualifier; bank eligibility cards; eligibility rules admin |
-| 2.8 Transaction cleanup | ⬜ Pending — before prod | `setPrimarySubmission` + all multi-step writes wrapped in `runTransaction`; seed buttons removed from prod |
+| 2.8 Transaction cleanup | **✅ Complete** | `setPrimarySubmission` wrapped in `runTransaction`; seed buttons gated by `import.meta.env.DEV` |
 | 2.5b Social/website webhook intake | **✅ Complete** | `POST /api/leads/intake/website` (X-Finvastra-Webhook-Secret header) + `GET/POST /api/leads/intake/meta` (X-Hub-Signature-256 HMAC); workload-aware assignment; `/webhook_logs`; admin config page at `/crm/admin/webhooks` |
 | 2.5c Lead queue + transfer UI | **✅ Complete** | My Queue page; urgency-sorted queue; inline log-call; transfer-to-specialist modal; QuickContactBar on LeadDetailPage; overdue badge in nav |
-| 2.5d Drive doc vault | ⬜ Pending | Google Drive integration per opportunity |
-| 2.7 Wealth investments | ⬜ Pending | Investment tracking subcollection on wealth opportunities |
-| 2.8b Insurance policies | ⬜ Pending | Policy management subcollection on insurance opportunities |
+| 2.5d Drive doc vault | **✅ Complete** | Per-opportunity document vault; upload to Firebase Storage, categorise, download |
+| 2.7 Wealth investments | **✅ Complete** | `/investments` subcollection per opportunity; WealthInvestmentsSection on OpportunityDetailPage |
+| 2.8b Insurance policies | **✅ Complete** | `/policies` subcollection per opportunity; InsurancePoliciesSection + 30-day renewal alert badge |
 
 ## Phase 2.5b — Website + Meta Lead Ads Webhook Intake (2026-05-26)
 
@@ -1891,3 +2041,103 @@ Both are fire-and-forget. Employee is directed to `/hrms/payslips`.
 - 25-employee scale today, designed to handle 250 without architecture changes.
 - Marketing site `finvastra.com` runs on Hostinger. This app lives at `pulse.finvastra.com` via DNS CNAME → Firebase Hosting. No conflict between the two.
 - Today's date when this file was written: **May 19, 2026.** Production launch target: **end of October 2026.**
+
+---
+
+## June 2026 Sprint — What Was Built
+
+### UI/UX — Glassmorphism Design System
+
+Complete visual overhaul to editorial-premium dark glass aesthetic.
+
+| Item | File(s) | Notes |
+|---|---|---|
+| Glass design system | `src/styles/glass.css` | CSS variables for panels, inputs, badges, tables, modals, sidebars, headers |
+| Brand tokens | `src/styles/tokens.css` | `--navy-*`, `--gold-*`, `--paper-*`, `--ink-*`, `--mute` mapped to Tailwind theme |
+| 42-page glass sweep | CRM + MIS pages | `glass-panel`, `glass-inp`, `glass-table`, `glass-modal-panel`, `badge-glass-*` applied across all features |
+| Page fade-in animation | All shells | `AnimatePresence` + `motion.div` on route change (0.18s ease-out) |
+| Mobile hamburger drawer | HrmsShell, CrmShell, MisShell | Spring-animated slide-in drawer; closes on navigation |
+| Shared primitives | `Button`, `Badge`, `Skeleton`, `EmptyState`, `cn()` | Reusable across all modules |
+
+### Dark / Light Mode Toggle
+
+| Item | Detail |
+|---|---|
+| `ThemeProvider.tsx` | React context + `useTheme()` + `ThemeToggle` button (Sun/Moon icon) |
+| Persistence | `localStorage('fv-theme')` — survives page reload |
+| Dark mode CSS vars | `--shell-text-secondary/dim/icon`, `--shell-border`, `--shell-border-mid`, `--shell-hover-*` |
+| Light mode overrides | `body.light-mode` in `glass.css` — all panels, sidebar, header, modals, tables, buttons |
+| SearchableSelect | Both single + multi variants use `var(--ss-*)` CSS vars — fully theme-aware |
+| Native `<select>` | `color-scheme: dark` on `:root` → OS renders options dark; `option` background overrides for Webkit |
+| Shell chrome | All three shells: zero hardcoded `rgba(240,236,224,…)` values — all use CSS variables |
+| ThemeToggle in shells | Placed in header (right side) of HrmsShell, CrmShell, MisShell |
+
+### CRM — Pipeline Stage Data Capture
+
+Each opportunity stage now collects structured data on advance.
+
+| Stage | Fields captured |
+|---|---|
+| Contacted | Contact method, outcome, callback date, notes |
+| Documents | Document type, completeness %, missing docs, notes |
+| Submitted to Bank | Bank name, application number, submission date, notes |
+| Sanctioned | Sanctioned amount, sanction date, ROI, tenure, notes |
+| Disbursed | Loan No, Application No, Disbursed Amount, Disbursal Date, DSA Code/Name, City/State, Company Name |
+| Lost | Lost reason (competitor/price/docs/other), competitor name, notes |
+
+- **StageAdvanceModal**: form per stage, validation, saves to `opportunity.stageData` in Firestore
+- **StageDataHistory**: accordion timeline showing all captured stage data on `OpportunityDetailPage`
+- **Firestore rules**: `stageData` added to allowable update keys on `/leads/{id}/opportunities/{id}`
+
+### CRM — Pipeline Kanban Board (`/crm/pipeline`)
+
+Complete rewrite from table to Bigin/Jira-style board.
+
+- Stage columns derived from `useOpportunityTypes()` — ordered per config, filtered by business line
+- Column header: stage name + count chip + total pipeline value
+- Deal cards: customer name, product, deal size (gold), RM avatar, age in days, Overdue/Due-soon alerts
+- **Board/Table toggle** in page header
+- Horizontal scroll with fixed-width columns; per-column `overflow-y-auto` scroll
+- Stage accent colours cycle through a 10-colour palette
+- Falls back to stages from rows when `opportunity_types` collection not seeded
+
+### CRM-MIS Disbursal Bridge
+
+When a CRM user marks an opportunity as "Disbursed" (stage advance), the disbursal fields are written to the matching `commission_record` doc.
+
+**CRM side (`OpportunityDetailPage.tsx`):**
+- After saving DisbursedData, queries `commission_records` where `opportunityId == oppId`
+- Updates each record: `loanNo`, `applicationNo`, `disbursedAmount`, `disbursalDate`, `dsaCode`, `dsaName`, `cityState`, `customerCompanyName`
+
+**MIS Reconciliation (`ReconciliationPage.tsx`):**
+- Fetches `commission_records` for all matched statement lines (batched `documentId()` queries)
+- "Matched To" column shows: Loan No (gold mono), App No, Company Name
+- View modal shows full CRM disbursal table + **"View full opportunity in CRM →"** link
+
+**MIS Overview — Disbursals tab (`MisOverviewPage.tsx`):**
+- New tab alongside "Overview" tab
+- Fetches all `commission_records`, filters by selected month on `disbursalDate ?? expectedPayoutDate`
+- Table: Loan No, App No, Company, Date, Amount, Commission ₹, DSA Code, Status badge, "View →" CRM link
+
+**Firestore rules update:** `commission_records` update now allows two cases:
+1. Admin: status/payment fields only
+2. CRM user (own record): disbursal reference fields only
+
+### HRMS — Email Notifications Removed
+
+`fix(notifications)`: All `sendHrEmailNotification()` calls removed from:
+- `AdminLeavePage.tsx`, `AdminClaimsPage.tsx`, `AdminItDeclarationsPage.tsx`,
+- `AdminAttendancePage.tsx`, `GeneratePayslipPage.tsx`
+
+**Reason**: SMTP not yet configured in production. In-app bell (`writeNotification()`) is the sole notification channel until go-live. The `buildHrEmailHtml()` template and server endpoint remain intact for when SMTP is ready — just un-comment the call sites.
+
+### Other Fixes
+
+| Fix | Detail |
+|---|---|
+| Payslip PDF | Rebuilt to match official Finvastra format (letterhead, signatures, deduction table) |
+| Company name/email corrections | Employee profiles updated for data accuracy |
+| Holiday calendar | Fixed edge cases in auto-seed logic |
+| Referral lead permissions | Employees in referral-only mode correctly route new leads via workload-aware assignment |
+| HRMS nav simplification | `Employees` page gated to admin/HR manager; sub-group labels in admin nav |
+| Data Import page | Super-admin-only bulk import for employee data |

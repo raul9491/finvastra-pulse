@@ -12,7 +12,7 @@ import {
   approveRegularization,
   rejectRegularization,
 } from '../hooks/useAttendanceRegularization';
-import { writeNotification } from '../../../lib/notifications';
+import { writeNotification, sendHrEmailNotification, buildHrEmailHtml } from '../../../lib/notifications';
 import type { Attendance, AttendanceStatus, UserProfile, AttendanceRegularization } from '../../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -226,12 +226,22 @@ function RejectRegModal({ req, reviewerName, reviewerId, onDone, onCancel }: Rej
     setSaving(true);
     try {
       await rejectRegularization(req.id, reviewerId, reviewerName, reason.trim());
-      // Notify employee — in-app notification
       writeNotification(req.employeeId, {
         type: 'leave_rejected',
         title: 'Attendance Correction Rejected',
         body: `Your correction request for ${req.date} was rejected: ${reason.trim()}`,
         link: '/hrms/attendance',
+      }).catch(() => {});
+      sendHrEmailNotification({
+        employeeId: req.employeeId,
+        subject: 'Attendance Correction Update — Finvastra Pulse',
+        htmlBody: buildHrEmailHtml({
+          title: 'Your attendance correction was not approved',
+          lines: [{ label: 'Date', value: req.date }],
+          note:     reason.trim(),
+          ctaLabel: 'View Attendance',
+          ctaLink:  'https://pulse.finvastra.com/hrms/attendance',
+        }),
       }).catch(() => {});
       onDone();
     } finally {
@@ -302,13 +312,25 @@ function RegularizationsTab({ reviewerId, reviewerName }: RegTabProps) {
       );
       const existingId = existing.docs[0]?.id ?? null;
       await approveRegularization(req, reviewerId, reviewerName, existingId);
-
-      // Notify employee — in-app notification
       writeNotification(req.employeeId, {
         type: 'leave_approved',
         title: 'Attendance Correction Approved',
         body: `Your correction request for ${req.date} has been approved.`,
         link: '/hrms/attendance',
+      }).catch(() => {});
+      sendHrEmailNotification({
+        employeeId: req.employeeId,
+        subject: 'Attendance Correction Approved — Finvastra Pulse',
+        htmlBody: buildHrEmailHtml({
+          title: 'Your attendance correction has been approved',
+          lines: [
+            { label: 'Date',       value: req.date },
+            { label: 'Check In',   value: req.requestedCheckIn },
+            { label: 'Check Out',  value: req.requestedCheckOut },
+          ],
+          ctaLabel: 'View Attendance',
+          ctaLink:  'https://pulse.finvastra.com/hrms/attendance',
+        }),
       }).catch(() => {});
     } finally {
       setApprovingId(null);

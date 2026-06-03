@@ -3,7 +3,7 @@ import { Download, Eye, CheckCircle2, RotateCcw, ChevronLeft, AlertTriangle } fr
 import { format } from 'date-fns';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
-import { writeNotification } from '../../../lib/notifications';
+import { writeNotification, sendHrEmailNotification, buildHrEmailHtml } from '../../../lib/notifications';
 import {
   useAllItDeclarations, acceptItDeclaration, requestItRevision,
   exportItDeclarationsCSV, currentFinancialYear, fyLabel,
@@ -335,6 +335,16 @@ export function AdminItDeclarationsPage() {
               body:  `Your IT declaration for ${fyStr} has been accepted by HR.`,
               link:  '/hrms/it-declaration',
             }).catch(() => {});
+            sendHrEmailNotification({
+              employeeId: selectedDecl.employeeId,
+              subject: 'IT Declaration Accepted — Finvastra Pulse',
+              htmlBody: buildHrEmailHtml({
+                title: 'Your IT declaration has been accepted',
+                lines: [{ label: 'Financial Year', value: fyStr }],
+                ctaLabel: 'View Declaration',
+                ctaLink:  'https://pulse.finvastra.com/hrms/it-declaration',
+              }),
+            }).catch(() => {});
             setSelectedDecl(null);
           }}
           onRevise={async (note) => {
@@ -345,6 +355,17 @@ export function AdminItDeclarationsPage() {
               title: 'IT Declaration: Revision Required',
               body:  `HR has requested changes to your ${fyStr} declaration. Note: ${note}`,
               link:  '/hrms/it-declaration',
+            }).catch(() => {});
+            sendHrEmailNotification({
+              employeeId: selectedDecl.employeeId,
+              subject: 'IT Declaration — Revision Required',
+              htmlBody: buildHrEmailHtml({
+                title: 'HR has requested a revision to your IT declaration',
+                lines: [{ label: 'Financial Year', value: fyStr }],
+                note,
+                ctaLabel: 'Update Declaration',
+                ctaLink:  'https://pulse.finvastra.com/hrms/it-declaration',
+              }),
             }).catch(() => {});
             setSelectedDecl(null);
           }}
@@ -485,6 +506,16 @@ export function AdminItDeclarationsPage() {
                                     title: 'IT Declaration Accepted',
                                     body:  `Your IT declaration for ${fyStr} has been accepted by HR.`,
                                     link:  '/hrms/it-declaration',
+                                  }).catch(() => {});
+                                  sendHrEmailNotification({
+                                    employeeId: decl.employeeId,
+                                    subject: 'IT Declaration Accepted — Finvastra Pulse',
+                                    htmlBody: buildHrEmailHtml({
+                                      title: 'Your IT declaration has been accepted',
+                                      lines: [{ label: 'Financial Year', value: fyStr }],
+                                      ctaLabel: 'View Declaration',
+                                      ctaLink:  'https://pulse.finvastra.com/hrms/it-declaration',
+                                    }),
                                   }).catch(() => {});
                                 }}
                                 className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg font-semibold"

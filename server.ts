@@ -1329,8 +1329,9 @@ async function startServer() {
     }
     if (!toEmail) return res.json({ ok: true, skipped: "no_email" });
 
-    if (process.env.SMTP_USER && process.env.SMTP_APP_PASSWORD) {
-      try {
+    try {
+      if (pdfBase64 && pdfFilename && process.env.SMTP_USER && process.env.SMTP_APP_PASSWORD) {
+        // PDF attachment path: nodemailer SMTP (Gmail API does not support attachments here)
         const nodemailer = await import("nodemailer");
         const transporter = nodemailer.default.createTransport({
           host: "smtp.gmail.com",
@@ -1343,25 +1344,73 @@ async function startServer() {
           to: toEmail,
           subject,
           html: htmlBody,
-          ...(pdfBase64 && pdfFilename ? {
-            attachments: [{
-              filename: pdfFilename,
-              content: pdfBase64,
-              encoding: 'base64',
-              contentType: 'application/pdf',
-            }],
-          } : {}),
+          attachments: [{
+            filename: pdfFilename,
+            content: pdfBase64,
+            encoding: 'base64',
+            contentType: 'application/pdf',
+          }],
         });
-        console.log(`[hr-notify/email] Sent "${subject}" to ${toEmail}${pdfBase64 ? ' (with PDF)' : ''}`);
-      } catch (e) {
-        // Non-fatal — in-app notification is the primary channel
-        console.error("[hr-notify/email] SMTP failed:", e);
+        console.log(`[hr-notify/email] Sent "${subject}" to ${toEmail} (with PDF via SMTP)`);
+      } else {
+        // Plain HTML path: Gmail API via domain-wide delegation (always configured in prod)
+        await sendGmailMessage(toEmail, subject, htmlBody);
+        console.log(`[hr-notify/email] Sent "${subject}" to ${toEmail}`);
       }
-    } else {
-      console.log(`[hr-notify/email - no SMTP] to=${toEmail} | ${subject}`);
+    } catch (e: unknown) {
+      const err = e as { message?: string; code?: string | number; response?: { data?: unknown; status?: number } };
+      // Non-fatal — in-app notification is the primary channel
+      console.error("[hr-notify/email] send failed:", JSON.stringify({
+        message: err.message, code: err.code,
+        status:  err.response?.status, data: err.response?.data,
+      }));
     }
 
     return res.json({ ok: true });
+  });
+
+  // ─── SMTP / Gmail Test Endpoint ───────────────────────────────────────────
+  // POST /api/admin/test-smtp  (admin only)
+  // Sends a test email to rahulv@finvastra.com to confirm email delivery works.
+  app.post("/api/admin/test-smtp", async (req, res) => {
+    const uid = await verifyFirebaseToken(req);
+    if (!uid) return res.status(401).json({ error: "Unauthorized" });
+    const snap = await db.collection("users").doc(uid).get();
+    if (snap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+
+    const timestamp = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+    const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;padding:24px;">
+      <h2 style="color:#0B1538;">Finvastra Pulse — SMTP Test</h2>
+      <p>Email delivery is working correctly.</p>
+      <p style="color:#8B8B85;font-size:12px;">Sent at ${timestamp} IST</p>
+    </body></html>`;
+
+    try {
+      await sendGmailMessage("rahulv@finvastra.com", "Finvastra Pulse — SMTP Test", html);
+      return res.json({ ok: true, message: `Test email sent to rahulv@finvastra.com at ${timestamp}` });
+    } catch (e: unknown) {
+      const err = e as {
+        message?: string;
+        code?: string | number;
+        status?: number;
+        errors?: unknown;
+        response?: { data?: unknown; status?: number };
+      };
+      console.error("[test-smtp] Gmail API error:", JSON.stringify({
+        message: err.message,
+        code:    err.code,
+        status:  err.status ?? err.response?.status,
+        errors:  err.errors,
+        data:    err.response?.data,
+      }, null, 2));
+      return res.json({
+        ok:      false,
+        error:   err.message ?? String(e),
+        code:    err.code,
+        status:  err.status ?? err.response?.status,
+        details: err.errors ?? err.response?.data,
+      });
+    }
   });
 
   // ─── HR Letter Upload (server-side proxy) ──────────────────────────────────

@@ -6,7 +6,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllPayslips, createPayslip } from '../hooks/usePayslips';
-import { writeNotification } from '../../../lib/notifications';
+import { writeNotification, sendHrEmailNotification, buildHrEmailHtml } from '../../../lib/notifications';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { generatePayslipPdf } from './payslipPdf';
 import type { Payslip, UserProfile, Attendance, PayslipExtras, LeaveBalance } from '../../../types';
@@ -479,6 +479,20 @@ export function GeneratePayslipPage() {
         title: `Payslip ready — ${monthLabel}`,
         body: `Your payslip for ${monthLabel} (₹${netPay.toLocaleString('en-IN')}) has been generated.`,
         link: '/hrms/payslips',
+      }).catch(() => {});
+      sendHrEmailNotification({
+        employeeId: emp.userId,
+        subject: `Payslip Ready — ${monthLabel} — Finvastra Pulse`,
+        htmlBody: buildHrEmailHtml({
+          title: 'Your payslip is ready',
+          lines: [
+            { label: 'Month',        value: monthLabel },
+            { label: 'Net Pay',      value: `₹${netPay.toLocaleString('en-IN')}` },
+            { label: 'Working Days', value: String(values.workingDays) },
+          ],
+          ctaLabel: 'Download Payslip',
+          ctaLink:  'https://pulse.finvastra.com/hrms/payslips',
+        }),
       }).catch(() => {});
     } finally {
       setSaving((prev) => {

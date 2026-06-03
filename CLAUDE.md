@@ -2123,13 +2123,22 @@ When a CRM user marks an opportunity as "Disbursed" (stage advance), the disburs
 1. Admin: status/payment fields only
 2. CRM user (own record): disbursal reference fields only
 
-### HRMS — Email Notifications Removed
+### HRMS — Email Notifications: ACTIVE
 
-`fix(notifications)`: All `sendHrEmailNotification()` calls removed from:
-- `AdminLeavePage.tsx`, `AdminClaimsPage.tsx`, `AdminItDeclarationsPage.tsx`,
-- `AdminAttendancePage.tsx`, `GeneratePayslipPage.tsx`
+Email notifications are live. All HR actions send both an in-app bell (`writeNotification()`) **and** an email to the employee's `@finvastra.com` address.
 
-**Reason**: SMTP not yet configured in production. In-app bell (`writeNotification()`) is the sole notification channel until go-live. The `buildHrEmailHtml()` template and server endpoint remain intact for when SMTP is ready — just un-comment the call sites.
+**Transport**: Gmail API via domain-wide delegation (`GOOGLE_SA_JSON_BASE64` + `GMAIL_SENDER=admin@finvastra.com`). No SMTP password required — same transport used by login alerts and password reset emails.
+
+**`/api/hrms/notify/email` endpoint**: Updated to call `sendGmailMessage()`. Falls back to nodemailer SMTP only when a PDF attachment is present and `SMTP_USER`/`SMTP_APP_PASSWORD` are set.
+
+**`/api/admin/test-smtp` endpoint** (admin only): POST to send a test email to `rahulv@finvastra.com`.
+
+**Call sites** (all fire-and-forget `.catch(() => {})`):
+- `AdminLeavePage.tsx` — leave approved, leave rejected
+- `AdminClaimsPage.tsx` — claim approved, claim rejected, claim paid
+- `AdminItDeclarationsPage.tsx` — IT declaration accepted, revision requested (detail view + quick-accept in list)
+- `AdminAttendancePage.tsx` — correction approved, correction rejected
+- `GeneratePayslipPage.tsx` — payslip generated
 
 ### Other Fixes
 

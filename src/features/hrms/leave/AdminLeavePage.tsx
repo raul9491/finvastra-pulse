@@ -14,7 +14,7 @@ import {
 import { format } from 'date-fns';
 import { Coins, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
-import { writeNotification } from '../../../lib/notifications';
+import { writeNotification, sendHrEmailNotification, buildHrEmailHtml } from '../../../lib/notifications';
 import {
   usePendingApprovals,
   approveLeave,
@@ -82,12 +82,26 @@ function RejectModal({ application, rejectedBy, onClose }: RejectModalProps) {
     setSubmitting(true);
     try {
       await rejectLeave(application.id, reason.trim(), rejectedBy);
-      // Notify employee — in-app notification
       writeNotification(application.employeeId, {
         type:  'leave_rejected',
         title: 'Leave Rejected',
         body:  `Your ${application.days}-day ${application.type} leave (${application.fromDate} – ${application.toDate}) was rejected. Reason: ${reason.trim()}`,
         link:  '/hrms/leave',
+      }).catch(() => {});
+      sendHrEmailNotification({
+        employeeId: application.employeeId,
+        subject: 'Leave Request Update — Finvastra Pulse',
+        htmlBody: buildHrEmailHtml({
+          title: 'Your leave request was not approved',
+          lines: [
+            { label: 'Leave Type', value: application.type },
+            { label: 'From',       value: application.fromDate },
+            { label: 'To',         value: application.toDate },
+          ],
+          note:     reason.trim(),
+          ctaLabel: 'View Leave',
+          ctaLink:  'https://pulse.finvastra.com/hrms/leave',
+        }),
       }).catch(() => {});
       onClose();
     } catch (err) {
@@ -166,12 +180,26 @@ function PendingTab({ approverId, employeeNameById }: PendingTabProps) {
     setApprovingId(app.id);
     try {
       await approveLeave(app.id, approverId);
-      // Notify employee — in-app notification
       writeNotification(app.employeeId, {
         type:  'leave_approved',
         title: 'Leave Approved',
         body:  `Your ${app.days}-day ${app.type} leave (${app.fromDate} – ${app.toDate}) has been approved.`,
         link:  '/hrms/leave',
+      }).catch(() => {});
+      sendHrEmailNotification({
+        employeeId: app.employeeId,
+        subject: 'Leave Approved — Finvastra Pulse',
+        htmlBody: buildHrEmailHtml({
+          title: 'Your leave has been approved',
+          lines: [
+            { label: 'Leave Type', value: app.type },
+            { label: 'From',       value: app.fromDate },
+            { label: 'To',         value: app.toDate },
+            { label: 'Days',       value: String(app.days) },
+          ],
+          ctaLabel: 'View Leave',
+          ctaLink:  'https://pulse.finvastra.com/hrms/leave',
+        }),
       }).catch(() => {});
       toast.success(`Leave approved for ${employeeName}`);
     } catch (err) {

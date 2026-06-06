@@ -19,3 +19,4 @@ scripts/seed/
 service-account*.json
 
 .firebase/
+.claude/settings.local.json

@@ -4,6 +4,14 @@
 
 ---
 
+## 🔧 CLAUDE.md Maintenance Rule
+
+> **After every build session, update this file before closing.** Mark completed checklist items ✅, add new features / files / routes / endpoints / collections, and correct any outdated info. This file is the single source of truth for the codebase — if it drifts from the actual code, fixing the doc is part of the same session, not a follow-up. When in doubt, scan `src/`, `router.tsx`, `server.ts`, and `firestore.rules` and reconcile.
+>
+> _Last full code↔doc audit: **2026-06-06**._
+
+---
+
 ## Architecture
 
 | Layer | Tech | Notes |
@@ -53,7 +61,7 @@
 - **Sans font**: DM Sans.
 - **Aesthetic**: editorial-premium, same family as the Finvastra marketing site. Generous whitespace. Confident not flashy. No purple gradients, no generic SaaS-y rounded everything.
 
-## Feature Map — complete src/ tree (as of 2026-06-02)
+## Feature Map — complete src/ tree (as of 2026-06-06)
 
 Quick navigation reference. Every file listed here exists and is live in production.
 
@@ -75,7 +83,6 @@ src/
 │   ├── firebase.ts                  client SDK init (emulator-aware)
 │   ├── notifications.ts             writeNotification() + sendHrEmailNotification()
 │   ├── encryption.ts                AES-256-GCM PAN encrypt/decrypt
-│   ├── audit.ts                     Firestore audit log writer
 │   ├── cn.ts                        Tailwind class merge
 │   ├── pdfWatermark.ts              jsPDF watermark helper
 │   ├── pdfApplicationPacket.ts      5-page watermarked loan application packet PDF
@@ -85,7 +92,10 @@ src/
 │   ├── leaveYearResetJob.ts         FY leave balance reset job logic
 │   ├── documentExpiryJob.ts         document expiry threshold checks
 │   ├── bankSLAJob.ts                bank SLA breach detection
-│   └── commissionLeakageJob.ts      commission leakage detection rules
+│   ├── commissionLeakageJob.ts      commission leakage detection rules
+│   └── hooks/                       shared data hooks: useProfile.ts, useAttendance.ts,
+│                                    useLeaves.ts, usePayroll.ts, useNotifications.ts
+│                                    (NOTE: audit-log writing lives in server.ts, NOT lib/audit.ts)
 │
 ├── components/
 │   ├── VastraLogo.tsx               re-export shim (canonical: components/ui/VastraLogo.tsx)
@@ -99,6 +109,8 @@ src/
 │       ├── MultiSearchableSelect.tsx re-export shim
 │       ├── ThemeProvider.tsx        dark/light mode context + ThemeToggle button (Sun/Moon)
 │       ├── NotificationBell.tsx     in-app notification dropdown (bell icon)
+│       ├── AppsMenu.tsx             ⊞ module switcher dropdown (HRMS/CRM/MIS → launcher)
+│       ├── UserMenu.tsx             avatar dropdown — profile links + sign out (all 3 shells)
 │       ├── VideoLogo.tsx            animated logo
 │       ├── VastraLogo.tsx           brand mark (size/light/iconOnly props)
 │       ├── MercuryBackground.tsx    animated bg
@@ -135,8 +147,9 @@ src/
     │   │   └── useGeneratedLetters.ts
     │   │
     │   ├── dashboard/     HrmsDashboardPage — birthdays, announcements banner, team today, HR pending panel
-    │   ├── employees/     EmployeesPage, EmployeeProfilePage, AddEmployeeModal, ImportEmployeesPage
-    │   │                  CrmPerformanceWidget (shows CRM stats on HR profile)
+    │   ├── employees/     EmployeesPage, EmployeeProfilePage, AddEmployeeModal, ImportEmployeesPage,
+    │   │                  AccessRequestsPage (approve /request-access), CrmPerformanceWidget (CRM stats on HR profile)
+    │   ├── directory/     EmployeeDirectoryPage — org-wide searchable employee directory
     │   ├── attendance/    AttendancePage (self), AdminAttendancePage (admin + regularization tab)
     │   ├── leave/         LeavePage, ApplyLeavePage, AdminLeavePage, AdminCompOffPage,
     │   │                  TeamCalendarPage, LeaveYearEndPage
@@ -164,6 +177,7 @@ src/
     │   └── admin/         SuperAdminPermissionsPage — 3 protected accounts, read-only SA rows
     │
     ├── crm/                          /crm/* — crmAccess required; or /crm/referrals for referral-only
+    │   │   (NOTE: bulk import is two-stage — import holds leads UNASSIGNED, then distribute from /crm/import/queue)
     │   ├── hooks/                    — DO NOT TOUCH any hook file
     │   │   ├── useLeads.ts           useOpportunities.ts  useBankSubmissions.ts
     │   │   ├── useCommissionRecords.ts useCommissionSlabs.ts useDocumentChecklist.ts
@@ -184,7 +198,8 @@ src/
     │   │   └── insurance/ InsurancePoliciesSection — policy tracking + 30-day renewal alerts
     │   ├── pipeline/      PipelinePage — Kanban board (stage columns per biz line, totals, Board/Table)
     │   ├── commissions/   CommissionRecordsPage, CommissionDashboardCard; mark paid/clawback
-    │   ├── import/        ImportPage (Google Sheets bulk), ImportHistoryPage
+    │   ├── import/        ImportPage (Sheets bulk + mandatory import name), ImportQueuePage (2-stage distribute),
+│   │                  ImportProgressDock (global progress bar in CrmShell), ImportHistoryPage
     │   ├── referrals/     MyReferralsPage, SubmitReferralPage, ImportReferralsPage (referral-only mode)
     │   └── admin/         CommissionSlabsPage, ProvidersPage, DocumentTypesPage,
     │                      EligibilityRulesPage, CommissionLeakagePage, CompetitorIntelligencePage,
@@ -427,11 +442,13 @@ Admin marks clawed_back → status: clawed_back, clawbackReason recorded
 | `website` | Website form webhook (Phase 2.5b) | 30 minutes |
 | Other (walkin, referral, etc.) | Manually created | 24 calendar hours |
 
-### Round-robin assignment
-On bulk import, leads are assigned by `batchRowIndex % generatorCount` where generators are sorted by `userId` for deterministic ordering. Phase 2.5b will add workload-aware FIFO.
+### Round-robin assignment (two-stage as of Phase M — 2026-06-06)
+Bulk import is now **two-stage**. The import creates every lead at `primaryOwnerId: 'UNASSIGNED'` with a mandatory `importName` — it does **not** assign at import time. An admin/manager then opens `/crm/import/queue`, selects agents, and triggers `POST /api/import/distribute`, which round-robins the batch's still-UNASSIGNED leads across the selected agents (sorted by `userId` for deterministic ordering), re-owns open opportunities, and sets each lead's +24h SLA at distribution time. Eligible agents = active `admin` / `lead_generator` / `lead_convertor`. See **Phase M**.
+
+> _Legacy (pre-Phase-M): imports assigned immediately via `batchRowIndex % generatorCount`. Batches created before Phase M have no `importName` and never appear in the Import Queue._
 
 ### ImportBatchId provenance
-Every bulk-imported lead carries `importBatchId: 'YYYY-MM-DD-XXXX'` linking it to an `/import_jobs/{id}` doc that records row counts, errors, and who triggered the import.
+Every bulk-imported lead carries `importBatchId: 'YYYY-MM-DD-XXXX'` **and `importName`**, linking it to an `/import_jobs/{id}` doc that records row counts, errors, who triggered the import, and (Phase M) the `importName` + distribution state (`distributed`, `distributedCount`, `agentIds`).
 
 ## MIS Module (Phase 4)
 
@@ -852,8 +869,8 @@ npm run preview              # serve built dist
 
 Items that are accepted for now but must be resolved before production launch:
 
-- **`setPrimarySubmission` race condition** (`src/features/crm/hooks/useBankSubmissions.ts`): uses `getDocs` then a sequence of `updateDoc`/`addDoc` calls — not transactional. Two concurrent clicks could create **duplicate commission_records** (financial data integrity risk) and dual-primary submissions. Promoted to **Phase 2.8** — must be fixed before production load. Wrap the entire sequence in `runTransaction(db, ...)`.
-- **Seed buttons exposed in prod**: `CrmDashboardPage.tsx` admin setup panel (Seed Config, Migrate Leads, Seed Sample Slabs) is now gated behind `import.meta.env.DEV` — hidden in production builds. Verify this holds after any bundler config changes.
+- ✅ **RESOLVED — `setPrimarySubmission` race condition** (`src/features/crm/hooks/useBankSubmissions.ts:136`): now wrapped in `runTransaction(db, ...)` (Phase 2.8). Reads + commission_record writes are atomic — duplicate-commission and dual-primary risks eliminated.
+- ✅ **RESOLVED — Seed buttons exposed in prod**: `CrmDashboardPage.tsx` and `MisOverviewPage.tsx` setup panels are gated behind `import.meta.env.DEV` — absent from production builds. (Re-verify if bundler config changes.)
 - **Role check reads Firestore** (`isAdmin()` and `hasCrmAccess()` in `firestore.rules`): each request does a `get()` on `/users/{uid}`. Migrate to custom claims via a Cloud Function trigger for performance and to eliminate this per-request read (TODO comment already in rules).
 - **Attendance timestamps are strings** (`checkIn`, `checkOut`): stored as ISO strings, not `serverTimestamp()`. Firestore rules can only validate format, not prevent backdating. Rebuild attendance with `serverTimestamp()` in Phase 3.
 - **Cross-tenant profile read** (Dirty Dozen Payload 12): all signed-in users can `get` any user profile doc (required for the employee directory). Field-level security requires either a server proxy or splitting public/private profile docs. Review in Phase 6.
@@ -864,8 +881,8 @@ Items that **must be resolved before any production traffic hits the app**. Each
 
 | # | Item | Severity | Phase | File / Location |
 |---|------|----------|-------|-----------------|
-| 1 | **`setPrimarySubmission` not transactional** — duplicate commission_records possible under concurrent writes | 🔴 Financial integrity | 2.8 | `src/features/crm/hooks/useBankSubmissions.ts` |
-| 2 | **Seed/migration buttons on CRM dashboard** — currently gated by `import.meta.env.DEV`; confirm this survives any prod bundler config change | 🔴 Data pollution | 2.8 | `src/features/crm/dashboard/CrmDashboardPage.tsx` |
+| 1 | ✅ **DONE — `setPrimarySubmission` now transactional** — wrapped in `runTransaction` (reads + commission_record writes atomic); verified at `useBankSubmissions.ts:136` | ✅ Resolved | 2.8 | `src/features/crm/hooks/useBankSubmissions.ts` |
+| 2 | ✅ **DONE — Seed/migration buttons gated by `import.meta.env.DEV`** — absent from prod build (CrmDashboardPage + MisOverviewPage); re-verify after any bundler config change | ✅ Resolved | 2.8 | `src/features/crm/dashboard/CrmDashboardPage.tsx` |
 | 3 | **Role checks read Firestore on every request** — `isAdmin()` and `hasCrmAccess()` each do a `get()` call; migrate to custom claims via Cloud Function | 🟡 Performance | 6 | `firestore.rules` |
 | 4 | **Attendance timestamps are strings** — `checkIn`/`checkOut` stored as ISO strings, not `serverTimestamp()`; Firestore rules can only validate format, not prevent backdating | 🟡 Security | Phase 3 rebuild | `src/lib/hooks/useAttendance.ts` |
 | 5 | **Cross-tenant profile read** (Dirty Dozen Payload 12) — all signed-in users can `get` any user profile; required by directory but exposes private fields | 🟡 Privacy | 6 | `firestore.rules` |
@@ -2150,3 +2167,121 @@ Email notifications are live. All HR actions send both an in-app bell (`writeNot
 | Referral lead permissions | Employees in referral-only mode correctly route new leads via workload-aware assignment |
 | HRMS nav simplification | `Employees` page gated to admin/HR manager; sub-group labels in admin nav |
 | Data Import page | Super-admin-only bulk import for employee data |
+
+---
+
+## Phase M — Two-Stage Bulk Import, Import Queue & Lead-View Audit (2026-06-06)
+
+Bulk lead import reworked from one-shot round-robin into a two-stage flow (import → hold → distribute), plus a global progress indicator and a lead-view audit trail. All deterministic — no AI/LLM.
+
+| Feature | Status | Files |
+|---|---|---|
+| **Two-stage import** | ✅ | `server.ts` `/api/import/run` requires `importName` and holds every lead at `primaryOwnerId: 'UNASSIGNED'` — no distribution at import time |
+| **Distribute endpoint** | ✅ | `server.ts` `POST /api/import/distribute` — round-robins a batch's still-UNASSIGNED leads across selected agents, re-owns open opportunities, resets +24h SLA, one aggregated notification per agent, stamps `distributed*` on the job (background-processed) |
+| **Mandatory import name** | ✅ | `ImportPage.tsx` Step 1 field (inline validation); stored on `import_jobs.importName` + denormalised to each lead's `importName` for later source-quality analysis |
+| **Import Queue page** | ✅ | `src/features/crm/import/ImportQueuePage.tsx` at `/crm/import/queue` — lists undistributed batches (name · count · date), agent picker, Distribute action |
+| **Global import progress dock** | ✅ | `src/features/crm/import/ImportProgressDock.tsx` — mounted once in `CrmShell`; live progress bar on every CRM page; flips to "Distribute now →" on completion. Reuses the shell's `import_jobs` subscription (no extra listener) |
+| **CrmShell nav + badge** | ✅ | "Import Queue" nav item (icon `PackageOpen`) with awaiting-distribution badge; Import nav now exact-match active |
+| **Import History columns** | ✅ | Name + Distributed columns added to `ImportHistoryPage.tsx` |
+| **Lead-view audit log** | ✅ | `LeadDetailPage.tsx` writes `/lead_view_logs` on each lead open; `AccessLogsPage.tsx` reads (admin) — detects employees systematically mining the customer list |
+| **Header refactor** | ✅ | `components/ui/AppsMenu.tsx` + `UserMenu.tsx` extracted; used across HrmsShell / CrmShell / MisShell |
+| **Login redirect hardening** | ✅ | `AuthContext.tsx` — `onAuthStateChanged` profile load wrapped in `try/catch` so `loading` always resolves to `false` even if the Firestore read fails (prevents stuck-on-sign-in) |
+| **LauncherPage theme fix** | ✅ | Sign-out button + divider use theme tokens (`var(--text-muted)` / `var(--shell-border)`) instead of hardcoded cream rgba |
+
+> Also in this session: the import **preview table** is height-capped (`max-height` + sticky header) so a large sheet scrolls inside its panel instead of running down the whole page; and the agent-eligibility fix (include `lead_convertor` telecallers, exclude inactive staff) now lives on the Import Queue picker.
+
+### `ImportJob` schema additions (`src/types/index.ts`)
+```
+importName: string                 // mandatory label set at import (tracks sheet source/quality)
+distributed?: boolean              // false until routed from the queue
+distributedAt?, distributedBy?, distributedCount?, agentIds?
+```
+`Lead` also gains `importName?` (denormalised batch label).
+
+### Agent eligibility (distribution & import-queue picker)
+Routes to **active** employees who are `admin`, `lead_generator`, or `lead_convertor` (telecallers): `employeeStatus !== 'inactive'`. (Replaces the old generator-only filter, which hid telecallers.)
+
+### Firestore — `/lead_view_logs/{logId}`
+```
+viewedBy (uid), viewedByName, leadId, leadName, viewedAt
+allow read:   isAdmin()
+allow create: signed-in & viewedBy == request.auth.uid & keys hasAll([viewedBy, leadId, viewedAt])
+allow update, delete: false
+```
+
+---
+
+## Complete API Endpoint Index (server.ts — as of 2026-06-06)
+
+Authoritative list of every Express route. Verify against `server.ts` after any backend change.
+
+**Auth / OAuth / session**
+- `GET  /api/auth/google/url` · `GET /api/auth/callback` — Google OAuth (Calendar consent)
+- `POST /api/auth/login-alert` — new-device login email
+- `POST /api/auth/forgot-password` · `POST /api/auth/verify-reset-dob` — branded password reset (DOB-gated)
+
+**Calendar**
+- `POST /api/calendar/events` · `POST /api/hrms/leave/sync-calendar` — leave → shared Calendar (fire-and-forget)
+
+**Admin / dev / claims**
+- `GET  /api/health`
+- `POST /api/dev/bootstrap-admin` — promote allowlisted admin email
+- `POST /api/admin/users/:uid/sync-claims` — stamp role/access custom claims
+- `POST /api/admin/migrate-pan-encryption` — one-time PAN encryption migration
+- `POST /api/admin/test-smtp` — admin test email
+- `GET  /api/admin/webhook-logs` — webhook log proxy (admin read)
+
+**CRM — PAN, bulk import, documents**
+- `POST /api/leads/:leadId/pan` — encrypt + store PAN server-side
+- `GET  /api/import/service-account-email` · `POST /api/import/check` · `POST /api/import/preview`
+- `POST /api/import/run` — start import (holds leads UNASSIGNED; requires `importName`)
+- `POST /api/import/distribute` — round-robin a held batch to agents  ← Phase M
+- `POST /api/crm/documents/upload` — opportunity doc vault upload
+
+**CRM — public tracker**
+- `GET  /api/track/:token` · `POST /api/leads/:leadId/opportunities/:oppId/submissions/:subId/tracker-token`
+
+**CRM — webhook intake**
+- `POST /api/leads/intake/website` · `GET|POST /api/leads/intake/meta` · `POST /api/leads/referral/submit`
+
+**HRMS — notify / letters / employees**
+- `POST /api/support/raise` · `POST /api/hrms/notify/email` (Gmail API DWD)
+- `POST /api/admin/hr-letters/upload`
+- `POST /api/admin/employees/create` · `POST /api/hrms/employees/create`
+- `POST /api/admin/employees/:uid/deactivate` · `POST /api/admin/employees/:uid/reactivate`
+- `POST /api/admin/employees/import-preview` · `POST /api/admin/employees/import-confirm` · `POST /api/hrms/employees/import-from-sheet`
+
+**MIS**
+- `POST /api/mis/statements/upload` · `POST /api/mis/statements/process` · `POST /api/mis/statements/:statementId/lines`
+
+**Scheduled-job HTTP targets (Cloud Scheduler, OIDC or admin token)**
+- `POST /api/admin/run-bank-sla-check` · `POST /api/admin/run-commission-leakage-check`
+- `POST /api/admin/run-document-expiry-check` · `POST /api/admin/run-leave-year-reset`
+
+**SPA fallback**: `GET *` → `index.html` (prod static).
+
+---
+
+## Complete Firestore Collection Index (firestore.rules — as of 2026-06-06)
+
+Every collection with a rule block. The global deny-all (`/{document=**}`) rejects anything not listed here.
+
+**Identity & profile**: `users`, `user_details`, `employee_profiles`, `employee_sensitive`, `users/{uid}/login_history`, `users/{uid}/known_devices`
+
+**Notifications**: `notifications/{notifId}` (legacy), `notifications/{uid}/items/{itemId}`
+
+**CRM — leads & deals**: `leads`, `leads/{id}/opportunities`, `…/activities`, `…/bank_submissions`, `…/investments`, `…/policies`
+
+**CRM — config**: `opportunity_types`, `providers`, `document_types`, `commission_slabs`, `commission_records`, `commission_leakage_reports`
+
+**CRM — ops & audit**: `import_logs`, `import_jobs`, `access_requests`, `webhook_logs`, `lead_view_logs` (Phase M), `rtbf_log`, `public_tracker_links`, `crm_documents`
+
+**HRMS — attendance & leave**: `attendance`, `attendance_regularizations`, `leave_applications`, `leave_balances`, `leave_balance_adjustments`, `leave_year_resets`, `leave_encashment_requests`, `comp_off_credits`, `holidays`
+
+**HRMS — payroll & compliance**: `payslips`, `compliance_records`, `salary_history`, `it_declarations`, `generated_letters`
+
+**HRMS — people ops**: `claims`, `company_documents`, `employee_documents`, `document_acknowledgements`, `announcements`, `assets`, `onboarding_checklists`, `offboarding_checklists`, `performance_reviews`, `probation_records`, `job_openings`, `candidates`, `training_programs`, `training_records`, `hr_tickets`, `profile_update_logs`
+
+**MIS**: `commission_statements`, `commission_statements/{id}/lines`, `rm_payout_slabs`, `rm_payouts`
+
+**Infra**: `rate_limits` (server-only), `audit_logs`, `access_logs`

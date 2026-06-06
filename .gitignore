@@ -17,3 +17,5 @@ scripts/seed/
 # Secrets
 *.key
 service-account*.json
+
+.firebase/

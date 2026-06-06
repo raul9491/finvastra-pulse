@@ -8,6 +8,8 @@
 
 > **After every build session, update this file before closing.** Mark completed checklist items ✅, add new features / files / routes / endpoints / collections, and correct any outdated info. This file is the single source of truth for the codebase — if it drifts from the actual code, fixing the doc is part of the same session, not a follow-up. When in doubt, scan `src/`, `router.tsx`, `server.ts`, and `firestore.rules` and reconcile.
 >
+> _Enforced by a `Stop` hook in `.claude/settings.json` (added 2026-06-06): every session end prompts a CLAUDE.md reconcile → commit → push. Disable/edit via `/hooks`._
+>
 > _Last full code↔doc audit: **2026-06-06**._
 
 ---

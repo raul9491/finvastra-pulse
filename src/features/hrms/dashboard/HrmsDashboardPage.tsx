@@ -916,6 +916,26 @@ export function HrmsDashboardPage() {
         </p>
       </div>
 
+      {/* Quick Actions — pinned at top below greeting */}
+      <div className="glass-panel p-4 mb-6">
+        <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Quick Actions</p>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          {[
+            { label: 'Apply for Leave',  path: '/hrms/leave/apply',       color: '#60a5fa' },
+            { label: 'Clock In / Out',   path: '/hrms/attendance',        color: '#34d399' },
+            { label: 'Submit Claim',     path: '/hrms/claims',            color: '#a78bfa' },
+            { label: 'View Payslips',    path: '/hrms/payslips',          color: '#34d399' },
+            { label: 'Refer a Lead',     path: '/crm/referrals/new',      color: '#C9A961' },
+          ].map(({ label, path, color }) => (
+            <button key={path} onClick={() => navigate(path)}
+              className="px-4 py-2.5 rounded-xl text-sm font-semibold text-center transition-opacity hover:opacity-80 glass-panel"
+              style={{ color }}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Holiday banner — all employees; shows when a holiday is within 3 days */}
       <HolidayBanner holidays={holidays} />
 
@@ -988,26 +1008,6 @@ export function HrmsDashboardPage() {
 
       {/* Upcoming Anniversaries — admin/manager only; hidden when none in next 7 days */}
       <UpcomingAnniversariesSection employees={upcomingAnniversaries} />
-
-      {/* Quick Actions */}
-      <div className="glass-panel p-6">
-        <p className="text-[10px] font-bold uppercase tracking-widest mb-4" style={{ color: 'var(--text-muted)' }}>Quick Actions</p>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          {[
-            { label: 'Apply for Leave',  path: '/hrms/leave/apply',       color: '#60a5fa' },
-            { label: 'Clock In / Out',   path: '/hrms/attendance',        color: '#34d399' },
-            { label: 'Submit Claim',     path: '/hrms/claims',            color: '#a78bfa' },
-            { label: 'View Payslips',    path: '/hrms/payslips',          color: '#34d399' },
-            { label: 'Refer a Lead',     path: '/crm/referrals/new',      color: '#C9A961' },
-          ].map(({ label, path, color }) => (
-            <button key={path} onClick={() => navigate(path)}
-              className="px-4 py-3 rounded-xl text-sm font-semibold text-center transition-opacity hover:opacity-80 glass-panel"
-              style={{ color }}>
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* Announcements count badge (if unread) */}
       {unreadCount > 0 && (

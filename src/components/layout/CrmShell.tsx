@@ -4,15 +4,18 @@ import { signOut } from 'firebase/auth';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   LayoutDashboard, TrendingUp, GitBranch, IndianRupee,
-  Upload, Settings, LogOut, LayoutGrid, Inbox, Clock, Bookmark, Plus, Webhook,
-  Menu, X,
+  Upload, Settings, LogOut, LayoutGrid, Inbox, Clock, Bookmark, Plus, Webhook, User,
+  Menu, X, PackageOpen,
 } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { useMyLeads } from '../../features/crm/hooks/useMyLeads';
+import { useImportHistory } from '../../features/crm/hooks/useImportJobs';
 import { VideoLogo } from '../ui/VideoLogo';
 import { NotificationBell } from '../ui/NotificationBell';
 import { ThemeToggle } from '../ui/ThemeProvider';
+import { UserMenu } from '../ui/UserMenu';
+import { AppsMenu } from '../ui/AppsMenu';
 
 type NavEntry = { path: string; label: string; icon: ElementType; live: boolean; end?: boolean; badge?: number };
 
@@ -20,7 +23,8 @@ const NAV: NavEntry[] = [
   { path: '/crm/dashboard',   label: 'Dashboard',   icon: LayoutDashboard, live: true,  end: true  },
   { path: '/crm/my-queue',    label: 'My Queue',    icon: Inbox,           live: true,  end: true  },
   { path: '/crm/leads',       label: 'Customers',   icon: TrendingUp,      live: true,  end: false },
-  { path: '/crm/import',      label: 'Import',      icon: Upload,          live: true,  end: false },
+  { path: '/crm/import',      label: 'Import',      icon: Upload,          live: true,  end: true  },
+  { path: '/crm/import/queue',label: 'Import Queue',icon: PackageOpen,     live: true,  end: true  },
   { path: '/crm/commissions', label: 'Commissions', icon: IndianRupee,      live: true,  end: true  },
   { path: '/crm/pipeline',    label: 'Pipeline',    icon: GitBranch,       live: true,  end: true  },
 ];
@@ -59,6 +63,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/crm/leads':                          'Customers',
   '/crm/commissions':                    'Commissions',
   '/crm/import':                         'Bulk Import',
+  '/crm/import/queue':                   'Import Queue',
   '/crm/pipeline':                       'Pipeline',
   '/crm/admin/commission-slabs':         'Commission Slabs',
   '/crm/admin/providers':                'Providers & SLA',
@@ -135,6 +140,9 @@ export function CrmShell() {
   const isGenerator = profile?.crmRole === 'lead_generator';
   const { overdue: queueOverdue } = useMyLeads(isGenerator ? (user?.uid ?? '') : '');
 
+  // Import Queue badge — batches imported but not yet distributed (admin sees all; others their own).
+  const { jobs: importJobs } = useImportHistory(profile?.role === 'admin');
+
   // Close mobile drawer on route change
   useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
 
@@ -157,6 +165,9 @@ export function CrmShell() {
   const isAdmin   = profile?.role === 'admin';
   const isViewer  = profile?.crmRole === 'viewer' && !isAdmin;
   const canImport = isAdmin || profile?.crmRole === 'manager' || profile?.crmCanImport === true;
+  const queueAwaiting = importJobs.filter(
+    (j) => !!j.importName && j.distributed !== true && (j.successCount ?? 0) > 0 && (j.status === 'completed' || j.status === 'partial'),
+  ).length;
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -191,16 +202,20 @@ export function CrmShell() {
             // Hide Import from viewers and from users without import access
             .filter((entry) => {
               if (entry.path === '/crm/import') return canImport;
+              if (entry.path === '/crm/import/queue') return canImport;
               if (entry.path === '/crm/my-queue') return isGenerator || isAdmin;
               return true;
             })
             .map((entry) => {
-              const enriched: NavEntry =
-                entry.path === '/crm/my-queue' && isGenerator
-                  ? { ...entry, badge: queueOverdue }
-                  : entry;
+              let enriched: NavEntry = entry;
+              if (entry.path === '/crm/my-queue' && isGenerator) enriched = { ...entry, badge: queueOverdue };
+              else if (entry.path === '/crm/import/queue')       enriched = { ...entry, badge: queueAwaiting };
+              // Exact match for /crm/import so it doesn't also light up on /crm/import/queue
+              const isActive = entry.path === '/crm/import'
+                ? location.pathname === '/crm/import'
+                : location.pathname.startsWith(entry.path);
               return enriched.live
-                ? <NavItemLive key={enriched.path} entry={enriched} isActive={location.pathname.startsWith(enriched.path)} />
+                ? <NavItemLive key={enriched.path} entry={enriched} isActive={isActive} />
                 : <NavItemSoon key={enriched.path} entry={enriched} />;
             })}
 
@@ -315,39 +330,25 @@ export function CrmShell() {
               <Menu size={20} style={{ color: 'var(--shell-text-icon)' }} />
             </button>
 
-            <button onClick={() => navigate('/')}
-              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors hover:bg-(--shell-hover-hard) shrink-0"
-              style={{ color: 'var(--shell-text-secondary)' }} title="Back to launcher">
-              <LayoutGrid size={14} />
-              <span className="hidden sm:block">Apps</span>
-            </button>
+            <AppsMenu profile={profile} currentModule="crm" />
             <div className="w-px h-4 hidden sm:block shrink-0" style={{ backgroundColor: 'var(--shell-border-mid)' }} />
             <h1 className="text-base font-semibold truncate min-w-0" style={{ color: 'var(--text-primary)' }}>{pageTitle}</h1>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <ThemeToggle />
-            {/* Notification bell — CRM users get new_lead alerts from webhook intake */}
             {user && <NotificationBell uid={user.uid} />}
-            <div className="w-px h-5 hidden sm:block" style={{ backgroundColor: 'var(--shell-border-mid)' }} />
-            {profile?.photoURL ? (
-              <img src={profile.photoURL} alt={profile.displayName} className="w-8 h-8 rounded-full object-cover" />
-            ) : (
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961' }}>
-                {initials}
-              </div>
-            )}
-            <span className="text-sm font-medium hidden sm:block" style={{ color: 'var(--text-primary)' }}>
-              {profile?.displayName}
-            </span>
-            <div className="w-px h-5 hidden sm:block" style={{ backgroundColor: 'var(--shell-border-mid)' }} />
-            <button onClick={handleLogout}
-              className="flex items-center gap-1.5 text-sm transition-opacity hover:opacity-60"
-              style={{ color: 'var(--shell-text-secondary)' }} title="Sign out">
-              <LogOut size={15} />
-              <span className="hidden sm:block">Sign out</span>
-            </button>
+            <UserMenu
+              displayName={profile?.displayName ?? ''}
+              photoURL={profile?.photoURL}
+              initials={initials}
+              roleLabel={profile?.crmRole ?? profile?.role ?? 'employee'}
+              links={[
+                { label: 'My HR Profile', path: `/hrms/employees/${user?.uid}`, Icon: User     },
+                { label: 'CRM Settings',  path: '/crm/admin/webhooks',          Icon: Settings },
+              ]}
+              onLogout={handleLogout}
+            />
           </div>
         </header>
 

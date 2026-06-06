@@ -127,41 +127,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const ADMIN_EMAILS = ['rahulv@finvastra.com'];
       const shouldBeAdmin = ADMIN_EMAILS.includes(user.email ?? '');
 
-      const ref = doc(db, 'users', user.uid);
-      const snap = await getDoc(ref);
+      try {
+        const ref = doc(db, 'users', user.uid);
+        const snap = await getDoc(ref);
 
-      if (!snap.exists()) {
-        // First sign-in: create profile. Admin email gets role='admin' (allowlisted in rules).
-        const newProfile: UserProfile = {
-          userId: user.uid,
-          email: user.email ?? '',
-          displayName: user.displayName ?? user.email?.split('@')[0] ?? 'User',
-          role: shouldBeAdmin ? 'admin' : 'employee',
-          photoURL:
-            user.photoURL ??
-            `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(user.email ?? 'U')}`,
-          hrmsAccess: true,
-          crmAccess: shouldBeAdmin,
-          createdAt: serverTimestamp() as unknown as import('firebase/firestore').Timestamp,
-        };
-        await setDoc(ref, newProfile);
-        setState({ user, profile: newProfile, loading: false, authError: '' });
-      } else {
-        const existing = snap.data() as UserProfile;
-
-        // Profile exists but role is wrong — promote via server (Admin SDK bypasses rules).
-        if (shouldBeAdmin && existing.role !== 'admin') {
-          const token = await user.getIdToken();
-          await fetch('/api/dev/bootstrap-admin', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}` },
-          }).catch(() => {});
-          // Re-read after promotion
-          const refreshed = await getDoc(ref);
-          setState({ user, profile: refreshed.exists() ? (refreshed.data() as UserProfile) : existing, loading: false, authError: '' });
+        if (!snap.exists()) {
+          // First sign-in: create profile. Admin email gets role='admin' (allowlisted in rules).
+          const newProfile: UserProfile = {
+            userId: user.uid,
+            email: user.email ?? '',
+            displayName: user.displayName ?? user.email?.split('@')[0] ?? 'User',
+            role: shouldBeAdmin ? 'admin' : 'employee',
+            photoURL:
+              user.photoURL ??
+              `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(user.email ?? 'U')}`,
+            hrmsAccess: true,
+            crmAccess: shouldBeAdmin,
+            createdAt: serverTimestamp() as unknown as import('firebase/firestore').Timestamp,
+          };
+          await setDoc(ref, newProfile);
+          setState({ user, profile: newProfile, loading: false, authError: '' });
         } else {
-          setState({ user, profile: existing, loading: false, authError: '' });
+          const existing = snap.data() as UserProfile;
+
+          // Profile exists but role is wrong — promote via server (Admin SDK bypasses rules).
+          if (shouldBeAdmin && existing.role !== 'admin') {
+            const token = await user.getIdToken();
+            await fetch('/api/dev/bootstrap-admin', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}` },
+            }).catch(() => {});
+            // Re-read after promotion
+            const refreshed = await getDoc(ref);
+            setState({ user, profile: refreshed.exists() ? (refreshed.data() as UserProfile) : existing, loading: false, authError: '' });
+          } else {
+            setState({ user, profile: existing, loading: false, authError: '' });
+          }
         }
+      } catch {
+        // Firestore read/write failed (offline, transient network, a rules edge case).
+        // The user IS authenticated — never strand them on a blank/stuck sign-in page.
+        // Resolve loading so the router redirect fires; the profile rehydrates on the
+        // next sign-in / token refresh.
+        setState({ user, profile: null, loading: false, authError: '' });
       }
 
       // Non-blocking: track login history and detect new devices.

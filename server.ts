@@ -203,9 +203,6 @@ function parseEmployeeRow(row: string[]): {
 // Template Sheet URL — replace with an actual published Sheet before launch
 const TEMPLATE_SHEET_URL = "https://docs.google.com/spreadsheets/d/REPLACE_WITH_TEMPLATE_ID";
 
-// Column order in the template (0-indexed, row 1 = headers)
-const COLUMN_KEYS = ["displayName","phone","email","panRaw","loanProduct","dealSize","triagePriority","notes"] as const;
-
 interface ParsedRow {
   rowNumber: number;
   data: Record<string, string>;
@@ -213,30 +210,28 @@ interface ParsedRow {
   errors: string[];
 }
 
-function validateRow(raw: string[], loanProducts: Set<string>): ParsedRow["errors"] {
+function validateRow(raw: string[], mapping: ColumnMapping, loanProducts: Set<string>): ParsedRow["errors"] {
   const errors: string[] = [];
-  const cells = COLUMN_KEYS.map((_, i) => (raw[i] ?? "").trim());
-  const [displayName, phone, , panRaw, loanProduct, dealSize, triagePriority] = cells;
+  const { displayName, phone, panRaw, loanProduct, dealSize, triagePriority } = extractCells(raw, mapping);
 
-  if (!displayName) errors.push("displayName is required");
+  if (!displayName) errors.push("Name is required");
   if (!phone) {
-    errors.push("phone is required");
+    errors.push("Phone is required");
   } else if (!/^[6-9]\d{9}$/.test(phone)) {
-    errors.push("phone must be a 10-digit Indian mobile starting with 6–9");
+    errors.push("Phone must be a 10-digit Indian mobile starting with 6–9");
   }
   if (panRaw && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panRaw)) {
-    errors.push("panRaw must match ABCDE1234F format");
+    errors.push("PAN format invalid (expected ABCDE1234F)");
   }
-  if (!loanProduct) {
-    errors.push("loanProduct is required");
-  } else if (loanProducts.size > 0 && !loanProducts.has(loanProduct)) {
-    errors.push(`loanProduct '${loanProduct}' not found in opportunity_types`);
+  if (loanProduct) {
+    const normalised = normaliseProduct(loanProduct, loanProducts);
+    if (loanProducts.size > 0 && !loanProducts.has(normalised)) {
+      errors.push(`Product '${loanProduct}' not recognised`);
+    }
   }
-  if (dealSize && isNaN(Number(dealSize))) {
-    errors.push("dealSize must be a number");
-  }
+  if (dealSize && isNaN(Number(dealSize))) errors.push("Deal size must be a number");
   if (triagePriority && !["high","medium","low",""].includes(triagePriority.toLowerCase())) {
-    errors.push("triagePriority must be high, medium, or low");
+    errors.push("Priority must be: high, medium, or low");
   }
   return errors;
 }
@@ -261,6 +256,143 @@ async function getLeadGenerators(): Promise<{ userId: string }[]> {
   return snap.docs.map(d => ({ userId: d.id })).sort((a, b) => a.userId.localeCompare(b.userId));
 }
 
+// Maps known product name variations to the canonical name in opportunity_types
+const PRODUCT_ALIASES: Record<string, string> = {
+  'housing loan': 'Home Loan', 'home loan': 'Home Loan',
+  'lap': 'LAP', 'loan against property': 'LAP',
+  'personal loan': 'Personal Loan', 'pl': 'Personal Loan',
+  'business loan': 'Business Loan', 'bl': 'Business Loan',
+  'unsecured business loan': 'Business Loan (Unsecured)',
+  'education loan': 'Education Loan', 'edu loan': 'Education Loan',
+  'auto loan': 'Auto Loan', 'car loan': 'Auto Loan',
+  'two wheeler loan': 'Two-Wheeler Loan',
+};
+
+// Keyword hints per field (header must CONTAIN one of these substrings)
+const FIELD_HEADER_HINTS: Record<string, string[]> = {
+  displayName:    ['name', 'full name', 'customer', 'applicant', 'client', 'borrower'],
+  phone:          ['phone', 'mobile', 'contact', 'mob', 'cell'],
+  email:          ['email', 'mail'],
+  panRaw:         ['pan'],
+  loanProduct:    ['product', 'loan type', 'scheme', 'type', 'service', 'requirement', 'category'],
+  dealSize:       ['amount', 'deal', 'size', 'ticket', 'loan amount', 'value', 'quantum'],
+  address:        ['address', 'city', 'location', 'area', 'district', 'state', 'pincode'],
+  triagePriority: ['priority', 'urgent', 'triage'],
+  notes:          ['note', 'remark', 'comment'],
+};
+
+interface ColumnMapping {
+  displayName?:    number;
+  phone?:          number;
+  email?:          number;
+  panRaw?:         number;
+  loanProduct?:    number;
+  dealSize?:       number;
+  address?:        number;
+  triagePriority?: number;
+  notes?:          number;
+}
+
+function detectColumnMapping(
+  headers: string[],
+  sampleRows: string[][],
+  loanProducts: Set<string>,
+): ColumnMapping {
+  type FieldName = keyof ColumnMapping;
+  const fields = Object.keys(FIELD_HEADER_HINTS) as FieldName[];
+
+  // Score[col][field] = confidence score (higher = more likely)
+  const scores: Array<Partial<Record<FieldName, number>>> = headers.map((h, col) => {
+    const header = h.toLowerCase().trim();
+    const sampleVals = sampleRows.map(r => (r[col] ?? '').trim()).filter(Boolean);
+    const total = sampleVals.length || 1;
+    const fieldScore: Partial<Record<FieldName, number>> = {};
+
+    // Header keyword scoring
+    for (const field of fields) {
+      const hints = FIELD_HEADER_HINTS[field];
+      if (hints.some(kw => header.includes(kw))) {
+        fieldScore[field] = (fieldScore[field] ?? 0) + 80;
+      }
+    }
+
+    // Data pattern scoring
+    const phoneHits    = sampleVals.filter(v => /^[6-9]\d{9}$/.test(v)).length / total;
+    const emailHits    = sampleVals.filter(v => v.includes('@') && v.includes('.')).length / total;
+    const panHits      = sampleVals.filter(v => /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(v)).length / total;
+    const productHits  = sampleVals.filter(v => {
+      const lc = v.toLowerCase();
+      return loanProducts.has(v) || !!PRODUCT_ALIASES[lc];
+    }).length / total;
+    const numericHits  = sampleVals.filter(v => v !== '' && !isNaN(Number(v)) && Number(v) > 0).length / total;
+    const priorityHits = sampleVals.filter(v => ['high','medium','low'].includes(v.toLowerCase())).length / total;
+
+    if (phoneHits    > 0.5) fieldScore['phone']          = (fieldScore['phone']          ?? 0) + 90;
+    if (emailHits    > 0.4) fieldScore['email']           = (fieldScore['email']           ?? 0) + 85;
+    if (panHits      > 0.3) fieldScore['panRaw']          = (fieldScore['panRaw']          ?? 0) + 90;
+    if (productHits  > 0.3) fieldScore['loanProduct']     = (fieldScore['loanProduct']     ?? 0) + 90;
+    if (numericHits  > 0.6) fieldScore['dealSize']        = (fieldScore['dealSize']        ?? 0) + 60;
+    if (priorityHits > 0.4) fieldScore['triagePriority']  = (fieldScore['triagePriority']  ?? 0) + 85;
+
+    return fieldScore;
+  });
+
+  // Greedy assignment: pick highest-scoring (col, field) pair, mark both as used
+  const usedCols   = new Set<number>();
+  const usedFields = new Set<FieldName>();
+  const mapping: ColumnMapping = {};
+
+  type Candidate = { col: number; field: FieldName; score: number };
+  const candidates: Candidate[] = [];
+  for (let col = 0; col < headers.length; col++) {
+    for (const field of fields) {
+      const score = scores[col][field] ?? 0;
+      if (score > 30) candidates.push({ col, field, score });
+    }
+  }
+  candidates.sort((a, b) => b.score - a.score);
+
+  for (const { col, field, score } of candidates) {
+    if (usedCols.has(col) || usedFields.has(field)) continue;
+    if (score < 30) break;
+    mapping[field] = col;
+    usedCols.add(col);
+    usedFields.add(field);
+  }
+
+  return mapping;
+}
+
+function normaliseProduct(raw: string, loanProducts: Set<string>): string {
+  if (loanProducts.has(raw)) return raw;
+  const alias = PRODUCT_ALIASES[raw.toLowerCase()];
+  if (alias && loanProducts.has(alias)) return alias;
+  // Case-insensitive search
+  for (const p of loanProducts) {
+    if (p.toLowerCase() === raw.toLowerCase()) return p;
+  }
+  return raw; // return as-is; will fail validation
+}
+
+function extractCells(raw: string[], mapping: ColumnMapping): {
+  displayName: string; phone: string; email: string; panRaw: string;
+  loanProduct: string; dealSize: string; address: string;
+  triagePriority: string; notes: string;
+} {
+  const g = (f: keyof ColumnMapping) => mapping[f] !== undefined ? (raw[mapping[f]!] ?? '').trim() : '';
+  return {
+    displayName:    g('displayName'),
+    phone:          g('phone'),
+    email:          g('email'),
+    panRaw:         g('panRaw'),
+    loanProduct:    g('loanProduct'),
+    dealSize:       g('dealSize'),
+    address:        g('address'),
+    triagePriority: g('triagePriority'),
+    notes:          g('notes'),
+  };
+}
+
 // Runs import in background — DO NOT await this from request handlers.
 // Phase 6 hardening: move to a Cloud Function for >10K rows to avoid Cloud Run timeout.
 async function processImportBatch(
@@ -271,9 +403,10 @@ async function processImportBatch(
   batchId: string,
   rows: string[][],
   loanProducts: Set<string>,
+  columnMapping: ColumnMapping,
+  importName: string,
 ): Promise<void> {
   const jobRef = db.collection("import_jobs").doc(jobId);
-  const generators = await getLeadGenerators();
   const totalRows = rows.length;
   let processedRows = 0, successCount = 0, errorCount = 0;
   const errors: Array<{ row: number; data: Record<string, string>; reason: string }> = [];
@@ -281,9 +414,9 @@ async function processImportBatch(
   for (let i = 0; i < rows.length; i++) {
     const raw = rows[i];
     const rowNum = i + 2; // 1=header, data starts at 2
-    const cells = COLUMN_KEYS.map((_, ci) => (raw[ci] ?? "").trim());
-    const rowData: Record<string, string> = Object.fromEntries(COLUMN_KEYS.map((k, ci) => [k, cells[ci]]));
-    const rowErrors = validateRow(raw, loanProducts);
+    const cells = extractCells(raw, columnMapping);
+    const rowData: Record<string, string> = cells as unknown as Record<string, string>;
+    const rowErrors = validateRow(raw, columnMapping, loanProducts);
 
     if (rowErrors.length > 0) {
       errorCount++;
@@ -291,7 +424,10 @@ async function processImportBatch(
       if (!skipErrors) { processedRows++; continue; }
     }
 
-    const [displayName, phone, email, panRaw, loanProduct, dealSizeRaw, triagePriorityRaw, notes] = cells;
+    const { displayName, phone, email, panRaw, address, notes } = cells;
+    const loanProduct = normaliseProduct(cells.loanProduct, loanProducts);
+    const dealSizeRaw = cells.dealSize;
+    const triagePriorityRaw = cells.triagePriority;
     const importHash = buildImportHash(phone, email, displayName);
 
     // Idempotency check
@@ -305,8 +441,8 @@ async function processImportBatch(
       continue;
     }
 
-    // Assign via round-robin
-    const assignedOwner = generators[i % generators.length]?.userId ?? triggerUserId;
+    // Two-stage flow: imported leads are held UNASSIGNED until distributed from the queue.
+    const assignedOwner = "UNASSIGNED";
 
     // SLA deadline: offline_bulk = +24 calendar hours
     const slaDeadline = new Date();
@@ -320,8 +456,9 @@ async function processImportBatch(
     batch.set(leadRef, {
       displayName,
       phone,
-      ...(email  ? { email  } : {}),
-      ...(panRaw ? { panRaw } : {}),
+      ...(email   ? { email   } : {}),
+      ...(panRaw  ? { panRaw  } : {}),
+      ...(address ? { address } : {}),
       source:        "offline_bulk",
       tags:          [],
       primaryOwnerId: assignedOwner,
@@ -331,6 +468,7 @@ async function processImportBatch(
       slaDeadline:        admin.firestore.Timestamp.fromDate(slaDeadline),
       triagePriority:     (triagePriorityRaw || "low").toLowerCase(),
       importBatchId:      batchId,
+      importName,
       importHash,
       importedBy:         triggerUserId,
       importedAt:         admin.firestore.FieldValue.serverTimestamp(),
@@ -382,6 +520,84 @@ async function processImportBatch(
     errors,
     status: errorCount > 0 && !skipErrors ? "partial" : errorCount === totalRows ? "failed" : "completed",
     completedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+}
+
+// ─── Distribute a held import batch to selected agents (round-robin) ───────────
+// Imported leads sit with primaryOwnerId === "UNASSIGNED" until an admin/manager routes
+// them from the Import Queue. This reassigns every still-unassigned lead in the batch across
+// the chosen agents, re-owns their open opportunities, resets the SLA, and notifies each
+// agent once with their new lead count.
+async function distributeBatch(
+  jobId: string,
+  batchId: string,
+  agentIds: string[],
+  actorUid: string,
+  importName: string,
+): Promise<void> {
+  const jobRef = db.collection("import_jobs").doc(jobId);
+  const agents = [...agentIds].sort((a, b) => a.localeCompare(b)); // deterministic order
+  const assignedCountByAgent: Record<string, number> = {};
+
+  const leadsSnap = await db.collection("leads")
+    .where("importBatchId", "==", batchId)
+    .where("primaryOwnerId", "==", "UNASSIGNED")
+    .where("deleted", "==", false)
+    .get();
+
+  let i = 0;
+  for (const leadDoc of leadsSnap.docs) {
+    const owner = agents[i % agents.length];
+    i++;
+    assignedCountByAgent[owner] = (assignedCountByAgent[owner] ?? 0) + 1;
+
+    const slaDeadline = new Date();
+    slaDeadline.setHours(slaDeadline.getHours() + 24);
+
+    const batch = db.batch();
+    batch.update(leadDoc.ref, {
+      primaryOwnerId: owner,
+      slaDeadline:    admin.firestore.Timestamp.fromDate(slaDeadline),
+      distributedAt:  admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt:      admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Re-own any open opportunities + log an activity
+    const oppsSnap = await leadDoc.ref.collection("opportunities").where("status", "==", "open").get();
+    for (const oppDoc of oppsSnap.docs) {
+      batch.update(oppDoc.ref, {
+        ownerId:   owner,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      const actRef = oppDoc.ref.collection("activities").doc();
+      batch.set(actRef, {
+        type:    "status_change",
+        content: `Assigned via distribution of import "${importName}" (batch ${batchId})`,
+        by:      actorUid,
+        at:      admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
+
+  // One aggregated notification per agent (avoids per-lead notification spam)
+  await Promise.all(Object.entries(assignedCountByAgent).map(([agentUid, count]) =>
+    db.collection("notifications").doc(agentUid).collection("items").add({
+      type:      "new_lead",
+      title:     `${count} new lead${count > 1 ? "s" : ""} assigned`,
+      body:      `From import "${importName}". Check My Queue.`,
+      link:      "/crm/my-queue",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      read:      false,
+    }).catch((e) => console.error("[distribute notification failed]", e)),
+  ));
+
+  await jobRef.update({
+    distributed:      true,
+    distributedAt:    admin.firestore.FieldValue.serverTimestamp(),
+    distributedBy:    actorUid,
+    distributedCount: leadsSnap.size,
+    agentIds:         agents,
   });
 }
 
@@ -857,10 +1073,10 @@ async function startServer() {
     const sheetId = extractSheetId(sheetUrl);
     try {
       const sheets = await getSheetsClient();
-      // Read rows 2-51 (row 1 is header)
+      // Read rows 1-51 (row 1 = headers, rows 2-51 = data)
       const result = await sheets.spreadsheets.values.get({
         spreadsheetId: sheetId,
-        range: "A2:H51",
+        range: "A1:ZZ51",
       });
       const rawRows = (result.data.values ?? []) as string[][];
 
@@ -871,12 +1087,17 @@ async function startServer() {
         .get();
       const loanProducts = new Set(oppTypesSnap.docs.map(d => d.data().name as string));
 
-      const rows = rawRows.map((raw, i) => {
-        const errors = validateRow(raw, loanProducts);
-        const cells = COLUMN_KEYS.map((_, ci) => (raw[ci] ?? "").trim());
+      const headers = rawRows[0] ?? [];
+      const dataRows = rawRows.slice(1);
+      const sampleRows = dataRows.slice(0, 20);
+      const mapping = detectColumnMapping(headers, sampleRows, loanProducts);
+
+      const rows = dataRows.map((raw, i) => {
+        const errors = validateRow(raw, mapping, loanProducts);
+        const cells = extractCells(raw, mapping);
         return {
           rowNumber: i + 2,
-          data: Object.fromEntries(COLUMN_KEYS.map((k, ci) => [k, cells[ci]])),
+          data: cells as unknown as Record<string, string>,
           valid: errors.length === 0,
           errors,
         };
@@ -885,13 +1106,15 @@ async function startServer() {
       // Count total rows in sheet to report totalRows (not just first 50)
       const countResult = await sheets.spreadsheets.values.get({
         spreadsheetId: sheetId,
-        range: "A:A",
+        range: "A1:A",
       });
       const totalRows = Math.max(0, (countResult.data.values?.length ?? 1) - 1);
 
       res.json({
         rows,
         totalRows,
+        headers,
+        mapping,
         validCount: rows.filter(r => r.valid).length,
         errorCount: rows.filter(r => !r.valid).length,
         serviceAccountEmail: await getServiceAccountEmail(),
@@ -917,8 +1140,11 @@ async function startServer() {
     const canRun = user?.role === "admin" || user?.crmRole === "manager" || user?.crmCanImport === true;
     if (!canRun) return res.status(403).json({ error: "Import access not granted. Ask your admin to enable bulk import for your account." });
 
-    const { sheetUrl, skipErrors = false } = req.body;
+    const { sheetUrl, skipErrors = false, columnMapping: clientMapping, importName: rawImportName } = req.body;
     if (!sheetUrl) return res.status(400).json({ error: "sheetUrl required" });
+    const importName = typeof rawImportName === "string" ? rawImportName.trim() : "";
+    if (importName.length < 2) return res.status(400).json({ error: "Import name is required (min 2 characters) — used to track this sheet's source and quality." });
+    if (importName.length > 120) return res.status(400).json({ error: "Import name too long (max 120 characters)." });
     const sheetId = extractSheetId(sheetUrl);
 
     // Generate batch ID: YYYY-MM-DD-xxxx
@@ -927,13 +1153,13 @@ async function startServer() {
     const batchId = `${dateStr}-${suffix}`;
     const jobId = db.collection("import_jobs").doc().id;
 
-    // Read all rows from the Sheet
+    // Read all rows from the Sheet (including header row for auto-detection)
     let allRows: string[][];
     try {
       const sheets = await getSheetsClient();
       const result = await sheets.spreadsheets.values.get({
         spreadsheetId: sheetId,
-        range: "A2:H",  // skip header row
+        range: "A1:ZZ",
       });
       allRows = (result.data.values ?? []) as string[][];
     } catch (err) {
@@ -945,9 +1171,20 @@ async function startServer() {
       .where("businessLine", "==", "loan").where("active", "==", true).get();
     const loanProducts = new Set(oppTypesSnap.docs.map(d => d.data().name as string));
 
+    // Determine column mapping: use client-provided if given, otherwise auto-detect from header row
+    const headerRow = allRows[0] ?? [];
+    const dataRows  = allRows.slice(1);
+    let columnMapping: ColumnMapping;
+    if (clientMapping && typeof clientMapping === "object" && Object.keys(clientMapping).length > 0) {
+      columnMapping = clientMapping as ColumnMapping;
+    } else {
+      const sampleRows = dataRows.slice(0, 20);
+      columnMapping = detectColumnMapping(headerRow, sampleRows, loanProducts);
+    }
+
     // Create the job doc
     await db.collection("import_jobs").doc(jobId).set({
-      totalRows: allRows.length,
+      totalRows: dataRows.length,
       processedRows: 0,
       successCount: 0,
       errorCount: 0,
@@ -958,13 +1195,16 @@ async function startServer() {
       sheetId,
       skipErrors,
       errors: [],
+      importName,
+      distributed: false,
     });
 
     // Respond immediately — process in background
-    res.json({ jobId, batchId, totalRows: allRows.length });
+    res.json({ jobId, batchId, totalRows: dataRows.length });
 
-    // Background processing (intentionally not awaited)
-    processImportBatch(jobId, sheetId, skipErrors, uid, batchId, allRows, loanProducts)
+    // Background processing (intentionally not awaited). Leads land UNASSIGNED;
+    // they are routed to agents later from the Import Queue (POST /api/import/distribute).
+    processImportBatch(jobId, sheetId, skipErrors, uid, batchId, dataRows, loanProducts, columnMapping, importName)
       .catch(err => {
         console.error(`Import job ${jobId} failed:`, err);
         db.collection("import_jobs").doc(jobId).update({
@@ -973,6 +1213,41 @@ async function startServer() {
           errors: [{ row: 0, data: {}, reason: String(err) }],
         }).catch(() => {});
       });
+  });
+
+  // ─── POST /api/import/distribute — route a held batch to agents ───────────────
+  app.post("/api/import/distribute", async (req, res) => {
+    const uid = await verifyFirebaseToken(req);
+    if (!uid) return res.status(401).json({ error: "Unauthorized" });
+    if (!(await checkRateLimit(uid, "import-distribute", 30, HOUR_MS))) {
+      return res.status(429).json({ error: "Too many distribution requests. Try again later." });
+    }
+
+    const userSnap = await db.collection("users").doc(uid).get();
+    const user = userSnap.data();
+    const canRun = user?.role === "admin" || user?.crmRole === "manager" || user?.crmCanImport === true;
+    if (!canRun) return res.status(403).json({ error: "Distribution access not granted." });
+
+    const { batchId, agentIds } = req.body;
+    if (typeof batchId !== "string" || !batchId) return res.status(400).json({ error: "batchId required" });
+    const agents: string[] = Array.isArray(agentIds)
+      ? (agentIds as unknown[]).filter((id): id is string => typeof id === "string" && id.length > 0)
+      : [];
+    if (agents.length === 0) return res.status(400).json({ error: "Select at least one agent to distribute to." });
+
+    // Locate the job by its batchId
+    const jobSnap = await db.collection("import_jobs").where("batchId", "==", batchId).limit(1).get();
+    if (jobSnap.empty) return res.status(404).json({ error: "Import batch not found." });
+    const jobDoc = jobSnap.docs[0];
+    const job = jobDoc.data();
+    if (job.distributed === true) return res.status(409).json({ error: "This batch has already been distributed." });
+
+    // Respond immediately — distribution runs in the background (large batches take time).
+    // The client watches the job's `distributed` flag flip to true via onSnapshot.
+    res.json({ ok: true, jobId: jobDoc.id });
+
+    distributeBatch(jobDoc.id, batchId, agents, uid, (job.importName as string) ?? batchId)
+      .catch((err) => console.error(`Distribute batch ${batchId} failed:`, err));
   });
 
   // ─── Auth Alerts API ─────────────────────────────────────────────────────────
@@ -2984,8 +3259,8 @@ async function startServer() {
       return { result: "duplicate", leadId: dupSnap.docs[0].id, errorMessage: null, assignedTo: null };
     }
 
-    // Step 4: Workload-aware assignment
-    const assignedTo = await workloadAwareAssign();
+    // Step 4: All inbound leads land as UNASSIGNED — admin assigns manually via the CRM tray
+    const assignedTo = "UNASSIGNED";
 
     // Step 5: Create /leads doc
     // SLA: 30 minutes for website/social_meta leads

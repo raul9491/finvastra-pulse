@@ -95,11 +95,11 @@ export function LauncherPage() {
           <span className="text-sm font-medium hidden sm:block" style={{ color: 'var(--text-primary)' }}>
             {profile?.displayName}
           </span>
-          <div className="w-px h-5" style={{ backgroundColor: 'rgba(255,255,255,0.10)' }} />
+          <div className="w-px h-5" style={{ backgroundColor: 'var(--shell-border, rgba(255,255,255,0.10))' }} />
           <button
             onClick={handleLogout}
             className="flex items-center gap-1.5 text-sm transition-opacity hover:opacity-60"
-            style={{ color: 'rgba(240,236,224,0.45)' }}
+            style={{ color: 'var(--text-muted)' }}
           >
             <LogOut size={15} />
             <span className="hidden sm:block">Sign out</span>

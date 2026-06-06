@@ -9,8 +9,8 @@ import {
   Settings, LogOut, LayoutGrid, ClipboardList, FileText, UserPlus, Inbox,
   ReceiptText, FolderOpen, Megaphone, Building2, Calculator,
   Laptop, UserMinus, Lock, FileSearch2, GraduationCap, TrendingUp, Briefcase, BookOpen, LifeBuoy,
-  BookUser, RotateCcw, ScrollText, HelpCircle, Database,
-  Menu, X,
+  BookUser, RotateCcw, ScrollText, HelpCircle, Database, User,
+  Menu, X, ChevronDown,
 } from 'lucide-react';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -18,6 +18,8 @@ import { isSuperAdmin } from '../../config/hrmsConfig';
 import { VideoLogo } from '../ui/VideoLogo';
 import { NotificationBell } from '../ui/NotificationBell';
 import { ThemeToggle } from '../ui/ThemeProvider';
+import { UserMenu } from '../ui/UserMenu';
+import { AppsMenu } from '../ui/AppsMenu';
 import { useUnreadAnnouncementCount, getUnseenHolidayCount } from '../../features/hrms/hooks/useAnnouncements';
 import { useHolidays } from '../../features/hrms/hooks/useHolidays';
 import { useMyItDeclaration, usePendingItDeclarationCount, currentFinancialYear } from '../../features/hrms/hooks/useItDeclarations';
@@ -226,6 +228,51 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/admin/data-import':     'Data Import',
 };
 
+// ─── Collapsible nav section ──────────────────────────────────────────────────
+
+function NavSection({
+  label, badge, badgeColor = 'gold', isOpen, onToggle, children,
+}: {
+  label:       string;
+  badge?:      number;
+  badgeColor?: 'gold' | 'red' | 'amber';
+  isOpen:      boolean;
+  onToggle:    () => void;
+  children:    React.ReactNode;
+}) {
+  const badgeBg    = badgeColor === 'red'   ? 'rgba(248,113,113,0.20)'  : badgeColor === 'amber' ? 'rgba(217,119,6,0.20)'   : 'rgba(201,169,97,0.20)';
+  const badgeFg    = badgeColor === 'red'   ? '#f87171'                  : badgeColor === 'amber' ? '#fbbf24'                 : '#C9A961';
+  return (
+    <div>
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-1.5 px-3 pt-3 pb-1.5 rounded-lg transition-colors hover:opacity-80"
+      >
+        <span className="text-[9px] font-bold uppercase tracking-[0.28em] flex-1 text-left"
+          style={{ color: 'var(--shell-text-dim)' }}>
+          {label}
+        </span>
+        {(badge ?? 0) > 0 && (
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none"
+            style={{ backgroundColor: badgeBg, color: badgeFg }}>
+            {badge}
+          </span>
+        )}
+        <ChevronDown
+          size={11}
+          style={{
+            color: 'var(--shell-text-dim)',
+            transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+            transition: 'transform 0.18s ease',
+            flexShrink: 0,
+          }}
+        />
+      </button>
+      {isOpen && <div className="space-y-0.5">{children}</div>}
+    </div>
+  );
+}
+
 function FullPageLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--navy-deep)' }}>
@@ -241,6 +288,34 @@ export function HrmsShell() {
 
   // Mobile nav drawer state
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Collapsible nav sections — auto-open the section matching the current path
+  const sectionForPath = (p: string): string => {
+    if (['/hrms/attendance','/hrms/leave','/hrms/payslips','/hrms/claims'].some(r => p.startsWith(r))) return 'My Work';
+    if (['/hrms/directory','/hrms/documents','/hrms/announcements'].some(r => p.startsWith(r))) return 'Company';
+    if (['/hrms/performance','/hrms/training'].some(r => p.startsWith(r))) return 'Growth';
+    if (['/hrms/hr-helpdesk','/hrms/guide','/hrms/settings','/hrms/it-declaration'].some(r => p.startsWith(r))) return 'Support';
+    if (['/hrms/employees','/hrms/admin/access','/hrms/admin/import'].some(r => p.startsWith(r))) return 'People';
+    if (['/hrms/admin/attendance','/hrms/leave/admin','/hrms/admin/comp-off','/hrms/admin/leave-year-end','/hrms/admin/holidays'].some(r => p.startsWith(r))) return 'Time & Leave';
+    if (['/hrms/admin/payslips','/hrms/admin/claims','/hrms/admin/salary-history','/hrms/admin/it-declarations'].some(r => p.startsWith(r))) return 'Payroll & Finance';
+    if (['/hrms/admin/letters','/hrms/admin/documents','/hrms/admin/announcements'].some(r => p.startsWith(r))) return 'Content';
+    if (['/hrms/admin/performance','/hrms/admin/training','/hrms/admin/hr-helpdesk'].some(r => p.startsWith(r))) return 'Performance';
+    if (['/hrms/admin/compliance','/hrms/admin/pf-tracker'].some(r => p.startsWith(r))) return 'Statutory';
+    if (['/hrms/admin/recruitment','/hrms/admin/assets','/hrms/admin/onboarding','/hrms/admin/probation','/hrms/admin/offboarding'].some(r => p.startsWith(r))) return 'Lifecycle';
+    return '';
+  };
+  const [openSections, setOpenSections] = useState<Set<string>>(() => {
+    const initial = sectionForPath(location.pathname);
+    return new Set(initial ? [initial] : ['My Work']);
+  });
+  const toggleSection = (label: string) =>
+    setOpenSections(prev => { const n = new Set(prev); n.has(label) ? n.delete(label) : n.add(label); return n; });
+  // Auto-open section when navigating to a new page
+  useEffect(() => {
+    const s = sectionForPath(location.pathname);
+    if (s) setOpenSections(prev => prev.has(s) ? prev : new Set([...prev, s]));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   // Derive roles before hooks so `enabled` flags are correct from the first render.
   // Safe when profile is null (still loading): all flags default to false.
@@ -331,198 +406,134 @@ export function HrmsShell() {
     ? profile.displayName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
     : '?';
 
+  // ── Reusable nav link renderer ────────────────────────────────────────────────
+  const navLink = (
+    path: string, label: string, Icon: ElementType, badge = 0,
+    badgeColor: 'gold' | 'red' | 'amber' = 'gold',
+  ) => {
+    const badgeBg = badgeColor === 'red' ? 'rgba(248,113,113,0.20)' : badgeColor === 'amber' ? 'rgba(217,119,6,0.20)' : 'rgba(201,169,97,0.20)';
+    const badgeFg = badgeColor === 'red' ? '#f87171' : badgeColor === 'amber' ? '#fbbf24' : '#C9A961';
+    return (
+      <NavLink key={path} to={path} end
+        className={({ isActive }) =>
+          `flex items-center gap-3 py-2 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3 nav-item-hover'}`
+        }
+        style={({ isActive }) =>
+          isActive
+            ? { backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961', borderColor: '#C9A961' }
+            : { color: 'var(--shell-text-secondary)' }
+        }
+      >
+        <Icon size={16} className="shrink-0" />
+        <span className="text-sm flex-1">{label}</span>
+        {badge > 0 && (
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full mr-1 leading-none"
+            style={{ backgroundColor: badgeBg, color: badgeFg }}>
+            {badge}
+          </span>
+        )}
+      </NavLink>
+    );
+  };
+
   // ── Shared nav scroll body — rendered in both desktop sidebar and mobile drawer ──
   const navBody = (
-    <div className="flex-1 px-2 space-y-0.5 overflow-y-auto pb-4">
-      {NAV.map(({ path, label, icon: Icon }) => {
-        const badge =
-          path === '/hrms/dashboard'      ? dashboardBadge                      :
-          path === '/hrms/announcements'  ? unreadAnnouncements + holidayBadge  :
-          path === '/hrms/documents'      ? pendingAckCount                     :
-          path === '/hrms/it-declaration' ? itDeclEmployeeBadge                 :
-          path === '/hrms/performance'    ? selfAssessmentBadge                 :
-          path === '/hrms/training'       ? myTrainingBadge                     :
-          path === '/hrms/hr-helpdesk'   ? myOpenTickets                       : 0;
-        return (
-          <NavLink
-            key={path}
-            to={path}
-            end
-            className={({ isActive }) =>
-              `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3 nav-item-hover'}`
-            }
-            style={({ isActive }) =>
-              isActive
-                ? { backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961', borderColor: '#C9A961' }
-                : { color: 'var(--shell-text-secondary)' }
-            }
-          >
-            <Icon size={17} className="shrink-0" />
-            <span className="text-sm flex-1">{label}</span>
-            {badge > 0 && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full mr-1 leading-none"
-                style={{ backgroundColor: 'rgba(201,169,97,0.20)', color: '#C9A961' }}>
-                {badge}
-              </span>
-            )}
-          </NavLink>
-        );
-      })}
+    <div className="flex-1 px-2 overflow-y-auto pb-4 space-y-0.5">
 
+      {/* Dashboard — always visible standalone */}
+      {navLink('/hrms/dashboard', 'Dashboard', LayoutDashboard, dashboardBadge)}
+
+      {/* ── Employee self-service groups ─────────────────────────── */}
+      <NavSection label="My Work" badge={pendingRegularizations} isOpen={openSections.has('My Work')} onToggle={() => toggleSection('My Work')}>
+        {navLink('/hrms/attendance',     'Attendance',    Clock)}
+        {navLink('/hrms/leave',          'Leave',         CalendarOff)}
+        {navLink('/hrms/payslips',       'Payslips',      Receipt)}
+        {navLink('/hrms/claims',         'My Claims',     ReceiptText)}
+      </NavSection>
+
+      <NavSection label="Company" badge={unreadAnnouncements + holidayBadge + pendingAckCount} isOpen={openSections.has('Company')} onToggle={() => toggleSection('Company')}>
+        {navLink('/hrms/directory',      'Directory',     BookUser)}
+        {navLink('/hrms/documents',      'Documents',     FolderOpen,  pendingAckCount)}
+        {navLink('/hrms/announcements',  'Announcements', Megaphone,   unreadAnnouncements + holidayBadge)}
+      </NavSection>
+
+      <NavSection label="Growth" badge={itDeclEmployeeBadge + selfAssessmentBadge + myTrainingBadge} isOpen={openSections.has('Growth')} onToggle={() => toggleSection('Growth')}>
+        {navLink('/hrms/it-declaration', 'IT Declaration', FileSearch2, itDeclEmployeeBadge)}
+        {navLink('/hrms/performance',    'My Review',      TrendingUp,  selfAssessmentBadge)}
+        {navLink('/hrms/training',       'My Training',    BookOpen,    myTrainingBadge)}
+      </NavSection>
+
+      <NavSection label="Support" badge={myOpenTickets} isOpen={openSections.has('Support')} onToggle={() => toggleSection('Support')}>
+        {navLink('/hrms/hr-helpdesk', 'HR Helpdesk', LifeBuoy, myOpenTickets)}
+        {navLink('/hrms/guide',       'Pulse Guide', HelpCircle)}
+        {navLink('/hrms/settings',    'Settings',    Settings)}
+      </NavSection>
+
+      {/* ── Admin sections ───────────────────────────────────────── */}
       {(isAdmin || isHrmsManager) && (
         <>
-          <div className="px-3 pt-4 pb-2">
-            <p className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: 'var(--shell-text-dim)' }}>Admin</p>
-          </div>
+          {/* Divider */}
+          <div className="mx-3 my-2" style={{ borderTop: '1px solid var(--shell-border)' }} />
 
-          {/* Super Admin: Permission Manager — only visible to the 3 protected accounts */}
+          {/* Super-admin tools — gold, only for the 3 SAs */}
           {isSA && (
             <>
-              <NavLink
-                to="/hrms/admin/permissions"
-                end
-                className={({ isActive }) =>
-                  `flex items-center gap-3 py-2.5 rounded-lg transition-colors mb-0.5 ${isActive ? 'pl-2.5 border-l-2' : 'pl-3 nav-item-hover'}`
-                }
-                style={({ isActive }) =>
-                  isActive
-                    ? { backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961', borderColor: '#C9A961' }
-                    : { color: '#C9A961' }
-                }
-              >
-                <Lock size={17} className="shrink-0" />
-                <span className="text-sm flex-1 font-medium">Permission Manager</span>
-              </NavLink>
-              <NavLink
-                to="/hrms/admin/data-import"
-                end
-                className={({ isActive }) =>
-                  `flex items-center gap-3 py-2.5 rounded-lg transition-colors mb-0.5 ${isActive ? 'pl-2.5 border-l-2' : 'pl-3 nav-item-hover'}`
-                }
-                style={({ isActive }) =>
-                  isActive
-                    ? { backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961', borderColor: '#C9A961' }
-                    : { color: '#C9A961' }
-                }
-              >
-                <Database size={17} className="shrink-0" />
-                <span className="text-sm flex-1 font-medium">Data Import</span>
-              </NavLink>
+              {navLink('/hrms/admin/permissions', 'Permission Manager', Lock)}
+              {navLink('/hrms/admin/data-import',  'Data Import',        Database)}
             </>
           )}
 
-          {ADMIN_NAV_GROUPS.map(({ label: groupLabel, items }) => (
-            <div key={groupLabel}>
-              <div className="px-3 pt-3 pb-1">
-                <p className="text-[9px] font-bold uppercase tracking-[0.3em]"
-                  style={{ color: 'var(--shell-text-dim)' }}>
-                  {groupLabel}
-                </p>
-              </div>
-              {items.map(({ path, label, icon: Icon }) => {
-                const badge =
-                  path === '/hrms/admin/access-requests' && !onAccessRequestsPage ? pendingRequests        :
-                  path === '/hrms/admin/attendance'                                ? pendingRegularizations :
-                  path === '/hrms/leave/admin'                                     ? pendingEncashCount     :
-                  path === '/hrms/admin/leave-year-end'                            ? leaveResetBadge        :
-                  path === '/hrms/admin/it-declarations'                           ? itDeclAdminBadge       :
-                  path === '/hrms/admin/performance'                               ? pendingReviewCount     :
-                  path === '/hrms/admin/training'                                  ? trainingAdminBadge     :
-                  path === '/hrms/admin/hr-helpdesk'                               ? openTicketCount        : 0;
-                return (
-                  <NavLink key={path} to={path} end
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3 nav-item-hover'}`
-                    }
-                    style={({ isActive }) =>
-                      isActive
-                        ? { backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961', borderColor: '#C9A961' }
-                        : { color: 'var(--shell-text-secondary)' }
-                    }
-                  >
-                    <Icon size={17} className="shrink-0" />
-                    <span className="text-sm flex-1">{label}</span>
-                    {badge > 0 && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full mr-1 leading-none"
-                        style={{ backgroundColor: 'rgba(248,113,113,0.20)', color: '#f87171' }}>
-                        {badge}
-                      </span>
-                    )}
-                  </NavLink>
-                );
-              })}
-            </div>
-          ))}
+          <NavSection label="People" badge={pendingRequests} badgeColor="red" isOpen={openSections.has('People')} onToggle={() => toggleSection('People')}>
+            {navLink('/hrms/employees',             'Employees',       Users)}
+            {navLink('/hrms/admin/access-requests', 'Access Requests', Inbox, !onAccessRequestsPage ? pendingRequests : 0, 'red')}
+            {navLink('/hrms/admin/import-employees','Import Employees', UserPlus)}
+          </NavSection>
 
-          {/* Compliance section */}
-          <div className="px-3 pt-4 pb-2 flex items-center gap-2">
-            <p className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: 'var(--shell-text-dim)' }}>
-              Statutory
-            </p>
-            {overdueCompliance > 0 && (
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-none"
-                style={{ backgroundColor: '#DC2626', color: '#FFFFFF' }}>
-                {overdueCompliance}
-              </span>
-            )}
-          </div>
-          {COMPLIANCE_NAV.map(({ path, label, icon: Icon }) => (
-            <NavLink key={path} to={path} end
-              className={({ isActive }) =>
-                `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3 nav-item-hover'}`
-              }
-              style={({ isActive }) =>
-                isActive
-                  ? { backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961', borderColor: '#C9A961' }
-                  : { color: 'var(--shell-text-secondary)' }
-              }
-            >
-              <Icon size={17} className="shrink-0" />
-              <span className="text-sm flex-1">{label}</span>
-            </NavLink>
-          ))}
+          <NavSection label="Time & Leave" badge={pendingRegularizations + pendingEncashCount + leaveResetBadge} badgeColor="red" isOpen={openSections.has('Time & Leave')} onToggle={() => toggleSection('Time & Leave')}>
+            {navLink('/hrms/admin/attendance',     'Attendance',       Clock,         pendingRegularizations, 'red')}
+            {navLink('/hrms/leave/admin',          'Leave Approvals',  ClipboardList, pendingEncashCount,     'red')}
+            {navLink('/hrms/admin/comp-off',       'Comp Off Credits', CalendarDays)}
+            {navLink('/hrms/admin/leave-year-end', 'Year-End Reset',   RotateCcw,     leaveResetBadge,        'red')}
+            {navLink('/hrms/admin/holidays',       'Manage Holidays',  CalendarDays)}
+          </NavSection>
 
-          {/* Lifecycle section */}
-          <div className="px-3 pt-4 pb-2">
-            <p className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: 'var(--shell-text-dim)' }}>
-              Lifecycle
-            </p>
-          </div>
-          {LIFECYCLE_NAV.map(({ path, label, icon: Icon }) => {
-            const badge =
-              path === '/hrms/admin/recruitment' ? interviewBadge   :
-              path === '/hrms/admin/onboarding'  ? onboardingBadge  :
-              path === '/hrms/admin/probation'   ? probationBadge   :
-              path === '/hrms/admin/offboarding' ? offboardingBadge : 0;
-            return (
-              <NavLink key={path} to={path} end
-                className={({ isActive }) =>
-                  `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3 nav-item-hover'}`
-                }
-                style={({ isActive }) =>
-                  isActive
-                    ? { backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961', borderColor: '#C9A961' }
-                    : { color: 'var(--shell-text-secondary)' }
-                }
-              >
-                <Icon size={17} className="shrink-0" />
-                <span className="text-sm flex-1">{label}</span>
-                {badge > 0 && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full mr-1 leading-none"
-                    style={{
-                      backgroundColor: path === '/hrms/admin/offboarding' ? 'rgba(248,113,113,0.20)'
-                                       : path === '/hrms/admin/probation'   ? 'rgba(217,119,6,0.20)'
-                                       : 'rgba(201,169,97,0.20)',
-                      color: path === '/hrms/admin/offboarding' ? '#f87171'
-                           : path === '/hrms/admin/probation'   ? '#fbbf24'
-                           : '#C9A961',
-                    }}>
-                    {badge}
-                  </span>
-                )}
-              </NavLink>
-            );
-          })}
+          <NavSection label="Payroll & Finance" badge={itDeclAdminBadge} badgeColor="red" isOpen={openSections.has('Payroll & Finance')} onToggle={() => toggleSection('Payroll & Finance')}>
+            {navLink('/hrms/admin/payslips',        'Generate Payslips', FileText)}
+            {navLink('/hrms/admin/claims',          'Claims',            ReceiptText)}
+            {navLink('/hrms/admin/salary-history',  'Salary History',    TrendingUp)}
+            {navLink('/hrms/admin/it-declarations', 'IT Declarations',   FileSearch2, itDeclAdminBadge, 'red')}
+          </NavSection>
+
+          <NavSection label="Content" isOpen={openSections.has('Content')} onToggle={() => toggleSection('Content')}>
+            {navLink('/hrms/admin/letters',       'HR Letters',    ScrollText)}
+            {navLink('/hrms/admin/documents',     'Documents',     FolderOpen)}
+            {navLink('/hrms/admin/announcements', 'Announcements', Megaphone)}
+          </NavSection>
+
+          <NavSection label="Performance" badge={pendingReviewCount + trainingAdminBadge + openTicketCount} badgeColor="red" isOpen={openSections.has('Performance')} onToggle={() => toggleSection('Performance')}>
+            {navLink('/hrms/admin/performance', 'Performance Reviews', TrendingUp,  pendingReviewCount,  'red')}
+            {navLink('/hrms/admin/training',    'Training',            BookOpen,    trainingAdminBadge,  'red')}
+            {navLink('/hrms/admin/hr-helpdesk', 'HR Helpdesk',         LifeBuoy,    openTicketCount,     'red')}
+          </NavSection>
+
+          <NavSection label="Statutory" badge={overdueCompliance} badgeColor="red" isOpen={openSections.has('Statutory')} onToggle={() => toggleSection('Statutory')}>
+            {navLink('/hrms/admin/compliance', 'Compliance Calendar', Building2)}
+            {navLink('/hrms/admin/pf-tracker', 'PF Tracker',          Calculator)}
+          </NavSection>
+
+          <NavSection
+            label="Lifecycle"
+            badge={interviewBadge + onboardingBadge + probationBadge + offboardingBadge}
+            badgeColor="amber"
+            isOpen={openSections.has('Lifecycle')}
+            onToggle={() => toggleSection('Lifecycle')}
+          >
+            {navLink('/hrms/admin/recruitment', 'Recruitment', Briefcase,    interviewBadge,   'gold')}
+            {navLink('/hrms/admin/assets',      'Assets',      Laptop)}
+            {navLink('/hrms/admin/onboarding',  'Onboarding',  UserPlus,     onboardingBadge,  'gold')}
+            {navLink('/hrms/admin/probation',   'Probation',   GraduationCap,probationBadge,   'amber')}
+            {navLink('/hrms/admin/offboarding', 'Offboarding', UserMinus,    offboardingBadge, 'red')}
+          </NavSection>
         </>
       )}
     </div>
@@ -542,7 +553,9 @@ export function HrmsShell() {
         )}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{profile?.displayName}</p>
-          <p className="text-[10px] uppercase tracking-widest truncate" style={{ color: 'var(--shell-text-dim)' }}>{profile?.role}</p>
+          <p className="text-[10px] uppercase tracking-widest truncate" style={{ color: isSA ? '#C9A961' : 'var(--shell-text-dim)' }}>
+            {isSA ? '★ Super Admin' : profile?.role}
+          </p>
         </div>
       </div>
     </div>
@@ -633,46 +646,30 @@ export function HrmsShell() {
               <Menu size={20} style={{ color: 'var(--shell-text-icon)' }} />
             </button>
 
-            <button
-              onClick={() => navigate('/')}
-              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors hover:bg-(--shell-hover-hard) shrink-0"
-              style={{ color: 'var(--shell-text-secondary)' }}
-              title="Back to launcher"
-            >
-              <LayoutGrid size={14} />
-              <span className="hidden sm:block">Apps</span>
-            </button>
+            <AppsMenu profile={profile} currentModule="hrms" />
             <div className="w-px h-4 hidden sm:block shrink-0" style={{ backgroundColor: 'var(--shell-border-mid)' }} />
             <h1 className="text-base font-semibold truncate min-w-0" style={{ color: 'var(--text-primary)' }}>{pageTitle}</h1>
           </div>
 
-          {/* Right: notifications + user + sign out */}
+          {/* Right: notifications + user menu */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <ThemeToggle />
-            {/* Notification bell — HRMS employees get leave/claim status updates */}
             {user && <NotificationBell uid={user.uid} />}
-            <div className="w-px h-5 hidden sm:block" style={{ backgroundColor: 'var(--shell-border-mid)' }} />
-            {profile?.photoURL ? (
-              <img src={profile.photoURL} alt={profile.displayName} className="w-8 h-8 rounded-full object-cover" />
-            ) : (
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961' }}>
-                {initials}
-              </div>
-            )}
-            <span className="text-sm font-medium hidden sm:block" style={{ color: 'var(--text-primary)' }}>
-              {profile?.displayName}
-            </span>
-            <div className="w-px h-5 hidden sm:block" style={{ backgroundColor: 'var(--shell-border-mid)' }} />
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 text-sm transition-opacity hover:opacity-60"
-              style={{ color: 'var(--shell-text-secondary)' }}
-              title="Sign out"
-            >
-              <LogOut size={15} />
-              <span className="hidden sm:block">Sign out</span>
-            </button>
+            <UserMenu
+              displayName={profile?.displayName ?? ''}
+              photoURL={profile?.photoURL}
+              initials={initials}
+              roleLabel={isSA ? '★ Super Admin' : (profile?.role ?? 'employee')}
+              isSA={isSA}
+              links={[
+                { label: 'My Profile',      path: `/hrms/employees/${user?.uid}`, Icon: User       },
+                { label: 'My Payslips',     path: '/hrms/payslips',               Icon: Receipt    },
+                { label: 'My Leave',        path: '/hrms/leave',                  Icon: CalendarOff},
+                { label: 'IT Declaration',  path: '/hrms/it-declaration',         Icon: FileSearch2},
+                { label: 'Settings',        path: '/hrms/settings',               Icon: Settings   },
+              ]}
+              onLogout={handleLogout}
+            />
           </div>
         </header>
 

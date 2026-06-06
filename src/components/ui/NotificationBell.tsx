@@ -107,15 +107,15 @@ export function NotificationBell({ uid }: { uid: string }) {
       {/* Bell button */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className="relative flex items-center justify-center w-9 h-9 rounded-lg transition-colors hover:bg-[rgba(255,255,255,0.08)]"
+        className="relative flex items-center justify-center w-9 h-9 rounded-lg transition-colors hover:bg-(--shell-hover-hard)"
         title="Notifications"
         aria-label={`Notifications${unreadCount > 0 ? ` — ${unreadCount} unread` : ''}`}
       >
-        <Bell size={18} style={{ color: 'rgba(240,236,224,0.55)' }} />
+        <Bell size={18} style={{ color: 'var(--shell-text-icon)' }} />
         {unreadCount > 0 && (
           <span
             className="absolute top-1 right-1 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center leading-none"
-            style={{ backgroundColor: 'rgba(201,169,97,0.90)', color: '#0B1538' }}
+            style={{ backgroundColor: '#C9A961', color: '#0B1538' }}
           >
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
@@ -123,21 +123,10 @@ export function NotificationBell({ uid }: { uid: string }) {
       </button>
 
       {open && (
-        <div
-          className="absolute right-0 top-full mt-2 w-80 rounded-2xl z-50 overflow-hidden"
-          style={{
-            backgroundColor:  'rgba(11,21,56,0.88)',
-            border:           '1px solid rgba(255,255,255,0.12)',
-            backdropFilter:   'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            boxShadow:        '0 20px 60px rgba(0,0,0,0.50)',
-          }}
-        >
+        <div className="absolute right-0 top-full mt-2 w-80 z-50 overflow-hidden glass-modal-panel">
+
           {/* Header */}
-          <div
-            className="flex items-center justify-between px-4 py-3"
-            style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
-          >
+          <div className="glass-modal-header flex items-center justify-between px-4 py-3">
             <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
               Notifications
             </span>
@@ -161,42 +150,42 @@ export function NotificationBell({ uid }: { uid: string }) {
                   <div
                     key={i}
                     className="h-12 rounded-xl animate-pulse"
-                    style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}
+                    style={{ backgroundColor: 'var(--glass-panel-bg)' }}
                   />
                 ))}
               </div>
             ) : items.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-10 text-center">
-                <Inbox size={28} style={{ color: 'rgba(201,169,97,0.30)' }} />
-                <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
+                <Inbox size={28} style={{ color: 'rgba(201,169,97,0.40)' }} />
+                <p className="text-sm font-medium" style={{ color: 'var(--shell-text-dim)' }}>
                   No notifications yet
                 </p>
               </div>
             ) : (
               items.map((n) => {
-                const meta = TYPE_META[n.type] ?? { icon: '🔔', color: 'rgba(240,236,224,0.55)' };
+                const meta = TYPE_META[n.type] ?? { icon: '🔔', color: 'var(--shell-text-secondary)' };
                 return (
                   <button
                     key={n.id}
                     onClick={() => handleItemClick(n)}
-                    className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-[rgba(255,255,255,0.05)]"
+                    className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors nav-item-hover"
                     style={{
                       backgroundColor: n.read ? 'transparent' : 'rgba(201,169,97,0.06)',
-                      borderBottom:    '1px solid rgba(255,255,255,0.05)',
+                      borderBottom:    '1px solid var(--shell-border)',
                     }}
                   >
                     <span className="text-base mt-0.5 shrink-0">{meta.icon}</span>
                     <div className="flex-1 min-w-0">
                       <p
                         className="text-sm font-semibold leading-snug truncate"
-                        style={{ color: n.read ? 'var(--text-muted)' : 'var(--text-primary)' }}
+                        style={{ color: n.read ? 'var(--shell-text-secondary)' : 'var(--text-primary)' }}
                       >
                         {n.title}
                       </p>
-                      <p className="text-xs leading-snug mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                      <p className="text-xs leading-snug mt-0.5" style={{ color: 'var(--shell-text-secondary)' }}>
                         {n.body}
                       </p>
-                      <p className="text-[10px] mt-1" style={{ color: 'var(--text-dim)' }}>
+                      <p className="text-[10px] mt-1" style={{ color: 'var(--shell-text-dim)' }}>
                         {formatTime(n.createdAt)}
                       </p>
                     </div>
@@ -204,7 +193,7 @@ export function NotificationBell({ uid }: { uid: string }) {
                       <ArrowRight
                         size={14}
                         className="shrink-0 mt-1"
-                        style={{ color: 'rgba(201,169,97,0.40)' }}
+                        style={{ color: 'rgba(201,169,97,0.50)' }}
                       />
                     )}
                     {!n.read && (

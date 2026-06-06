@@ -77,6 +77,7 @@ import { RateNegotiationMemoryPage }    from './features/crm/admin/RateNegotiati
 import { EligibilityRulesPage }         from './features/crm/admin/EligibilityRulesPage';
 import { MyQueuePage }                  from './features/crm/leads/MyQueuePage';
 import { ImportPage }                   from './features/crm/import/ImportPage';
+import { ImportQueuePage }              from './features/crm/import/ImportQueuePage';
 import { ImportHistoryPage }            from './features/crm/import/ImportHistoryPage';
 import { MyReferralsPage }             from './features/crm/referrals/MyReferralsPage';
 import { SubmitReferralPage }          from './features/crm/referrals/SubmitReferralPage';
@@ -201,6 +202,7 @@ export const router = createBrowserRouter([
       { path: 'admin/rate-memory',           element: <RateNegotiationMemoryPage /> },
       { path: 'admin/eligibility-rules',     element: <EligibilityRulesPage /> },
       { path: 'import',                      element: <ImportPage /> },
+      { path: 'import/queue',                element: <ImportQueuePage /> },
       { path: 'import/history',          element: <ImportHistoryPage /> },
       // Employee referral pages — accessible to all HRMS employees (referral mode)
       { path: 'referrals',               element: <MyReferralsPage /> },

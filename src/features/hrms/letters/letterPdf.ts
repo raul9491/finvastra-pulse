@@ -1,7 +1,8 @@
 /**
  * letterPdf.ts — HR letter generation using jsPDF.
  *
- * Four letter types matching actual Finvastra Advisors company formats:
+ * Five letter types matching actual Finvastra Advisors company formats:
+ *   offer_letter         — pre-joining offer with terms table (1 page)
  *   appointment          — full legal employment accord (multi-page)
  *   confirmation         — probation completion / permanent employment confirmation
  *   probation_extension  — extension of probation period
@@ -11,9 +12,9 @@
  * Caller uses getDownloadURL() after upload, then window.open(url).
  *
  * SECURITY: Aadhaar numbers are NEVER collected, stored, or transmitted
- * through this system. The appointment letter and consultant agreement include
- * a blank line (___________________________) where the Aadhaar would appear
- * in the party description. HR completes this manually on the printed copy.
+ * through this system. The consultant agreement includes a blank line
+ * (___________________________) where the Aadhaar would appear in the party
+ * description. HR completes this manually on the printed copy.
  */
 
 import jsPDF from 'jspdf';
@@ -42,12 +43,14 @@ const CO = {
 // ─── Letter types ─────────────────────────────────────────────────────────────
 
 export type LetterType =
+  | 'offer_letter'
   | 'appointment'
   | 'confirmation'
   | 'probation_extension'
   | 'consultant_agreement';
 
 export const TYPE_ABBREV: Record<LetterType, string> = {
+  offer_letter:         'OFR',
   appointment:          'APT',
   confirmation:         'CON',
   probation_extension:  'PEX',
@@ -83,11 +86,27 @@ export interface SalaryRow {
   monthly:     string;   // numeric string, e.g. "35000"
 }
 
+export interface OfferLetterData {
+  type:             'offer_letter';
+  salutation:       Salutation;
+  empName:          string;
+  empCode:          string;
+  careof?:          string;      // C/O address line (optional)
+  designation:      string;
+  department:       string;
+  ctcAnnual:        string;      // "18,00,000"
+  joiningDate:      string;      // "3rd May 2026"
+  probationPeriod:  string;      // "3 months"
+  probationEndDate: string;      // "3rd August 2026"
+  reportingTo:      string;
+}
+
 export interface AppointmentData {
   type:              'appointment';
   salutation:        Salutation;
   empName:           string;
   empCode:           string;
+  careof?:           string;     // C/O address line (optional)
   empAddress:        string;     // residential address for party description
   designation:       string;
   joiningDate:       string;     // "17th November 2025"
@@ -136,6 +155,7 @@ export interface ConsultantAgreementData {
 }
 
 export type LetterData =
+  | OfferLetterData
   | AppointmentData
   | ConfirmationData
   | ProbationExtensionData
@@ -152,7 +172,7 @@ export function letterFilename(data: LetterData, year: number, seq: string): str
   const name =
     data.type === 'consultant_agreement'
       ? data.consultantName.replace(/\s+/g, '_')
-      : (data as AppointmentData | ConfirmationData | ProbationExtensionData).empName.replace(/\s+/g, '_');
+      : (data as OfferLetterData | AppointmentData | ConfirmationData | ProbationExtensionData).empName.replace(/\s+/g, '_');
   return `FV_${abbrev}_${year}_${seq.padStart(3, '0')}_${name}.pdf`;
 }
 
@@ -460,8 +480,9 @@ function buildAppointment(data: AppointmentData, seq: string): jsPDF {
     { gap: 4 });
 
   writeParagraph(s,
-    `${data.salutation} ${data.empName}, bearing Aadhaar Number ___________________________, ` +
-    `an Indian citizen and an adult, residing at ${data.empAddress}, ` +
+    `${data.salutation} ${data.empName}, an Indian citizen and an adult, residing at ` +
+    (data.careof ? `C/O ${data.careof}, ` : '') +
+    `${data.empAddress}, ` +
     `is hereinafter referred to as the "Employee", of the OTHER PART.`,
     { gap: 6 });
 
@@ -789,6 +810,132 @@ function buildAppointment(data: AppointmentData, seq: string): jsPDF {
   return s.pdf;
 }
 
+// ─── OFFER LETTER ─────────────────────────────────────────────────────────────
+
+function buildOfferLetter(data: OfferLetterData, seq: string): jsPDF {
+  const dateStr = todayDMY();
+  const year    = new Date().getFullYear();
+  const refNum  = `FV/${TYPE_ABBREV.offer_letter}/${year}/${seq.padStart(3, '0')}`;
+  const pdf     = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W       = pdf.internal.pageSize.getWidth();
+
+  drawLetterhead(pdf, W, refNum, dateStr);
+  const s: PState = { pdf, y: BODY_TOP, W, refNum, date: dateStr, curPage: 1 };
+
+  // Address block
+  s.pdf.setFont('helvetica', 'normal');
+  s.pdf.setFontSize(FONT_BODY);
+  s.pdf.setTextColor(...INK);
+  s.pdf.text('To', MARGIN, s.y); s.y += lh(FONT_BODY) + 1.5;
+  s.pdf.text(`${data.salutation} ${data.empName}`, MARGIN, s.y); s.y += lh(FONT_BODY) + 1;
+  if (data.careof) {
+    s.pdf.text(`C/O ${data.careof}`, MARGIN, s.y); s.y += lh(FONT_BODY) + 1;
+  }
+  s.y += 5;
+
+  // Subject line
+  writeParagraph(s, 'OFFER OF EMPLOYMENT', { bold: true, gap: 4 });
+
+  writeParagraph(s, `Dear ${data.salutation} ${data.empName},`, { gap: 4 });
+
+  writeParagraph(s,
+    `We are pleased to extend this offer of employment to you at ${CO.name}. ` +
+    `After careful consideration, we believe that your skills and experience will be a valuable addition ` +
+    `to our team. Please find the terms of your offer set out below:`,
+    { gap: 5 });
+
+  // Terms table
+  const tableRows: [string, string][] = [
+    ['Designation',      data.designation],
+    ['Department',       data.department],
+    ['CTC (Per Annum)',  `INR ${data.ctcAnnual}/-`],
+    ['Joining Deadline', data.joiningDate],
+    ['Probation Period', data.probationPeriod],
+    ['Reporting To',     data.reportingTo],
+    ['Offer Ref / Code', refNum],
+  ];
+
+  autoTable(s.pdf, {
+    startY: s.y,
+    head:   [['Term', 'Details']],
+    body:   tableRows,
+    headStyles: {
+      fillColor:  NAVY,
+      textColor:  [255, 255, 255],
+      fontSize:   9,
+      fontStyle:  'bold',
+      halign:     'left',
+    },
+    bodyStyles: {
+      fontSize:  9,
+      textColor: [40, 40, 40],
+    },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      0: { fontStyle: 'bold', cellWidth: 55 },
+      1: { cellWidth: 'auto' },
+    },
+    margin: { left: MARGIN, right: MARGIN },
+  });
+  s.y = ((s.pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY) + 6;
+
+  writeParagraph(s,
+    `This offer is contingent upon successful verification of your credentials, educational qualifications, ` +
+    `and the completion of any pre-joining formalities as required by the Company. The Company reserves the ` +
+    `right to withdraw this offer in the event of unsatisfactory verification results.`,
+    { gap: 4 });
+
+  writeParagraph(s,
+    `Please confirm your acceptance of this offer by signing and returning a copy of this letter on or ` +
+    `before your joining date. Kindly note that your probation period will be from your joining date to ` +
+    `${data.probationEndDate}. Your appointment letter with full terms and conditions will be issued upon joining.`,
+    { gap: 6 });
+
+  writeParagraph(s,
+    `We look forward to welcoming you to the Finvastra family and wish you a rewarding career with us.`,
+    { gap: 7 });
+
+  // Dual signature block — offer letter format
+  if (s.y + 35 > BODY_BOTTOM) breakPage(s);
+
+  const sigY = s.y;
+
+  // Left: For the Company
+  s.pdf.setFont('helvetica', 'bold');
+  s.pdf.setFontSize(FONT_SMALL);
+  s.pdf.setTextColor(...INK);
+  s.pdf.text(`For ${CO.name}`, MARGIN, sigY);
+  s.pdf.setFont('helvetica', 'normal');
+  s.pdf.setFontSize(FONT_SMALL - 0.5);
+  s.pdf.setTextColor(...MUTE);
+  s.pdf.text('. . . . . . . . . . . . . . . . . . . . . . . . . . .', MARGIN, sigY + 10);
+  s.pdf.setFont('helvetica', 'bold');
+  s.pdf.setFontSize(FONT_SMALL);
+  s.pdf.setTextColor(...INK);
+  s.pdf.text('Authorised Signatory / Human Resources Department', MARGIN, sigY + 15);
+
+  // Right: Employee signature
+  const rx = s.W - MARGIN;
+  s.pdf.setFont('helvetica', 'bold');
+  s.pdf.setFontSize(FONT_SMALL);
+  s.pdf.setTextColor(...INK);
+  s.pdf.text(`Employee's Signature`, rx, sigY, { align: 'right' });
+  s.pdf.setFont('helvetica', 'normal');
+  s.pdf.setFontSize(FONT_SMALL - 0.5);
+  s.pdf.setTextColor(...MUTE);
+  s.pdf.text('. . . . . . . . . . . . . . . . . . . . . . . . . . .', rx, sigY + 10, { align: 'right' });
+  s.pdf.setFont('helvetica', 'normal');
+  s.pdf.setFontSize(FONT_SMALL);
+  s.pdf.setTextColor(...INK);
+  s.pdf.text(`Name: ___________________________`, rx, sigY + 15, { align: 'right' });
+  s.pdf.text(`Date: ___________________________`, rx, sigY + 20, { align: 'right' });
+
+  s.y = sigY + 28;
+
+  drawFooter(s.pdf, s.W);
+  return s.pdf;
+}
+
 // ─── "To" block (used by confirmation + extension letters) ────────────────────
 
 function writeToBlock(s: PState, empCode: string, empName: string, designation: string): void {
@@ -995,6 +1142,7 @@ function buildConsultantAgreement(data: ConsultantAgreementData, seq: string): j
 export function generateLetterPdf(data: LetterData, seq: string): ArrayBuffer {
   let pdf: jsPDF;
   switch (data.type) {
+    case 'offer_letter':         pdf = buildOfferLetter(data, seq);         break;
     case 'appointment':          pdf = buildAppointment(data, seq);         break;
     case 'confirmation':         pdf = buildConfirmation(data, seq);        break;
     case 'probation_extension':  pdf = buildProbationExtension(data, seq);  break;

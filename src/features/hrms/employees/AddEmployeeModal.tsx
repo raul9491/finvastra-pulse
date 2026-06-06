@@ -9,8 +9,14 @@ import {
 } from '../../../config/hrmsConfig';
 import type { EmployeeStatus } from '../../../types';
 
-const EMP_PREFIXES = ['FAPL', 'FWPL', 'HK', 'CL'] as const;
+const EMP_PREFIXES = ['FAPL', 'HK', 'CON'] as const;
 type EmpPrefix = typeof EMP_PREFIXES[number];
+
+const EMP_PREFIX_LABELS: Record<EmpPrefix, string> = {
+  FAPL: 'FAPL — Regular Employee',
+  HK:   'HK — Housekeeping',
+  CON:  'CON — Consultant',
+};
 
 interface AddEmployeeForm {
   // Basic
@@ -354,8 +360,8 @@ export function AddEmployeeModal({
           <div className="col-span-2">
             {fLabel('Emp Code')}
             <div className="flex items-center gap-2">
-              <select className={`${sel()} flex-none`} style={{ width: 110 }} value={empPrefix} onChange={(e) => setEmpPrefix(e.target.value as EmpPrefix)}>
-                {EMP_PREFIXES.map((p) => <option key={p} value={p}>{p}</option>)}
+              <select className={`${sel()} flex-none`} style={{ width: 200 }} value={empPrefix} onChange={(e) => setEmpPrefix(e.target.value as EmpPrefix)}>
+                {EMP_PREFIXES.map((p) => <option key={p} value={p}>{EMP_PREFIX_LABELS[p]}</option>)}
               </select>
               <span className="text-slate-400 font-mono text-sm">—</span>
               <input type="number" min={1} className={`${inp()} flex-none`} style={{ width: 90 }}

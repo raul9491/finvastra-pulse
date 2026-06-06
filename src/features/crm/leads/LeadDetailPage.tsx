@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ArrowLeft, Plus, TrendingUp, Briefcase, ShieldCheck, ChevronRight, Calendar } from 'lucide-react';
@@ -9,7 +9,7 @@ import { useOpportunities, useOpportunityTypes } from '../hooks/useOpportunities
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { getMaskedPan } from './panUtils';
 import { auth, db } from '../../../lib/firebase';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { FOIRCalculator } from './FOIRCalculator';
 import { QuickContactBar } from './QuickContactBar';
 import type { Opportunity, OpportunityType, OpportunityStatus } from '../../../types';
@@ -160,6 +160,22 @@ export function LeadDetailPage() {
   const isAdmin = profile?.role === 'admin';
   const isPrimaryOwner = user?.uid === lead?.primaryOwnerId;
   const canEditFinancials = isAdmin || isPrimaryOwner;
+
+  // ─── Lead view audit log ──────────────────────────────────────────────────────
+  // Fires once when the lead finishes loading. useRef guard prevents double-fire
+  // from React strict mode. Stored in /lead_view_logs — admin-only read.
+  const loggedRef = useRef(false);
+  useEffect(() => {
+    if (!lead || !user?.uid || loggedRef.current) return;
+    loggedRef.current = true;
+    addDoc(collection(db, 'lead_view_logs'), {
+      viewedBy:     user.uid,
+      viewedByName: profile?.displayName ?? '',
+      leadId:       lead.id,
+      leadName:     lead.displayName,
+      viewedAt:     serverTimestamp(),
+    }).catch(() => {});
+  }, [lead?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Financials editing state ─────────────────────────────────────────────────
   const [editingFinancials, setEditingFinancials] = useState(false);

@@ -4,12 +4,14 @@ import { signOut } from 'firebase/auth';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   LayoutDashboard, FileText, GitMerge, IndianRupee, Settings, LogOut, LayoutGrid, BarChart3,
-  Menu, X,
+  Menu, X, User,
 } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { VideoLogo } from '../ui/VideoLogo';
 import { ThemeToggle } from '../ui/ThemeProvider';
+import { UserMenu } from '../ui/UserMenu';
+import { AppsMenu } from '../ui/AppsMenu';
 
 type NavEntry = { path: string; label: string; icon: ElementType; adminOnly: boolean };
 
@@ -206,43 +208,25 @@ export function MisShell() {
               <Menu size={20} style={{ color: 'var(--shell-text-icon)' }} />
             </button>
 
-            <button
-              onClick={() => navigate('/')}
-              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors hover:bg-(--shell-hover-hard) shrink-0"
-              style={{ color: 'var(--shell-text-secondary)' }}
-              title="Back to launcher"
-            >
-              <LayoutGrid size={14} />
-              <span className="hidden sm:block">Apps</span>
-            </button>
+            <AppsMenu profile={profile} currentModule="mis" />
             <div className="w-px h-4 hidden sm:block shrink-0" style={{ backgroundColor: 'var(--shell-border-mid)' }} />
             <h1 className="text-base font-semibold truncate min-w-0" style={{ color: 'var(--text-primary)' }}>{pageTitle}</h1>
           </div>
 
-          {/* Right: theme toggle + user + sign out */}
-          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          {/* Right: theme toggle + user menu */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <ThemeToggle />
-            {profile?.photoURL ? (
-              <img src={profile.photoURL} alt={profile.displayName} className="w-8 h-8 rounded-full object-cover" />
-            ) : (
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961' }}>
-                {initials}
-              </div>
-            )}
-            <span className="text-sm font-medium hidden sm:block" style={{ color: 'var(--text-primary)' }}>
-              {profile?.displayName}
-            </span>
-            <div className="w-px h-5 hidden sm:block" style={{ backgroundColor: 'var(--shell-border-mid)' }} />
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 text-sm transition-opacity hover:opacity-60"
-              style={{ color: 'var(--shell-text-secondary)' }}
-              title="Sign out"
-            >
-              <LogOut size={15} />
-              <span className="hidden sm:block">Sign out</span>
-            </button>
+            <UserMenu
+              displayName={profile?.displayName ?? ''}
+              photoURL={profile?.photoURL}
+              initials={initials}
+              roleLabel={isMisAdmin ? 'MIS Admin' : 'Viewer'}
+              links={[
+                { label: 'My HR Profile',  path: `/hrms/employees/${user?.uid}`, Icon: User     },
+                { label: 'MIS Settings',   path: '/mis/admin/payout-slabs',      Icon: Settings },
+              ]}
+              onLogout={handleLogout}
+            />
           </div>
         </header>
 

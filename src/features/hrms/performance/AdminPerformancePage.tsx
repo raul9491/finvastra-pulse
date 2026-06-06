@@ -629,7 +629,7 @@ export function AdminPerformancePage() {
             fontStyle: 'italic',
             fontVariationSettings: '"SOFT" 30',
             fontWeight: 300,
-            color: '#0A0A0A',
+            color: 'var(--text-primary)',
           }}>
             Performance Reviews
           </h2>
@@ -642,8 +642,7 @@ export function AdminPerformancePage() {
           <select
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
-            className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
-            style={{ color: '#0A0A0A' }}
+            className="glass-inp rounded-xl px-3 py-2 text-sm focus:outline-none"
           >
             {yearOptions.map((y) => (
               <option key={y} value={y}>{y} Review</option>
@@ -653,7 +652,7 @@ export function AdminPerformancePage() {
             onClick={handleStartCycle}
             disabled={creatingCycle}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80"
-            style={{ backgroundColor: '#0B1538', color: '#FFFFFF', opacity: creatingCycle ? 0.6 : 1 }}
+            style={{ backgroundColor: '#C9A961', color: '#0B1538', opacity: creatingCycle ? 0.6 : 1 }}
           >
             <RefreshCw size={14} className={creatingCycle ? 'animate-spin' : ''} />
             {creatingCycle ? 'Starting…' : 'Start Cycle'}
@@ -662,7 +661,8 @@ export function AdminPerformancePage() {
       </div>
 
       {cycleMsg && (
-        <div className="rounded-xl px-4 py-3 text-sm" style={{ backgroundColor: '#F0FDF4', color: '#065F46' }}>
+        <div className="rounded-xl px-4 py-3 text-sm"
+          style={{ backgroundColor: 'rgba(5,150,105,0.10)', color: '#34d399', border: '1px solid rgba(5,150,105,0.20)' }}>
           {cycleMsg}
         </div>
       )}
@@ -670,26 +670,24 @@ export function AdminPerformancePage() {
       {/* ── Stats ── */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
-          { label: 'Total',         count: total,      color: '#8B8B85' },
-          { label: 'Pending',       count: pending,    color: '#6B7280' },
-          { label: 'Self Done',     count: selfDone,   color: '#92400E' },
-          { label: 'Manager Done',  count: managerDone, color: '#1D4ED8' },
-          { label: 'Completed',     count: completed,  color: '#059669' },
+          { label: 'Total',        count: total,       color: 'var(--shell-text-secondary)' },
+          { label: 'Pending',      count: pending,     color: 'var(--shell-text-secondary)' },
+          { label: 'Self Done',    count: selfDone,    color: '#f59e0b' },
+          { label: 'Manager Done', count: managerDone, color: '#60a5fa' },
+          { label: 'Completed',    count: completed,   color: '#34d399'  },
         ].map(({ label, count, color }) => (
-          <div key={label} className="bg-white rounded-2xl border border-slate-200 p-4 text-center">
+          <div key={label} className="glass-panel p-4 text-center">
             <p className="text-2xl font-semibold" style={{ color }}>{count}</p>
-            <p className="text-xs font-medium mt-0.5" style={{ color: '#8B8B85' }}>{label}</p>
+            <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--shell-text-dim)' }}>{label}</p>
           </div>
         ))}
       </div>
 
       {awaitingHR > 0 && (
         <div className="rounded-xl px-4 py-3 flex items-center gap-2 text-sm"
-          style={{ backgroundColor: '#FEF3C7' }}>
-          <TrendingUp size={15} style={{ color: '#92400E' }} />
-          <span style={{ color: '#92400E' }}>
-            <strong>{awaitingHR}</strong> review{awaitingHR !== 1 ? 's' : ''} awaiting your action.
-          </span>
+          style={{ backgroundColor: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.20)', color: '#fbbf24' }}>
+          <TrendingUp size={15} />
+          <span><strong>{awaitingHR}</strong> review{awaitingHR !== 1 ? 's' : ''} awaiting your action.</span>
         </div>
       )}
 
@@ -705,21 +703,21 @@ export function AdminPerformancePage() {
           <button key={f} onClick={() => setFilter(f)}
             className="px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all"
             style={filter === f
-              ? { backgroundColor: '#0B1538', color: '#FFFFFF' }
-              : { backgroundColor: '#F1F5F9', color: '#64748B' }}>
+              ? { backgroundColor: '#C9A961', color: '#0B1538' }
+              : { backgroundColor: 'var(--glass-panel-bg)', color: 'var(--shell-text-secondary)', border: '1px solid var(--shell-border)' }}>
             {label}
           </button>
         ))}
       </div>
 
       {/* ── Table ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="glass-panel overflow-hidden" style={{ borderRadius: 16 }}>
         {loading ? (
-          <div className="p-6 text-sm" style={{ color: '#8B8B85' }}>Loading…</div>
+          <div className="p-6 text-sm" style={{ color: 'var(--shell-text-secondary)' }}>Loading…</div>
         ) : filtered.length === 0 ? (
           <div className="px-6 py-12 text-center">
-            <TrendingUp size={32} className="mx-auto mb-3" style={{ color: '#CBD5E1' }} />
-            <p className="text-sm" style={{ color: '#8B8B85' }}>
+            <TrendingUp size={32} className="mx-auto mb-3" style={{ color: 'var(--shell-text-dim)' }} />
+            <p className="text-sm" style={{ color: 'var(--shell-text-secondary)' }}>
               {total === 0
                 ? `No reviews for ${year}. Click "Start Cycle" to create them.`
                 : 'No reviews for this filter.'}
@@ -728,10 +726,10 @@ export function AdminPerformancePage() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-100">
+              <tr style={{ borderBottom: '1px solid var(--shell-border)' }}>
                 {['Employee', 'Dept / Role', 'Manager Rating', 'Status', 'Actions'].map((h) => (
                   <th key={h} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide"
-                    style={{ color: '#8B8B85' }}>{h}</th>
+                    style={{ color: 'var(--shell-text-dim)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -739,90 +737,81 @@ export function AdminPerformancePage() {
               {filtered.map((rev) => (
                 <>
                   <tr key={rev.id}
-                    className="border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer"
+                    className="transition-colors cursor-pointer nav-item-hover"
+                    style={{ borderBottom: '1px solid var(--shell-border)' }}
                     onClick={() => setExpandedId(expandedId === rev.id ? null : rev.id)}>
-                    {/* Employee */}
                     <td className="px-5 py-3.5">
-                      <p className="font-semibold" style={{ color: '#0A0A0A' }}>{rev.employeeName}</p>
-                      {rev.employeeCode && <p className="text-xs" style={{ color: '#8B8B85' }}>{rev.employeeCode}</p>}
+                      <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{rev.employeeName}</p>
+                      {rev.employeeCode && <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>{rev.employeeCode}</p>}
                     </td>
-                    {/* Dept */}
                     <td className="px-5 py-3.5">
-                      <p className="text-xs" style={{ color: '#2A2A2A' }}>{rev.department ?? '—'}</p>
-                      <p className="text-xs" style={{ color: '#8B8B85' }}>{rev.designation ?? ''}</p>
+                      <p className="text-xs" style={{ color: 'var(--shell-text-secondary)' }}>{rev.department ?? '—'}</p>
+                      <p className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>{rev.designation ?? ''}</p>
                     </td>
-                    {/* Rating */}
                     <td className="px-5 py-3.5">
                       {rev.managerReview ? (
                         <div className="flex items-center gap-1">
                           <Star size={12} style={{ color: '#C9A961' }} />
-                          <span className="text-xs font-semibold" style={{ color: '#0A0A0A' }}>
+                          <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
                             {rev.managerReview.overallRating}
                           </span>
-                          <span className="text-xs" style={{ color: '#8B8B85' }}>/5</span>
+                          <span className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>/5</span>
                           {rev.managerReview.recommendedForPromotion && (
                             <span className="ml-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                              style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}>↑ Promo</span>
+                              style={{ backgroundColor: 'rgba(52,211,153,0.15)', color: '#34d399' }}>↑ Promo</span>
                           )}
                         </div>
                       ) : rev.selfAssessment ? (
-                        <span className="text-xs" style={{ color: '#8B8B85' }}>
+                        <span className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>
                           Self: {rev.selfAssessment.overallSelfRating}/5
                         </span>
                       ) : (
-                        <span className="text-xs" style={{ color: '#CBD5E1' }}>—</span>
+                        <span className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>—</span>
                       )}
                     </td>
-                    {/* Status */}
                     <td className="px-5 py-3.5">
                       <StatusPill status={rev.status} />
                       {rev.status === 'completed' && rev.incrementPercentage !== undefined && (
-                        <p className="text-xs mt-0.5 font-semibold" style={{ color: '#059669' }}>
+                        <p className="text-xs mt-0.5 font-semibold" style={{ color: '#34d399' }}>
                           +{rev.incrementPercentage}% → {inr(rev.newGrossSalary ?? 0)}/mo
                         </p>
                       )}
                     </td>
-                    {/* Actions */}
                     <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {(rev.status === 'pending' || rev.status === 'self_review') && (
-                          <button
-                            onClick={() => setSelfModal(rev)}
-                            className="px-2.5 py-1 rounded-lg text-xs font-medium hover:bg-slate-100 transition-colors"
-                            style={{ color: '#6B7280' }}>
+                          <button onClick={() => setSelfModal(rev)}
+                            className="px-2.5 py-1 rounded-lg text-xs font-medium transition-opacity hover:opacity-70"
+                            style={{ color: 'var(--shell-text-secondary)', border: '1px solid var(--shell-border)' }}>
                             {rev.selfAssessment ? 'Edit Self' : 'Self-Assess'}
                           </button>
                         )}
                         {rev.status !== 'pending' && rev.status !== 'completed' && (
-                          <button
-                            onClick={() => setMgrModal(rev)}
-                            className="px-2.5 py-1 rounded-lg text-xs font-medium hover:bg-blue-50 transition-colors"
-                            style={{ color: '#3B82F6' }}>
+                          <button onClick={() => setMgrModal(rev)}
+                            className="px-2.5 py-1 rounded-lg text-xs font-medium transition-opacity hover:opacity-70"
+                            style={{ color: '#60a5fa', border: '1px solid rgba(96,165,250,0.25)' }}>
                             {rev.managerReview ? 'Edit Mgr' : 'Mgr Review'}
                           </button>
                         )}
                         {(rev.status === 'manager_review' || rev.status === 'self_review') && (
-                          <button
-                            onClick={() => setFinalModal(rev)}
-                            className="px-2.5 py-1 rounded-lg text-xs font-medium hover:bg-green-50 transition-colors"
-                            style={{ color: '#059669' }}>
+                          <button onClick={() => setFinalModal(rev)}
+                            className="px-2.5 py-1 rounded-lg text-xs font-medium transition-opacity hover:opacity-70"
+                            style={{ color: '#34d399', border: '1px solid rgba(52,211,153,0.25)' }}>
                             Finalize
                           </button>
                         )}
                         {rev.status === 'completed' && (
-                          <button
-                            onClick={() => downloadIncrementLetter(rev)}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium hover:bg-slate-100 transition-colors"
-                            style={{ color: '#8B8B85' }}>
+                          <button onClick={() => downloadIncrementLetter(rev)}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-opacity hover:opacity-70"
+                            style={{ color: 'var(--shell-text-secondary)', border: '1px solid var(--shell-border)' }}>
                             <Download size={11} /> Letter
                           </button>
                         )}
                       </div>
                     </td>
                   </tr>
-                  {/* Expanded detail */}
                   {expandedId === rev.id && (rev.selfAssessment || rev.managerReview) && (
-                    <tr key={`${rev.id}-detail`} className="bg-slate-50">
+                    <tr key={`${rev.id}-detail`} style={{ backgroundColor: 'var(--glass-panel-bg)' }}>
                       <td colSpan={5} className="py-3">
                         <ReviewDetailPanel review={rev} />
                       </td>

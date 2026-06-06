@@ -200,7 +200,18 @@
       "Bash(Get-ChildItem -Path src/components/ui -Name)",
       "Bash(Sort-Object)",
       "Bash(git -C \"c:\\\\Users\\\\raul9\\\\Downloads\\\\VastraHRMS\" diff --name-only HEAD)",
-      "Bash(gcloud scheduler *)"
+      "Bash(gcloud scheduler *)",
+      "Bash(echo \"curl -X POST https://pulse-api-787616231546.asia-south1.run.app/api/admin/test-smtp \\\\\\\\\")",
+      "Bash(echo \"  -H 'Authorization: Bearer YOUR_ID_TOKEN' \\\\\\\\\")",
+      "Bash(gcloud logging *)",
+      "Bash(gcloud iam *)",
+      "Bash(cd \"/c/Users/raul9/Downloads/VastraHRMS\" && cat package.json | grep -A5 '\"scripts\"')",
+      "Read(//c/c/Users/raul9/Downloads/VastraHRMS/**)",
+      "Bash(grep -v \"//\\\\|import\\\\|useState\\\\|useEffect\")",
+      "Bash(grep -v \"//\\\\|import\\\\|useState\")",
+      "Bash(grep -n \"fixed inset-0\\\\|bg-black\\\\|bg-.*\\\\/60\\\\|backdrop\\\\|z-50\\\\|z-40\" \"/c/Users/raul9/Downloads/VastraHRMS/src/features/hrms/employees/EmployeeProfilePage.tsx\")",
+      "Bash(grep -n \"return \\(\\\\|{/\\\\* Quick\\\\|{/\\\\* Stats\\\\|{/\\\\* Birthday\\\\|{/\\\\* Announcement\\\\|{/\\\\* Team\\\\|{/\\\\* HR Pending\\\\|{/\\\\* Headcount\\\\|header\\\\|greeting\\\\|space-y\" \"/c/Users/raul9/Downloads/VastraHRMS/src/features/hrms/dashboard/HrmsDashboardPage.tsx\")",
+      "Bash(grep -v \"function\\\\|import\\\\|//\\\\|Birthday\\\\|Announcement\\\\|Upcoming\\\\|Anniversary\\\\|WorkAnn\\\\|const\\\\|let\\\\|type\\\\|interface\")"
     ],
     "additionalDirectories": [
       "\\tmp"

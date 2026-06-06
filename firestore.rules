@@ -591,6 +591,19 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ─── Lead View Audit Log ─────────────────────────────────────────────────────
+    // Written client-side when any authenticated user opens a lead detail page.
+    // Only the user themselves can write their own view record.
+    // Admin-only read — used to detect employees systematically mining the customer list.
+    match /lead_view_logs/{logId} {
+      allow read:   if isAdmin();
+      allow create: if isSignedIn()
+                    && request.resource.data.viewedBy == request.auth.uid
+                    && request.resource.data.keys().hasAll(['viewedBy','leadId','viewedAt']);
+      allow update: if false;
+      allow delete: if false;
+    }
+
     // ─── RTBF Log ────────────────────────────────────────────────────────────────
     // Records the fact of an erasure request (not the original PII).
     // Written by CRM admins; immutable once created.

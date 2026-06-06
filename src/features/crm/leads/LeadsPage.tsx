@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, UserCheck, X } from 'lucide-react';
 import { format } from 'date-fns';
 import {
   getDocs, updateDoc, addDoc, writeBatch,
@@ -49,6 +49,8 @@ export function LeadsPage() {
   const [search, setSearch] = useState('');
   const [filterSource, setFilterSource] = useState('');
   const [filterRm, setFilterRm] = useState('');
+  const [filterUnassigned, setFilterUnassigned] = useState(false);
+  const [assigningLead, setAssigningLead] = useState<Lead | null>(null);
 
   // ─── Bulk selection state ──────────────────────────────────────────────────
   const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
@@ -59,8 +61,14 @@ export function LeadsPage() {
     [employees],
   );
 
+  const unassignedCount = useMemo(
+    () => leads.filter((l) => l.primaryOwnerId === 'UNASSIGNED').length,
+    [leads],
+  );
+
   const filtered = useMemo(() => {
     return leads.filter((l) => {
+      if (filterUnassigned) return l.primaryOwnerId === 'UNASSIGNED';
       if (filterSource && l.source !== filterSource) return false;
       if (filterRm && l.primaryOwnerId !== filterRm) return false;
       if (search) {
@@ -69,7 +77,7 @@ export function LeadsPage() {
       }
       return true;
     });
-  }, [leads, search, filterSource, filterRm]);
+  }, [leads, search, filterSource, filterRm, filterUnassigned]);
 
   // Stage options derived from the first active loan opportunity type, with a
   // hardcoded fallback so the dropdown is never empty before Firestore loads.
@@ -81,8 +89,10 @@ export function LeadsPage() {
     ];
   }, [types]);
 
-  const rmName = (uid: string) =>
-    employees.find((e) => e.userId === uid)?.displayName ?? uid.slice(0, 8);
+  const rmName = (uid: string) => {
+    if (uid === 'UNASSIGNED') return '—';
+    return employees.find((e) => e.userId === uid)?.displayName ?? uid.slice(0, 8);
+  };
 
   const selectClass = "glass-inp text-sm w-full";
 
@@ -242,10 +252,35 @@ export function LeadsPage() {
             🔖 Referrals
           </button>
         )}
+        {/* Unassigned chip — admin/manager only; shows count badge when leads are waiting */}
+        {isAdmin && (
+          <button
+            onClick={() => { setFilterUnassigned((v) => !v); setFilterSource(''); setFilterRm(''); }}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-full border transition-colors"
+            style={
+              filterUnassigned
+                ? { backgroundColor: '#f87171', color: '#fff', borderColor: '#f87171' }
+                : { backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }
+            }
+          >
+            <UserCheck size={12} />
+            Unassigned
+            {unassignedCount > 0 && !filterUnassigned && (
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+                style={{ backgroundColor: 'rgba(248,113,113,0.25)', color: '#f87171' }}>
+                {unassignedCount}
+              </span>
+            )}
+          </button>
+        )}
       </div>
 
-      {/* Table */}
-      <div className="glass-panel overflow-hidden">
+      {/* Table — watermarked with employee name + date to deter screenshots */}
+      <div className="glass-panel overflow-hidden relative">
+        <LeadListWatermark
+          name={profile?.displayName ?? ''}
+          date={format(new Date(), 'dd MMM yyyy')}
+        />
         {loading ? (
           <TableSkeleton />
         ) : filtered.length === 0 ? (
@@ -311,11 +346,24 @@ export function LeadsPage() {
                       </div>
                     </td>
                     <td className="px-5 py-4 text-sm" style={{ color: 'var(--text-muted)' }}>
-                      {rmName(lead.primaryOwnerId)}
+                      {lead.primaryOwnerId === 'UNASSIGNED'
+                        ? <span style={{ color: '#f87171' }}>Unassigned</span>
+                        : rmName(lead.primaryOwnerId)}
                     </td>
                     <td className="px-5 py-4 text-xs" style={{ color: 'var(--text-muted)' }}>
                       {lead.createdAt?.toDate ? format(lead.createdAt.toDate(), 'dd MMM yy') : '—'}
                     </td>
+                    {/* Assign button — shown on unassigned rows for admin */}
+                    {isAdmin && lead.primaryOwnerId === 'UNASSIGNED' && (
+                      <td className="px-3 py-4" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => setAssigningLead(lead)}
+                          className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
+                          style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961' }}>
+                          <UserCheck size={12} /> Assign
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -337,6 +385,134 @@ export function LeadsPage() {
           isProcessing={bulkProcessing}
         />
       )}
+
+      {/* Assign lead modal */}
+      {assigningLead && (
+        <AssignLeadModal
+          lead={assigningLead}
+          generatorOptions={employees
+            .filter((e) => e.crmRole === 'lead_generator' || e.role === 'admin')
+            .map((e) => ({ value: e.userId, label: e.displayName }))}
+          onClose={() => setAssigningLead(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Lead List Watermark ──────────────────────────────────────────────────────
+// Diagonal repeating overlay — visible in screenshots to deter/trace data leaks.
+// pointer-events:none so it never blocks clicks or selection.
+
+function LeadListWatermark({ name, date }: { name: string; date: string }) {
+  const text = `${name}  ·  ${date}`;
+  const entries = Array.from({ length: 24 });
+  return (
+    <div
+      className="absolute inset-0 overflow-hidden select-none"
+      style={{ pointerEvents: 'none', zIndex: 2 }}
+      aria-hidden="true"
+    >
+      {entries.map((_, i) => {
+        const row = Math.floor(i / 4);
+        const col = i % 4;
+        return (
+          <span
+            key={i}
+            className="absolute text-[10px] font-semibold tracking-widest whitespace-nowrap"
+            style={{
+              top:       `${row * 18 + 4}%`,
+              left:      `${col * 28 - 6}%`,
+              transform: 'rotate(-22deg)',
+              color:     'rgba(201,169,97,0.09)',
+              letterSpacing: '0.12em',
+            }}
+          >
+            {text}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Assign Lead Modal ────────────────────────────────────────────────────────
+
+function AssignLeadModal({
+  lead,
+  generatorOptions,
+  onClose,
+}: {
+  lead: Lead;
+  generatorOptions: { value: string; label: string }[];
+  onClose: () => void;
+}) {
+  const [selectedUid, setSelectedUid] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  const handleAssign = async () => {
+    if (!selectedUid) { setErr('Select an RM to assign this lead.'); return; }
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, 'leads', lead.id), {
+        primaryOwnerId: selectedUid,
+        updatedAt:      serverTimestamp(),
+      });
+      onClose();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Failed to assign. Try again.');
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay">
+      <div className="glass-modal-panel w-full max-w-sm">
+        {/* Header */}
+        <div className="glass-modal-header flex items-center justify-between px-5 py-4">
+          <div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Assign Lead</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--shell-text-dim)' }}>{lead.displayName} · {lead.phone}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg nav-item-hover">
+            <X size={15} style={{ color: 'var(--shell-text-dim)' }} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-4 space-y-3">
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-widest mb-2"
+              style={{ color: 'var(--shell-text-dim)' }}>
+              Assign to RM *
+            </label>
+            <SearchableSelect
+              options={generatorOptions}
+              value={selectedUid}
+              onChange={(v) => { setSelectedUid(v); setErr(''); }}
+              label="Select RM…"
+            />
+          </div>
+          {err && <p className="text-xs" style={{ color: '#f87171' }}>{err}</p>}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-4 flex gap-3" style={{ borderTop: '1px solid var(--shell-border)' }}>
+          <button
+            onClick={handleAssign}
+            disabled={saving || !selectedUid}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-40"
+            style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+            <UserCheck size={14} />
+            {saving ? 'Assigning…' : 'Confirm Assignment'}
+          </button>
+          <button onClick={onClose} className="text-sm transition-opacity hover:opacity-60"
+            style={{ color: 'var(--shell-text-secondary)' }}>
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

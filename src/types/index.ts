@@ -415,6 +415,7 @@ export interface Lead {
   referredBy?: string;
   // Bulk import provenance fields
   importBatchId?: string;
+  importName?: string;    // denormalised batch label for source-quality analysis
   importHash?: string;    // SHA256(phone|email|displayName) for idempotency
   importedBy?: string;
   importedAt?: any;
@@ -669,6 +670,14 @@ export interface ImportJob {
   sheetId: string;
   skipErrors: boolean;
   errors: ImportJobError[];  // capped at 1000 entries
+  // Mandatory label for tracking a sheet's source/quality (set at import time)
+  importName: string;
+  // Two-stage distribution: leads land UNASSIGNED, then distributed from the queue
+  distributed?: boolean;
+  distributedAt?: any;
+  distributedBy?: string;
+  distributedCount?: number;
+  agentIds?: string[];   // agents the batch was distributed across
 }
 
 // ─── Notifications ───────────────────────────────────────────────────────────

@@ -17,7 +17,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format, addMonths, parse } from 'date-fns';
 import {
   FileText, Download, CheckCircle2, AlertCircle, Loader2, UserPlus, Users, Plus, Minus,
 } from 'lucide-react';
@@ -26,24 +26,60 @@ import { getAuth } from 'firebase/auth';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import { DEPARTMENTS } from '../../../config/hrmsConfig';
 import { db } from '../../../lib/firebase';
 import { useAllLetters } from '../hooks/useGeneratedLetters';
 import type { GeneratedLetter } from '../../../types';
 import {
   generateLetterPdf, letterFilename, letterRefNumber, TYPE_ABBREV,
   type LetterType, type LetterData, type Salutation, type SalaryRow,
-  type AppointmentData, type ConfirmationData,
+  type OfferLetterData, type AppointmentData, type ConfirmationData,
   type ProbationExtensionData, type ConsultantAgreementData,
 } from './letterPdf';
 
 // ─── Letter type catalogue ────────────────────────────────────────────────────
 
 const LETTER_TYPES: { value: LetterType; label: string; desc: string }[] = [
+  { value: 'offer_letter',        label: 'Offer Letter',           desc: 'Pre-joining offer for new candidates'},
   { value: 'appointment',         label: 'Appointment Letter',     desc: 'Full legal employment accord'        },
   { value: 'confirmation',        label: 'Confirmation Letter',    desc: 'End of probation — permanent status' },
   { value: 'probation_extension', label: 'Probation Extension',    desc: 'Extend probation period'             },
   { value: 'consultant_agreement',label: 'Consultant Agreement',   desc: '13-clause engagement contract'       },
 ];
+
+const SALARY_COMPONENTS = [
+  'Basic Salary',
+  'House Rent Allowance (HRA)',
+  'Conveyance Allowance',
+  'Medical Allowance',
+  'Special Allowance',
+  'Performance Incentive',
+  'Travel Allowance',
+  'Other Allowance',
+];
+
+/** Convert a number to Indian number-system words. e.g. 1800000 → "Eighteen Lakh Only" */
+function ctcToWords(n: number): string {
+  if (!n || isNaN(n)) return '';
+  const units = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten',
+    'Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  const tens  = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  function below100(num: number): string {
+    if (num < 20) return units[num];
+    return tens[Math.floor(num / 10)] + (num % 10 ? ' ' + units[num % 10] : '');
+  }
+  function below1000(num: number): string {
+    if (num < 100) return below100(num);
+    return units[Math.floor(num / 100)] + ' Hundred' + (num % 100 ? ' ' + below100(num % 100) : '');
+  }
+  let result = '';
+  let rem = n;
+  if (rem >= 10000000) { result += below1000(Math.floor(rem / 10000000)) + ' Crore '; rem %= 10000000; }
+  if (rem >= 100000)   { result += below1000(Math.floor(rem / 100000))   + ' Lakh ';  rem %= 100000;   }
+  if (rem >= 1000)     { result += below1000(Math.floor(rem / 1000))     + ' Thousand '; rem %= 1000;  }
+  if (rem > 0)         { result += below1000(rem); }
+  return result.trim() + ' Only';
+}
 
 const SALUTATIONS: Salutation[] = ['Mr.', 'Ms.', 'Mrs.', 'Dr.'];
 
@@ -103,8 +139,15 @@ export function HrLetterGeneratorPage() {
 
   // ── Employee selection ──────────────────────────────────────────────────────
   const [manualMode, setManualMode] = useState(false);
-  const [manualName, setManualName] = useState('');
-  const [manualCode, setManualCode] = useState('');
+  const [manualName,   setManualName]   = useState('');
+  const [manualPrefix, setManualPrefix] = useState<'FAPL'|'HK'|'CON'>('FAPL');
+  const [manualNumber, setManualNumber] = useState('');
+
+  const manualCode = (() => {
+    const n = manualNumber.trim();
+    if (!n || isNaN(Number(n))) return '';
+    return `${manualPrefix}-${String(parseInt(n, 10)).padStart(3, '0')}`;
+  })();
 
   // ── Common ─────────────────────────────────────────────────────────────────
   const [letterType, setLetterType] = useState<LetterType>('appointment');
@@ -112,10 +155,25 @@ export function HrLetterGeneratorPage() {
   const [seq,        setSeq]        = useState('1');
   const [salutation, setSalutation] = useState<Salutation>('Mr.');
 
+  // ── Offer Letter ───────────────────────────────────────────────────────────
+  const [ofl_careOf,           setOfl_careOf]           = useState('');
+  const [ofl_designation,      setOfl_designation]      = useState('');
+  const [ofl_department,       setOfl_department]       = useState('');
+  const [ofl_ctcAnnual,        setOfl_ctcAnnual]        = useState('');
+  const [ofl_ctcInWords,       setOfl_ctcInWords]       = useState('');
+  const [ofl_joiningDate,      setOfl_joiningDate]      = useState('');      // YYYY-MM-DD
+  const [ofl_joiningDateFmt,   setOfl_joiningDateFmt]   = useState('');      // "3rd May 2026"
+  const [ofl_probationMonths,  setOfl_probationMonths]  = useState('3');
+  const [ofl_probationEndDate, setOfl_probationEndDate] = useState('');      // auto-computed
+  const [ofl_reportingTo,      setOfl_reportingTo]      = useState('');
+
   // ── Appointment ────────────────────────────────────────────────────────────
+  const [apt_careOf,           setApt_careOf]           = useState('');
   const [apt_empAddress,       setApt_empAddress]       = useState('');
   const [apt_designation,      setApt_designation]      = useState('');
-  const [apt_joiningDate,      setApt_joiningDate]      = useState('');
+  const [apt_joiningDate,      setApt_joiningDate]      = useState('');      // YYYY-MM-DD
+  const [apt_joiningDateFmt,   setApt_joiningDateFmt]   = useState('');      // "17th November 2025"
+  const [apt_probationMonths,  setApt_probationMonths]  = useState('3');
   const [apt_probationDuration,setApt_probationDuration]= useState('three (3) months');
   const [apt_probationEndDate, setApt_probationEndDate] = useState('');
   const [apt_ctcAnnual,        setApt_ctcAnnual]        = useState('');
@@ -156,15 +214,17 @@ export function HrLetterGeneratorPage() {
   // Auto-fill common fields when employee is selected or letter type changes
   useEffect(() => {
     if (!selectedEmp) return;
-    const { designation = '', joiningDate = '' } = selectedEmp;
-    const joinFmt = joiningDate
-      ? format(new Date(joiningDate + 'T00:00:00'), "do MMMM yyyy")
-      : '';
+    const { designation = '', department = '', joiningDate = '' } = selectedEmp;
+    const rawDate = joiningDate || '';
 
     switch (letterType) {
+      case 'offer_letter':
+        setOfl_designation(designation);
+        setOfl_department(department);
+        break;
       case 'appointment':
         setApt_designation(designation);
-        setApt_joiningDate(joinFmt);
+        if (rawDate) setApt_joiningDate(rawDate);
         break;
       case 'confirmation':
         setCon_designation(designation);
@@ -175,6 +235,46 @@ export function HrLetterGeneratorPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empId, letterType]);
+
+  // Auto-format appointment joining date and compute probation end date
+  useEffect(() => {
+    if (!apt_joiningDate) { setApt_joiningDateFmt(''); setApt_probationEndDate(''); return; }
+    try {
+      const d = parse(apt_joiningDate, 'yyyy-MM-dd', new Date());
+      setApt_joiningDateFmt(format(d, "do MMMM yyyy"));
+      const months = parseInt(apt_probationMonths) || 3;
+      setApt_probationEndDate(format(addMonths(d, months), "do MMMM yyyy"));
+    } catch {
+      setApt_joiningDateFmt('');
+      setApt_probationEndDate('');
+    }
+  }, [apt_joiningDate, apt_probationMonths]);
+
+  // Auto-format offer letter joining date and compute probation end date
+  useEffect(() => {
+    if (!ofl_joiningDate) { setOfl_joiningDateFmt(''); setOfl_probationEndDate(''); return; }
+    try {
+      const d = parse(ofl_joiningDate, 'yyyy-MM-dd', new Date());
+      setOfl_joiningDateFmt(format(d, "do MMMM yyyy"));
+      const months = parseInt(ofl_probationMonths) || 3;
+      setOfl_probationEndDate(format(addMonths(d, months), "do MMMM yyyy"));
+    } catch {
+      setOfl_joiningDateFmt('');
+      setOfl_probationEndDate('');
+    }
+  }, [ofl_joiningDate, ofl_probationMonths]);
+
+  // Auto-populate CTC in words for appointment letter
+  useEffect(() => {
+    const raw = parseFloat(apt_ctcAnnual.replace(/,/g, ''));
+    setApt_ctcInWords(raw > 0 ? ctcToWords(raw) : '');
+  }, [apt_ctcAnnual]);
+
+  // Auto-populate CTC in words for offer letter
+  useEffect(() => {
+    const raw = parseFloat(ofl_ctcAnnual.replace(/,/g, ''));
+    setOfl_ctcInWords(raw > 0 ? ctcToWords(raw) : '');
+  }, [ofl_ctcAnnual]);
 
   // ── Salary row helpers ──────────────────────────────────────────────────────
   const totalMonthly = apt_salaryRows.reduce(
@@ -200,13 +300,21 @@ export function HrLetterGeneratorPage() {
 
     if (manualMode) {
       if (!manualName.trim()) errs.manualName = 'Enter employee name';
-      if (!manualCode.trim()) errs.manualCode = 'Enter employee code';
+      if (!manualNumber.trim() || isNaN(Number(manualNumber))) errs.manualCode = 'Enter a valid number';
     } else {
       if (letterType !== 'consultant_agreement' && !empId) errs.emp = 'Select an employee';
     }
     if (!seq.trim() || isNaN(Number(seq))) errs.seq = 'Enter a valid sequence number';
 
     switch (letterType) {
+      case 'offer_letter':
+        if (!ofl_designation.trim())   errs.ofl_designation   = 'Required';
+        if (!ofl_department.trim())    errs.ofl_department    = 'Required';
+        if (!ofl_ctcAnnual.trim())     errs.ofl_ctcAnnual     = 'Required';
+        if (!ofl_joiningDate.trim())   errs.ofl_joiningDate   = 'Required';
+        if (!ofl_reportingTo.trim())   errs.ofl_reportingTo   = 'Required';
+        if (!ofl_probationEndDate)     errs.ofl_probationMonths = 'Enter valid joining date first';
+        break;
       case 'appointment':
         if (!apt_empAddress.trim())       errs.apt_empAddress       = 'Required';
         if (!apt_designation.trim())      errs.apt_designation      = 'Required';
@@ -264,12 +372,29 @@ export function HrLetterGeneratorPage() {
 
       let data: LetterData;
       switch (letterType) {
+        case 'offer_letter': {
+          const reportingToName = activeEmployees.find((e) => e.userId === ofl_reportingTo)?.displayName
+            ?? ofl_reportingTo.trim();
+          data = {
+            type: 'offer_letter', salutation, empName, empCode,
+            ...(ofl_careOf.trim() ? { careof: ofl_careOf.trim() } : {}),
+            designation:      ofl_designation.trim(),
+            department:       ofl_department.trim(),
+            ctcAnnual:        ofl_ctcAnnual.trim(),
+            joiningDate:      ofl_joiningDateFmt || ofl_joiningDate,
+            probationPeriod:  `${ofl_probationMonths} months`,
+            probationEndDate: ofl_probationEndDate,
+            reportingTo:      reportingToName,
+          } as OfferLetterData;
+          break;
+        }
         case 'appointment':
           data = {
             type: 'appointment', salutation, empName, empCode,
+            ...(apt_careOf.trim() ? { careof: apt_careOf.trim() } : {}),
             empAddress:        apt_empAddress.trim(),
             designation:       apt_designation.trim(),
-            joiningDate:       apt_joiningDate.trim(),
+            joiningDate:       apt_joiningDateFmt || apt_joiningDate,
             probationDuration: apt_probationDuration.trim(),
             probationEndDate:  apt_probationEndDate.trim(),
             ctcAnnual:         apt_ctcAnnual.trim(),
@@ -389,7 +514,7 @@ export function HrLetterGeneratorPage() {
           <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#475569' }}>
             Letter Type
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
             {LETTER_TYPES.map(({ value, label: lbl, desc }) => (
               <button
                 key={value}
@@ -500,8 +625,26 @@ export function HrLetterGeneratorPage() {
                 </div>
                 <div>
                   {L('Employee Code', 'manualCode', true)}
-                  <input className={I('manualCode')} placeholder="e.g. FAPL-025"
-                    value={manualCode} onChange={(e) => { setManualCode(e.target.value); setFieldErrors((p) => { const n={...p}; delete n.manualCode; return n; }); }} />
+                  <div className="flex items-center gap-2">
+                    <select className={`${I()} flex-none`} style={{ width: 100 }}
+                      value={manualPrefix}
+                      onChange={(e) => { setManualPrefix(e.target.value as 'FAPL'|'HK'|'CON'); setFieldErrors((p) => { const n={...p}; delete n.manualCode; return n; }); }}>
+                      <option value="FAPL">FAPL</option>
+                      <option value="HK">HK</option>
+                      <option value="CON">CON</option>
+                    </select>
+                    <span className="text-slate-400 font-mono text-sm shrink-0">—</span>
+                    <input type="number" min={1} className={`${I('manualCode')} flex-none`} style={{ width: 80 }}
+                      placeholder="001"
+                      value={manualNumber}
+                      onChange={(e) => { setManualNumber(e.target.value); setFieldErrors((p) => { const n={...p}; delete n.manualCode; return n; }); }} />
+                    {manualCode && (
+                      <span className="text-sm font-mono font-semibold px-2.5 py-2 rounded-lg shrink-0"
+                        style={{ backgroundColor: 'rgba(201,169,97,0.10)', color: '#9A7E3F' }}>
+                        {manualCode}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -516,6 +659,74 @@ export function HrLetterGeneratorPage() {
           </div>
         </div>
 
+        {/* ── Offer Letter fields ── */}
+        {letterType === 'offer_letter' && (
+          <div className="space-y-4 pt-2 border-t border-slate-100">
+            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#475569' }}>Offer Details</p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                {L('C/O (Care Of — optional, appears in address block)')}
+                <input className={I()} placeholder="e.g. Ramesh Kumar (parent / guardian name)"
+                  value={ofl_careOf} onChange={(e) => setOfl_careOf(e.target.value)} />
+              </div>
+              <div>
+                {L('Designation', 'ofl_designation', true)}
+                <input className={I('ofl_designation')} placeholder="Auto-filled from employee"
+                  value={ofl_designation}
+                  onChange={(e) => { setOfl_designation(e.target.value); setFieldErrors((p) => { const n={...p}; delete n.ofl_designation; return n; }); }} />
+              </div>
+              <div>
+                {L('Department', 'ofl_department', true)}
+                <select className={I('ofl_department')}
+                  value={ofl_department}
+                  onChange={(e) => { setOfl_department(e.target.value); setFieldErrors((p) => { const n={...p}; delete n.ofl_department; return n; }); }}>
+                  <option value="">— Select department —</option>
+                  {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+              <div>
+                {L('Annual CTC (e.g. 18,00,000)', 'ofl_ctcAnnual', true)}
+                <input className={I('ofl_ctcAnnual')} placeholder="e.g. 18,00,000"
+                  value={ofl_ctcAnnual}
+                  onChange={(e) => { setOfl_ctcAnnual(e.target.value); setFieldErrors((p) => { const n={...p}; delete n.ofl_ctcAnnual; return n; }); }} />
+                {ofl_ctcInWords && (
+                  <p className="text-[10px] mt-1" style={{ color: '#059669' }}>{ofl_ctcInWords}</p>
+                )}
+              </div>
+              <div>
+                {L('Joining Deadline (date picker)', 'ofl_joiningDate', true)}
+                <input type="date" className={I('ofl_joiningDate')}
+                  value={ofl_joiningDate}
+                  onChange={(e) => { setOfl_joiningDate(e.target.value); setFieldErrors((p) => { const n={...p}; delete n.ofl_joiningDate; return n; }); }} />
+                {ofl_joiningDateFmt && (
+                  <p className="text-[10px] mt-1" style={{ color: '#059669' }}>{ofl_joiningDateFmt}</p>
+                )}
+              </div>
+              <div>
+                {L('Probation Period (months)', 'ofl_probationMonths', false)}
+                <input type="number" min="1" max="24" className={I('ofl_probationMonths')}
+                  placeholder="3"
+                  value={ofl_probationMonths}
+                  onChange={(e) => setOfl_probationMonths(e.target.value)} />
+                {ofl_probationEndDate && (
+                  <p className="text-[10px] mt-1" style={{ color: '#059669' }}>Ends: {ofl_probationEndDate}</p>
+                )}
+              </div>
+              <div className="sm:col-span-2">
+                {L('Reporting To', 'ofl_reportingTo', true)}
+                <SearchableSelect
+                  options={empOptions}
+                  value={ofl_reportingTo}
+                  onChange={(v) => { setOfl_reportingTo(v); setFieldErrors((p) => { const n={...p}; delete n.ofl_reportingTo; return n; }); }}
+                  placeholder="Search by name…"
+                />
+                {fe.ofl_reportingTo && <p className="text-[11px] mt-0.5 text-red-500">{fe.ofl_reportingTo}</p>}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Appointment fields ── */}
         {letterType === 'appointment' && (
           <div className="space-y-4 pt-2 border-t border-slate-100">
@@ -528,34 +739,49 @@ export function HrLetterGeneratorPage() {
                   rows={2} placeholder="e.g. 116, Gayatri Hills, Jubilee Hills, Hyderabad, Telangana - 500033"
                   value={apt_empAddress} onChange={(e) => setApt_empAddress(e.target.value)} />
               </div>
+              <div className="sm:col-span-2">
+                {L('C/O (Care Of — optional, appears before address in contract)')}
+                <input className={I()} placeholder="e.g. Ramesh Kumar (parent / guardian name)"
+                  value={apt_careOf} onChange={(e) => setApt_careOf(e.target.value)} />
+              </div>
               <div>
                 {L('Designation', 'apt_designation', true)}
                 <input className={I('apt_designation')} value={apt_designation} onChange={(e) => setApt_designation(e.target.value)} />
               </div>
               <div>
-                {L('Date of Joining (e.g. 17th November 2025)', 'apt_joiningDate', true)}
-                <input className={I('apt_joiningDate')} placeholder="e.g. 17th November 2025"
-                  value={apt_joiningDate} onChange={(e) => setApt_joiningDate(e.target.value)} />
+                {L('Date of Joining', 'apt_joiningDate', true)}
+                <input type="date" className={I('apt_joiningDate')}
+                  value={apt_joiningDate}
+                  onChange={(e) => { setApt_joiningDate(e.target.value); setFieldErrors((p) => { const n={...p}; delete n.apt_joiningDate; return n; }); }} />
+                {apt_joiningDateFmt && (
+                  <p className="text-[10px] mt-1" style={{ color: '#059669' }}>{apt_joiningDateFmt}</p>
+                )}
               </div>
               <div>
-                {L('Probation Duration (e.g. three (3) months)', 'apt_probationDuration', true)}
+                {L('Probation Duration (months)', 'apt_probationMonths', false)}
+                <input type="number" min="1" max="24" className={I('apt_probationMonths')}
+                  placeholder="3"
+                  value={apt_probationMonths}
+                  onChange={(e) => setApt_probationMonths(e.target.value)} />
+                {apt_probationEndDate && (
+                  <p className="text-[10px] mt-1" style={{ color: '#059669' }}>Ends: {apt_probationEndDate}</p>
+                )}
+              </div>
+              <div>
+                {L('Probation Duration (in words, for contract)', 'apt_probationDuration', true)}
                 <input className={I('apt_probationDuration')} placeholder="e.g. three (3) months"
                   value={apt_probationDuration} onChange={(e) => setApt_probationDuration(e.target.value)} />
               </div>
               <div>
-                {L('Probation End Date (e.g. 17th February 2026)', 'apt_probationEndDate', true)}
-                <input className={I('apt_probationEndDate')} placeholder="e.g. 17th February 2026"
-                  value={apt_probationEndDate} onChange={(e) => setApt_probationEndDate(e.target.value)} />
-              </div>
-              <div>
                 {L('Annual CTC (e.g. 8,40,000)', 'apt_ctcAnnual', true)}
                 <input className={I('apt_ctcAnnual')} placeholder="e.g. 8,40,000"
-                  value={apt_ctcAnnual} onChange={(e) => setApt_ctcAnnual(e.target.value)} />
+                  value={apt_ctcAnnual} onChange={(e) => { setApt_ctcAnnual(e.target.value); setFieldErrors((p) => { const n={...p}; delete n.apt_ctcAnnual; return n; }); }} />
               </div>
               <div>
-                {L('CTC in Words (e.g. Eight Lakh Forty Thousand)', 'apt_ctcInWords', true)}
-                <input className={I('apt_ctcInWords')} placeholder="e.g. Eight Lakh Forty Thousand"
+                {L('CTC in Words (auto-filled)', 'apt_ctcInWords', true)}
+                <input className={I('apt_ctcInWords')} placeholder="Auto-fills when you enter CTC above"
                   value={apt_ctcInWords} onChange={(e) => setApt_ctcInWords(e.target.value)} />
+                <p className="text-[10px] mt-1" style={{ color: '#8B8B85' }}>Auto-calculated — edit if needed</p>
               </div>
             </div>
 
@@ -587,9 +813,12 @@ export function HrLetterGeneratorPage() {
                       return (
                         <tr key={idx} className="border-t border-slate-100">
                           <td className="px-2 py-1.5">
-                            <input className="w-full text-xs px-2 py-1 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-navy/10"
-                              value={row.component} placeholder="e.g. Basic Salary"
-                              onChange={(e) => updateSalaryRow(idx, 'component', e.target.value)} />
+                            <select className="w-full text-xs px-2 py-1 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-navy/10 bg-white"
+                              value={row.component}
+                              onChange={(e) => updateSalaryRow(idx, 'component', e.target.value)}>
+                              <option value="">— Select component —</option>
+                              {SALARY_COMPONENTS.map((c) => <option key={c} value={c}>{c}</option>)}
+                            </select>
                           </td>
                           <td className="px-2 py-1.5">
                             <input className="w-full text-xs px-2 py-1 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-navy/10"
@@ -744,16 +973,6 @@ export function HrLetterGeneratorPage() {
           </div>
         )}
 
-        {/* Aadhaar notice for appointment letter */}
-        {letterType === 'appointment' && (
-          <div className="px-4 py-3 rounded-xl border border-amber-200" style={{ backgroundColor: '#FFFBEB' }}>
-            <p className="text-xs font-semibold mb-1" style={{ color: '#92400E' }}>📋 Aadhaar field</p>
-            <p className="text-xs" style={{ color: '#92400E' }}>
-              The accord will show a blank line (<em>___________________________</em>) in the party description.
-              Please fill the Aadhaar number manually on the printed / signed copy to comply with UIDAI guidelines.
-            </p>
-          </div>
-        )}
 
         <div className="flex justify-end pt-2">
           <button

@@ -57,7 +57,7 @@ export function ImportHistoryPage() {
             <table className="w-full text-left">
               <thead>
                 <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                  {['Batch ID', 'Started', 'Total', 'Imported', 'Errors', 'Status', ''].map((h) => (
+                  {['Name', 'Batch ID', 'Started', 'Total', 'Imported', 'Errors', 'Distributed', 'Status', ''].map((h) => (
                     <th key={h} className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{h}</th>
                   ))}
                 </tr>
@@ -67,12 +67,22 @@ export function ImportHistoryPage() {
                   <tr key={job.id} className="hover:bg-white/5 transition-colors"
                     style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                     <td className="px-4 py-3">
-                      <p className="text-sm font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{job.batchId}</p>
+                      <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{job.importName || '—'}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{job.batchId}</p>
                     </td>
                     <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{fmtDate(job.startedAt)}</td>
                     <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-primary)' }}>{job.totalRows}</td>
                     <td className="px-4 py-3 text-sm font-semibold" style={{ color: '#34d399' }}>{job.successCount}</td>
                     <td className="px-4 py-3 text-sm" style={{ color: job.errorCount > 0 ? '#f87171' : 'var(--text-muted)' }}>{job.errorCount}</td>
+                    <td className="px-4 py-3">
+                      {job.distributed
+                        ? <span className="badge-glass-success">{job.distributedCount ?? 0} sent</span>
+                        : (job.successCount ?? 0) > 0
+                          ? <span className="badge-glass-warning">Awaiting</span>
+                          : <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={STATUS_BADGE[job.status]}>{job.status}</span>
                     </td>

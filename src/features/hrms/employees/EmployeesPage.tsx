@@ -407,25 +407,22 @@ function BulkEditBar({ selectedIds, onApply, onClear }: {
   const count = selectedIds.size;
   const canApply = bulkDept || bulkDesig;
 
-  const sel = 'text-xs bg-[#0B1538] border border-[#1B2A4E] text-slate-200 rounded-lg px-2.5 py-1.5 outline-none focus:ring-1 focus:ring-gold/30';
-
   return (
-    <div className="fixed bottom-6 left-[calc(50%+7.5rem)] -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl"
-      style={{ backgroundColor: '#0A0A0A', border: '1px solid #1B2A4E', minWidth: 560 }}>
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 md:left-[calc(50%+7.5rem)]
+      flex flex-wrap items-center gap-2 sm:gap-3 px-4 py-3 sm:px-5 sm:py-3.5 rounded-2xl shadow-2xl glass-panel"
+      style={{ maxWidth: 'calc(100vw - 2rem)' }}>
       <CheckSquare size={14} style={{ color: '#C9A961' }} />
       <span className="text-sm font-semibold shrink-0" style={{ color: '#C9A961' }}>
         {count} {count === 1 ? 'employee' : 'employees'} selected
       </span>
-      <div className="w-px h-5 shrink-0" style={{ backgroundColor: '#1B2A4E' }} />
+      <div className="w-px h-5 shrink-0" style={{ backgroundColor: 'var(--shell-border-mid)' }} />
 
-      {/* Department */}
-      <select value={bulkDept} onChange={(e) => setBulkDept(e.target.value)} className={sel}>
+      <select value={bulkDept} onChange={(e) => setBulkDept(e.target.value)} className="glass-inp text-xs rounded-lg px-2.5 py-1.5 outline-none">
         <option value="">Change department…</option>
         {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
       </select>
 
-      {/* Designation (grouped) */}
-      <select value={bulkDesig} onChange={(e) => setBulkDesig(e.target.value)} className={sel}>
+      <select value={bulkDesig} onChange={(e) => setBulkDesig(e.target.value)} className="glass-inp text-xs rounded-lg px-2.5 py-1.5 outline-none">
         <option value="">Change designation…</option>
         {DESIGNATION_GROUPS.map((g) => (
           <optgroup key={g.group} label={g.group}>
@@ -437,13 +434,14 @@ function BulkEditBar({ selectedIds, onApply, onClear }: {
       <button
         onClick={() => { if (canApply) onApply(bulkDept, bulkDesig); }}
         disabled={!canApply}
-        className="text-xs px-3.5 py-1.5 rounded-lg font-semibold transition-opacity disabled:opacity-30"
+        className="text-xs px-3.5 py-1.5 rounded-lg font-semibold transition-opacity disabled:opacity-30 shrink-0"
         style={{ backgroundColor: '#C9A961', color: '#0A0A0A' }}>
         Apply Changes
       </button>
 
       <button onClick={onClear}
-        className="text-slate-400 hover:text-slate-200 transition-colors ml-1"
+        className="transition-opacity hover:opacity-60 ml-1 shrink-0"
+        style={{ color: 'var(--shell-text-secondary)' }}
         title="Clear selection">
         <X size={15} />
       </button>
@@ -758,11 +756,8 @@ export function EmployeesPage() {
                               </div>
                             )}
                             <div>
-                              <p className="text-sm font-medium" style={{ color: '#0A0A0A' }}>{emp.displayName}</p>
-                              {isSA && (
-                                <Badge variant="navy" size="sm">★ Super Admin</Badge>
-                              )}
-                              {!isSA && isInactive && (
+                              <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{emp.displayName}</p>
+                              {isInactive && (
                                 <Badge variant="muted" size="sm">Inactive</Badge>
                               )}
                             </div>

@@ -11,6 +11,7 @@ import { auth } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { useMyLeads } from '../../features/crm/hooks/useMyLeads';
 import { useImportHistory } from '../../features/crm/hooks/useImportJobs';
+import { ImportProgressDock } from '../../features/crm/import/ImportProgressDock';
 import { VideoLogo } from '../ui/VideoLogo';
 import { NotificationBell } from '../ui/NotificationBell';
 import { ThemeToggle } from '../ui/ThemeProvider';
@@ -388,6 +389,9 @@ export function CrmShell() {
           </div>
         </main>
       </div>
+
+      {/* Global import progress — persists across CRM pages while a bulk import runs */}
+      {canImport && <ImportProgressDock jobs={importJobs} />}
     </div>
   );
 }

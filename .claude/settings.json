@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "statusMessage": "Checking CLAUDE.md is up to date...",
+            "timeout": 30,
+            "command": "input=$(cat); if printf '%s' \"$input\" | grep -Eq '\"stop_hook_active\"[[:space:]]*:[[:space:]]*true'; then exit 0; fi; printf '{\"decision\":\"block\",\"reason\":\"Session ending. If the codebase changed this session, before stopping: (1) update CLAUDE.md to reflect it - mark completed checklist items, add any new files/folders/routes/endpoints/collections, and correct outdated info; (2) commit CLAUDE.md; (3) push to origin. If nothing in the codebase changed this session, do not edit anything - just stop.\"}'"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -45,6 +45,7 @@ function buildTree(
     photoURL: string;
     managerId?: string;
     reportingManagerUid?: string;
+    reportingManagerName?: string;
     employeeStatus?: string;
   }[],
 ): OrgNode {
@@ -54,6 +55,13 @@ function buildTree(
   );
 
   const byUid = new Map(active.map((e) => [e.userId, e]));
+  // Name → uid, for records that stored only the manager's *name* and not the uid.
+  // The Add Employee endpoint and the bulk importer both persist
+  // reportingManagerName only — this lets those link without a data migration.
+  const byName = new Map<string, string>();
+  for (const e of active) {
+    if (e.displayName) byName.set(e.displayName.trim().toLowerCase(), e.userId);
+  }
 
   // childrenOf[uid] = list of direct-report uids
   const childrenOf = new Map<string, string[]>();
@@ -61,10 +69,19 @@ function buildTree(
 
   for (const emp of active) {
     if (emp.userId === ROOT_UID) continue; // root handled separately
-    // Reporting manager is stored as `reportingManagerUid` by the Employees edit
-    // modal (Add Employee + edit). Fall back to legacy `managerId` if present.
-    const mgr = emp.reportingManagerUid || emp.managerId;
-    const parentId = mgr && byUid.has(mgr) ? mgr : ROOT_UID;
+
+    // Resolve the manager: prefer the stored uid, then legacy managerId, then
+    // fall back to matching the stored manager *name* against employee names.
+    let mgr = '';
+    if (emp.reportingManagerUid && byUid.has(emp.reportingManagerUid)) {
+      mgr = emp.reportingManagerUid;
+    } else if (emp.managerId && byUid.has(emp.managerId)) {
+      mgr = emp.managerId;
+    } else if (emp.reportingManagerName) {
+      mgr = byName.get(emp.reportingManagerName.trim().toLowerCase()) ?? '';
+    }
+    const parentId = mgr && mgr !== emp.userId ? mgr : ROOT_UID;
+
     if (!childrenOf.has(parentId)) childrenOf.set(parentId, []);
     childrenOf.get(parentId)!.push(emp.userId);
     attached.add(emp.userId);

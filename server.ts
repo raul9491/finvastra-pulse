@@ -2689,7 +2689,7 @@ async function startServer() {
 
       const {
         displayName, email, employeeId, department, designation,
-        reportingManagerName, joiningDate, phone, personalEmail,
+        reportingManagerName, reportingManagerUid, joiningDate, phone, personalEmail,
         officialPhone, location, employeeStatus = "active",
         lastWorkingDate,
         dateOfBirth, gender, bloodGroup, fatherMotherName, spouseName,
@@ -2738,6 +2738,7 @@ async function startServer() {
         ...(department           ? { department }           : {}),
         ...(designation          ? { designation }          : {}),
         ...(reportingManagerName ? { reportingManagerName } : {}),
+        ...(reportingManagerUid  ? { reportingManagerUid }  : {}),
         ...(joiningDate          ? { joiningDate }          : {}),
         role,
         hrmsAccess,
@@ -3081,7 +3082,7 @@ async function startServer() {
     const {
       displayName, officialEmail, employeeId, employeeStatus = "active",
       phone, officialPhone, personalEmail, department, designation,
-      reportingManagerName, location, joiningDate, dateOfBirth,
+      reportingManagerName, reportingManagerUid, location, joiningDate, dateOfBirth,
       gender, bloodGroup, fatherMotherName, spouseName,
       presentAddress, permanentAddress, grossSalary, lastWorkingDate,
       salaryBasic, salaryHra, salaryConveyance, salaryMedical, salaryOther,

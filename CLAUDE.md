@@ -1604,10 +1604,12 @@ Every self-service update is logged to `/profile_update_logs/{id}` for audit.
 
 **Path**: `/hrms/org-chart`  
 **Access**: all authenticated employees (read-only)  
-**Data source**: `reportingManagerUid` field on `/users/{uid}` docs (active employees only; legacy `managerId` honoured as fallback). **This field is set from the Employees page** — Add Employee modal + the edit-employee modal both have a **Reporting Manager** `SearchableSelect` that writes `reportingManagerUid` + `reportingManagerName`. (Fixed 2026-06-08: the chart previously read only `managerId`, which the UI never wrote, so no tree ever formed.)
+**Data source**: each active employee's manager, resolved in this order: `reportingManagerUid` → legacy `managerId` → **`reportingManagerName` matched against employee display names** (case-insensitive name fallback, so records that saved only the manager's name still link). Set from the **Employees page** — both the Add Employee modal and the edit-employee modal have a **Reporting Manager** `SearchableSelect`.
+
+> **Fixed 2026-06-08 (two bugs):** (1) the chart read only `managerId`, which the UI never wrote → repointed to `reportingManagerUid` + name fallback. (2) `POST /api/admin/employees/create` and `/api/hrms/employees/create` saved only `reportingManagerName` and **dropped `reportingManagerUid`**, so newly-added staff never linked → both endpoints now persist the uid. The bulk importer still saves name-only, which the chart's name fallback covers without a migration.
 
 - Root: Ajay Newatia (FAPL-000, UID `3zdX5QBnTbQAcTdLzUjfXxefP8r2`)
-- Employees with no/invalid `reportingManagerUid` attach directly under root
+- Employees whose manager can't be resolved by uid or name attach directly under root
 - Max depth: 10 (guards against circular references in bad data)
 - Collapse/expand per node (chevron button below each card); Expand All / Collapse All buttons
 - Department filter (dropdown + legend chips): shows subtree containing matching employees, preserving ancestor chain

@@ -2354,3 +2354,5 @@ Single cross-module command centre for Ajay & Kumar — reads **HRMS + CRM + MIS
 **Mobile (< md)**: KPI chips 2×2; attendance avatars horizontal-scroll; RM targets render as cards not a table; pipeline business-line bars hidden (totals only); all sections stack.
 
 Reuses `useRmTargets` (`useTeamTargets`, `achievementPct`) for the targets/pipeline maths — no duplicated actuals logic.
+
+**Resilience**: each of the ~14 cross-module queries loads **fail-safe** (per-query `.catch` → empty) so a denied or unindexed collection degrades only its own section instead of blanking the whole dashboard. (A plain `Promise.all` would reject the entire batch on a single failure.)

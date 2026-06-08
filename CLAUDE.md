@@ -152,7 +152,7 @@ src/
     │   ├── employees/     EmployeesPage, EmployeeProfilePage, AddEmployeeModal, ImportEmployeesPage,
     │   │                  AccessRequestsPage (approve /request-access), CrmPerformanceWidget (CRM stats on HR profile)
     │   ├── directory/     EmployeeDirectoryPage — org-wide searchable employee directory
-    │   ├── attendance/    AttendancePage (self), AdminAttendancePage (admin + regularization tab)
+    │   ├── attendance/    AttendancePage (self), AdminAttendancePage (Daily / Monthly grid / Corrections tabs)
     │   ├── leave/         LeavePage, ApplyLeavePage, AdminLeavePage, AdminCompOffPage,
     │   │                  TeamCalendarPage, LeaveYearEndPage
     │   ├── payslips/      PayslipsPage (employee view), GeneratePayslipPage (admin), payslipPdf.ts

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { format, parseISO, getDaysInMonth } from 'date-fns';
 import { Navigate } from 'react-router-dom';
 import { Timestamp, getDocs, query, collection, where, orderBy } from 'firebase/firestore';
@@ -455,6 +455,104 @@ function RegularizationsTab({ reviewerId, reviewerName }: RegTabProps) {
 
 // ─── AdminAttendancePage ──────────────────────────────────────────────────────
 
+// ─── Monthly View ─────────────────────────────────────────────────────────────
+
+const MONTH_MARK: Record<string, { ch: string; color: string; bg: string }> = {
+  present:  { ch: 'P', color: '#065F46', bg: 'rgba(16,122,81,0.14)' },
+  half_day: { ch: '½', color: '#92400E', bg: 'rgba(217,119,6,0.14)' },
+  absent:   { ch: 'A', color: '#991B1B', bg: 'rgba(220,38,38,0.14)' },
+  leave:    { ch: 'L', color: '#7A6030', bg: 'rgba(201,169,97,0.18)' },
+  holiday:  { ch: 'H', color: '#1E40AF', bg: 'rgba(59,130,246,0.14)' },
+};
+
+function MonthlyView({ employees, month }: { employees: UserProfile[]; month: string }) {
+  const [records, setRecords] = useState<Attendance[] | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    setRecords(null);
+    (async () => {
+      const days  = getDaysInMonth(parseISO(`${month}-01`));
+      const start = `${month}-01`;
+      const end   = `${month}-${String(days).padStart(2, '0')}`;
+      const snap = await getDocs(query(
+        collection(db, 'attendance'),
+        where('date', '>=', start),
+        where('date', '<=', end),
+      ));
+      if (alive) setRecords(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Attendance)));
+    })().catch(() => { if (alive) setRecords([]); });
+    return () => { alive = false; };
+  }, [month]);
+
+  const days    = getDaysInMonth(parseISO(`${month}-01`));
+  const dayNums = Array.from({ length: days }, (_, i) => i + 1);
+  const [year, mon] = month.split('-').map(Number);
+  const isSunday = (d: number) => new Date(year, mon - 1, d).getDay() === 0;
+
+  const statusByKey = new Map<string, AttendanceStatus>();
+  (records ?? []).forEach((r) => statusByKey.set(`${r.userId}_${Number(r.date.slice(8, 10))}`, r.status));
+
+  if (records === null) {
+    return <div className="py-16 text-center text-sm" style={{ color: '#8B8B85' }}>Loading month…</div>;
+  }
+
+  const sorted = [...employees].sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#8B8B85' }}>
+        {format(parseISO(`${month}-01`), 'MMMM yyyy')} &nbsp;·&nbsp; P present · ½ half · A absent · L leave · H holiday · · no record
+      </p>
+      <div className="overflow-auto rounded-xl border border-slate-200" style={{ maxHeight: 600 }}>
+        <table className="text-xs border-collapse">
+          <thead>
+            <tr style={{ backgroundColor: '#F2EFE7' }}>
+              <th className="sticky left-0 z-20 px-3 py-2 text-left font-bold whitespace-nowrap"
+                style={{ backgroundColor: '#F2EFE7', color: '#8B8B85', minWidth: 180 }}>Employee</th>
+              {dayNums.map((d) => (
+                <th key={d} className="px-1.5 py-2 text-center font-semibold"
+                  style={{ color: isSunday(d) ? '#B45454' : '#8B8B85', backgroundColor: isSunday(d) ? 'rgba(0,0,0,0.04)' : undefined, minWidth: 22 }}>{d}</th>
+              ))}
+              {['P', 'A', 'L'].map((h) => (
+                <th key={h} className="px-2 py-2 text-center font-bold sticky right-0" style={{ color: '#8B8B85', backgroundColor: '#F2EFE7' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((emp) => {
+              let p = 0, a = 0, l = 0;
+              const cells = dayNums.map((d) => {
+                const st = statusByKey.get(`${emp.userId}_${d}`);
+                if (st === 'present' || st === 'half_day') p++;
+                else if (st === 'absent') a++;
+                else if (st === 'leave') l++;
+                const mark = st ? MONTH_MARK[st] : null;
+                return (
+                  <td key={d} className="px-1.5 py-1.5 text-center"
+                    style={{ backgroundColor: mark?.bg ?? (isSunday(d) ? 'rgba(0,0,0,0.04)' : undefined) }}>
+                    <span style={{ color: mark?.color ?? '#CBD5E1', fontWeight: mark ? 700 : 400 }}>{mark?.ch ?? '·'}</span>
+                  </td>
+                );
+              });
+              return (
+                <tr key={emp.userId} className="border-t border-slate-100">
+                  <td className="sticky left-0 z-10 px-3 py-1.5 font-medium whitespace-nowrap"
+                    style={{ backgroundColor: '#FFFFFF', color: '#0A0A0A', minWidth: 180 }}>{emp.displayName}</td>
+                  {cells}
+                  <td className="px-2 py-1.5 text-center font-bold sticky right-0" style={{ color: '#065F46', backgroundColor: '#FFFFFF' }}>{p}</td>
+                  <td className="px-2 py-1.5 text-center font-bold" style={{ color: '#991B1B' }}>{a}</td>
+                  <td className="px-2 py-1.5 text-center font-bold" style={{ color: '#7A6030' }}>{l}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export function AdminAttendancePage() {
   const { user, profile } = useAuth();
 
@@ -462,7 +560,7 @@ export function AdminAttendancePage() {
   // Guard comes AFTER hooks. When profile is null (still loading), we skip
   // the guard and render nothing until profile resolves.
   const today = format(new Date(), 'yyyy-MM-dd');
-  const [activeTab, setActiveTab] = useState<'day' | 'corrections'>('day');
+  const [activeTab, setActiveTab] = useState<'day' | 'month' | 'corrections'>('day');
   const [selectedDate, setSelectedDate] = useState<string>(today);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
 
@@ -499,7 +597,7 @@ export function AdminAttendancePage() {
           </p>
         </div>
 
-        {activeTab === 'day' && (
+        {activeTab !== 'corrections' && (
           <div className="flex flex-wrap items-center gap-3">
             <input
               type="date"
@@ -520,11 +618,12 @@ export function AdminAttendancePage() {
       <div className="flex gap-1 p-1 rounded-xl mb-6 w-fit" style={{ backgroundColor: '#F2EFE7' }}>
         {[
           { key: 'day',         label: 'Daily View'   },
+          { key: 'month',       label: 'Monthly View' },
           { key: 'corrections', label: 'Corrections'  },
         ].map(({ key, label }) => (
           <button
             key={key}
-            onClick={() => setActiveTab(key as 'day' | 'corrections')}
+            onClick={() => setActiveTab(key as 'day' | 'month' | 'corrections')}
             className="px-5 py-2 rounded-lg text-sm font-semibold transition-all"
             style={{
               backgroundColor: activeTab === key ? '#0B1538' : 'transparent',
@@ -690,6 +789,11 @@ export function AdminAttendancePage() {
             </div>
           )}
         </>
+      )}
+
+      {/* ── Monthly View tab ────────────────────────────────────────────────── */}
+      {activeTab === 'month' && (
+        <MonthlyView employees={employees} month={exportMonth} />
       )}
 
       {/* ── Corrections tab ─────────────────────────────────────────────────── */}

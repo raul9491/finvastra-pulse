@@ -10,7 +10,7 @@ import {
   ReceiptText, FolderOpen, Megaphone, Building2, Calculator,
   Laptop, UserMinus, Lock, FileSearch2, GraduationCap, TrendingUp, Briefcase, BookOpen, LifeBuoy,
   BookUser, RotateCcw, ScrollText, HelpCircle, Database, User,
-  Menu, X, ChevronDown, Search,
+  Menu, X, ChevronDown, Search, Network,
 } from 'lucide-react';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -182,52 +182,58 @@ const COMPLIANCE_NAV: NavEntry[] = [
 ];
 
 // Flat searchable index of every HRMS page — drives the sidebar "Search menu" box.
-type SearchItem = { path: string; label: string; icon: ElementType; admin?: boolean; sa?: boolean };
+// `group` is the folder each page lives under, shown as a header in search results.
+type SearchItem = { path: string; label: string; icon: ElementType; group: string; admin?: boolean; sa?: boolean };
+const SEARCH_GROUP_ORDER = [
+  'General', 'My Work', 'Company', 'Growth', 'Support',
+  'Admin Tools', 'People', 'Time & Leave', 'Payroll & Finance',
+  'Content', 'Performance', 'Statutory', 'Lifecycle',
+];
 const SEARCH_INDEX: SearchItem[] = [
   // Self-service
-  { path: '/hrms/dashboard',      label: 'Dashboard',            icon: LayoutDashboard },
-  { path: '/hrms/attendance',     label: 'Attendance',           icon: Clock },
-  { path: '/hrms/leave',          label: 'Leave',                icon: CalendarOff },
-  { path: '/hrms/payslips',       label: 'Payslips',             icon: Receipt },
-  { path: '/hrms/claims',         label: 'My Claims',            icon: ReceiptText },
-  { path: '/hrms/directory',      label: 'Directory',            icon: BookUser },
-  { path: '/hrms/documents',      label: 'Documents',            icon: FolderOpen },
-  { path: '/hrms/announcements',  label: 'Announcements',        icon: Megaphone },
-  { path: '/hrms/it-declaration', label: 'IT Declaration',       icon: FileSearch2 },
-  { path: '/hrms/performance',    label: 'My Review',            icon: TrendingUp },
-  { path: '/hrms/training',       label: 'My Training',          icon: BookOpen },
-  { path: '/hrms/hr-helpdesk',    label: 'HR Helpdesk',          icon: LifeBuoy },
-  { path: '/hrms/org-chart',      label: 'Organisation Chart',   icon: Users },
-  { path: '/hrms/guide',          label: 'Pulse Guide',          icon: HelpCircle },
-  { path: '/hrms/settings',       label: 'Settings',             icon: Settings },
+  { path: '/hrms/dashboard',      label: 'Dashboard',          icon: LayoutDashboard, group: 'General' },
+  { path: '/hrms/attendance',     label: 'Attendance',         icon: Clock,           group: 'My Work' },
+  { path: '/hrms/leave',          label: 'Leave',              icon: CalendarOff,     group: 'My Work' },
+  { path: '/hrms/payslips',       label: 'Payslips',           icon: Receipt,         group: 'My Work' },
+  { path: '/hrms/claims',         label: 'My Claims',          icon: ReceiptText,     group: 'My Work' },
+  { path: '/hrms/directory',      label: 'Directory',          icon: BookUser,        group: 'Company' },
+  { path: '/hrms/documents',      label: 'Documents',          icon: FolderOpen,      group: 'Company' },
+  { path: '/hrms/announcements',  label: 'Announcements',      icon: Megaphone,       group: 'Company' },
+  { path: '/hrms/org-chart',      label: 'Organisation Chart', icon: Network,         group: 'Company' },
+  { path: '/hrms/it-declaration', label: 'IT Declaration',     icon: FileSearch2,     group: 'Growth' },
+  { path: '/hrms/performance',    label: 'My Review',          icon: TrendingUp,      group: 'Growth' },
+  { path: '/hrms/training',       label: 'My Training',        icon: BookOpen,        group: 'Growth' },
+  { path: '/hrms/hr-helpdesk',    label: 'HR Helpdesk',        icon: LifeBuoy,        group: 'Support' },
+  { path: '/hrms/guide',          label: 'Pulse Guide',        icon: HelpCircle,      group: 'Support' },
+  { path: '/hrms/settings',       label: 'Settings',           icon: Settings,        group: 'Support' },
   // Admin / HR manager
-  { path: '/hrms/employees',              label: 'Employees',            icon: Users,         admin: true },
-  { path: '/hrms/admin/access-requests',  label: 'Access Requests',      icon: Inbox,         admin: true },
-  { path: '/hrms/admin/import-employees', label: 'Import Employees',     icon: UserPlus,      admin: true },
-  { path: '/hrms/admin/attendance',       label: 'Attendance — Admin',   icon: Clock,         admin: true },
-  { path: '/hrms/leave/admin',            label: 'Leave Approvals',      icon: ClipboardList, admin: true },
-  { path: '/hrms/admin/comp-off',         label: 'Comp Off Credits',     icon: CalendarDays,  admin: true },
-  { path: '/hrms/admin/leave-year-end',   label: 'Year-End Reset',       icon: RotateCcw,     admin: true },
-  { path: '/hrms/admin/holidays',         label: 'Manage Holidays',      icon: CalendarDays,  admin: true },
-  { path: '/hrms/admin/payslips',         label: 'Generate Payslips',    icon: FileText,      admin: true },
-  { path: '/hrms/admin/claims',           label: 'Claims — Admin',       icon: ReceiptText,   admin: true },
-  { path: '/hrms/admin/salary-history',   label: 'Salary History',       icon: TrendingUp,    admin: true },
-  { path: '/hrms/admin/it-declarations',  label: 'IT Declarations',      icon: FileSearch2,   admin: true },
-  { path: '/hrms/admin/letters',          label: 'HR Letters',           icon: ScrollText,    admin: true },
-  { path: '/hrms/admin/documents',        label: 'Documents — Admin',    icon: FolderOpen,    admin: true },
-  { path: '/hrms/admin/announcements',    label: 'Announcements — Admin', icon: Megaphone,     admin: true },
-  { path: '/hrms/admin/performance',      label: 'Performance Reviews',  icon: TrendingUp,    admin: true },
-  { path: '/hrms/admin/training',         label: 'Training',             icon: BookOpen,      admin: true },
-  { path: '/hrms/admin/hr-helpdesk',      label: 'HR Helpdesk — Admin',  icon: LifeBuoy,      admin: true },
-  { path: '/hrms/admin/compliance',       label: 'Compliance Calendar',  icon: Building2,     admin: true },
-  { path: '/hrms/admin/pf-tracker',       label: 'PF Tracker',           icon: Calculator,    admin: true },
-  { path: '/hrms/admin/recruitment',      label: 'Recruitment',          icon: Briefcase,     admin: true },
-  { path: '/hrms/admin/assets',           label: 'Assets',               icon: Laptop,        admin: true },
-  { path: '/hrms/admin/onboarding',       label: 'Onboarding',           icon: UserPlus,      admin: true },
-  { path: '/hrms/admin/probation',        label: 'Probation',            icon: GraduationCap, admin: true },
-  { path: '/hrms/admin/offboarding',      label: 'Offboarding',          icon: UserMinus,     admin: true },
-  { path: '/hrms/admin/permissions',      label: 'Permission Manager',   icon: Lock,          sa: true },
-  { path: '/hrms/admin/data-import',      label: 'Data Import',          icon: Database,      sa: true },
+  { path: '/hrms/employees',              label: 'Employees',            icon: Users,         group: 'People', admin: true },
+  { path: '/hrms/admin/access-requests',  label: 'Access Requests',      icon: Inbox,         group: 'People', admin: true },
+  { path: '/hrms/admin/import-employees', label: 'Import Employees',     icon: UserPlus,      group: 'People', admin: true },
+  { path: '/hrms/admin/attendance',       label: 'Attendance — Admin',   icon: Clock,         group: 'Time & Leave', admin: true },
+  { path: '/hrms/leave/admin',            label: 'Leave Approvals',      icon: ClipboardList, group: 'Time & Leave', admin: true },
+  { path: '/hrms/admin/comp-off',         label: 'Comp Off Credits',     icon: CalendarDays,  group: 'Time & Leave', admin: true },
+  { path: '/hrms/admin/leave-year-end',   label: 'Year-End Reset',       icon: RotateCcw,     group: 'Time & Leave', admin: true },
+  { path: '/hrms/admin/holidays',         label: 'Manage Holidays',      icon: CalendarDays,  group: 'Time & Leave', admin: true },
+  { path: '/hrms/admin/payslips',         label: 'Generate Payslips',    icon: FileText,      group: 'Payroll & Finance', admin: true },
+  { path: '/hrms/admin/claims',           label: 'Claims — Admin',       icon: ReceiptText,   group: 'Payroll & Finance', admin: true },
+  { path: '/hrms/admin/salary-history',   label: 'Salary History',       icon: TrendingUp,    group: 'Payroll & Finance', admin: true },
+  { path: '/hrms/admin/it-declarations',  label: 'IT Declarations',      icon: FileSearch2,   group: 'Payroll & Finance', admin: true },
+  { path: '/hrms/admin/letters',          label: 'HR Letters',           icon: ScrollText,    group: 'Content', admin: true },
+  { path: '/hrms/admin/documents',        label: 'Documents — Admin',    icon: FolderOpen,    group: 'Content', admin: true },
+  { path: '/hrms/admin/announcements',    label: 'Announcements — Admin', icon: Megaphone,    group: 'Content', admin: true },
+  { path: '/hrms/admin/performance',      label: 'Performance Reviews',  icon: TrendingUp,    group: 'Performance', admin: true },
+  { path: '/hrms/admin/training',         label: 'Training',             icon: BookOpen,      group: 'Performance', admin: true },
+  { path: '/hrms/admin/hr-helpdesk',      label: 'HR Helpdesk — Admin',  icon: LifeBuoy,      group: 'Performance', admin: true },
+  { path: '/hrms/admin/compliance',       label: 'Compliance Calendar',  icon: Building2,     group: 'Statutory', admin: true },
+  { path: '/hrms/admin/pf-tracker',       label: 'PF Tracker',           icon: Calculator,    group: 'Statutory', admin: true },
+  { path: '/hrms/admin/recruitment',      label: 'Recruitment',          icon: Briefcase,     group: 'Lifecycle', admin: true },
+  { path: '/hrms/admin/assets',           label: 'Assets',               icon: Laptop,        group: 'Lifecycle', admin: true },
+  { path: '/hrms/admin/onboarding',       label: 'Onboarding',           icon: UserPlus,      group: 'Lifecycle', admin: true },
+  { path: '/hrms/admin/probation',        label: 'Probation',            icon: GraduationCap, group: 'Lifecycle', admin: true },
+  { path: '/hrms/admin/offboarding',      label: 'Offboarding',          icon: UserMinus,     group: 'Lifecycle', admin: true },
+  { path: '/hrms/admin/permissions',      label: 'Permission Manager',   icon: Lock,          group: 'Admin Tools', sa: true },
+  { path: '/hrms/admin/data-import',      label: 'Data Import',          icon: Database,      group: 'Admin Tools', sa: true },
 ];
 
 const PAGE_TITLES: Record<string, string> = {
@@ -343,7 +349,7 @@ export function HrmsShell() {
   // Collapsible nav sections — auto-open the section matching the current path
   const sectionForPath = (p: string): string => {
     if (['/hrms/attendance','/hrms/leave','/hrms/payslips','/hrms/claims'].some(r => p.startsWith(r))) return 'My Work';
-    if (['/hrms/directory','/hrms/documents','/hrms/announcements'].some(r => p.startsWith(r))) return 'Company';
+    if (['/hrms/directory','/hrms/documents','/hrms/announcements','/hrms/org-chart'].some(r => p.startsWith(r))) return 'Company';
     if (['/hrms/performance','/hrms/training'].some(r => p.startsWith(r))) return 'Growth';
     if (['/hrms/hr-helpdesk','/hrms/guide','/hrms/settings','/hrms/it-declaration'].some(r => p.startsWith(r))) return 'Support';
     if (['/hrms/employees','/hrms/admin/access','/hrms/admin/import'].some(r => p.startsWith(r))) return 'People';
@@ -523,9 +529,18 @@ export function HrmsShell() {
     <div className="flex-1 px-2 overflow-y-auto pb-4 space-y-0.5">
       {navSearchResults ? (
         navSearchResults.length > 0 ? (
-          <div className="space-y-0.5 pt-1">
-            {navSearchResults.map((it) => navLink(it.path, it.label, it.icon))}
-          </div>
+          SEARCH_GROUP_ORDER
+            .filter((g) => navSearchResults.some((r) => r.group === g))
+            .map((g) => (
+              <div key={g} className="pt-1">
+                <p className="px-3 pt-2 pb-1 text-[9px] font-bold uppercase tracking-[0.28em]" style={{ color: 'var(--shell-text-dim)' }}>
+                  {g}
+                </p>
+                <div className="space-y-0.5">
+                  {navSearchResults.filter((r) => r.group === g).map((it) => navLink(it.path, it.label, it.icon))}
+                </div>
+              </div>
+            ))
         ) : (
           <p className="text-xs text-center py-8" style={{ color: 'var(--shell-text-dim)' }}>
             No menu items match “{navSearch}”.
@@ -545,9 +560,10 @@ export function HrmsShell() {
       </NavSection>
 
       <NavSection label="Company" badge={unreadAnnouncements + holidayBadge + pendingAckCount} isOpen={openSections.has('Company')} onToggle={() => toggleSection('Company')}>
-        {navLink('/hrms/directory',      'Directory',     BookUser)}
-        {navLink('/hrms/documents',      'Documents',     FolderOpen,  pendingAckCount)}
-        {navLink('/hrms/announcements',  'Announcements', Megaphone,   unreadAnnouncements + holidayBadge)}
+        {navLink('/hrms/directory',      'Directory',          BookUser)}
+        {navLink('/hrms/documents',      'Documents',          FolderOpen,  pendingAckCount)}
+        {navLink('/hrms/announcements',  'Announcements',      Megaphone,   unreadAnnouncements + holidayBadge)}
+        {navLink('/hrms/org-chart',      'Organisation Chart', Network)}
       </NavSection>
 
       <NavSection label="Growth" badge={itDeclEmployeeBadge + selfAssessmentBadge + myTrainingBadge} isOpen={openSections.has('Growth')} onToggle={() => toggleSection('Growth')}>

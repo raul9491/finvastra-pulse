@@ -2181,7 +2181,7 @@ Email notifications are live. All HR actions send both an in-app bell (`writeNot
 | Holiday calendar | Fixed edge cases in auto-seed logic |
 | Referral lead permissions | Employees in referral-only mode correctly route new leads via workload-aware assignment |
 | HRMS nav simplification | `Employees` page gated to admin/HR manager; sub-group labels in admin nav |
-| HRMS sidebar **menu search** (2026-06-08) | `HrmsShell.tsx` — a "Search menu…" box sits below the logo (replaces the redundant "HR & Operations" label). Typing filters a flat `SEARCH_INDEX` of every HRMS page (admin/SA items gated) into a single jump-to list across all 12 collapsible groups; clears on navigation. Makes the long grouped sidebar navigable without hunting through sections. Also surfaces **Organisation Chart**, which had no sidebar link before. |
+| HRMS sidebar **menu search** (2026-06-08) | `HrmsShell.tsx` — a "Search menu…" box sits below the logo (replaces the redundant "HR & Operations" label). Typing filters `SEARCH_INDEX` (every HRMS page; admin/SA items gated) and renders matches **grouped under their folder headers** (each item carries a `group`; rendered in `SEARCH_GROUP_ORDER`) so you can see which section a page lives in. Clears on navigation. **Organisation Chart** now also has a permanent home in the **Company** group (`navLink` + `sectionForPath`), not just search — it had no sidebar link before. |
 | Data Import page | Super-admin-only bulk import for employee data |
 
 ---

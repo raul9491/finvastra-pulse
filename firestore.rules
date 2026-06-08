@@ -281,7 +281,8 @@ service cloud.firestore {
                         incoming().diff(existing()).affectedKeys().hasOnly([
                           'displayName', 'phone', 'email', 'source', 'tags',
                           'primaryOwnerId', 'updatedAt', 'slaDeadline',
-                          'leadStatus', 'leadStatusAt', 'leadStatusBy'
+                          'leadStatus', 'leadStatusAt', 'leadStatusBy',
+                          'callbackAt', 'callbackReminderSent'
                         ]) &&
                         (!incoming().diff(existing()).affectedKeys().hasAny(['slaDeadline'])
                          || incoming().slaDeadline == null));

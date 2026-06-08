@@ -2072,6 +2072,54 @@ async function startServer() {
     } catch (e) { return res.status(500).json({ error: String(e) }); }
   });
 
+  // ─── Callback reminders — fire when a scheduled callback time arrives ─────────
+  // POST /api/admin/run-callback-reminders (OIDC or admin). Run every ~15 min.
+  app.post("/api/admin/run-callback-reminders", async (req, res) => {
+    if (!(await requireAdminOrScheduler(req, res))) return;
+    try {
+      const nowIso = new Date().toISOString();
+      const snap = await db.collection("leads")
+        .where("leadStatus", "==", "callback")
+        .where("deleted", "==", false)
+        .get();
+      let notified = 0;
+      for (const d of snap.docs) {
+        const l: any = d.data();
+        if (l.callbackReminderSent === true) continue;
+        if (typeof l.callbackAt !== "string" || l.callbackAt > nowIso) continue; // not due yet
+        const rm = l.primaryOwnerId;
+        if (!rm || rm === "UNASSIGNED") continue;
+
+        await db.collection("notifications").doc(rm).collection("items").add({
+          type:      "follow_up_needed",
+          title:     `Call back now — ${l.displayName ?? "Lead"}`,
+          body:      "The callback time you scheduled has arrived.",
+          link:      `/crm/leads/${d.id}`,
+          read:      false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        }).catch(() => {});
+
+        const authUser = await admin.auth().getUser(rm).catch(() => null);
+        if (authUser?.email) {
+          const html = buildBrandEmail({
+            title: "Time to call back",
+            intro: `Your scheduled callback for ${l.displayName ?? "a lead"} is due now.`,
+            rows: [
+              { label: "Customer", value: l.displayName ?? "-" },
+              { label: "Phone", value: l.phone ?? "-" },
+            ],
+            ctaLabel: "Open lead", ctaLink: `https://pulse.finvastra.com/crm/leads/${d.id}`,
+          });
+          await sendGmailMessage(authUser.email, `Call back now — ${l.displayName ?? "Lead"}`, html).catch(() => {});
+        }
+
+        await d.ref.update({ callbackReminderSent: true });
+        notified++;
+      }
+      return res.json({ checked: snap.size, notified });
+    } catch (e) { return res.status(500).json({ error: String(e) }); }
+  });
+
   // ─── PART 3 — Daily RM briefing email ────────────────────────────────────────
   // POST /api/admin/run-daily-briefing (OIDC or admin). Daily 08:30 IST.
   app.post("/api/admin/run-daily-briefing", async (req, res) => {

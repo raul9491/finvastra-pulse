@@ -2116,6 +2116,7 @@ Each opportunity stage now collects structured data on advance.
 - **Mark-as-Lost fix (2026-06-08)**: `lostDetails` added to the opportunity owner's allowed update keys (was denied for non-admin telecallers, so "Mark as Lost" silently failed for them); `slaDeadline` added to the **lead** owner's allowed keys **but only when cleared to `null`** (owners cannot extend their own SLA to dodge the overdue badge). On marking an opp lost with no other open opps, `OpportunityDetailPage` clears the lead's `slaDeadline` → it drops out of all overdue-SLA counts instantly.
 - **Lead disposition (2026-06-08)**: raw / no-opportunity leads can now be dispositioned **directly on `LeadDetailPage`** via a **Status dropdown** (New · Interested · Callback later · Not interested · No response · Wrong number), shown to the lead's owner or admin. Stored as `leadStatus` / `leadStatusAt` / `leadStatusBy` on `/leads/{id}` (added to the owner's allowed update keys). Closing dispositions (`not_interested` / `no_response` / `wrong_number`) also clear `slaDeadline` → instantly out of overdue. This closes the gap where "Mark as Lost" only existed at the **opportunity** level — useless for telecallers working freshly-distributed leads that have **0 opportunities**. New type: `LeadStatus`.
 - **Lead disposition board (2026-06-08)**: `LeadsPage` (Customers) shows a **Kanban board above the table** grouping dispositioned leads by `leadStatus` (Interested · Callback later · No response · Not interested · Wrong number; click a card → lead). The table below shows only **remaining** (un-dispositioned / `new`) leads, so reps see what's left to work; header reads "N to action · M total". Live via the `useLeads` snapshot — a lead leaves the table for its board column the moment its status is set. Built for the call-back / no-response follow-up SOP.
+- **Callback reminders (2026-06-08)**: selecting **"Callback later"** opens a **datetime picker** on the lead (`callbackAt`). The board's Callback-later column shows each card's time, sorts soonest-first, and flags **due** cards in red. A 15-min Cloud Scheduler job (`callback-reminders` → `POST /api/admin/run-callback-reminders`) notifies the lead's owner (in-app bell + email) when the time arrives and sets `callbackReminderSent` (re-armed if the time is changed). Managers/admins see the same board. New lead fields: `callbackAt` (ISO), `callbackReminderSent`.
 
 ### CRM — Pipeline Kanban Board (`/crm/pipeline`)
 
@@ -2270,6 +2271,7 @@ Authoritative list of every Express route. Verify against `server.ts` after any 
 - `POST /api/admin/run-document-expiry-check` · `POST /api/admin/run-leave-year-reset`
 - `POST /api/admin/run-followup-check` (Phase N) · `POST /api/admin/run-daily-briefing` (Phase N)
 - `POST /api/admin/run-monthly-scorecards` (Phase N) · `POST /api/admin/generate-scorecard/:uid/:period` (Phase N — manual, admin)
+- `POST /api/admin/run-callback-reminders` — fires owner reminders when a lead's scheduled `callbackAt` arrives (every 15 min)
 
 **SPA fallback**: `GET *` → `index.html` (prod static).
 
@@ -2329,7 +2331,7 @@ CRM performance suite — monthly RM targets vs live actuals, smart follow-up re
 `rm_targets` (read: **any signed-in** — targets are non-PII; write: admin/manager · delete: false); `follow_up_logs` + `scorecard_logs` (admin read, server-only write); `commission_statement_templates` (read: admin/misAccess · write+delete: admin). New helper `isManager()` (`crmRole=='manager'`).
 
 ### Cloud Scheduler jobs — ✅ registered & ENABLED (2026-06-08)
-`followup-check` daily 09:00 IST (`30 3 * * *`) · `daily-rm-briefing` daily 08:30 IST (`0 3 * * *`) · `monthly-scorecards` 1st 07:00 IST (`30 1 1 * *`) — all in `asia-south1`, hitting `pulse-api` with OIDC (SA `787616231546-compute@developer.gserviceaccount.com`). Manage: `gcloud scheduler jobs run|pause|describe <name> --location=asia-south1`.
+`followup-check` daily 09:00 IST (`30 3 * * *`) · `daily-rm-briefing` daily 08:30 IST (`0 3 * * *`) · `monthly-scorecards` 1st 07:00 IST (`30 1 1 * *`) — all in `asia-south1`, hitting `pulse-api` with OIDC (SA `787616231546-compute@developer.gserviceaccount.com`). Plus **`callback-reminders`** every 15 min (`*/15 * * * *`) → `run-callback-reminders`. Manage: `gcloud scheduler jobs run|pause|describe <name> --location=asia-south1`.
 
 ### Resolved follow-ups (2026-06-08)
 - **Targets read rule relaxed** to `isSignedIn()` — the "target not set" nav badge now works for every RM (no permission-denied on a non-existent own target). Targets are non-PII; writes stay admin/manager only.

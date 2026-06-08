@@ -422,6 +422,9 @@ export interface Lead {
   leadStatus?: LeadStatus;
   leadStatusAt?: any;
   leadStatusBy?: string;
+  // Callback scheduling — set when leadStatus === 'callback'
+  callbackAt?: string;             // ISO datetime the customer asked to be called back
+  callbackReminderSent?: boolean;  // server sets true once the due reminder has fired
   // Bulk import provenance fields
   importBatchId?: string;
   importName?: string;    // denormalised batch label for source-quality analysis

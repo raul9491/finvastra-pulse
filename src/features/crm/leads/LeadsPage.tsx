@@ -321,7 +321,8 @@ export function LeadsPage() {
         <div className="mb-5 overflow-x-auto">
           <div className="flex gap-3 min-w-max pb-1">
             {LEAD_BOARD_COLUMNS.map((col) => {
-              const items = boardByStatus.get(col.key) ?? [];
+              let items = boardByStatus.get(col.key) ?? [];
+              if (col.key === 'callback') items = [...items].sort((a, b) => (a.callbackAt ?? '~').localeCompare(b.callbackAt ?? '~'));
               return (
                 <div key={col.key} className="w-56 shrink-0 glass-panel p-3" style={{ borderTop: `2px solid ${col.color}` }}>
                   <div className="flex items-center justify-between mb-2">
@@ -329,13 +330,22 @@ export function LeadsPage() {
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${col.color}22`, color: col.color }}>{items.length}</span>
                   </div>
                   <div className="space-y-1.5 overflow-y-auto" style={{ maxHeight: 240 }}>
-                    {items.map((l) => (
-                      <button key={l.id} onClick={() => navigate(`/crm/leads/${l.id}`)}
-                        className="w-full text-left px-2.5 py-2 rounded-lg transition-colors hover:bg-white/5" style={{ border: '1px solid var(--shell-border)' }}>
-                        <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{l.displayName}</p>
-                        <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>{l.phone} · {rmName(l.primaryOwnerId)}</p>
-                      </button>
-                    ))}
+                    {items.map((l) => {
+                      const due = col.key === 'callback' && l.callbackAt ? new Date(l.callbackAt).getTime() <= Date.now() : false;
+                      return (
+                        <button key={l.id} onClick={() => navigate(`/crm/leads/${l.id}`)}
+                          className="w-full text-left px-2.5 py-2 rounded-lg transition-colors hover:bg-white/5"
+                          style={{ border: `1px solid ${due ? 'rgba(248,113,113,0.5)' : 'var(--shell-border)'}` }}>
+                          <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{l.displayName}</p>
+                          <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>{l.phone} · {rmName(l.primaryOwnerId)}</p>
+                          {col.key === 'callback' && l.callbackAt && (
+                            <p className="text-[10px] font-semibold mt-0.5" style={{ color: due ? '#f87171' : '#C9A961' }}>
+                              ⏰ {new Date(l.callbackAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}{due ? ' · due now' : ''}
+                            </p>
+                          )}
+                        </button>
+                      );
+                    })}
                     {items.length === 0 && <p className="text-[10px] text-center py-3" style={{ color: 'var(--text-muted)' }}>None</p>}
                   </div>
                 </div>

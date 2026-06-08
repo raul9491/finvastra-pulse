@@ -206,6 +206,29 @@ export function LeadDetailPage() {
     }
   };
 
+  // ─── Callback scheduling (shown when status === 'callback') ─────────────────────
+  const [callbackInput, setCallbackInput] = useState('');
+  const [savingCallback, setSavingCallback] = useState(false);
+  useEffect(() => {
+    if (!lead?.callbackAt) return;
+    const d = new Date(lead.callbackAt);
+    setCallbackInput(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+  }, [lead?.callbackAt]);
+
+  const handleSaveCallback = async () => {
+    if (!leadId || !callbackInput) return;
+    setSavingCallback(true);
+    try {
+      await updateDoc(doc(db, 'leads', leadId), {
+        callbackAt: new Date(callbackInput).toISOString(),
+        callbackReminderSent: false,        // re-arm the reminder
+        updatedAt: serverTimestamp(),
+      });
+    } finally {
+      setSavingCallback(false);
+    }
+  };
+
   // ─── PAN reveal state ─────────────────────────────────────────────────────────
   const [revealedPan, setRevealedPan]         = useState<string | null>(null);
   const [revealingPan, setRevealingPan]       = useState(false);
@@ -365,6 +388,21 @@ export function LeadDetailPage() {
                 }}>
                 {LEAD_STATUS_LABELS[lead.leadStatus]}{TERMINAL_STATUSES.has(lead.leadStatus) ? ' · closed, SLA cleared' : ''}
               </span>
+            )}
+            {lead.leadStatus === 'callback' && (
+              <div className="flex flex-wrap items-center gap-2 w-full mt-1">
+                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Call back at</span>
+                <input type="datetime-local" value={callbackInput} onChange={(e) => setCallbackInput(e.target.value)} className="glass-inp text-sm" />
+                <button onClick={handleSaveCallback} disabled={savingCallback || !callbackInput}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+                  {savingCallback ? '…' : (lead.callbackAt ? 'Update reminder' : 'Set reminder')}
+                </button>
+                {lead.callbackAt && (
+                  <span className="text-xs font-semibold" style={{ color: '#C9A961' }}>
+                    ⏰ {new Date(lead.callbackAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                )}
+              </div>
             )}
           </div>
         )}

@@ -10,7 +10,7 @@ import {
   ReceiptText, FolderOpen, Megaphone, Building2, Calculator,
   Laptop, UserMinus, Lock, FileSearch2, GraduationCap, TrendingUp, Briefcase, BookOpen, LifeBuoy,
   BookUser, RotateCcw, ScrollText, HelpCircle, Database, User,
-  Menu, X, ChevronDown,
+  Menu, X, ChevronDown, Search,
 } from 'lucide-react';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -181,6 +181,55 @@ const COMPLIANCE_NAV: NavEntry[] = [
   { path: '/hrms/admin/pf-tracker',  label: 'PF Tracker',          icon: Calculator,  live: true },
 ];
 
+// Flat searchable index of every HRMS page — drives the sidebar "Search menu" box.
+type SearchItem = { path: string; label: string; icon: ElementType; admin?: boolean; sa?: boolean };
+const SEARCH_INDEX: SearchItem[] = [
+  // Self-service
+  { path: '/hrms/dashboard',      label: 'Dashboard',            icon: LayoutDashboard },
+  { path: '/hrms/attendance',     label: 'Attendance',           icon: Clock },
+  { path: '/hrms/leave',          label: 'Leave',                icon: CalendarOff },
+  { path: '/hrms/payslips',       label: 'Payslips',             icon: Receipt },
+  { path: '/hrms/claims',         label: 'My Claims',            icon: ReceiptText },
+  { path: '/hrms/directory',      label: 'Directory',            icon: BookUser },
+  { path: '/hrms/documents',      label: 'Documents',            icon: FolderOpen },
+  { path: '/hrms/announcements',  label: 'Announcements',        icon: Megaphone },
+  { path: '/hrms/it-declaration', label: 'IT Declaration',       icon: FileSearch2 },
+  { path: '/hrms/performance',    label: 'My Review',            icon: TrendingUp },
+  { path: '/hrms/training',       label: 'My Training',          icon: BookOpen },
+  { path: '/hrms/hr-helpdesk',    label: 'HR Helpdesk',          icon: LifeBuoy },
+  { path: '/hrms/org-chart',      label: 'Organisation Chart',   icon: Users },
+  { path: '/hrms/guide',          label: 'Pulse Guide',          icon: HelpCircle },
+  { path: '/hrms/settings',       label: 'Settings',             icon: Settings },
+  // Admin / HR manager
+  { path: '/hrms/employees',              label: 'Employees',            icon: Users,         admin: true },
+  { path: '/hrms/admin/access-requests',  label: 'Access Requests',      icon: Inbox,         admin: true },
+  { path: '/hrms/admin/import-employees', label: 'Import Employees',     icon: UserPlus,      admin: true },
+  { path: '/hrms/admin/attendance',       label: 'Attendance — Admin',   icon: Clock,         admin: true },
+  { path: '/hrms/leave/admin',            label: 'Leave Approvals',      icon: ClipboardList, admin: true },
+  { path: '/hrms/admin/comp-off',         label: 'Comp Off Credits',     icon: CalendarDays,  admin: true },
+  { path: '/hrms/admin/leave-year-end',   label: 'Year-End Reset',       icon: RotateCcw,     admin: true },
+  { path: '/hrms/admin/holidays',         label: 'Manage Holidays',      icon: CalendarDays,  admin: true },
+  { path: '/hrms/admin/payslips',         label: 'Generate Payslips',    icon: FileText,      admin: true },
+  { path: '/hrms/admin/claims',           label: 'Claims — Admin',       icon: ReceiptText,   admin: true },
+  { path: '/hrms/admin/salary-history',   label: 'Salary History',       icon: TrendingUp,    admin: true },
+  { path: '/hrms/admin/it-declarations',  label: 'IT Declarations',      icon: FileSearch2,   admin: true },
+  { path: '/hrms/admin/letters',          label: 'HR Letters',           icon: ScrollText,    admin: true },
+  { path: '/hrms/admin/documents',        label: 'Documents — Admin',    icon: FolderOpen,    admin: true },
+  { path: '/hrms/admin/announcements',    label: 'Announcements — Admin', icon: Megaphone,     admin: true },
+  { path: '/hrms/admin/performance',      label: 'Performance Reviews',  icon: TrendingUp,    admin: true },
+  { path: '/hrms/admin/training',         label: 'Training',             icon: BookOpen,      admin: true },
+  { path: '/hrms/admin/hr-helpdesk',      label: 'HR Helpdesk — Admin',  icon: LifeBuoy,      admin: true },
+  { path: '/hrms/admin/compliance',       label: 'Compliance Calendar',  icon: Building2,     admin: true },
+  { path: '/hrms/admin/pf-tracker',       label: 'PF Tracker',           icon: Calculator,    admin: true },
+  { path: '/hrms/admin/recruitment',      label: 'Recruitment',          icon: Briefcase,     admin: true },
+  { path: '/hrms/admin/assets',           label: 'Assets',               icon: Laptop,        admin: true },
+  { path: '/hrms/admin/onboarding',       label: 'Onboarding',           icon: UserPlus,      admin: true },
+  { path: '/hrms/admin/probation',        label: 'Probation',            icon: GraduationCap, admin: true },
+  { path: '/hrms/admin/offboarding',      label: 'Offboarding',          icon: UserMinus,     admin: true },
+  { path: '/hrms/admin/permissions',      label: 'Permission Manager',   icon: Lock,          sa: true },
+  { path: '/hrms/admin/data-import',      label: 'Data Import',          icon: Database,      sa: true },
+];
+
 const PAGE_TITLES: Record<string, string> = {
   '/hrms/dashboard':             'Dashboard',
   '/hrms/employees':             'Employees',
@@ -288,6 +337,8 @@ export function HrmsShell() {
 
   // Mobile nav drawer state
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // Sidebar menu search
+  const [navSearch, setNavSearch] = useState('');
 
   // Collapsible nav sections — auto-open the section matching the current path
   const sectionForPath = (p: string): string => {
@@ -363,7 +414,7 @@ export function HrmsShell() {
   const { anniversaryEmployees } = useWorkAnniversaries(isAdmin || isHrmsManager);
 
   // Close mobile drawer automatically when the user navigates to a different page
-  useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
+  useEffect(() => { setMobileNavOpen(false); setNavSearch(''); }, [location.pathname]);
 
   // ── Guards (after all hooks) ────────────────────────────────────────────────
   if (loading) return <FullPageLoader />;
@@ -437,9 +488,51 @@ export function HrmsShell() {
   };
 
   // ── Shared nav scroll body — rendered in both desktop sidebar and mobile drawer ──
+  // Flat menu search — when the user types, show matching pages across every group.
+  const _navQ = navSearch.trim().toLowerCase();
+  const navSearchResults = _navQ
+    ? SEARCH_INDEX.filter((it) =>
+        (!it.sa || isSA) &&
+        (!it.admin || isAdmin || isHrmsManager) &&
+        it.label.toLowerCase().includes(_navQ),
+      )
+    : null;
+
+  const navSearchBox = (
+    <div className="px-3 pt-4 pb-2 shrink-0">
+      <div className="relative">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--shell-text-dim)' }} />
+        <input
+          value={navSearch}
+          onChange={(e) => setNavSearch(e.target.value)}
+          placeholder="Search menu…"
+          className="w-full text-sm rounded-lg pl-9 pr-8 py-2 outline-none focus:ring-1 focus:ring-gold placeholder:text-(--shell-text-dim)"
+          style={{ backgroundColor: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--shell-border)' }}
+        />
+        {navSearch && (
+          <button onClick={() => setNavSearch('')} aria-label="Clear search"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:opacity-70" style={{ color: 'var(--shell-text-dim)' }}>
+            <X size={14} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
   const navBody = (
     <div className="flex-1 px-2 overflow-y-auto pb-4 space-y-0.5">
-
+      {navSearchResults ? (
+        navSearchResults.length > 0 ? (
+          <div className="space-y-0.5 pt-1">
+            {navSearchResults.map((it) => navLink(it.path, it.label, it.icon))}
+          </div>
+        ) : (
+          <p className="text-xs text-center py-8" style={{ color: 'var(--shell-text-dim)' }}>
+            No menu items match “{navSearch}”.
+          </p>
+        )
+      ) : (
+      <>
       {/* Dashboard — always visible standalone */}
       {navLink('/hrms/dashboard', 'Dashboard', LayoutDashboard, dashboardBadge)}
 
@@ -536,6 +629,8 @@ export function HrmsShell() {
           </NavSection>
         </>
       )}
+      </>
+      )}
     </div>
   );
 
@@ -573,13 +668,7 @@ export function HrmsShell() {
           <VideoLogo size="xs" showText={true} />
         </div>
 
-        {/* Module label */}
-        <div className="px-5 pt-5 pb-3">
-          <p className="glass-module-label font-bold">
-            HR &amp; Operations
-          </p>
-        </div>
-
+        {navSearchBox}
         {navBody}
         {userFooter}
       </nav>
@@ -616,13 +705,7 @@ export function HrmsShell() {
                 </button>
               </div>
 
-              {/* Module label */}
-              <div className="px-5 pt-5 pb-3">
-                <p className="glass-module-label font-bold">
-                  HR &amp; Operations
-                </p>
-              </div>
-
+              {navSearchBox}
               {navBody}
               {userFooter}
             </motion.aside>

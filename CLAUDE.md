@@ -102,7 +102,7 @@ src/
 ├── components/
 │   ├── VastraLogo.tsx               re-export shim (canonical: components/ui/VastraLogo.tsx)
 │   └── layout/
-│   │   ├── HrmsShell.tsx            HRMS shell — sidebar, nav badges, mobile drawer
+│   │   ├── HrmsShell.tsx            HRMS shell — sidebar (menu search box + collapsible groups), nav badges, mobile drawer
 │   │   ├── CrmShell.tsx             CRM shell — includes referral-only mode
 │   │   ├── MisShell.tsx             MIS shell
 │   │   └── NavItem.tsx              shared nav link primitive
@@ -2181,6 +2181,7 @@ Email notifications are live. All HR actions send both an in-app bell (`writeNot
 | Holiday calendar | Fixed edge cases in auto-seed logic |
 | Referral lead permissions | Employees in referral-only mode correctly route new leads via workload-aware assignment |
 | HRMS nav simplification | `Employees` page gated to admin/HR manager; sub-group labels in admin nav |
+| HRMS sidebar **menu search** (2026-06-08) | `HrmsShell.tsx` — a "Search menu…" box sits below the logo (replaces the redundant "HR & Operations" label). Typing filters a flat `SEARCH_INDEX` of every HRMS page (admin/SA items gated) into a single jump-to list across all 12 collapsible groups; clears on navigation. Makes the long grouped sidebar navigable without hunting through sections. Also surfaces **Organisation Chart**, which had no sidebar link before. |
 | Data Import page | Super-admin-only bulk import for employee data |
 
 ---

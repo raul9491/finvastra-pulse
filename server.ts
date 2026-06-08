@@ -545,39 +545,45 @@ async function distributeBatch(
     .where("deleted", "==", false)
     .get();
 
-  let i = 0;
-  for (const leadDoc of leadsSnap.docs) {
-    const owner = agents[i % agents.length];
-    i++;
-    assignedCountByAgent[owner] = (assignedCountByAgent[owner] ?? 0) + 1;
+  // Process leads in bounded-concurrency waves. The previous version was strictly sequential —
+  // two awaited round-trips (opp query + commit) per lead — so a 359-lead batch meant ~700 serial
+  // round-trips (minutes). Per-lead try/catch keeps one bad lead from aborting the whole run
+  // (which would leave the job never marked `distributed` and the UI spinning forever).
+  const docs = leadsSnap.docs;
+  const CONCURRENCY = 25;
+  for (let start = 0; start < docs.length; start += CONCURRENCY) {
+    await Promise.all(docs.slice(start, start + CONCURRENCY).map(async (leadDoc, j) => {
+      const owner = agents[(start + j) % agents.length];
+      assignedCountByAgent[owner] = (assignedCountByAgent[owner] ?? 0) + 1;
+      try {
+        const slaDeadline = new Date();
+        slaDeadline.setHours(slaDeadline.getHours() + 24);
 
-    const slaDeadline = new Date();
-    slaDeadline.setHours(slaDeadline.getHours() + 24);
+        const batch = db.batch();
+        batch.update(leadDoc.ref, {
+          primaryOwnerId: owner,
+          slaDeadline:    admin.firestore.Timestamp.fromDate(slaDeadline),
+          distributedAt:  admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt:      admin.firestore.FieldValue.serverTimestamp(),
+        });
 
-    const batch = db.batch();
-    batch.update(leadDoc.ref, {
-      primaryOwnerId: owner,
-      slaDeadline:    admin.firestore.Timestamp.fromDate(slaDeadline),
-      distributedAt:  admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt:      admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    // Re-own any open opportunities + log an activity
-    const oppsSnap = await leadDoc.ref.collection("opportunities").where("status", "==", "open").get();
-    for (const oppDoc of oppsSnap.docs) {
-      batch.update(oppDoc.ref, {
-        ownerId:   owner,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-      const actRef = oppDoc.ref.collection("activities").doc();
-      batch.set(actRef, {
-        type:    "status_change",
-        content: `Assigned via distribution of import "${importName}" (batch ${batchId})`,
-        by:      actorUid,
-        at:      admin.firestore.FieldValue.serverTimestamp(),
-      });
-    }
-    await batch.commit();
+        // Re-own any open opportunities + log an activity
+        const oppsSnap = await leadDoc.ref.collection("opportunities").where("status", "==", "open").get();
+        for (const oppDoc of oppsSnap.docs) {
+          batch.update(oppDoc.ref, { ownerId: owner, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+          const actRef = oppDoc.ref.collection("activities").doc();
+          batch.set(actRef, {
+            type:    "status_change",
+            content: `Assigned via distribution of import "${importName}" (batch ${batchId})`,
+            by:      actorUid,
+            at:      admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+        await batch.commit();
+      } catch (e) {
+        console.error("[distribute] lead failed", leadDoc.id, e);
+      }
+    }));
   }
 
   // One aggregated notification per agent (avoids per-lead notification spam)
@@ -1242,12 +1248,17 @@ async function startServer() {
     const job = jobDoc.data();
     if (job.distributed === true) return res.status(409).json({ error: "This batch has already been distributed." });
 
-    // Respond immediately — distribution runs in the background (large batches take time).
-    // The client watches the job's `distributed` flag flip to true via onSnapshot.
-    res.json({ ok: true, jobId: jobDoc.id });
-
-    distributeBatch(jobDoc.id, batchId, agents, uid, (job.importName as string) ?? batchId)
-      .catch((err) => console.error(`Distribute batch ${batchId} failed:`, err));
+    // Run the distribution within the request so Cloud Run keeps CPU allocated — background work
+    // after res.json() gets CPU-throttled and crawls. Now parallelised + per-lead try/catch, so it
+    // finishes in seconds even for hundreds of leads. The client's onSnapshot still clears the card
+    // when `distributed` flips (set at the end of distributeBatch).
+    try {
+      await distributeBatch(jobDoc.id, batchId, agents, uid, (job.importName as string) ?? batchId);
+      return res.json({ ok: true, jobId: jobDoc.id });
+    } catch (err) {
+      console.error(`Distribute batch ${batchId} failed:`, err);
+      return res.status(500).json({ error: "Distribution failed — please retry." });
+    }
   });
 
   // ─── Auth Alerts API ─────────────────────────────────────────────────────────

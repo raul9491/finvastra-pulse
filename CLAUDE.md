@@ -2185,7 +2185,7 @@ Bulk lead import reworked from one-shot round-robin into a two-stage flow (impor
 | Feature | Status | Files |
 |---|---|---|
 | **Two-stage import** | ✅ | `server.ts` `/api/import/run` requires `importName` and holds every lead at `primaryOwnerId: 'UNASSIGNED'` — no distribution at import time |
-| **Distribute endpoint** | ✅ | `server.ts` `POST /api/import/distribute` — round-robins a batch's still-UNASSIGNED leads across selected agents, re-owns open opportunities, resets +24h SLA, one aggregated notification per agent, stamps `distributed*` on the job (background-processed) |
+| **Distribute endpoint** | ✅ | `server.ts` `POST /api/import/distribute` — round-robins a batch's still-UNASSIGNED leads across selected agents, re-owns open opportunities, resets +24h SLA, one aggregated notification per agent, stamps `distributed*` on the job. **Parallelised** (bounded-concurrency waves, per-lead try/catch) and **run in-request** (not fire-and-forget) so Cloud Run keeps CPU allocated — finishes in seconds for hundreds of leads instead of minutes of serial round-trips |
 | **Mandatory import name** | ✅ | `ImportPage.tsx` Step 1 field (inline validation); stored on `import_jobs.importName` + denormalised to each lead's `importName` for later source-quality analysis |
 | **Import Queue page** | ✅ | `src/features/crm/import/ImportQueuePage.tsx` at `/crm/import/queue` — lists undistributed batches (name · count · date), agent picker, Distribute action |
 | **Global import progress dock** | ✅ | `src/features/crm/import/ImportProgressDock.tsx` — mounted once in `CrmShell`; live progress bar on every CRM page; flips to "Distribute now →" on completion. Reuses the shell's `import_jobs` subscription (no extra listener) |

@@ -82,6 +82,8 @@ import { ImportHistoryPage }            from './features/crm/import/ImportHistor
 import { MyReferralsPage }             from './features/crm/referrals/MyReferralsPage';
 import { SubmitReferralPage }          from './features/crm/referrals/SubmitReferralPage';
 import { ImportReferralsPage }         from './features/crm/referrals/ImportReferralsPage';
+import { TargetsPage }                 from './features/crm/targets/TargetsPage';
+import { LeadAgingPage }               from './features/crm/reports/LeadAgingPage';
 
 import { MisShell }                 from './components/layout/MisShell';
 import { MisOverviewPage }          from './features/mis/overview/MisOverviewPage';
@@ -93,6 +95,7 @@ import { PayoutsPage }              from './features/mis/payouts/PayoutsPage';
 import { GeneratePayoutsPage }      from './features/mis/payouts/GeneratePayoutsPage';
 import { PayoutDetailPage }         from './features/mis/payouts/PayoutDetailPage';
 import { PayoutSlabsPage }          from './features/mis/payouts/PayoutSlabsPage';
+import { StatementTemplatesPage }   from './features/mis/admin/StatementTemplatesPage';
 
 export const router = createBrowserRouter([
   {
@@ -204,6 +207,8 @@ export const router = createBrowserRouter([
       { path: 'import',                      element: <ImportPage /> },
       { path: 'import/queue',                element: <ImportQueuePage /> },
       { path: 'import/history',          element: <ImportHistoryPage /> },
+      { path: 'targets',                     element: <TargetsPage /> },
+      { path: 'reports/aging',               element: <LeadAgingPage /> },
       // Employee referral pages — accessible to all HRMS employees (referral mode)
       { path: 'referrals',               element: <MyReferralsPage /> },
       { path: 'referrals/new',           element: <SubmitReferralPage /> },
@@ -224,6 +229,7 @@ export const router = createBrowserRouter([
       { path: 'payouts/generate',     element: <GeneratePayoutsPage /> },
       { path: 'payouts/:payoutId',    element: <PayoutDetailPage /> },
       { path: 'admin/payout-slabs',   element: <PayoutSlabsPage /> },
+      { path: 'admin/statement-templates', element: <StatementTemplatesPage /> },
     ],
   },
 ]);

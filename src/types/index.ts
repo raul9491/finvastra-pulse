@@ -688,6 +688,7 @@ export type NotificationType =
   | 'leave_pending'
   | 'payroll_processed'
   | 'announcement'
+  | 'follow_up_needed'
   | 'system';
 
 export interface Notification {
@@ -699,6 +700,57 @@ export interface Notification {
   isRead: boolean;
   createdAt: any;
   metadata?: Record<string, any>;
+}
+
+// ─── Performance & Target Tracking (Phase N) ─────────────────────────────────
+
+export interface RmTarget {
+  rmId: string;
+  rmName: string;
+  period: string;            // YYYY-MM
+  targets: {
+    newLeads: number;
+    leadsConverted: number;
+    disbursalAmount: number;
+    commissionGenerated: number;
+  };
+  setBy: string;
+  setAt: any;
+}
+
+export interface RmActuals {
+  newLeads: number;
+  leadsConverted: number;
+  disbursalAmount: number;
+  commissionGenerated: number;
+}
+
+export type LeadAgingBucket = 'fresh' | 'active' | 'aging' | 'stale';
+
+export interface ScorecardLog {
+  id?: string;
+  rmId: string;
+  period: string;            // YYYY-MM
+  storageUrl: string;
+  sentAt: any;
+  generatedBy: string;       // 'scheduler' | uid
+}
+
+export interface StatementTemplate {
+  id?: string;
+  bankId: string;            // matches /providers/{id}
+  bankName: string;
+  columnMappings: {
+    date: string;
+    description: string;
+    amount: string;
+    referenceNumber: string | null;
+  };
+  dateFormat: string;        // 'DD/MM/YYYY' | 'YYYY-MM-DD' | ...
+  skipRows: number;
+  amountMultiplier: 1 | -1;
+  createdAt: any;
+  updatedAt: any;
 }
 
 // ─── Announcements ───────────────────────────────────────────────────────────

@@ -649,6 +649,12 @@ service cloud.firestore {
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isHrmsManager', false) == true;
     }
+    // CRM manager (crmRole === 'manager') — used by Targets + reports.
+    function isManager() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('crmRole', null) == 'manager';
+    }
 
     // ─── HRMS: Attendance ─────────────────────────────────────────────────────────
     match /attendance/{recordId} {
@@ -1015,6 +1021,34 @@ service cloud.firestore {
                        .hasOnly(['deleted', 'deletedAt', 'deletedBy'])
                     && request.resource.data.deleted == true;
       allow delete: if false;
+    }
+
+    // ─── Performance & Targets (Phase N) ─────────────────────────────────────────
+    // RM targets per month. RMs read their own; managers/admin read all + write.
+    match /rm_targets/{docId} {
+      allow read:   if isAdmin() || isManager()
+                    || (isSignedIn() && request.auth.uid == resource.data.rmId);
+      allow create, update: if isAdmin() || isManager();
+      allow delete: if false;
+    }
+
+    // Follow-up reminder logs — written by the server (Admin SDK only); admin read.
+    match /follow_up_logs/{logId} {
+      allow read:  if isAdmin();
+      allow write: if false;
+    }
+
+    // RM scorecard generation logs — written by the server (Admin SDK only); admin read.
+    match /scorecard_logs/{logId} {
+      allow read:  if isAdmin();
+      allow write: if false;
+    }
+
+    // Bank commission-statement parsing templates (MIS). Admin-managed.
+    match /commission_statement_templates/{bankId} {
+      allow read:   if isAdmin() || hasMisAccess();
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin();
     }
   }
 }

@@ -2,8 +2,10 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProviders } from '../../crm/hooks/useOpportunities';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
-import { auth } from '../../../lib/firebase';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '../../../lib/firebase';
 import type { SearchableSelectOption } from '../../../components/ui/SearchableSelect';
+import type { StatementTemplate } from '../../../types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -143,6 +145,10 @@ export function UploadStatementPage() {
   // Step 3 state (from process response)
   const [processResp, setProcessResp] = useState<ProcessResponse | null>(null);
 
+  // Bank template auto-mapping (Part 6)
+  const [templateFound, setTemplateFound] = useState<StatementTemplate | null>(null);
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+
   // ─── Provider options ───────────────────────────────────────────────────────
   const providerOptions: SearchableSelectOption[] = providers.map(p => ({
     value: p.id,
@@ -189,7 +195,28 @@ export function UploadStatementPage() {
         return;
       }
       setUploadResp(data);
-      setConfirmedCols(data.detectedColumns);
+      // Try a saved template for this provider — auto-map columns by header name
+      let mapped = data.detectedColumns;
+      try {
+        const tSnap = await getDoc(doc(db, 'commission_statement_templates', providerId));
+        if (tSnap.exists()) {
+          const tpl = { id: tSnap.id, ...(tSnap.data() as any) } as StatementTemplate;
+          const idxOf = (name: string | null) => {
+            if (!name) return -1;
+            const n = name.toLowerCase();
+            return data.headers.findIndex((h) => h.toLowerCase() === n || h.toLowerCase().includes(n));
+          };
+          mapped = {
+            dateCol: idxOf(tpl.columnMappings.date),
+            descCol: idxOf(tpl.columnMappings.description),
+            amountCol: idxOf(tpl.columnMappings.amount),
+          };
+          setTemplateFound(tpl);
+        } else {
+          setTemplateFound(null);
+        }
+      } catch { setTemplateFound(null); }
+      setConfirmedCols(mapped);
       setStep(2);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed.');
@@ -229,6 +256,22 @@ export function UploadStatementPage() {
       }
       setProcessResp(data);
       setStep(3);
+      // Optionally persist the confirmed mapping as a bank template
+      if (saveAsTemplate && !templateFound && uploadResp) {
+        const h = uploadResp.headers;
+        setDoc(doc(db, 'commission_statement_templates', uploadResp.providerId), {
+          bankId: uploadResp.providerId,
+          bankName: providers.find((p) => p.id === uploadResp.providerId)?.name ?? uploadResp.providerId,
+          columnMappings: {
+            date: h[confirmedCols.dateCol] ?? '',
+            description: h[confirmedCols.descCol] ?? '',
+            amount: h[confirmedCols.amountCol] ?? '',
+            referenceNumber: null,
+          },
+          dateFormat: 'DD/MM/YYYY', skipRows: 0, amountMultiplier: 1,
+          createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+        }, { merge: true }).catch(() => {});
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Processing failed.');
     } finally {
@@ -368,6 +411,12 @@ export function UploadStatementPage() {
             each field before importing.
           </p>
 
+          {templateFound && (
+            <div className="text-sm rounded-lg px-3 py-2 mb-4" style={{ backgroundColor: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.25)', color: '#34d399' }}>
+              ✅ Template found for <strong>{templateFound.bankName}</strong> — columns auto-mapped. Review and confirm.
+            </div>
+          )}
+
           <div className="flex flex-col gap-4 mb-6">
             <ColumnSelect
               label="Date column"
@@ -429,6 +478,13 @@ export function UploadStatementPage() {
             >
               {error}
             </p>
+          )}
+
+          {!templateFound && (
+            <label className="flex items-center gap-2 text-sm mb-4 cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+              <input type="checkbox" checked={saveAsTemplate} onChange={(e) => setSaveAsTemplate(e.target.checked)} />
+              Save this mapping as a reusable template for this bank (admin only)
+            </label>
           )}
 
           <div className="flex gap-3">

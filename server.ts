@@ -1919,6 +1919,365 @@ async function startServer() {
     } catch (e) { return res.status(500).json({ error: String(e) }); }
   });
 
+  // ─── Performance & Target Tracking (Phase N) ──────────────────────────────────
+  const inr = (n: number) => "₹" + Math.round(Number(n) || 0).toLocaleString("en-IN");
+
+  // Branded HTML email (navy/gold) — server-side builder (no client buildHrEmailHtml available here).
+  function buildBrandEmail(opts: { title: string; intro: string; rows: Array<{ label: string; value: string }>; note?: string; ctaLabel?: string; ctaLink?: string }): string {
+    const rowsHtml = opts.rows.map((r) =>
+      `<tr><td style="padding:6px 0;color:#8B8B85;font-size:13px;">${r.label}</td><td style="padding:6px 0;color:#0A0A0A;font-size:14px;font-weight:600;text-align:right;">${r.value}</td></tr>`).join("");
+    const noteHtml = opts.note
+      ? `<div style="margin-top:20px;padding:14px 16px;background:#FAF6EC;border-left:3px solid #C9A961;border-radius:8px;color:#2A2A2A;font-size:14px;"><strong>Priority:</strong> ${opts.note}</div>` : "";
+    const ctaHtml = opts.ctaLink
+      ? `<table width="100%"><tr><td align="center" style="padding-top:24px;"><a href="${opts.ctaLink}" style="display:inline-block;background:linear-gradient(135deg,#0B1538,#1B2A4E);color:#C9A961;padding:12px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">${opts.ctaLabel ?? "Open"} &rarr;</a></td></tr></table>` : "";
+    return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#F2EFE7;font-family:Arial,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#F2EFE7;padding:32px 0;"><tr><td align="center"><table width="600" style="max-width:600px;width:100%;"><tr><td style="background:linear-gradient(135deg,#0B1538,#1B2A4E);border-radius:16px 16px 0 0;padding:28px 40px;text-align:center;"><div style="color:#C9A961;font-size:12px;font-weight:700;letter-spacing:3px;">FINVASTRA PULSE</div></td></tr><tr><td style="background:#fff;padding:36px 40px;"><h1 style="font-family:Georgia,serif;font-size:22px;color:#0A0A0A;margin:0 0 6px;">${opts.title}</h1><p style="font-size:14px;color:#2A2A2A;margin:0 0 18px;">${opts.intro}</p><table width="100%" style="border-collapse:collapse;">${rowsHtml}</table>${noteHtml}${ctaHtml}</td></tr><tr><td style="padding:18px 40px;text-align:center;color:#8B8B85;font-size:11px;">Finvastra Advisors Pvt. Ltd. &middot; Finvastra Pulse</td></tr></table></td></tr></table></body></html>`;
+  }
+
+  // Send a branded email WITH a PDF attachment (multipart MIME via Gmail API).
+  async function sendGmailWithAttachment(to: string, subject: string, htmlBody: string, attachment: { filename: string; base64: string }) {
+    const senderEmail = process.env.GMAIL_SENDER ?? "admin@finvastra.com";
+    if (useEmulator && !process.env.GOOGLE_SA_JSON_BASE64 && !getServiceAccountPath()) {
+      console.log(`[Gmail stub w/attach] To: ${to} | Subject: ${subject} | File: ${attachment.filename}`);
+      return;
+    }
+    const boundary = "fvbnd_" + Math.random().toString(36).slice(2);
+    const raw = [
+      `From: Finvastra Pulse <${senderEmail}>`, `To: ${to}`, `Subject: ${subject}`,
+      "MIME-Version: 1.0", `Content-Type: multipart/mixed; boundary="${boundary}"`, "",
+      `--${boundary}`, "Content-Type: text/html; charset=UTF-8", "", htmlBody, "",
+      `--${boundary}`, `Content-Type: application/pdf; name="${attachment.filename}"`,
+      "Content-Transfer-Encoding: base64", `Content-Disposition: attachment; filename="${attachment.filename}"`, "",
+      attachment.base64, "", `--${boundary}--`,
+    ].join("\r\n");
+    const encoded = Buffer.from(raw).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    const gmail = await getGmailClient();
+    await gmail.users.messages.send({ userId: "me", requestBody: { raw: encoded } });
+  }
+
+  // Live actuals from existing Firestore (Admin SDK) — mirrors useRmTargets.computeActuals.
+  async function computeActualsServer(uid: string, period: string) {
+    const startMs = new Date(Number(period.slice(0, 4)), Number(period.slice(5, 7)) - 1, 1).getTime();
+    const leadsSnap = await db.collection("leads").where("primaryOwnerId", "==", uid).where("deleted", "==", false).get();
+    let newLeads = 0;
+    leadsSnap.forEach((d) => { const c: any = d.get("createdAt"); const ms = c?.toMillis ? c.toMillis() : 0; if (ms >= startMs) newLeads++; });
+    const wonSnap = await db.collectionGroup("opportunities").where("status", "==", "won").get();
+    let leadsConverted = 0;
+    wonSnap.forEach((d) => { const o: any = d.data(); if (o.ownerId === uid && typeof o.actualCloseDate === "string" && o.actualCloseDate.startsWith(period)) leadsConverted++; });
+    const crSnap = await db.collection("commission_records").where("rmOwnerId", "==", uid).get();
+    let disbursalAmount = 0, commissionGenerated = 0;
+    crSnap.forEach((d) => {
+      const r: any = d.data();
+      if (typeof r.disbursalDate === "string" && r.disbursalDate.startsWith(period)) disbursalAmount += Number(r.disbursedAmount ?? 0);
+      if (r.status === "paid" && typeof r.actualPayoutDate === "string" && r.actualPayoutDate.startsWith(period)) commissionGenerated += Number(r.actualAmount ?? r.calculatedCommission ?? 0);
+    });
+    return { newLeads, leadsConverted, disbursalAmount, commissionGenerated };
+  }
+
+  // Latest activity timestamp + type for a lead.
+  async function latestActivity(leadId: string): Promise<{ atMs: number; type: string }> {
+    const s = await db.collection("leads").doc(leadId).collection("activities").orderBy("at", "desc").limit(1).get();
+    const a: any = s.docs[0]?.data();
+    return { atMs: a?.at?.toMillis ? a.at.toMillis() : 0, type: a?.type ?? "none" };
+  }
+
+  async function requireAdminOrScheduler(req: express.Request, res: express.Response): Promise<boolean> {
+    if (await verifySchedulerOIDC(req)) return true;
+    const uid = await verifyFirebaseToken(req);
+    if (!uid) { res.status(401).json({ error: "Unauthorized" }); return false; }
+    const u = await db.collection("users").doc(uid).get();
+    if (u.data()?.role !== "admin") { res.status(403).json({ error: "Admin only" }); return false; }
+    return true;
+  }
+
+  const activeRmFilter = (u: any) =>
+    u.employeeStatus !== "inactive" &&
+    (u.role === "admin" || u.crmAccess === true || ["lead_generator", "lead_convertor", "manager"].includes(u.crmRole));
+
+  // ─── PART 2 — Smart follow-up reminders ──────────────────────────────────────
+  // POST /api/admin/run-followup-check (OIDC or admin). Daily 09:00 IST.
+  app.post("/api/admin/run-followup-check", async (req, res) => {
+    if (!(await requireAdminOrScheduler(req, res))) return;
+    try {
+      const now = Date.now();
+      const staleCutoff = now - 3 * 86400000;
+
+      // Active = lead has at least one open opportunity
+      const openOpps = await db.collectionGroup("opportunities").where("status", "==", "open").get();
+      const activeLeadIds = new Set<string>();
+      openOpps.forEach((d) => { const id = d.ref.parent.parent?.id; if (id) activeLeadIds.add(id); });
+
+      // Dedup — leads already logged today
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+      const logs = await db.collection("follow_up_logs").where("sentAt", ">=", admin.firestore.Timestamp.fromDate(todayStart)).get();
+      const alreadyToday = new Set<string>();
+      logs.forEach((d) => ((d.data().leadIds ?? []) as string[]).forEach((id) => alreadyToday.add(id)));
+
+      const leadsSnap = await db.collection("leads").where("deleted", "==", false).get();
+      const byRm = new Map<string, Array<{ id: string; name: string; daysSince: number; lastType: string }>>();
+      let processed = 0;
+      for (const d of leadsSnap.docs) {
+        const id = d.id; const l: any = d.data();
+        if (!activeLeadIds.has(id) || alreadyToday.has(id)) continue;
+        processed++;
+        const { atMs, type } = await latestActivity(id);
+        if (atMs > staleCutoff) continue;
+        const rm = l.primaryOwnerId;
+        if (!rm || rm === "UNASSIGNED") continue;
+        const daysSince = atMs ? Math.floor((now - atMs) / 86400000) : 999;
+        if (!byRm.has(rm)) byRm.set(rm, []);
+        byRm.get(rm)!.push({ id, name: l.displayName ?? "Lead", daysSince, lastType: type });
+      }
+
+      let notified = 0, emails = 0;
+      for (const [rm, leads] of byRm) {
+        for (const ld of leads) {
+          await db.collection("notifications").doc(rm).collection("items").add({
+            type: "follow_up_needed",
+            title: `Follow-up needed — ${ld.name}`,
+            body: `No activity for ${ld.daysSince} days. Last: ${ld.lastType}`,
+            link: `/crm/leads/${ld.id}`,
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          }).catch(() => {});
+          notified++;
+        }
+        const authUser = await admin.auth().getUser(rm).catch(() => null);
+        if (authUser?.email) {
+          const html = buildBrandEmail({
+            title: "Leads need follow-up",
+            intro: `You have ${leads.length} lead(s) with no recent activity.`,
+            rows: leads.map((ld) => ({ label: ld.name, value: `${ld.daysSince}d silent · last: ${ld.lastType}` })),
+            ctaLabel: "Open My Queue", ctaLink: "https://pulse.finvastra.com/crm/my-queue",
+          });
+          await sendGmailMessage(authUser.email, `Action needed — ${leads.length} leads need follow-up`, html).catch(() => {});
+          emails++;
+        }
+        await db.collection("follow_up_logs").add({
+          rmId: rm, leadIds: leads.map((l) => l.id),
+          sentAt: admin.firestore.FieldValue.serverTimestamp(), staleCount: leads.length,
+        });
+      }
+      return res.json({ processed, notified, emails_sent: emails });
+    } catch (e) { return res.status(500).json({ error: String(e) }); }
+  });
+
+  // ─── PART 3 — Daily RM briefing email ────────────────────────────────────────
+  // POST /api/admin/run-daily-briefing (OIDC or admin). Daily 08:30 IST.
+  app.post("/api/admin/run-daily-briefing", async (req, res) => {
+    if (!(await requireAdminOrScheduler(req, res))) return;
+    try {
+      const now = Date.now();
+      const d0 = new Date();
+      const period = `${d0.getFullYear()}-${String(d0.getMonth() + 1).padStart(2, "0")}`;
+      const daysLeft = new Date(d0.getFullYear(), d0.getMonth() + 1, 0).getDate() - d0.getDate();
+
+      const usersSnap = await db.collection("users").get();
+      const rms = usersSnap.docs.filter((d) => activeRmFilter(d.data()));
+      let sent = 0;
+      for (const rmDoc of rms) {
+        const uid = rmDoc.id; const u: any = rmDoc.data();
+        const leadsSnap = await db.collection("leads").where("primaryOwnerId", "==", uid).where("deleted", "==", false).get();
+        if (leadsSnap.empty) continue; // new joiner — skip
+
+        const overdue: Array<{ name: string; hours: number }> = [];
+        leadsSnap.forEach((d) => {
+          const l: any = d.data(); const dl = l.slaDeadline?.toMillis ? l.slaDeadline.toMillis() : 0;
+          if (dl && dl < now) overdue.push({ name: l.displayName ?? "Lead", hours: Math.floor((now - dl) / 3600000) });
+        });
+        overdue.sort((a, b) => b.hours - a.hours);
+
+        const stale: Array<{ name: string; daysSince: number }> = [];
+        for (const d of leadsSnap.docs) {
+          const { atMs } = await latestActivity(d.id);
+          if (atMs <= now - 3 * 86400000) stale.push({ name: (d.data() as any).displayName ?? "Lead", daysSince: atMs ? Math.floor((now - atMs) / 86400000) : 999 });
+        }
+
+        const tSnap = await db.collection("rm_targets").doc(`${uid}_${period}`).get();
+        const target: any = tSnap.exists ? tSnap.data() : null;
+        const actuals = await computeActualsServer(uid, period);
+        const disbTarget = target?.targets?.disbursalAmount ?? 0;
+        const disbPct = disbTarget > 0 ? Math.min(100, Math.round((actuals.disbursalAmount / disbTarget) * 100)) : 0;
+        const convTarget = target?.targets?.leadsConverted ?? 0;
+
+        let action: string;
+        if (overdue.length) action = `Call ${overdue[0].name} — SLA overdue by ${overdue[0].hours}h`;
+        else if (stale.length) action = `Follow up with ${stale[0].name} — ${stale[0].daysSince} days silent`;
+        else if (disbTarget > 0 && disbPct < 50 && daysLeft < 15) action = "Focus on conversions — below 50% with under 15 days left";
+        else action = "Good pace — keep going";
+
+        const authUser = await admin.auth().getUser(uid).catch(() => null);
+        if (authUser?.email) {
+          const dayStr = d0.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short" });
+          const html = buildBrandEmail({
+            title: `Good morning, ${u.displayName ?? "there"}`,
+            intro: "Here is your day at a glance.",
+            rows: [
+              { label: "SLA Overdue", value: `${overdue.length} leads` },
+              { label: "Need Follow-up", value: `${stale.length} leads` },
+              { label: "Disbursals this month", value: `${inr(actuals.disbursalAmount)} / ${inr(disbTarget)} (${disbPct}%)` },
+              { label: "Conversions", value: `${actuals.leadsConverted} / ${convTarget}` },
+            ],
+            note: action,
+            ctaLabel: "Open My Queue", ctaLink: "https://pulse.finvastra.com/crm/my-queue",
+          });
+          sendGmailMessage(authUser.email, `Your Finvastra Pulse Briefing — ${dayStr}`, html).catch(() => {});
+          sent++;
+        }
+      }
+      return res.json({ rms: rms.length, emails_sent: sent });
+    } catch (e) { return res.status(500).json({ error: String(e) }); }
+  });
+
+  // ─── PART 5 — RM monthly scorecard PDF ───────────────────────────────────────
+  async function generateAndDeliverScorecard(uid: string, period: string, generatedBy: string): Promise<{ storageUrl: string }> {
+    const STORAGE_BUCKET = "gen-lang-client-0643641184.firebasestorage.app";
+    const userDoc = await db.collection("users").doc(uid).get();
+    const u: any = userDoc.data() ?? {};
+    const empCode = u.empCode ?? u.employeeCode ?? uid;
+    const rmName = u.displayName ?? uid;
+    const designation = u.designation ?? "";
+    const target: any = (await db.collection("rm_targets").doc(`${uid}_${period}`).get()).data();
+    const actuals = await computeActualsServer(uid, period);
+
+    // Pipeline snapshot (open opps for this RM)
+    const oppsSnap = await db.collectionGroup("opportunities").where("status", "==", "open").get();
+    const mine = oppsSnap.docs.filter((d) => (d.data() as any).ownerId === uid);
+    const pipeline: Array<{ name: string; product: string; stage: string; value: number }> = [];
+    for (const d of mine.slice(0, 30)) {
+      const o: any = d.data(); const leadRef = d.ref.parent.parent;
+      let name = "Lead";
+      if (leadRef) { try { const ls = await leadRef.get(); name = (ls.data() as any)?.displayName ?? "Lead"; } catch { /* ignore */ } }
+      pipeline.push({ name, product: o.product ?? "—", stage: o.stage ?? "—", value: Number(o.dealSize ?? 0) });
+    }
+    pipeline.sort((a, b) => b.value - a.value);
+
+    // Activity summary (best-effort — needs a collection-group index on activities.by)
+    let calls = 0, meetings = 0, leadsAdded = actuals.newLeads;
+    try {
+      const startMs = new Date(Number(period.slice(0, 4)), Number(period.slice(5, 7)) - 1, 1).getTime();
+      const actSnap = await db.collectionGroup("activities").where("by", "==", uid).get();
+      actSnap.forEach((d) => { const a: any = d.data(); const ms = a.at?.toMillis ? a.at.toMillis() : 0; if (ms >= startMs) { if (a.type === "call") calls++; if (a.type === "meeting") meetings++; } });
+    } catch { /* index missing — leave zeros */ }
+
+    // Metrics
+    const metrics = [
+      { label: "New Leads", target: target?.targets?.newLeads ?? 0, actual: actuals.newLeads, money: false },
+      { label: "Conversions", target: target?.targets?.leadsConverted ?? 0, actual: actuals.leadsConverted, money: false },
+      { label: "Disbursals", target: target?.targets?.disbursalAmount ?? 0, actual: actuals.disbursalAmount, money: true },
+      { label: "Commission", target: target?.targets?.commissionGenerated ?? 0, actual: actuals.commissionGenerated, money: true },
+    ];
+    const pct = (a: number, t: number) => (t > 0 ? Math.min(100, Math.round((a / t) * 100)) : 0);
+    const overall = Math.round(metrics.reduce((s, m) => s + pct(m.actual, m.target), 0) / metrics.length);
+
+    // Build PDF
+    const { jsPDF } = await import("jspdf");
+    const autoTable = (await import("jspdf-autotable")).default as any;
+    const docp: any = new jsPDF();
+    docp.setFillColor(11, 21, 56); docp.rect(0, 0, 210, 30, "F");
+    docp.setTextColor(201, 169, 97); docp.setFontSize(16); docp.setFont("helvetica", "bold");
+    docp.text("FINVASTRA ADVISORS PVT. LTD.", 14, 14);
+    docp.setTextColor(255, 255, 255); docp.setFontSize(10); docp.setFont("helvetica", "normal");
+    docp.text(`RM Performance Scorecard — ${period}`, 14, 22);
+
+    docp.setTextColor(10, 10, 10); docp.setFontSize(12); docp.setFont("helvetica", "bold");
+    docp.text(rmName, 14, 42);
+    docp.setFontSize(9); docp.setFont("helvetica", "normal"); docp.setTextColor(90, 90, 90);
+    docp.text(`${designation || "RM"}  ·  Emp ${empCode}  ·  Period ${period}`, 14, 48);
+    docp.setFontSize(11); docp.setTextColor(11, 21, 56); docp.setFont("helvetica", "bold");
+    docp.text(`Overall achievement: ${overall}%`, 14, 57);
+
+    autoTable(docp, {
+      startY: 64,
+      head: [["Metric", "Target", "Actual", "Achievement %"]],
+      body: metrics.map((m) => [m.label, m.money ? inr(m.target) : String(m.target), m.money ? inr(m.actual) : String(m.actual), `${pct(m.actual, m.target)}%`]),
+      headStyles: { fillColor: [11, 21, 56], textColor: [201, 169, 97] },
+      didParseCell: (data: any) => {
+        if (data.section === "body" && data.column.index === 3) {
+          const p = pct(metrics[data.row.index].actual, metrics[data.row.index].target);
+          data.cell.styles.textColor = p >= 100 ? [16, 122, 81] : p >= 75 ? [180, 130, 20] : [200, 50, 50];
+          data.cell.styles.fontStyle = "bold";
+        }
+      },
+    });
+
+    let y = (docp.lastAutoTable?.finalY ?? 90) + 10;
+    docp.setFontSize(11); docp.setTextColor(11, 21, 56); docp.setFont("helvetica", "bold");
+    docp.text("Pipeline snapshot (open)", 14, y); y += 2;
+    autoTable(docp, {
+      startY: y + 2,
+      head: [["Deal", "Product", "Stage", "Value"]],
+      body: pipeline.slice(0, 10).map((p) => [p.name, p.product, p.stage, inr(p.value)]),
+      headStyles: { fillColor: [27, 42, 78], textColor: [255, 255, 255] },
+      styles: { fontSize: 8 },
+    });
+
+    y = (docp.lastAutoTable?.finalY ?? y + 20) + 10;
+    docp.setFontSize(11); docp.setTextColor(11, 21, 56); docp.setFont("helvetica", "bold");
+    docp.text("Activity summary", 14, y);
+    docp.setFontSize(9); docp.setFont("helvetica", "normal"); docp.setTextColor(60, 60, 60);
+    docp.text(`Calls logged: ${calls}    Meetings: ${meetings}    Leads added: ${leadsAdded}`, 14, y + 7);
+
+    docp.setFontSize(8); docp.setTextColor(140, 140, 140);
+    docp.text(`Generated by Finvastra Pulse on ${new Date().toISOString().slice(0, 10)}`, 14, 285);
+
+    const buf = Buffer.from(docp.output("arraybuffer"));
+    const filename = `Scorecard_${empCode}_${period}.pdf`;
+    const filePath = `scorecards/${uid}/${filename}`;
+    const token = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    await getStorage().bucket(STORAGE_BUCKET).file(filePath).save(buf, {
+      metadata: { contentType: "application/pdf", metadata: { firebaseStorageDownloadTokens: token } },
+    });
+    const storageUrl = `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/${encodeURIComponent(filePath)}?alt=media&token=${token}`;
+
+    const b64 = buf.toString("base64");
+    const html = buildBrandEmail({
+      title: `Performance Scorecard — ${period}`,
+      intro: `Hi ${rmName}, your monthly scorecard is attached. Overall achievement: ${overall}%.`,
+      rows: metrics.map((m) => ({ label: m.label, value: `${m.money ? inr(m.actual) : m.actual} / ${m.money ? inr(m.target) : m.target} (${pct(m.actual, m.target)}%)` })),
+      ctaLabel: "Open Targets", ctaLink: "https://pulse.finvastra.com/crm/targets",
+    });
+    const authUser = await admin.auth().getUser(uid).catch(() => null);
+    if (authUser?.email) await sendGmailWithAttachment(authUser.email, `Your Finvastra Scorecard — ${period}`, html, { filename, base64: b64 }).catch(() => {});
+    await sendGmailWithAttachment("rahulv@finvastra.com", `Scorecard — ${rmName} — ${period}`, html, { filename, base64: b64 }).catch(() => {});
+
+    await db.collection("scorecard_logs").add({ rmId: uid, period, storageUrl, sentAt: admin.firestore.FieldValue.serverTimestamp(), generatedBy });
+    return { storageUrl };
+  }
+
+  // POST /api/admin/run-monthly-scorecards (OIDC or admin). 1st of month 07:00 IST — prior month.
+  app.post("/api/admin/run-monthly-scorecards", async (req, res) => {
+    if (!(await requireAdminOrScheduler(req, res))) return;
+    try {
+      const pm = new Date(); pm.setDate(1); pm.setMonth(pm.getMonth() - 1);
+      const period = `${pm.getFullYear()}-${String(pm.getMonth() + 1).padStart(2, "0")}`;
+      const usersSnap = await db.collection("users").get();
+      const rms = usersSnap.docs.filter((d) => activeRmFilter(d.data()));
+      // Respond immediately — generate in the background (PDF + email per RM is slow)
+      res.json({ scheduled: rms.length, period });
+      (async () => {
+        for (const rmDoc of rms) {
+          const leads = await db.collection("leads").where("primaryOwnerId", "==", rmDoc.id).where("deleted", "==", false).limit(1).get();
+          if (leads.empty) continue; // skip RMs with no leads
+          await generateAndDeliverScorecard(rmDoc.id, period, "scheduler").catch((e) => console.error("scorecard failed", rmDoc.id, e));
+        }
+      })().catch(() => {});
+    } catch (e) { return res.status(500).json({ error: String(e) }); }
+  });
+
+  // POST /api/admin/generate-scorecard/:uid/:period — manual single-RM (admin only).
+  app.post("/api/admin/generate-scorecard/:uid/:period", async (req, res) => {
+    const caller = await verifyFirebaseToken(req);
+    if (!caller) return res.status(401).json({ error: "Unauthorized" });
+    const cu = await db.collection("users").doc(caller).get();
+    if (cu.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+    const { uid, period } = req.params;
+    if (!/^\d{4}-\d{2}$/.test(period)) return res.status(400).json({ error: "period must be YYYY-MM" });
+    try {
+      const result = await generateAndDeliverScorecard(uid, period, caller);
+      return res.json(result);
+    } catch (e) { return res.status(500).json({ error: String(e) }); }
+  });
+
   // ─── Public Application Tracker ──────────────────────────────────────────────
   // GET /api/track/:token — unauthenticated, returns minimal public-safe data
   app.get("/api/track/:token", async (req, res) => {

@@ -21,6 +21,7 @@ const NAV: NavEntry[] = [
   { path: '/mis/reconciliation',      label: 'Reconciliation', icon: GitMerge,        adminOnly: false },
   { path: '/mis/payouts',             label: 'RM Payouts',     icon: IndianRupee,      adminOnly: false },
   { path: '/mis/admin/payout-slabs',  label: 'Payout Slabs',   icon: Settings,        adminOnly: true  },
+  { path: '/mis/admin/statement-templates', label: 'Statement Templates', icon: Settings, adminOnly: true },
 ];
 
 function resolveMisTitle(pathname: string): string {
@@ -38,6 +39,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/mis/payouts':            'RM Payouts',
   '/mis/payouts/generate':   'Generate Payouts',
   '/mis/admin/payout-slabs': 'Payout Slabs',
+  '/mis/admin/statement-templates': 'Statement Templates',
 };
 
 function FullPageLoader() {

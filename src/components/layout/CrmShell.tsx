@@ -5,9 +5,10 @@ import { AnimatePresence, motion } from 'motion/react';
 import {
   LayoutDashboard, TrendingUp, GitBranch, IndianRupee,
   Upload, Settings, LogOut, LayoutGrid, Inbox, Clock, Bookmark, Plus, Webhook, User,
-  Menu, X, PackageOpen,
+  Menu, X, PackageOpen, Target, BarChart3,
 } from 'lucide-react';
-import { auth } from '../../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { useMyLeads } from '../../features/crm/hooks/useMyLeads';
 import { useImportHistory } from '../../features/crm/hooks/useImportJobs';
@@ -28,6 +29,7 @@ const NAV: NavEntry[] = [
   { path: '/crm/import/queue',label: 'Import Queue',icon: PackageOpen,     live: true,  end: true  },
   { path: '/crm/commissions', label: 'Commissions', icon: IndianRupee,      live: true,  end: true  },
   { path: '/crm/pipeline',    label: 'Pipeline',    icon: GitBranch,       live: true,  end: true  },
+  { path: '/crm/targets',     label: 'Targets',     icon: Target,          live: true,  end: true  },
 ];
 
 const ADMIN_NAV: NavEntry[] = [
@@ -66,6 +68,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/crm/import':                         'Bulk Import',
   '/crm/import/queue':                   'Import Queue',
   '/crm/pipeline':                       'Pipeline',
+  '/crm/targets':                        'Targets',
+  '/crm/reports/aging':                  'Lead Aging',
   '/crm/admin/commission-slabs':         'Commission Slabs',
   '/crm/admin/providers':                'Providers & SLA',
   '/crm/admin/document-types':           'Document Types',
@@ -134,6 +138,7 @@ export function CrmShell() {
 
   // Mobile nav drawer state
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [targetMissing, setTargetMissing] = useState(false);
 
   // Only subscribe to the queue when the user is a lead_generator — keeps
   // the hook call unconditional (Rules of Hooks) while skipping the Firestore
@@ -143,6 +148,15 @@ export function CrmShell() {
 
   // Import Queue badge — batches imported but not yet distributed (admin sees all; others their own).
   const { jobs: importJobs } = useImportHistory(profile?.role === 'admin');
+
+  // Targets badge — is the current month's target unset for this user?
+  useEffect(() => {
+    if (!user?.uid) return;
+    const period = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    getDoc(doc(db, 'rm_targets', `${user.uid}_${period}`))
+      .then((s) => setTargetMissing(!s.exists()))
+      .catch(() => setTargetMissing(false));
+  }, [user?.uid]);
 
   // Close mobile drawer on route change
   useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
@@ -164,6 +178,7 @@ export function CrmShell() {
   }
 
   const isAdmin   = profile?.role === 'admin';
+  const isManager = profile?.crmRole === 'manager';
   const isViewer  = profile?.crmRole === 'viewer' && !isAdmin;
   const canImport = isAdmin || profile?.crmRole === 'manager' || profile?.crmCanImport === true;
   const queueAwaiting = importJobs.filter(
@@ -211,6 +226,7 @@ export function CrmShell() {
               let enriched: NavEntry = entry;
               if (entry.path === '/crm/my-queue' && isGenerator) enriched = { ...entry, badge: queueOverdue };
               else if (entry.path === '/crm/import/queue')       enriched = { ...entry, badge: queueAwaiting };
+              else if (entry.path === '/crm/targets')            enriched = { ...entry, badge: targetMissing ? 1 : 0 };
               // Exact match for /crm/import so it doesn't also light up on /crm/import/queue
               const isActive = entry.path === '/crm/import'
                 ? location.pathname === '/crm/import'
@@ -229,6 +245,16 @@ export function CrmShell() {
               {ADMIN_NAV.map((entry) => (
                 <NavItemLive key={entry.path} entry={entry} isActive={location.pathname === entry.path} />
               ))}
+            </>
+          )}
+
+          {/* Reports — admin + manager */}
+          {(isAdmin || isManager) && (
+            <>
+              <div className="px-3 pt-4 pb-2">
+                <p className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: 'var(--shell-text-dim)' }}>Reports</p>
+              </div>
+              <NavItemLive entry={{ path: '/crm/reports/aging', label: 'Lead Aging', icon: BarChart3, live: true, end: true }} isActive={location.pathname === '/crm/reports/aging'} />
             </>
           )}
         </>

@@ -186,6 +186,7 @@ src/
     │   │   ├── useMyLeads.ts         useWealthInvestments.ts  useInsurancePolicies.ts
     │   │   ├── useCrmDocuments.ts    useBankEligibility.ts    useDocumentExpiry.ts
     │   │   ├── useBankSLA.ts         useFOIR.ts               useImportJobs.ts
+    │   │   ├── useRmTargets.ts       (Phase N — targets, computeActuals, achievementPct)
     │   │   └── config/              seedData.ts, seedDocumentTypes.ts, seedCrmConfig.ts, migrate.ts
     │   │
     │   ├── dashboard/     CrmDashboardPage — RM performance table, pipeline by biz line, source breakdown
@@ -199,6 +200,8 @@ src/
     │   │   ├── wealth/    WealthInvestmentsSection — investment tracking subcollection
     │   │   └── insurance/ InsurancePoliciesSection — policy tracking + 30-day renewal alerts
     │   ├── pipeline/      PipelinePage — Kanban board (stage columns per biz line, totals, Board/Table)
+    │   ├── targets/       TargetsPage — RM monthly targets vs live actuals (individual + team)   ← Phase N
+    │   ├── reports/       LeadAgingPage — Fresh/Active/Aging/Stale buckets + CSV (admin/manager)  ← Phase N
     │   ├── commissions/   CommissionRecordsPage, CommissionDashboardCard; mark paid/clawback
     │   ├── import/        ImportPage (Sheets bulk + mandatory import name), ImportQueuePage (2-stage distribute),
 │   │                  ImportProgressDock (global progress bar in CrmShell), ImportHistoryPage
@@ -215,7 +218,8 @@ src/
         ├── statements/    StatementsPage, StatementDetailPage, UploadStatementPage (CSV column mapping)
         ├── reconciliation/ ReconciliationPage (auto-match + manual), LineMatchModal
         │                   shows CRM Loan No/App No in Matched-To column
-        └── payouts/       PayoutsPage, PayoutDetailPage, GeneratePayoutsPage, PayoutSlabsPage
+        ├── payouts/       PayoutsPage, PayoutDetailPage, GeneratePayoutsPage, PayoutSlabsPage
+        └── admin/         StatementTemplatesPage — per-bank CSV column templates (Phase N)
 ```
 
 ---
@@ -2259,6 +2263,8 @@ Authoritative list of every Express route. Verify against `server.ts` after any 
 **Scheduled-job HTTP targets (Cloud Scheduler, OIDC or admin token)**
 - `POST /api/admin/run-bank-sla-check` · `POST /api/admin/run-commission-leakage-check`
 - `POST /api/admin/run-document-expiry-check` · `POST /api/admin/run-leave-year-reset`
+- `POST /api/admin/run-followup-check` (Phase N) · `POST /api/admin/run-daily-briefing` (Phase N)
+- `POST /api/admin/run-monthly-scorecards` (Phase N) · `POST /api/admin/generate-scorecard/:uid/:period` (Phase N — manual, admin)
 
 **SPA fallback**: `GET *` → `index.html` (prod static).
 
@@ -2287,3 +2293,38 @@ Every collection with a rule block. The global deny-all (`/{document=**}`) rejec
 **MIS**: `commission_statements`, `commission_statements/{id}/lines`, `rm_payout_slabs`, `rm_payouts`
 
 **Infra**: `rate_limits` (server-only), `audit_logs`, `access_logs`
+
+**Performance (Phase N)**: `rm_targets`, `follow_up_logs`, `scorecard_logs`, `commission_statement_templates`
+
+---
+
+## Phase N — Performance & Target Tracking (2026-06-08)
+
+CRM performance suite — monthly RM targets vs live actuals, smart follow-up reminders, daily briefing emails, lead-aging report, RM scorecard PDFs, and bank statement-template auto-mapping. All deterministic (thresholds, date math, aggregation of existing Firestore). No AI/LLM.
+
+| Part | Feature | Files |
+|---|---|---|
+| 1 | **Targets + tracking** | `src/features/crm/hooks/useRmTargets.ts` (`useMyTargets`, `useTeamTargets`, `setTarget`, `computeActuals`, `achievementPct`); `src/features/crm/targets/TargetsPage.tsx` (`/crm/targets`) — 4 progress cards, pipeline mini-table, team table w/ totals + cell colour coding |
+| 2 | **Smart follow-up reminders** | `server.ts` `POST /api/admin/run-followup-check` — active leads (open opp) with no activity >3 days → in-app `follow_up_needed` notification + RM email; per-lead-per-day dedup via `/follow_up_logs` |
+| 3 | **Daily RM briefing** | `server.ts` `POST /api/admin/run-daily-briefing` — per RM: overdue SLA, stale leads, target progress, one deterministic priority action; skips RMs with no leads |
+| 4 | **Lead aging report** | `src/features/crm/reports/LeadAgingPage.tsx` (`/crm/reports/aging`, admin/manager) — Fresh 0–7 / Active 8–30 / Aging 31–60 / Stale 61+ buckets, RM/stage/line filters, CSV export |
+| 5 | **RM scorecard PDF** | `server.ts` `POST /api/admin/run-monthly-scorecards` (all RMs, prior month) + `POST /api/admin/generate-scorecard/:uid/:period` (manual). jsPDF in Node → Storage `scorecards/{uid}/…` → email PDF attachment to RM + admin → `/scorecard_logs`. Manual button on TargetsPage team view |
+| 6 | **Statement template auto-parser** | `src/features/mis/admin/StatementTemplatesPage.tsx` (`/mis/admin/statement-templates`); `UploadStatementPage.tsx` auto-maps columns when `/commission_statement_templates/{providerId}` exists; "Save as template" on manual map; seed HDFC/SBI/ICICI/Axis/Kotak (matched to providers by name) |
+| 7 | **Navigation** | CrmShell: "Targets" (badge when current-month target unset, admin/manager) + Reports → "Lead Aging"; MisShell admin: "Statement Templates" |
+| 8 | **Types** | `RmTarget`, `RmActuals`, `LeadAgingBucket`, `ScorecardLog`, `StatementTemplate`; `NotificationType += 'follow_up_needed'` |
+
+### Actuals — computed live, never stored
+- **newLeads**: `/leads` where `primaryOwnerId==uid && deleted==false && createdAt >= month start`
+- **leadsConverted**: collectionGroup `opportunities` where `status=='won' && ownerId==uid && actualCloseDate startsWith period`
+- **disbursalAmount**: Σ `commission_records.disbursedAmount` where `rmOwnerId==uid && disbursalDate startsWith period`
+- **commissionGenerated**: Σ `commission_records.actualAmount` (paid) where `rmOwnerId==uid && actualPayoutDate startsWith period`
+- **Index-safe**: each query uses a single equality filter; period/date narrowing happens in memory (no new composite indexes). Scorecard activity-counts use a `collectionGroup('activities').where('by',==,uid)` query wrapped in try/catch — degrades to 0 if that index is absent.
+
+### Firestore rules added
+`rm_targets` (read: admin/manager/own · write: admin/manager · delete: false); `follow_up_logs` + `scorecard_logs` (admin read, server-only write); `commission_statement_templates` (read: admin/misAccess · write+delete: admin). New helper `isManager()` (`crmRole=='manager'`).
+
+### Cloud Scheduler jobs to register (3) — see go-live commands in the repo / chat
+`followup-check` daily 09:00 IST (`30 3 * * *`) · `daily-rm-briefing` daily 08:30 IST (`0 3 * * *`) · `monthly-scorecards` 1st 07:00 IST (`30 1 1 * *`). All hit `pulse-api` with OIDC (SA `787616231546-compute@developer.gserviceaccount.com`).
+
+### Known nuance
+The "target not set" nav badge shows for admin/manager (who can read all `rm_targets`). A plain RM's badge is suppressed because reading their own *non-existent* target doc is denied by the own-`rmId` rule — the in-page "No target set" banner still informs them.

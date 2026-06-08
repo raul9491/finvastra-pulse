@@ -171,7 +171,7 @@ src/
     │   ├── performance/   PerformancePage (self-assessment), AdminPerformancePage
     │   ├── training/      TrainingPage (employee enroll), AdminTrainingPage
     │   ├── helpdesk/      HrHelpdeskPage (raise ticket), AdminHelpdeskPage (POSH Act compliant)
-    │   ├── orgchart/      OrgChartPage — CSS flexbox hierarchy, collapse/expand, dept filter
+    │   ├── orgchart/      OrgChartPage — indented vertical tree (file-explorer style), collapse/expand, dept filter
     │   ├── holidays/      HolidaysPage — Hyderabad 2026 calendar, auto-seeded
     │   ├── guide/         PulseGuidePage — 12-section accordion quick-reference
     │   ├── settings/      SettingsPage — Contact HR cards
@@ -1611,10 +1611,11 @@ Every self-service update is logged to `/profile_update_logs/{id}` for audit.
 - Root: Ajay Newatia (FAPL-000, UID `3zdX5QBnTbQAcTdLzUjfXxefP8r2`)
 - Employees whose manager can't be resolved by uid or name attach directly under root
 - Max depth: 10 (guards against circular references in bad data)
-- Collapse/expand per node (chevron button below each card); Expand All / Collapse All buttons
+- **Layout: indented vertical tree** (file-explorer style) — grows top-to-bottom only, **no horizontal scrolling**, fits any screen however many reports a manager has (replaced the old wide horizontal card tree on 2026-06-08, which forced two-axis scrolling and pushed the root off-screen)
+- Collapse/expand per node (chevron at the left of each row); Expand All / Collapse All; Collapse All keeps the root row visible
 - Department filter (dropdown + legend chips): shows subtree containing matching employees, preserving ancestor chain
-- Each card: avatar initial (or photo), name, designation, emp code, department badge in dept colour
-- No external chart library — pure CSS flexbox tree
+- Each row: chevron (if reports) · avatar initial (or photo) in dept colour · name · emp-code badge · dept badge · designation · report count; children indented under a guide line
+- No external chart library — recursive `OrgRow` component, capped at `max-w-3xl`
 
 **Dept colours** (matching left-border accent on cards):
 

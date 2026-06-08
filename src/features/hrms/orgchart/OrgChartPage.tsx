@@ -1,13 +1,18 @@
 /**
- * OrgChartPage — CSS tree built from the `managerId` field on user docs.
+ * OrgChartPage — indented vertical tree built from each user's reporting manager.
  *
- * - Root: Ajay Newatia (FAPL-000, UID 3zdX5QBnTbQAcTdLzUjfXxefP8r2).
- * - Employees whose managerId is absent or points to an unknown UID are attached
+ * Layout: a top-to-bottom indented list (like a file explorer), NOT a wide card
+ * tree — so it never needs horizontal scrolling and reads cleanly on any screen,
+ * however many direct reports a manager has.
+ *
+ * Manager resolution (per active employee), in order:
+ *   reportingManagerUid → legacy managerId → reportingManagerName matched against
+ *   employee display names (name fallback for records that saved only the name).
+ *
+ * - Root: Ajay Newatia (FAPL-000). Anyone whose manager can't be resolved attaches
  *   directly under root so no one is lost.
- * - Max rendered depth: 10 (prevents infinite loops from bad data).
- * - Collapse/expand per node (state held in a Set of collapsed UIDs).
- * - Department filter: shows only the subtree containing employees in the chosen
- *   department (preserves ancestor chain for context).
+ * - Max rendered depth: 10 (guards against circular references in bad data).
+ * - Collapse/expand per node; department filter keeps the ancestor chain for context.
  * - Visible to all authenticated employees (read-only).
  */
 
@@ -65,7 +70,6 @@ function buildTree(
 
   // childrenOf[uid] = list of direct-report uids
   const childrenOf = new Map<string, string[]>();
-  const attached   = new Set<string>();
 
   for (const emp of active) {
     if (emp.userId === ROOT_UID) continue; // root handled separately
@@ -84,7 +88,6 @@ function buildTree(
 
     if (!childrenOf.has(parentId)) childrenOf.set(parentId, []);
     childrenOf.get(parentId)!.push(emp.userId);
-    attached.add(emp.userId);
   }
 
   function toNode(uid: string, depth: number): OrgNode {
@@ -141,7 +144,7 @@ function filterTree(node: OrgNode, dept: string): OrgNode | null {
   return { ...node, children: filteredKids };
 }
 
-// ─── OrgCard ──────────────────────────────────────────────────────────────────
+// ─── Colours / helpers ────────────────────────────────────────────────────────
 
 const DEPT_COLORS: Record<string, string> = {
   'Management':                          '#C9A961',
@@ -167,137 +170,89 @@ function avatarInitial(name: string): string {
     : name.slice(0, 2).toUpperCase();
 }
 
-interface OrgCardProps {
-  node:       OrgNode;
-  collapsed:  Set<string>;
-  onToggle:   (uid: string) => void;
-  depth:      number;
+// ─── OrgRow — one indented row, recurses for children ─────────────────────────
+
+interface OrgRowProps {
+  node:      OrgNode;
+  collapsed: Set<string>;
+  onToggle:  (uid: string) => void;
 }
 
-function OrgCard({ node, collapsed, onToggle, depth }: OrgCardProps) {
+function OrgRow({ node, collapsed, onToggle }: OrgRowProps) {
   const isCollapsed = collapsed.has(node.userId);
   const hasKids     = node.children.length > 0;
   const color       = deptColor(node.department);
 
   return (
-    <div className="flex flex-col items-center" style={{ minWidth: 0 }}>
-      {/* Card */}
-      <div
-        className="relative group rounded-2xl border bg-white shadow-sm transition-shadow hover:shadow-md"
-        style={{
-          borderColor: color + '44',
-          borderTopWidth: 3,
-          borderTopColor: color,
-          width: 164,
-          userSelect: 'none',
-        }}
-      >
+    <div>
+      {/* Row */}
+      <div className="flex items-center gap-2.5 py-1.5 pl-1 pr-2 rounded-lg transition-colors hover:bg-slate-50">
+        {/* Chevron / spacer (keeps avatars aligned whether or not there are reports) */}
+        {hasKids ? (
+          <button
+            onClick={() => onToggle(node.userId)}
+            className="w-5 h-5 flex items-center justify-center rounded shrink-0 transition-colors hover:bg-slate-200"
+            style={{ color: '#64748B' }}
+            title={isCollapsed ? `Show ${node.children.length} report${node.children.length !== 1 ? 's' : ''}` : 'Collapse'}
+          >
+            {isCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+          </button>
+        ) : (
+          <span className="w-5 h-5 shrink-0" />
+        )}
+
         {/* Avatar */}
-        <div className="flex flex-col items-center pt-4 pb-3 px-3 gap-1">
-          <div
-            className="rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-            style={{
-              width: 44,
-              height: 44,
-              backgroundColor: color,
-              fontSize: 15,
-            }}
-          >
-            {node.photoURL
-              ? <img src={node.photoURL} alt="" className="w-full h-full rounded-full object-cover" />
-              : avatarInitial(node.displayName)}
+        <div
+          className="rounded-full flex items-center justify-center text-white font-bold shrink-0 overflow-hidden"
+          style={{ width: 34, height: 34, backgroundColor: color, fontSize: 12 }}
+        >
+          {node.photoURL
+            ? <img src={node.photoURL} alt="" className="w-full h-full object-cover" />
+            : avatarInitial(node.displayName)}
+        </div>
+
+        {/* Name + meta */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold truncate" style={{ color: '#0A0A0A' }}>
+              {node.displayName}
+            </span>
+            {node.employeeId && (
+              <span
+                className="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                style={{ backgroundColor: '#F1F5F9', color: '#64748B' }}
+              >
+                {node.employeeId}
+              </span>
+            )}
+            {node.department && (
+              <span
+                className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0"
+                style={{ backgroundColor: color + '18', color }}
+              >
+                {node.department.split(' ')[0]}
+              </span>
+            )}
           </div>
-
-          <p
-            className="text-xs font-semibold text-center leading-tight mt-1"
-            style={{ color: '#0A0A0A', maxWidth: 130 }}
-          >
-            {node.displayName}
-          </p>
-
           {node.designation && (
-            <p
-              className="text-[10px] text-center leading-tight"
-              style={{ color: '#8B8B85', maxWidth: 130 }}
-            >
-              {node.designation}
-            </p>
-          )}
-
-          {node.employeeId && (
-            <span
-              className="text-[9px] font-mono px-1.5 py-0.5 rounded"
-              style={{ backgroundColor: '#F1F5F9', color: '#64748B' }}
-            >
-              {node.employeeId}
-            </span>
-          )}
-
-          {node.department && (
-            <span
-              className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full mt-0.5"
-              style={{
-                backgroundColor: color + '18',
-                color: color,
-              }}
-            >
-              {node.department.split(' ')[0]}
-            </span>
+            <p className="text-xs truncate" style={{ color: '#8B8B85' }}>{node.designation}</p>
           )}
         </div>
 
-        {/* Expand / collapse toggle */}
+        {/* Report count */}
         {hasKids && (
-          <button
-            onClick={() => onToggle(node.userId)}
-            className="absolute -bottom-3.5 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full border-2 flex items-center justify-center bg-white z-10 transition-colors hover:border-gold"
-            style={{ borderColor: color }}
-            title={isCollapsed ? `Show ${node.children.length} report${node.children.length !== 1 ? 's' : ''}` : 'Collapse'}
-          >
-            {isCollapsed
-              ? <ChevronRight size={12} style={{ color }} />
-              : <ChevronDown  size={12} style={{ color }} />}
-          </button>
+          <span className="text-[11px] shrink-0 whitespace-nowrap" style={{ color: '#8B8B85' }}>
+            {node.children.length} report{node.children.length !== 1 ? 's' : ''}
+          </span>
         )}
       </div>
 
-      {/* Vertical connector down to children bar */}
+      {/* Children — indented with a guide line */}
       {hasKids && !isCollapsed && (
-        <div className="flex flex-col items-center">
-          {/* Short vertical line from card to horizontal bar */}
-          <div className="w-px bg-slate-200" style={{ height: 28 }} />
-
-          {/* Horizontal bar spanning all children */}
-          <div className="relative flex items-start justify-center gap-6">
-            {/* The horizontal line */}
-            {node.children.length > 1 && (
-              <div
-                className="absolute top-0 bg-slate-200"
-                style={{
-                  height: 1,
-                  left:  '50%',
-                  right: '50%',
-                  transform: 'none',
-                  // We'll use CSS trick: span from leftmost to rightmost child center
-                  // by making it full-width of the container minus padding
-                  width: '100%',
-                }}
-              />
-            )}
-
-            {node.children.map((child) => (
-              <div key={child.userId} className="flex flex-col items-center pt-0">
-                {/* Vertical drop to child card */}
-                <div className="w-px bg-slate-200" style={{ height: 18 }} />
-                <OrgCard
-                  node={child}
-                  collapsed={collapsed}
-                  onToggle={onToggle}
-                  depth={depth + 1}
-                />
-              </div>
-            ))}
-          </div>
+        <div className="ml-4 pl-3 border-l" style={{ borderColor: '#E2E8F0' }}>
+          {node.children.map((child) => (
+            <OrgRow key={child.userId} node={child} collapsed={collapsed} onToggle={onToggle} />
+          ))}
         </div>
       )}
     </div>
@@ -328,15 +283,15 @@ export function OrgChartPage() {
   };
 
   const collapseAll = () => {
-    // Collect all non-leaf UIDs
+    // Collapse everything except the root, so the top person stays visible
     const allInternal = new Set<string>();
-    function walk(node: OrgNode) {
+    function walk(node: OrgNode, depth: number) {
       if (node.children.length > 0) {
-        allInternal.add(node.userId);
-        node.children.forEach(walk);
+        if (depth > 0) allInternal.add(node.userId);
+        node.children.forEach((c) => walk(c, depth + 1));
       }
     }
-    walk(tree);
+    walk(tree, 0);
     setCollapsed(allInternal);
   };
 
@@ -411,10 +366,10 @@ export function OrgChartPage() {
         </div>
       </div>
 
-      {/* Chart canvas */}
+      {/* Chart canvas — indented tree, vertical growth only */}
       <div
-        className="bg-white rounded-2xl border border-slate-200 overflow-auto"
-        style={{ minHeight: 400 }}
+        className="bg-white rounded-2xl border border-slate-200 overflow-hidden"
+        style={{ minHeight: 300 }}
       >
         {loading ? (
           <div className="flex items-center justify-center h-64 gap-2">
@@ -436,14 +391,9 @@ export function OrgChartPage() {
             </button>
           </div>
         ) : (
-          <div className="p-8 overflow-x-auto">
-            <div className="inline-flex" style={{ minWidth: 'max-content' }}>
-              <OrgCard
-                node={filteredTree}
-                collapsed={collapsed}
-                onToggle={toggle}
-                depth={0}
-              />
+          <div className="p-3 sm:p-5">
+            <div className="max-w-3xl">
+              <OrgRow node={filteredTree} collapsed={collapsed} onToggle={toggle} />
             </div>
           </div>
         )}

@@ -148,6 +148,12 @@ textarea.glass-inp {
   padding: 10px 14px !important;
   transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
 }
+/* Search inputs: a magnifier icon sits at left-3, but the !important padding above
+   clobbers Tailwind's pl-* utility, so the placeholder text overlaps the icon. These
+   higher-specificity rules restore the left padding for any glass-inp search field. */
+input.glass-inp.pl-8  { padding-left: 2rem    !important; }
+input.glass-inp.pl-9  { padding-left: 2.25rem !important; }
+input.glass-inp.pl-10 { padding-left: 2.5rem  !important; }
 .glass-input::placeholder,
 input.glass-inp::placeholder,
 textarea.glass-inp::placeholder {

@@ -81,6 +81,14 @@
       ]
     },
     {
+      "collectionGroup": "activities",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "by", "order": "ASCENDING"  },
+        { "fieldPath": "at", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "providers",
       "queryScope": "COLLECTION",
       "fields": [

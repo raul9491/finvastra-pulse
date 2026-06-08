@@ -1026,8 +1026,9 @@ service cloud.firestore {
     // ─── Performance & Targets (Phase N) ─────────────────────────────────────────
     // RM targets per month. RMs read their own; managers/admin read all + write.
     match /rm_targets/{docId} {
-      allow read:   if isAdmin() || isManager()
-                    || (isSignedIn() && request.auth.uid == resource.data.rmId);
+      // Targets are not PII — any signed-in employee may read (fixes the own-badge
+      // permission-denied on a non-existent target doc). Writes stay admin/manager only.
+      allow read:   if isSignedIn();
       allow create, update: if isAdmin() || isManager();
       allow delete: if false;
     }

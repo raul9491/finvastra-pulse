@@ -2318,13 +2318,14 @@ CRM performance suite — monthly RM targets vs live actuals, smart follow-up re
 - **leadsConverted**: collectionGroup `opportunities` where `status=='won' && ownerId==uid && actualCloseDate startsWith period`
 - **disbursalAmount**: Σ `commission_records.disbursedAmount` where `rmOwnerId==uid && disbursalDate startsWith period`
 - **commissionGenerated**: Σ `commission_records.actualAmount` (paid) where `rmOwnerId==uid && actualPayoutDate startsWith period`
-- **Index-safe**: each query uses a single equality filter; period/date narrowing happens in memory (no new composite indexes). Scorecard activity-counts use a `collectionGroup('activities').where('by',==,uid)` query wrapped in try/catch — degrades to 0 if that index is absent.
+- **Index-safe**: each query uses a single equality filter; period/date narrowing happens in memory. Scorecard activity-counts use `collectionGroup('activities').where('by',==,uid)`, backed by a `(by ASC, at DESC)` collection-group index in `firestore.indexes.json` (added 2026-06-08); the try/catch fallback remains as defense.
 
 ### Firestore rules added
-`rm_targets` (read: admin/manager/own · write: admin/manager · delete: false); `follow_up_logs` + `scorecard_logs` (admin read, server-only write); `commission_statement_templates` (read: admin/misAccess · write+delete: admin). New helper `isManager()` (`crmRole=='manager'`).
+`rm_targets` (read: **any signed-in** — targets are non-PII; write: admin/manager · delete: false); `follow_up_logs` + `scorecard_logs` (admin read, server-only write); `commission_statement_templates` (read: admin/misAccess · write+delete: admin). New helper `isManager()` (`crmRole=='manager'`).
 
 ### Cloud Scheduler jobs — ✅ registered & ENABLED (2026-06-08)
 `followup-check` daily 09:00 IST (`30 3 * * *`) · `daily-rm-briefing` daily 08:30 IST (`0 3 * * *`) · `monthly-scorecards` 1st 07:00 IST (`30 1 1 * *`) — all in `asia-south1`, hitting `pulse-api` with OIDC (SA `787616231546-compute@developer.gserviceaccount.com`). Manage: `gcloud scheduler jobs run|pause|describe <name> --location=asia-south1`.
 
-### Known nuance
-The "target not set" nav badge shows for admin/manager (who can read all `rm_targets`). A plain RM's badge is suppressed because reading their own *non-existent* target doc is denied by the own-`rmId` rule — the in-page "No target set" banner still informs them.
+### Resolved follow-ups (2026-06-08)
+- **Targets read rule relaxed** to `isSignedIn()` — the "target not set" nav badge now works for every RM (no permission-denied on a non-existent own target). Targets are non-PII; writes stay admin/manager only.
+- **Scorecard activity index added** — `activities (by ASC, at DESC)` collection-group composite, so calls/meetings counts are real instead of silently 0.

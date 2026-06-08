@@ -146,7 +146,9 @@ export function AddEmployeeModal({
   // Reporting manager options — super admins first, then admins, then employees.
   // Format: "[Name] — [Designation]"
   const managerOptions = useMemo(() => {
-    const sorted = [...employees].sort((a, b) => {
+    const sorted = [...employees]
+      .filter((e) => e.employeeStatus !== 'inactive')   // can't report to someone who has left
+      .sort((a, b) => {
       const aSuper = isSuperAdmin(a.userId) ? 0 : a.role === 'admin' ? 1 : 2;
       const bSuper = isSuperAdmin(b.userId) ? 0 : b.role === 'admin' ? 1 : 2;
       if (aSuper !== bSuper) return aSuper - bSuper;

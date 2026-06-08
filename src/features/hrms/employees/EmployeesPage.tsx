@@ -78,7 +78,7 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
   // Reporting manager options sorted: super admins → admins → employees
   const managerOptions = useMemo(() =>
     [...allEmployees]
-      .filter((e) => e.userId !== employee.userId) // can't be own manager
+      .filter((e) => e.userId !== employee.userId && e.employeeStatus !== 'inactive') // not self, not inactive (inactive managers break the org tree)
       .sort((a, b) => {
         const as_ = isSuperAdmin(a.userId) ? 0 : a.role === 'admin' ? 1 : 2;
         const bs_ = isSuperAdmin(b.userId) ? 0 : b.role === 'admin' ? 1 : 2;

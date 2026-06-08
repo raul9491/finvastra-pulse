@@ -1610,6 +1610,7 @@ Every self-service update is logged to `/profile_update_logs/{id}` for audit.
 
 - Root: Ajay Newatia (FAPL-000, UID `3zdX5QBnTbQAcTdLzUjfXxefP8r2`)
 - Employees whose manager can't be resolved by uid or name attach directly under root
+- **Inactive managers are dropped** (only active employees are in the tree), so their reports fall back under root. To prevent assigning anyone to a manager who has left, the **Reporting Manager dropdown now excludes inactive employees** (Add Employee modal + Employees edit modal, 2026-06-08). _Gotcha seen in the wild: 3 reports were assigned to an inactive lead with a name very close to an active one (“Dadapuram Hima Bindu” vs “M Hemadri Babu”) and silently dropped to root._
 - Max depth: 10 (guards against circular references in bad data)
 - **Layout: indented vertical tree** (file-explorer style) — grows top-to-bottom only, **no horizontal scrolling**, fits any screen however many reports a manager has (replaced the old wide horizontal card tree on 2026-06-08, which forced two-axis scrolling and pushed the root off-screen)
 - Collapse/expand per node (chevron at the left of each row); Expand All / Collapse All; Collapse All keeps the root row visible

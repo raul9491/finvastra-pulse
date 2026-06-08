@@ -74,24 +74,29 @@ export function CommandCentrePage() {
       const now = Date.now();
       const afterTen = new Date().getHours() >= 10;
 
+      // Fail-safe per query — one denied/missing-index collection must not blank the whole
+      // dashboard. A rejected query degrades that section to empty instead of killing the page.
+      const EMPTY: any = { forEach: () => {}, size: 0, docs: [] as any[] };
+      const safe = (p: Promise<any>): Promise<any> => p.catch(() => EMPTY);
+
       const [
         usersSnap, attSnap, leaveP, claimsP, itP, corrP, encP,
         openOpps, wonOpps, leadsSnap, compSnap, auditSnap, leaveRecent, paidComm,
       ] = await Promise.all([
-        getDocs(collection(db, 'users')),
-        getDocs(query(collection(db, 'attendance'), where('date', '==', today))),
-        getDocs(query(collection(db, 'leave_applications'), where('status', '==', 'pending'))),
-        getDocs(query(collection(db, 'claims'), where('status', '==', 'pending'))),
-        getDocs(query(collection(db, 'it_declarations'), where('status', '==', 'submitted'))),
-        getDocs(query(collection(db, 'attendance_regularizations'), where('status', '==', 'pending'))),
-        getDocs(query(collection(db, 'leave_encashment_requests'), where('status', '==', 'pending'))),
-        getDocs(query(collectionGroup(db, 'opportunities'), where('status', '==', 'open'))),
-        getDocs(query(collectionGroup(db, 'opportunities'), where('status', '==', 'won'))),
-        getDocs(query(collection(db, 'leads'), where('deleted', '==', false))),
-        getDocs(collection(db, 'compliance_records')),
-        getDocs(query(collection(db, 'audit_logs'), orderBy('at', 'desc'), limit(5))),
-        getDocs(query(collection(db, 'leave_applications'), orderBy('appliedAt', 'desc'), limit(12))),
-        getDocs(query(collection(db, 'commission_records'), where('status', '==', 'paid'))),
+        safe(getDocs(collection(db, 'users'))),
+        safe(getDocs(query(collection(db, 'attendance'), where('date', '==', today)))),
+        safe(getDocs(query(collection(db, 'leave_applications'), where('status', '==', 'pending')))),
+        safe(getDocs(query(collection(db, 'claims'), where('status', '==', 'pending')))),
+        safe(getDocs(query(collection(db, 'it_declarations'), where('status', '==', 'submitted')))),
+        safe(getDocs(query(collection(db, 'attendance_regularizations'), where('status', '==', 'pending')))),
+        safe(getDocs(query(collection(db, 'leave_encashment_requests'), where('status', '==', 'pending')))),
+        safe(getDocs(query(collectionGroup(db, 'opportunities'), where('status', '==', 'open')))),
+        safe(getDocs(query(collectionGroup(db, 'opportunities'), where('status', '==', 'won')))),
+        safe(getDocs(query(collection(db, 'leads'), where('deleted', '==', false)))),
+        safe(getDocs(collection(db, 'compliance_records'))),
+        safe(getDocs(query(collection(db, 'audit_logs'), orderBy('at', 'desc'), limit(5)))),
+        safe(getDocs(query(collection(db, 'leave_applications'), orderBy('appliedAt', 'desc'), limit(12)))),
+        safe(getDocs(query(collection(db, 'commission_records'), where('status', '==', 'paid')))),
       ]);
 
       // Users map (active only)

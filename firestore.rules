@@ -272,14 +272,18 @@ service cloud.firestore {
       allow create: if ((hasCrmAccess() || isAdmin()) && isValidLead(incoming()))
                        || (hasHrmsAccess() && isValidReferralLead(incoming()));
 
-      // Admin updates any field; primary owner can update non-consent, non-PAN fields
+      // Admin updates any field; primary owner can update non-consent, non-PAN fields.
+      // slaDeadline is allowed only when CLEARED to null (e.g. on deal close) — owners
+      // cannot extend their own SLA to dodge the overdue badge.
       allow update: if isAdmin() ||
                        (hasCrmAccess() &&
                         resource.data.primaryOwnerId == request.auth.uid &&
                         incoming().diff(existing()).affectedKeys().hasOnly([
                           'displayName', 'phone', 'email', 'source', 'tags',
-                          'primaryOwnerId', 'updatedAt'
-                        ]));
+                          'primaryOwnerId', 'updatedAt', 'slaDeadline'
+                        ]) &&
+                        (!incoming().diff(existing()).affectedKeys().hasAny(['slaDeadline'])
+                         || incoming().slaDeadline == null));
 
       allow delete: if false;  // soft delete only — set deleted:true via admin update
     }
@@ -304,7 +308,8 @@ service cloud.firestore {
                         resource.data.ownerId == request.auth.uid &&
                         incoming().diff(existing()).affectedKeys().hasOnly([
                           'stage', 'status', 'notes', 'expectedCloseDate',
-                          'actualCloseDate', 'updatedAt', 'customFields', 'stageData'
+                          'actualCloseDate', 'updatedAt', 'customFields', 'stageData',
+                          'lostDetails'
                         ]));
 
       allow delete: if false;

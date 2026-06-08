@@ -1370,6 +1370,17 @@ export function OpportunityDetailPage() {
             setStageSaving(true);
             try {
               await markOpportunityLost(leadId!, oppId!, user.uid, details);
+              // If no open opportunities remain on this lead, clear its SLA so it drops
+              // out of "overdue" counts instantly (telecaller closed/lost the deal).
+              try {
+                const openSnap = await getDocs(query(
+                  collection(db, 'leads', leadId!, 'opportunities'),
+                  where('status', '==', 'open'),
+                ));
+                if (openSnap.empty) {
+                  await updateDoc(doc(db, 'leads', leadId!), { slaDeadline: null, updatedAt: serverTimestamp() });
+                }
+              } catch { /* non-fatal — opportunity is already marked lost */ }
               setLostModalOpen(false);
             } finally {
               setStageSaving(false);

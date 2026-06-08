@@ -67,7 +67,7 @@ export function LauncherPage() {
   const showHrms = isAdmin || profile?.hrmsAccess !== false;
   const showCrm  = isAdmin || profile?.crmAccess === true;
   const showMis  = isAdmin || profile?.misAccess != null;
-  const showCommand = isAdmin || profile?.crmRole === 'manager';
+  const showCommand = isAdmin || profile?.commandCentreAccess === true;
 
   const firstName = profile?.displayName?.split(' ')[0] ?? 'there';
 

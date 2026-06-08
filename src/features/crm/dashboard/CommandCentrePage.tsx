@@ -54,7 +54,7 @@ const avatar = (e: Emp) => (e.name?.[0] ?? '?').toUpperCase();
 export function CommandCentrePage() {
   const { profile, user } = useAuth();
   const navigate = useNavigate();
-  const canAccess = profile?.role === 'admin' || profile?.crmRole === 'manager';
+  const canAccess = profile?.role === 'admin' || profile?.commandCentreAccess === true;
 
   const period = periodStr();
   const { rows: teamRows, loading: teamLoading } = useTeamTargets(period, canAccess);

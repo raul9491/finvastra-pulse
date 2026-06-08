@@ -84,6 +84,7 @@ export interface UserProfile {
   isHrmsManager?: boolean;    // grants leave approval + admin attendance override
   crmCanImport?: boolean;     // can trigger bulk Sheet imports (default: only managers; admin can grant individually)
   misAccess?: MisAccess;
+  commandCentreAccess?: boolean; // grants the cross-module Command Centre (admins always have it)
   createdAt?: import('firebase/firestore').Timestamp;
 }
 

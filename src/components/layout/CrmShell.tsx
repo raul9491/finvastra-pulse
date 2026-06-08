@@ -163,7 +163,7 @@ export function CrmShell() {
 
   // Command Centre badge — total pending approvals (admin/manager only)
   useEffect(() => {
-    const can = profile?.role === 'admin' || profile?.crmRole === 'manager';
+    const can = profile?.role === 'admin' || profile?.commandCentreAccess === true;
     if (!can) return;
     (async () => {
       const snaps = await Promise.all([
@@ -175,7 +175,7 @@ export function CrmShell() {
       ]);
       setPendingApprovals(snaps.reduce((s, c) => s + c.size, 0));
     })().catch(() => setPendingApprovals(0));
-  }, [profile?.role, profile?.crmRole]);
+  }, [profile?.role, profile?.commandCentreAccess]);
 
   // Close mobile drawer on route change
   useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
@@ -236,7 +236,7 @@ export function CrmShell() {
           {NAV
             // Hide Import from viewers and from users without import access
             .filter((entry) => {
-              if (entry.path === '/crm/command-centre') return isAdmin || isManager;
+              if (entry.path === '/crm/command-centre') return isAdmin || profile?.commandCentreAccess === true;
               if (entry.path === '/crm/import') return canImport;
               if (entry.path === '/crm/import/queue') return canImport;
               if (entry.path === '/crm/my-queue') return isGenerator || isAdmin;

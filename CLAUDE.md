@@ -775,6 +775,7 @@ The app has three modules behind a post-login launcher. **Never add features fro
 - `hrmsAccess: boolean` — default `true`. Everyone gets HRMS self-service.
 - `crmAccess: boolean` — default `false`. Set `true` for RMs by admin.
 - `misAccess: boolean` — default `false`. Set `true` for finance/accounts team by admin. Phase 4 build.
+- `commandCentreAccess: boolean` — default `false`. Grants the cross-module Command Centre (`/crm/command-centre`); admins always have it. Toggled per-user in Permission Manager. Phase O.
 - `role === 'admin'` bypasses all flags and can enter any module.
 
 **CRM note**: the Lead engine builds entirely into `/crm/*`. Do not add Lead, Pipeline, or Commission routes to the HRMS shell or the root router.
@@ -2337,7 +2338,7 @@ CRM performance suite — monthly RM targets vs live actuals, smart follow-up re
 
 Single cross-module command centre for Ajay & Kumar — reads **HRMS + CRM + MIS**. Pure aggregation of existing Firestore data; **no new collections / endpoints / rules**, no AI.
 
-**Route**: `/crm/command-centre` (admin + manager) · **File**: `src/features/crm/dashboard/CommandCentrePage.tsx`
+**Route**: `/crm/command-centre` — access = `role === 'admin'` **OR** the per-user `commandCentreAccess` flag (toggled in Permission Manager `/hrms/admin/permissions`; admins always have it). · **File**: `src/features/crm/dashboard/CommandCentrePage.tsx`
 
 | Section | Source collections |
 |---|---|
@@ -2349,7 +2350,9 @@ Single cross-module command centre for Ajay & Kumar — reads **HRMS + CRM + MIS
 | Compliance alerts | `/compliance_records` — overdue/due_soon computed from `dueDate`/`filedAt` (same logic as ComplianceCalendarPage) |
 | Recent activity feed | `/audit_logs` (5) + recent `/leave_applications` (3) + paid `/commission_records` (3), merged & sorted DESC, max 10 |
 
-**Navigation**: CrmShell nav "Command Centre" at the **TOP** (admin/manager only) with a red badge = total pending approvals; LauncherPage **4th card** "Command Centre" for admin/manager.
+**Navigation**: CrmShell nav "Command Centre" at the **TOP** (admin or `commandCentreAccess`) with a red badge = total pending approvals; LauncherPage **4th card** "Command Centre" for the same.
+
+**Access management**: `commandCentreAccess: boolean` on `/users/{uid}`, toggled via a "⌘ Cmd Centre" checkbox in the CRM-access cell of the Permission Manager. UI-gating only (no rules dependency). A **non-admin grantee also needs `crmAccess`** to enter the CRM shell, and **`isHrmsManager`** for the HR sections to populate (those collections are rule-gated to admin/HR-manager). Admins/super-admins have everything.
 
 **Mobile (< md)**: KPI chips 2×2; attendance avatars horizontal-scroll; RM targets render as cards not a table; pipeline business-line bars hidden (totals only); all sections stack.
 

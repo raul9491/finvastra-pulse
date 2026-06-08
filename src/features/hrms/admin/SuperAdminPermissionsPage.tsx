@@ -40,6 +40,7 @@ type PermDraft = {
   crmRole:           CrmRole;
   convertorVertical: ConvertorVertical;
   misAccess:         MisAccess | null;
+  commandCentreAccess: boolean;
 };
 
 type FilterKey = 'all' | 'changed' | 'admins' | 'crm' | 'mis' | 'super_admin';
@@ -53,6 +54,7 @@ function toDraft(e: UserProfile): PermDraft {
     crmRole:           e.crmRole ?? null,
     convertorVertical: e.convertorVertical ?? null,
     misAccess:         e.misAccess ?? null,
+    commandCentreAccess: e.commandCentreAccess === true,
   };
 }
 
@@ -63,7 +65,8 @@ function isDirty(a: PermDraft, b: PermDraft): boolean {
       || a.crmAccess !== b.crmAccess
       || a.crmRole !== b.crmRole
       || a.convertorVertical !== b.convertorVertical
-      || a.misAccess !== b.misAccess;
+      || a.misAccess !== b.misAccess
+      || a.commandCentreAccess !== b.commandCentreAccess;
 }
 
 // ─── Sync claims helper ───────────────────────────────────────────────────────
@@ -296,6 +299,19 @@ function PermRow({
             after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-transform
             peer-checked:after:translate-x-4" />
         </label>
+        {/* Command Centre grant — admins always have it; a grantee also needs CRM access to enter the module */}
+        <label className="flex items-center justify-center gap-1 mt-1.5 text-[10px] cursor-pointer"
+          title="Show the cross-module Command Centre. Admins always have it. A non-admin grantee also needs CRM access (to enter the CRM module) and HR-manager (for the HR sections to populate)."
+          style={{ color: '#64748B' }}>
+          <input
+            type="checkbox"
+            checked={draft.commandCentreAccess}
+            onChange={(e) => onChange({ commandCentreAccess: e.target.checked })}
+            className="w-3 h-3 rounded cursor-pointer"
+            style={{ accentColor: '#C9A961' }}
+          />
+          ⌘ Cmd Centre
+        </label>
       </td>
 
       {/* CRM Role + Convertor Vertical (stacked in same cell) */}
@@ -493,6 +509,7 @@ export function SuperAdminPermissionsPage() {
           // Only save vertical when role is Convertor; clear it otherwise
           convertorVertical: draft.crmRole === 'lead_convertor' ? draft.convertorVertical : null,
           misAccess:         draft.misAccess,
+          commandCentreAccess: draft.commandCentreAccess,
         };
         await updateDoc(doc(db, 'users', uid), patch);
         await addDoc(collection(db, 'audit_logs'), {

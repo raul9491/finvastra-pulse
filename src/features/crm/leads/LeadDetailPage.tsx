@@ -209,6 +209,7 @@ export function LeadDetailPage() {
   // ─── Callback scheduling (shown when status === 'callback') ─────────────────────
   const [callbackInput, setCallbackInput] = useState('');
   const [savingCallback, setSavingCallback] = useState(false);
+  const [showCallback, setShowCallback] = useState(false);
   useEffect(() => {
     if (!lead?.callbackAt) return;
     const d = new Date(lead.callbackAt);
@@ -216,14 +217,19 @@ export function LeadDetailPage() {
   }, [lead?.callbackAt]);
 
   const handleSaveCallback = async () => {
-    if (!leadId || !callbackInput) return;
+    if (!leadId || !user || !callbackInput) return;
     setSavingCallback(true);
     try {
+      // Scheduling a follow-up also dispositions the lead as "Callback later".
       await updateDoc(doc(db, 'leads', leadId), {
-        callbackAt: new Date(callbackInput).toISOString(),
+        leadStatus:   'callback',
+        leadStatusAt: serverTimestamp(),
+        leadStatusBy: user.uid,
+        callbackAt:   new Date(callbackInput).toISOString(),
         callbackReminderSent: false,        // re-arm the reminder
-        updatedAt: serverTimestamp(),
+        updatedAt:    serverTimestamp(),
       });
+      setShowCallback(false);
     } finally {
       setSavingCallback(false);
     }
@@ -389,7 +395,14 @@ export function LeadDetailPage() {
                 {LEAD_STATUS_LABELS[lead.leadStatus]}{TERMINAL_STATUSES.has(lead.leadStatus) ? ' · closed, SLA cleared' : ''}
               </span>
             )}
-            {lead.leadStatus === 'callback' && (
+            {lead.leadStatus !== 'callback' && !showCallback && (
+              <button onClick={() => setShowCallback(true)}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors hover:bg-white/5"
+                style={{ borderColor: 'rgba(201,169,97,0.4)', color: '#C9A961' }}>
+                📞 Schedule follow-up
+              </button>
+            )}
+            {(lead.leadStatus === 'callback' || showCallback) && (
               <div className="flex flex-wrap items-center gap-2 w-full mt-1">
                 <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Call back at</span>
                 <input type="datetime-local" value={callbackInput} onChange={(e) => setCallbackInput(e.target.value)} className="glass-inp text-sm" />
@@ -397,6 +410,9 @@ export function LeadDetailPage() {
                   className="text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
                   {savingCallback ? '…' : (lead.callbackAt ? 'Update reminder' : 'Set reminder')}
                 </button>
+                {showCallback && lead.leadStatus !== 'callback' && (
+                  <button onClick={() => setShowCallback(false)} className="text-xs" style={{ color: 'var(--text-muted)' }}>Cancel</button>
+                )}
                 {lead.callbackAt && (
                   <span className="text-xs font-semibold" style={{ color: '#C9A961' }}>
                     ⏰ {new Date(lead.callbackAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}

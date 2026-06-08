@@ -1,5 +1,8 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { lazy, Suspense, type ComponentType, type ReactElement } from 'react';
 
+// ── Load immediately (lightweight, must be instant) ──────────────────────────
+// Auth + public + launcher are never lazy — they are the first thing a user hits.
 import { CustomerTrackerPage }    from './features/public/CustomerTrackerPage';
 import { LoginPage }              from './features/auth/LoginPage';
 import { ResetPasswordPage }      from './features/auth/ResetPasswordPage';
@@ -7,96 +10,130 @@ import { AuthActionPage }         from './features/auth/AuthActionPage';
 import { RequestAccessPage }      from './features/auth/RequestAccessPage';
 import { LauncherPage }           from './features/home/LauncherPage';
 
-import { HrmsShell }              from './components/layout/HrmsShell';
-import { HrmsDashboardPage }      from './features/hrms/dashboard/HrmsDashboardPage';
-import { EmployeesPage }          from './features/hrms/employees/EmployeesPage';
-import { ImportEmployeesPage }    from './features/hrms/employees/ImportEmployeesPage';
-import { EmployeeProfilePage }    from './features/hrms/employees/EmployeeProfilePage';
-import { AccessRequestsPage }     from './features/hrms/employees/AccessRequestsPage';
-import { AttendancePage }         from './features/hrms/attendance/AttendancePage';
-import { AdminAttendancePage }    from './features/hrms/attendance/AdminAttendancePage';
-import { LeavePage }              from './features/hrms/leave/LeavePage';
-import { ApplyLeavePage }         from './features/hrms/leave/ApplyLeavePage';
-import { AdminLeavePage }         from './features/hrms/leave/AdminLeavePage';
-import { TeamCalendarPage }       from './features/hrms/leave/TeamCalendarPage';
-import { AdminCompOffPage }       from './features/hrms/leave/AdminCompOffPage';
-import { EmployeeDirectoryPage }  from './features/hrms/directory/EmployeeDirectoryPage';
-import { PayslipsPage }           from './features/hrms/payslips/PayslipsPage';
-import { GeneratePayslipPage }    from './features/hrms/payslips/GeneratePayslipPage';
-import { HolidaysPage }           from './features/hrms/holidays/HolidaysPage';
-import { HrmsSettingsPage }        from './features/hrms/settings/SettingsPage';
-import { SuperAdminPermissionsPage }   from './features/hrms/admin/SuperAdminPermissionsPage';
-import { ClaimsPage }             from './features/hrms/claims/ClaimsPage';
-import { AdminClaimsPage }        from './features/hrms/claims/AdminClaimsPage';
-import { DocumentsPage }          from './features/hrms/documents/DocumentsPage';
-import { AdminDocumentsPage }     from './features/hrms/documents/AdminDocumentsPage';
-import { AnnouncementsPage }      from './features/hrms/announcements/AnnouncementsPage';
-import { AdminAnnouncementsPage } from './features/hrms/announcements/AdminAnnouncementsPage';
-import { ComplianceCalendarPage } from './features/hrms/compliance/ComplianceCalendarPage';
-import { PfTrackerPage }          from './features/hrms/compliance/PfTrackerPage';
-import { AssetsPage }             from './features/hrms/assets/AssetsPage';
-import { OnboardingPage }         from './features/hrms/onboarding/OnboardingPage';
-import { OffboardingPage }        from './features/hrms/offboarding/OffboardingPage';
-import { ItDeclarationPage }      from './features/hrms/itdeclaration/ItDeclarationPage';
-import { AdminItDeclarationsPage } from './features/hrms/itdeclaration/AdminItDeclarationsPage';
-import { ProbationPage }          from './features/hrms/probation/ProbationPage';
-import { PerformancePage }        from './features/hrms/performance/PerformancePage';
-import { AdminPerformancePage }   from './features/hrms/performance/AdminPerformancePage';
-import { RecruitmentPage }        from './features/hrms/recruitment/RecruitmentPage';
-import { TrainingPage }           from './features/hrms/training/TrainingPage';
-import { AdminTrainingPage }      from './features/hrms/training/AdminTrainingPage';
-import { HrHelpdeskPage }         from './features/hrms/helpdesk/HrHelpdeskPage';
-import { AdminHelpdeskPage }      from './features/hrms/helpdesk/AdminHelpdeskPage';
-import { AdminSalaryHistoryPage } from './features/hrms/salary/AdminSalaryHistoryPage';
-import { LeaveYearEndPage }     from './features/hrms/leave/LeaveYearEndPage';
-import { HrLetterGeneratorPage } from './features/hrms/letters/HrLetterGeneratorPage';
-import { OrgChartPage }          from './features/hrms/orgchart/OrgChartPage';
-import { DataImportPage }        from './features/hrms/dataimport/DataImportPage';
-import { PulseGuidePage }        from './features/hrms/guide/PulseGuidePage';
+// ── Lazy-loading helpers ─────────────────────────────────────────────────────
+// Pages are named exports, so we map the chosen export onto `default` for React.lazy.
+function lazyPage<M extends Record<string, unknown>, K extends keyof M>(
+  loader: () => Promise<M>,
+  key: K,
+) {
+  return lazy(() => loader().then((m) => ({ default: m[key] as ComponentType<unknown> })));
+}
 
-import { CrmShell }               from './components/layout/CrmShell';
-import { CrmDashboardPage }       from './features/crm/dashboard/CrmDashboardPage';
-import { LeadsPage }              from './features/crm/leads/LeadsPage';
-import { NewLeadPage }            from './features/crm/leads/NewLeadPage';
-import { LeadDetailPage }         from './features/crm/leads/LeadDetailPage';
-import { AddOpportunityPage }         from './features/crm/opportunities/AddOpportunityPage';
-import { OpportunityDetailPage }      from './features/crm/opportunities/OpportunityDetailPage';
-import { BankSubmissionDetailPage }   from './features/crm/opportunities/loans/BankSubmissionDetailPage';
-import { PipelinePage }              from './features/crm/pipeline/PipelinePage';
-import { CommissionRecordsPage }    from './features/crm/commissions/CommissionRecordsPage';
-import { CommissionSlabsPage }           from './features/crm/admin/CommissionSlabsPage';
-import { AccessLogsPage }               from './features/crm/admin/AccessLogsPage';
-import { RightToBeForgottenPage }       from './features/crm/admin/RightToBeForgottenPage';
-import { WebhookConfigPage }            from './features/crm/admin/WebhookConfigPage';
-import { DocumentTypesPage }            from './features/crm/admin/DocumentTypesPage';
-import { CommissionLeakagePage }        from './features/crm/admin/CommissionLeakagePage';
-import { ProvidersPage }                from './features/crm/admin/ProvidersPage';
-import { CompetitorIntelligencePage }   from './features/crm/admin/CompetitorIntelligencePage';
-import { ReferralIntelligencePage }     from './features/crm/admin/ReferralIntelligencePage';
-import { RateNegotiationMemoryPage }    from './features/crm/admin/RateNegotiationMemoryPage';
-import { EligibilityRulesPage }         from './features/crm/admin/EligibilityRulesPage';
-import { MyQueuePage }                  from './features/crm/leads/MyQueuePage';
-import { ImportPage }                   from './features/crm/import/ImportPage';
-import { ImportQueuePage }              from './features/crm/import/ImportQueuePage';
-import { ImportHistoryPage }            from './features/crm/import/ImportHistoryPage';
-import { MyReferralsPage }             from './features/crm/referrals/MyReferralsPage';
-import { SubmitReferralPage }          from './features/crm/referrals/SubmitReferralPage';
-import { ImportReferralsPage }         from './features/crm/referrals/ImportReferralsPage';
-import { TargetsPage }                 from './features/crm/targets/TargetsPage';
-import { LeadAgingPage }               from './features/crm/reports/LeadAgingPage';
-import { CommandCentrePage }           from './features/crm/dashboard/CommandCentrePage';
+/** Spinner shown while a route chunk downloads — gold ring on a transparent bg. */
+function RouteLoader() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+      <div
+        style={{
+          width: 40,
+          height: 40,
+          border: '2px solid rgba(201,169,97,0.3)',
+          borderTop: '2px solid #C9A961',
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite',
+        }}
+      />
+    </div>
+  );
+}
 
-import { MisShell }                 from './components/layout/MisShell';
-import { MisOverviewPage }          from './features/mis/overview/MisOverviewPage';
-import { StatementsPage }           from './features/mis/statements/StatementsPage';
-import { UploadStatementPage }      from './features/mis/statements/UploadStatementPage';
-import { StatementDetailPage }      from './features/mis/statements/StatementDetailPage';
-import { ReconciliationPage }       from './features/mis/reconciliation/ReconciliationPage';
-import { PayoutsPage }              from './features/mis/payouts/PayoutsPage';
-import { GeneratePayoutsPage }      from './features/mis/payouts/GeneratePayoutsPage';
-import { PayoutDetailPage }         from './features/mis/payouts/PayoutDetailPage';
-import { PayoutSlabsPage }          from './features/mis/payouts/PayoutSlabsPage';
-import { StatementTemplatesPage }   from './features/mis/admin/StatementTemplatesPage';
+/** Wrap a lazy element in its own Suspense boundary so module chrome (the shell
+ *  nav) stays mounted while the inner page chunk loads. */
+const s = (el: ReactElement) => <Suspense fallback={<RouteLoader />}>{el}</Suspense>;
+
+// ── HRMS (lazy group) ────────────────────────────────────────────────────────
+const HrmsShell                = lazyPage(() => import('./components/layout/HrmsShell'), 'HrmsShell');
+const HrmsDashboardPage        = lazyPage(() => import('./features/hrms/dashboard/HrmsDashboardPage'), 'HrmsDashboardPage');
+const EmployeesPage            = lazyPage(() => import('./features/hrms/employees/EmployeesPage'), 'EmployeesPage');
+const ImportEmployeesPage      = lazyPage(() => import('./features/hrms/employees/ImportEmployeesPage'), 'ImportEmployeesPage');
+const EmployeeProfilePage      = lazyPage(() => import('./features/hrms/employees/EmployeeProfilePage'), 'EmployeeProfilePage');
+const AccessRequestsPage       = lazyPage(() => import('./features/hrms/employees/AccessRequestsPage'), 'AccessRequestsPage');
+const AttendancePage           = lazyPage(() => import('./features/hrms/attendance/AttendancePage'), 'AttendancePage');
+const AdminAttendancePage      = lazyPage(() => import('./features/hrms/attendance/AdminAttendancePage'), 'AdminAttendancePage');
+const LeavePage                = lazyPage(() => import('./features/hrms/leave/LeavePage'), 'LeavePage');
+const ApplyLeavePage           = lazyPage(() => import('./features/hrms/leave/ApplyLeavePage'), 'ApplyLeavePage');
+const AdminLeavePage           = lazyPage(() => import('./features/hrms/leave/AdminLeavePage'), 'AdminLeavePage');
+const TeamCalendarPage         = lazyPage(() => import('./features/hrms/leave/TeamCalendarPage'), 'TeamCalendarPage');
+const AdminCompOffPage         = lazyPage(() => import('./features/hrms/leave/AdminCompOffPage'), 'AdminCompOffPage');
+const EmployeeDirectoryPage    = lazyPage(() => import('./features/hrms/directory/EmployeeDirectoryPage'), 'EmployeeDirectoryPage');
+const PayslipsPage             = lazyPage(() => import('./features/hrms/payslips/PayslipsPage'), 'PayslipsPage');
+const GeneratePayslipPage      = lazyPage(() => import('./features/hrms/payslips/GeneratePayslipPage'), 'GeneratePayslipPage');
+const HolidaysPage             = lazyPage(() => import('./features/hrms/holidays/HolidaysPage'), 'HolidaysPage');
+const HrmsSettingsPage         = lazyPage(() => import('./features/hrms/settings/SettingsPage'), 'HrmsSettingsPage');
+const SuperAdminPermissionsPage= lazyPage(() => import('./features/hrms/admin/SuperAdminPermissionsPage'), 'SuperAdminPermissionsPage');
+const ClaimsPage               = lazyPage(() => import('./features/hrms/claims/ClaimsPage'), 'ClaimsPage');
+const AdminClaimsPage          = lazyPage(() => import('./features/hrms/claims/AdminClaimsPage'), 'AdminClaimsPage');
+const DocumentsPage            = lazyPage(() => import('./features/hrms/documents/DocumentsPage'), 'DocumentsPage');
+const AdminDocumentsPage       = lazyPage(() => import('./features/hrms/documents/AdminDocumentsPage'), 'AdminDocumentsPage');
+const AnnouncementsPage        = lazyPage(() => import('./features/hrms/announcements/AnnouncementsPage'), 'AnnouncementsPage');
+const AdminAnnouncementsPage   = lazyPage(() => import('./features/hrms/announcements/AdminAnnouncementsPage'), 'AdminAnnouncementsPage');
+const ComplianceCalendarPage   = lazyPage(() => import('./features/hrms/compliance/ComplianceCalendarPage'), 'ComplianceCalendarPage');
+const PfTrackerPage            = lazyPage(() => import('./features/hrms/compliance/PfTrackerPage'), 'PfTrackerPage');
+const AssetsPage               = lazyPage(() => import('./features/hrms/assets/AssetsPage'), 'AssetsPage');
+const OnboardingPage           = lazyPage(() => import('./features/hrms/onboarding/OnboardingPage'), 'OnboardingPage');
+const OffboardingPage          = lazyPage(() => import('./features/hrms/offboarding/OffboardingPage'), 'OffboardingPage');
+const ItDeclarationPage        = lazyPage(() => import('./features/hrms/itdeclaration/ItDeclarationPage'), 'ItDeclarationPage');
+const AdminItDeclarationsPage  = lazyPage(() => import('./features/hrms/itdeclaration/AdminItDeclarationsPage'), 'AdminItDeclarationsPage');
+const ProbationPage            = lazyPage(() => import('./features/hrms/probation/ProbationPage'), 'ProbationPage');
+const PerformancePage          = lazyPage(() => import('./features/hrms/performance/PerformancePage'), 'PerformancePage');
+const AdminPerformancePage     = lazyPage(() => import('./features/hrms/performance/AdminPerformancePage'), 'AdminPerformancePage');
+const RecruitmentPage          = lazyPage(() => import('./features/hrms/recruitment/RecruitmentPage'), 'RecruitmentPage');
+const TrainingPage             = lazyPage(() => import('./features/hrms/training/TrainingPage'), 'TrainingPage');
+const AdminTrainingPage        = lazyPage(() => import('./features/hrms/training/AdminTrainingPage'), 'AdminTrainingPage');
+const HrHelpdeskPage           = lazyPage(() => import('./features/hrms/helpdesk/HrHelpdeskPage'), 'HrHelpdeskPage');
+const AdminHelpdeskPage        = lazyPage(() => import('./features/hrms/helpdesk/AdminHelpdeskPage'), 'AdminHelpdeskPage');
+const AdminSalaryHistoryPage   = lazyPage(() => import('./features/hrms/salary/AdminSalaryHistoryPage'), 'AdminSalaryHistoryPage');
+const LeaveYearEndPage         = lazyPage(() => import('./features/hrms/leave/LeaveYearEndPage'), 'LeaveYearEndPage');
+const HrLetterGeneratorPage    = lazyPage(() => import('./features/hrms/letters/HrLetterGeneratorPage'), 'HrLetterGeneratorPage');
+const OrgChartPage             = lazyPage(() => import('./features/hrms/orgchart/OrgChartPage'), 'OrgChartPage');
+const DataImportPage           = lazyPage(() => import('./features/hrms/dataimport/DataImportPage'), 'DataImportPage');
+const PulseGuidePage           = lazyPage(() => import('./features/hrms/guide/PulseGuidePage'), 'PulseGuidePage');
+
+// ── CRM (lazy group) ─────────────────────────────────────────────────────────
+const CrmShell                 = lazyPage(() => import('./components/layout/CrmShell'), 'CrmShell');
+const CrmDashboardPage         = lazyPage(() => import('./features/crm/dashboard/CrmDashboardPage'), 'CrmDashboardPage');
+const LeadsPage                = lazyPage(() => import('./features/crm/leads/LeadsPage'), 'LeadsPage');
+const NewLeadPage              = lazyPage(() => import('./features/crm/leads/NewLeadPage'), 'NewLeadPage');
+const LeadDetailPage           = lazyPage(() => import('./features/crm/leads/LeadDetailPage'), 'LeadDetailPage');
+const AddOpportunityPage       = lazyPage(() => import('./features/crm/opportunities/AddOpportunityPage'), 'AddOpportunityPage');
+const OpportunityDetailPage    = lazyPage(() => import('./features/crm/opportunities/OpportunityDetailPage'), 'OpportunityDetailPage');
+const BankSubmissionDetailPage = lazyPage(() => import('./features/crm/opportunities/loans/BankSubmissionDetailPage'), 'BankSubmissionDetailPage');
+const PipelinePage             = lazyPage(() => import('./features/crm/pipeline/PipelinePage'), 'PipelinePage');
+const CommissionRecordsPage    = lazyPage(() => import('./features/crm/commissions/CommissionRecordsPage'), 'CommissionRecordsPage');
+const CommissionSlabsPage      = lazyPage(() => import('./features/crm/admin/CommissionSlabsPage'), 'CommissionSlabsPage');
+const AccessLogsPage           = lazyPage(() => import('./features/crm/admin/AccessLogsPage'), 'AccessLogsPage');
+const RightToBeForgottenPage   = lazyPage(() => import('./features/crm/admin/RightToBeForgottenPage'), 'RightToBeForgottenPage');
+const WebhookConfigPage        = lazyPage(() => import('./features/crm/admin/WebhookConfigPage'), 'WebhookConfigPage');
+const DocumentTypesPage        = lazyPage(() => import('./features/crm/admin/DocumentTypesPage'), 'DocumentTypesPage');
+const CommissionLeakagePage    = lazyPage(() => import('./features/crm/admin/CommissionLeakagePage'), 'CommissionLeakagePage');
+const ProvidersPage            = lazyPage(() => import('./features/crm/admin/ProvidersPage'), 'ProvidersPage');
+const CompetitorIntelligencePage = lazyPage(() => import('./features/crm/admin/CompetitorIntelligencePage'), 'CompetitorIntelligencePage');
+const ReferralIntelligencePage = lazyPage(() => import('./features/crm/admin/ReferralIntelligencePage'), 'ReferralIntelligencePage');
+const RateNegotiationMemoryPage= lazyPage(() => import('./features/crm/admin/RateNegotiationMemoryPage'), 'RateNegotiationMemoryPage');
+const EligibilityRulesPage     = lazyPage(() => import('./features/crm/admin/EligibilityRulesPage'), 'EligibilityRulesPage');
+const MyQueuePage              = lazyPage(() => import('./features/crm/leads/MyQueuePage'), 'MyQueuePage');
+const ImportPage               = lazyPage(() => import('./features/crm/import/ImportPage'), 'ImportPage');
+const ImportQueuePage          = lazyPage(() => import('./features/crm/import/ImportQueuePage'), 'ImportQueuePage');
+const ImportHistoryPage        = lazyPage(() => import('./features/crm/import/ImportHistoryPage'), 'ImportHistoryPage');
+const MyReferralsPage          = lazyPage(() => import('./features/crm/referrals/MyReferralsPage'), 'MyReferralsPage');
+const SubmitReferralPage       = lazyPage(() => import('./features/crm/referrals/SubmitReferralPage'), 'SubmitReferralPage');
+const ImportReferralsPage      = lazyPage(() => import('./features/crm/referrals/ImportReferralsPage'), 'ImportReferralsPage');
+const TargetsPage              = lazyPage(() => import('./features/crm/targets/TargetsPage'), 'TargetsPage');
+const LeadAgingPage            = lazyPage(() => import('./features/crm/reports/LeadAgingPage'), 'LeadAgingPage');
+const CommandCentrePage        = lazyPage(() => import('./features/crm/dashboard/CommandCentrePage'), 'CommandCentrePage');
+
+// ── MIS (lazy group) ─────────────────────────────────────────────────────────
+const MisShell                 = lazyPage(() => import('./components/layout/MisShell'), 'MisShell');
+const MisOverviewPage          = lazyPage(() => import('./features/mis/overview/MisOverviewPage'), 'MisOverviewPage');
+const StatementsPage           = lazyPage(() => import('./features/mis/statements/StatementsPage'), 'StatementsPage');
+const UploadStatementPage      = lazyPage(() => import('./features/mis/statements/UploadStatementPage'), 'UploadStatementPage');
+const StatementDetailPage      = lazyPage(() => import('./features/mis/statements/StatementDetailPage'), 'StatementDetailPage');
+const ReconciliationPage       = lazyPage(() => import('./features/mis/reconciliation/ReconciliationPage'), 'ReconciliationPage');
+const PayoutsPage              = lazyPage(() => import('./features/mis/payouts/PayoutsPage'), 'PayoutsPage');
+const GeneratePayoutsPage      = lazyPage(() => import('./features/mis/payouts/GeneratePayoutsPage'), 'GeneratePayoutsPage');
+const PayoutDetailPage         = lazyPage(() => import('./features/mis/payouts/PayoutDetailPage'), 'PayoutDetailPage');
+const PayoutSlabsPage          = lazyPage(() => import('./features/mis/payouts/PayoutSlabsPage'), 'PayoutSlabsPage');
+const StatementTemplatesPage   = lazyPage(() => import('./features/mis/admin/StatementTemplatesPage'), 'StatementTemplatesPage');
 
 export const router = createBrowserRouter([
   {
@@ -127,111 +164,111 @@ export const router = createBrowserRouter([
   },
   {
     path: '/hrms',
-    element: <HrmsShell />,
+    element: s(<HrmsShell />),
     children: [
       { index: true,        element: <Navigate to="/hrms/dashboard" replace /> },
-      { path: 'dashboard',  element: <HrmsDashboardPage /> },
-      { path: 'employees',                element: <EmployeesPage /> },
-      { path: 'employees/:userId',        element: <EmployeeProfilePage /> },
-      { path: 'admin/access-requests',     element: <AccessRequestsPage /> },
-      { path: 'admin/import-employees',   element: <ImportEmployeesPage /> },
-      { path: 'attendance', element: <AttendancePage /> },
-      { path: 'leave',               element: <LeavePage /> },
-      { path: 'leave/apply',         element: <ApplyLeavePage /> },
-      { path: 'leave/admin',         element: <AdminLeavePage /> },
-      { path: 'leave/team-calendar', element: <TeamCalendarPage /> },
-      { path: 'admin/comp-off',      element: <AdminCompOffPage /> },
-      { path: 'directory',           element: <EmployeeDirectoryPage /> },
-      { path: 'payslips',            element: <PayslipsPage /> },
-      { path: 'holidays',            element: <HolidaysPage /> },
-      { path: 'admin/permissions',    element: <SuperAdminPermissionsPage /> },
-      { path: 'admin/attendance',    element: <AdminAttendancePage /> },
-      { path: 'admin/payslips',      element: <GeneratePayslipPage /> },
-      { path: 'admin/holidays',      element: <HolidaysPage /> },
-      { path: 'admin/claims',        element: <AdminClaimsPage /> },
-      { path: 'admin/documents',     element: <AdminDocumentsPage /> },
-      { path: 'admin/announcements', element: <AdminAnnouncementsPage /> },
-      { path: 'admin/compliance',    element: <ComplianceCalendarPage /> },
-      { path: 'admin/pf-tracker',   element: <PfTrackerPage /> },
-      { path: 'admin/assets',        element: <AssetsPage /> },
-      { path: 'admin/onboarding',      element: <OnboardingPage /> },
-      { path: 'admin/probation',       element: <ProbationPage /> },
-      { path: 'performance',           element: <PerformancePage /> },
-      { path: 'admin/performance',     element: <AdminPerformancePage /> },
-      { path: 'admin/offboarding',     element: <OffboardingPage /> },
-      { path: 'admin/recruitment',     element: <RecruitmentPage /> },
-      { path: 'training',              element: <TrainingPage /> },
-      { path: 'admin/training',        element: <AdminTrainingPage /> },
-      { path: 'hr-helpdesk',           element: <HrHelpdeskPage /> },
-      { path: 'admin/hr-helpdesk',     element: <AdminHelpdeskPage /> },
-      { path: 'admin/salary-history',  element: <AdminSalaryHistoryPage /> },
-      { path: 'it-declaration',        element: <ItDeclarationPage /> },
-      { path: 'admin/it-declarations', element: <AdminItDeclarationsPage /> },
-      { path: 'org-chart',             element: <OrgChartPage /> },
-      { path: 'guide',                 element: <PulseGuidePage /> },
-      { path: 'admin/leave-year-end',  element: <LeaveYearEndPage /> },
-      { path: 'admin/letters',         element: <HrLetterGeneratorPage /> },
-      { path: 'admin/data-import',     element: <DataImportPage /> },
-      { path: 'claims',              element: <ClaimsPage /> },
-      { path: 'documents',           element: <DocumentsPage /> },
-      { path: 'announcements',       element: <AnnouncementsPage /> },
-      { path: 'settings',            element: <HrmsSettingsPage /> },
+      { path: 'dashboard',  element: s(<HrmsDashboardPage />) },
+      { path: 'employees',                element: s(<EmployeesPage />) },
+      { path: 'employees/:userId',        element: s(<EmployeeProfilePage />) },
+      { path: 'admin/access-requests',     element: s(<AccessRequestsPage />) },
+      { path: 'admin/import-employees',   element: s(<ImportEmployeesPage />) },
+      { path: 'attendance', element: s(<AttendancePage />) },
+      { path: 'leave',               element: s(<LeavePage />) },
+      { path: 'leave/apply',         element: s(<ApplyLeavePage />) },
+      { path: 'leave/admin',         element: s(<AdminLeavePage />) },
+      { path: 'leave/team-calendar', element: s(<TeamCalendarPage />) },
+      { path: 'admin/comp-off',      element: s(<AdminCompOffPage />) },
+      { path: 'directory',           element: s(<EmployeeDirectoryPage />) },
+      { path: 'payslips',            element: s(<PayslipsPage />) },
+      { path: 'holidays',            element: s(<HolidaysPage />) },
+      { path: 'admin/permissions',    element: s(<SuperAdminPermissionsPage />) },
+      { path: 'admin/attendance',    element: s(<AdminAttendancePage />) },
+      { path: 'admin/payslips',      element: s(<GeneratePayslipPage />) },
+      { path: 'admin/holidays',      element: s(<HolidaysPage />) },
+      { path: 'admin/claims',        element: s(<AdminClaimsPage />) },
+      { path: 'admin/documents',     element: s(<AdminDocumentsPage />) },
+      { path: 'admin/announcements', element: s(<AdminAnnouncementsPage />) },
+      { path: 'admin/compliance',    element: s(<ComplianceCalendarPage />) },
+      { path: 'admin/pf-tracker',   element: s(<PfTrackerPage />) },
+      { path: 'admin/assets',        element: s(<AssetsPage />) },
+      { path: 'admin/onboarding',      element: s(<OnboardingPage />) },
+      { path: 'admin/probation',       element: s(<ProbationPage />) },
+      { path: 'performance',           element: s(<PerformancePage />) },
+      { path: 'admin/performance',     element: s(<AdminPerformancePage />) },
+      { path: 'admin/offboarding',     element: s(<OffboardingPage />) },
+      { path: 'admin/recruitment',     element: s(<RecruitmentPage />) },
+      { path: 'training',              element: s(<TrainingPage />) },
+      { path: 'admin/training',        element: s(<AdminTrainingPage />) },
+      { path: 'hr-helpdesk',           element: s(<HrHelpdeskPage />) },
+      { path: 'admin/hr-helpdesk',     element: s(<AdminHelpdeskPage />) },
+      { path: 'admin/salary-history',  element: s(<AdminSalaryHistoryPage />) },
+      { path: 'it-declaration',        element: s(<ItDeclarationPage />) },
+      { path: 'admin/it-declarations', element: s(<AdminItDeclarationsPage />) },
+      { path: 'org-chart',             element: s(<OrgChartPage />) },
+      { path: 'guide',                 element: s(<PulseGuidePage />) },
+      { path: 'admin/leave-year-end',  element: s(<LeaveYearEndPage />) },
+      { path: 'admin/letters',         element: s(<HrLetterGeneratorPage />) },
+      { path: 'admin/data-import',     element: s(<DataImportPage />) },
+      { path: 'claims',              element: s(<ClaimsPage />) },
+      { path: 'documents',           element: s(<DocumentsPage />) },
+      { path: 'announcements',       element: s(<AnnouncementsPage />) },
+      { path: 'settings',            element: s(<HrmsSettingsPage />) },
     ],
   },
   {
     path: '/crm',
-    element: <CrmShell />,
+    element: s(<CrmShell />),
     children: [
       { index: true,       element: <Navigate to="/crm/dashboard" replace /> },
-      { path: 'command-centre', element: <CommandCentrePage /> },
-      { path: 'dashboard',   element: <CrmDashboardPage /> },
-      { path: 'my-queue',    element: <MyQueuePage /> },
+      { path: 'command-centre', element: s(<CommandCentrePage />) },
+      { path: 'dashboard',   element: s(<CrmDashboardPage />) },
+      { path: 'my-queue',    element: s(<MyQueuePage />) },
       // leads/new before leads/:leadId so 'new' isn't treated as a leadId param
-      { path: 'leads',                                     element: <LeadsPage /> },
-      { path: 'leads/new',                                 element: <NewLeadPage /> },
-      { path: 'leads/:leadId',                             element: <LeadDetailPage /> },
-      { path: 'leads/:leadId/opportunities/new',           element: <AddOpportunityPage /> },
-      { path: 'leads/:leadId/opportunities/:oppId',                    element: <OpportunityDetailPage /> },
-      { path: 'leads/:leadId/opportunities/:oppId/submissions/:subId', element: <BankSubmissionDetailPage /> },
-      { path: 'pipeline',                 element: <PipelinePage /> },
-      { path: 'commissions',              element: <CommissionRecordsPage /> },
-      { path: 'admin/commission-slabs',      element: <CommissionSlabsPage /> },
-      { path: 'admin/access-logs',           element: <AccessLogsPage /> },
-      { path: 'admin/right-to-be-forgotten', element: <RightToBeForgottenPage /> },
-      { path: 'admin/webhooks',              element: <WebhookConfigPage /> },
-      { path: 'admin/document-types',        element: <DocumentTypesPage /> },
-      { path: 'admin/commission-leakage',    element: <CommissionLeakagePage /> },
-      { path: 'admin/providers',             element: <ProvidersPage /> },
-      { path: 'admin/competitor-intelligence',element: <CompetitorIntelligencePage /> },
-      { path: 'admin/referrers',             element: <ReferralIntelligencePage /> },
-      { path: 'admin/rate-memory',           element: <RateNegotiationMemoryPage /> },
-      { path: 'admin/eligibility-rules',     element: <EligibilityRulesPage /> },
-      { path: 'import',                      element: <ImportPage /> },
-      { path: 'import/queue',                element: <ImportQueuePage /> },
-      { path: 'import/history',          element: <ImportHistoryPage /> },
-      { path: 'targets',                     element: <TargetsPage /> },
-      { path: 'reports/aging',               element: <LeadAgingPage /> },
+      { path: 'leads',                                     element: s(<LeadsPage />) },
+      { path: 'leads/new',                                 element: s(<NewLeadPage />) },
+      { path: 'leads/:leadId',                             element: s(<LeadDetailPage />) },
+      { path: 'leads/:leadId/opportunities/new',           element: s(<AddOpportunityPage />) },
+      { path: 'leads/:leadId/opportunities/:oppId',                    element: s(<OpportunityDetailPage />) },
+      { path: 'leads/:leadId/opportunities/:oppId/submissions/:subId', element: s(<BankSubmissionDetailPage />) },
+      { path: 'pipeline',                 element: s(<PipelinePage />) },
+      { path: 'commissions',              element: s(<CommissionRecordsPage />) },
+      { path: 'admin/commission-slabs',      element: s(<CommissionSlabsPage />) },
+      { path: 'admin/access-logs',           element: s(<AccessLogsPage />) },
+      { path: 'admin/right-to-be-forgotten', element: s(<RightToBeForgottenPage />) },
+      { path: 'admin/webhooks',              element: s(<WebhookConfigPage />) },
+      { path: 'admin/document-types',        element: s(<DocumentTypesPage />) },
+      { path: 'admin/commission-leakage',    element: s(<CommissionLeakagePage />) },
+      { path: 'admin/providers',             element: s(<ProvidersPage />) },
+      { path: 'admin/competitor-intelligence',element: s(<CompetitorIntelligencePage />) },
+      { path: 'admin/referrers',             element: s(<ReferralIntelligencePage />) },
+      { path: 'admin/rate-memory',           element: s(<RateNegotiationMemoryPage />) },
+      { path: 'admin/eligibility-rules',     element: s(<EligibilityRulesPage />) },
+      { path: 'import',                      element: s(<ImportPage />) },
+      { path: 'import/queue',                element: s(<ImportQueuePage />) },
+      { path: 'import/history',          element: s(<ImportHistoryPage />) },
+      { path: 'targets',                     element: s(<TargetsPage />) },
+      { path: 'reports/aging',               element: s(<LeadAgingPage />) },
       // Employee referral pages — accessible to all HRMS employees (referral mode)
-      { path: 'referrals',               element: <MyReferralsPage /> },
-      { path: 'referrals/new',           element: <SubmitReferralPage /> },
-      { path: 'referrals/import',        element: <ImportReferralsPage /> },
+      { path: 'referrals',               element: s(<MyReferralsPage />) },
+      { path: 'referrals/new',           element: s(<SubmitReferralPage />) },
+      { path: 'referrals/import',        element: s(<ImportReferralsPage />) },
     ],
   },
   {
     path: '/mis',
-    element: <MisShell />,
+    element: s(<MisShell />),
     children: [
       { index: true,                  element: <Navigate to="/mis/overview" replace /> },
-      { path: 'overview',             element: <MisOverviewPage /> },
-      { path: 'statements',           element: <StatementsPage /> },
-      { path: 'statements/upload',    element: <UploadStatementPage /> },
-      { path: 'statements/:statementId', element: <StatementDetailPage /> },
-      { path: 'reconciliation',       element: <ReconciliationPage /> },
-      { path: 'payouts',              element: <PayoutsPage /> },
-      { path: 'payouts/generate',     element: <GeneratePayoutsPage /> },
-      { path: 'payouts/:payoutId',    element: <PayoutDetailPage /> },
-      { path: 'admin/payout-slabs',   element: <PayoutSlabsPage /> },
-      { path: 'admin/statement-templates', element: <StatementTemplatesPage /> },
+      { path: 'overview',             element: s(<MisOverviewPage />) },
+      { path: 'statements',           element: s(<StatementsPage />) },
+      { path: 'statements/upload',    element: s(<UploadStatementPage />) },
+      { path: 'statements/:statementId', element: s(<StatementDetailPage />) },
+      { path: 'reconciliation',       element: s(<ReconciliationPage />) },
+      { path: 'payouts',              element: s(<PayoutsPage />) },
+      { path: 'payouts/generate',     element: s(<GeneratePayoutsPage />) },
+      { path: 'payouts/:payoutId',    element: s(<PayoutDetailPage />) },
+      { path: 'admin/payout-slabs',   element: s(<PayoutSlabsPage />) },
+      { path: 'admin/statement-templates', element: s(<StatementTemplatesPage />) },
     ],
   },
 ]);

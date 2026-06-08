@@ -3,6 +3,11 @@
    UI layer only. Brand: navy #0B1538, gold #C9A961.
 ═══════════════════════════════════════════════════════ */
 
+/* Route-chunk loading spinner (used by RouteLoader in router.tsx) */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 :root {
   /* Background */
   --glass-bg-base: #050d1f;

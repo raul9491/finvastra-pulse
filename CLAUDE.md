@@ -71,7 +71,7 @@ Quick navigation reference. Every file listed here exists and is live in product
 src/
 ├── App.tsx                          router entry, wraps ThemeProvider > AuthProvider > ToastProvider
 ├── main.tsx
-├── router.tsx                       all routes — DO NOT TOUCH
+├── router.tsx                       all routes; pages are React.lazy code-split chunks (lazyPage + Suspense) — preserve route paths, don't un-lazy
 ├── types/index.ts                   all shared TypeScript types — DO NOT TOUCH
 │
 ├── config/
@@ -913,6 +913,23 @@ Items that **must be resolved before any production traffic hits the app**. Each
 ---
 
 ## Production Deployment
+
+### Bundle / code splitting (2026-06-08)
+
+Route-based code splitting — **no logic changes**, pure build optimisation.
+
+- **`src/router.tsx`** — every module page + the 3 shells are now `React.lazy` chunks via a `lazyPage(loader, key)` helper (pages are named exports, so it maps the chosen export onto `default`). Each lazy element is wrapped in its own `<Suspense fallback={<RouteLoader/>}>` (helper `s()`), so the shell nav stays mounted while a page chunk loads. **Auth pages (Login/ResetPassword/AuthAction/RequestAccess), LauncherPage, and CustomerTrackerPage stay static** (must be instant).
+- **`vite.config.ts`** — `build.rollupOptions.output.manualChunks`: `vendor-firebase` (app/auth/storage), `vendor-firestore` (firestore alone — it's the bulk), `vendor-pdf` (jspdf), `vendor-ui` (`motion` + lucide-react), `vendor-react` (react/dom/router).
+- **`src/styles/glass.css`** — added `@keyframes spin` for the route loader.
+
+**Before → After** (main entry):
+
+| | Raw | Gzip |
+|---|---|---|
+| Before — single `index.js` | 3,115 kB | 796 kB |
+| After — `index.js` entry | 279 kB | **86 kB** |
+
+After: largest chunks are `xlsx` 419 kB (dynamic, import pages only), `vendor-pdf` 412 kB / 134 kB gz (PDF generation only), `vendor-firestore` 399 kB / 100 kB gz, `vendor-firebase` 209 kB / 44 kB gz, `vendor-ui` 147 kB, `vendor-react` 102 kB; every page is its own 15–85 kB chunk loaded on navigation. **No chunk exceeds 500 kB.** ~89% smaller initial download.
 
 ### How to build
 ```bash

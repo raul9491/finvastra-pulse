@@ -380,7 +380,7 @@ export function LeadsPage() {
                       aria-label="Select all visible leads"
                     />
                   </th>
-                  {['Name', 'Phone', 'Source', 'Primary RM', ...(isAdmin ? ['Created'] : [])].map((h) => (
+                  {['Name', 'Phone', 'Source', 'Import', 'Primary RM'].map((h) => (
                     <th key={h} className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{h}</th>
                   ))}
                 </tr>
@@ -408,16 +408,16 @@ export function LeadsPage() {
                     <td className="px-5 py-4 text-sm" style={{ color: 'var(--text-muted)' }}>
                       {SOURCE_LABELS[lead.source] ?? lead.source}
                     </td>
+                    <td className="px-5 py-4 text-sm">
+                      {lead.importName
+                        ? <span className="px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961' }}>{lead.importName}</span>
+                        : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                    </td>
                     <td className="px-5 py-4 text-sm" style={{ color: 'var(--text-muted)' }}>
                       {lead.primaryOwnerId === 'UNASSIGNED'
                         ? <span style={{ color: '#f87171' }}>Unassigned</span>
                         : rmName(lead.primaryOwnerId)}
                     </td>
-                    {isAdmin && (
-                      <td className="px-5 py-4 text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {lead.createdAt?.toDate ? format(lead.createdAt.toDate(), 'dd MMM yy') : '—'}
-                      </td>
-                    )}
                     {/* Assign button — shown on unassigned rows for admin */}
                     {isAdmin && lead.primaryOwnerId === 'UNASSIGNED' && (
                       <td className="px-3 py-4" onClick={(e) => e.stopPropagation()}>

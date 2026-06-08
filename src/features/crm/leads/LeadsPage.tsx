@@ -56,6 +56,7 @@ export function LeadsPage() {
 
   const [search, setSearch] = useState('');
   const [filterSource, setFilterSource] = useState('');
+  const [filterImport, setFilterImport] = useState('');
   const [filterRm, setFilterRm] = useState('');
   const [filterUnassigned, setFilterUnassigned] = useState(false);
   const [assigningLead, setAssigningLead] = useState<Lead | null>(null);
@@ -74,10 +75,17 @@ export function LeadsPage() {
     [leads],
   );
 
+  // Distinct import-batch names (the label admins set at import time, e.g. "Sample Test")
+  const importOptions = useMemo(
+    () => Array.from(new Set(leads.map((l) => l.importName).filter((n): n is string => !!n))).sort(),
+    [leads],
+  );
+
   const filtered = useMemo(() => {
     return leads.filter((l) => {
       if (filterUnassigned) return l.primaryOwnerId === 'UNASSIGNED';
       if (filterSource && l.source !== filterSource) return false;
+      if (filterImport && l.importName !== filterImport) return false;
       if (filterRm && l.primaryOwnerId !== filterRm) return false;
       if (search) {
         const q = search.toLowerCase();
@@ -85,7 +93,7 @@ export function LeadsPage() {
       }
       return true;
     });
-  }, [leads, search, filterSource, filterRm, filterUnassigned]);
+  }, [leads, search, filterSource, filterImport, filterRm, filterUnassigned]);
 
   // Dispositioned leads move to the Kanban board; only "remaining" leads stay in the table.
   const tableLeads = useMemo(
@@ -251,6 +259,15 @@ export function LeadsPage() {
             <option key={s} value={s}>{SOURCE_LABELS[s]}</option>
           ))}
         </select>
+        {importOptions.length > 0 && (
+          <select className={selectClass} value={filterImport} onChange={(e) => setFilterImport(e.target.value)}
+            style={{ width: 'auto', minWidth: 150 }}>
+            <option value="">All Imports</option>
+            {importOptions.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        )}
         <SearchableSelect
           options={[
             { value: '', label: 'All RMs' },
@@ -363,7 +380,7 @@ export function LeadsPage() {
                       aria-label="Select all visible leads"
                     />
                   </th>
-                  {['Name', 'Phone', 'Source', 'Tags', 'Primary RM', 'Created'].map((h) => (
+                  {['Name', 'Phone', 'Source', 'Primary RM', ...(isAdmin ? ['Created'] : [])].map((h) => (
                     <th key={h} className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{h}</th>
                   ))}
                 </tr>
@@ -391,21 +408,16 @@ export function LeadsPage() {
                     <td className="px-5 py-4 text-sm" style={{ color: 'var(--text-muted)' }}>
                       {SOURCE_LABELS[lead.source] ?? lead.source}
                     </td>
-                    <td className="px-5 py-4">
-                      <div className="flex flex-wrap gap-1">
-                        {(lead.tags ?? []).map((tag) => (
-                          <span key={tag} className="px-2 py-0.5 rounded text-xs bg-white/8" style={{ color: 'var(--text-muted)' }}>{tag}</span>
-                        ))}
-                      </div>
-                    </td>
                     <td className="px-5 py-4 text-sm" style={{ color: 'var(--text-muted)' }}>
                       {lead.primaryOwnerId === 'UNASSIGNED'
                         ? <span style={{ color: '#f87171' }}>Unassigned</span>
                         : rmName(lead.primaryOwnerId)}
                     </td>
-                    <td className="px-5 py-4 text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {lead.createdAt?.toDate ? format(lead.createdAt.toDate(), 'dd MMM yy') : '—'}
-                    </td>
+                    {isAdmin && (
+                      <td className="px-5 py-4 text-xs" style={{ color: 'var(--text-muted)' }}>
+                        {lead.createdAt?.toDate ? format(lead.createdAt.toDate(), 'dd MMM yy') : '—'}
+                      </td>
+                    )}
                     {/* Assign button — shown on unassigned rows for admin */}
                     {isAdmin && lead.primaryOwnerId === 'UNASSIGNED' && (
                       <td className="px-3 py-4" onClick={(e) => e.stopPropagation()}>

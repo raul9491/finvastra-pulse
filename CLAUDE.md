@@ -1604,10 +1604,10 @@ Every self-service update is logged to `/profile_update_logs/{id}` for audit.
 
 **Path**: `/hrms/org-chart`  
 **Access**: all authenticated employees (read-only)  
-**Data source**: `managerId` field on `/users/{uid}` docs (active employees only).
+**Data source**: `reportingManagerUid` field on `/users/{uid}` docs (active employees only; legacy `managerId` honoured as fallback). **This field is set from the Employees page** — Add Employee modal + the edit-employee modal both have a **Reporting Manager** `SearchableSelect` that writes `reportingManagerUid` + `reportingManagerName`. (Fixed 2026-06-08: the chart previously read only `managerId`, which the UI never wrote, so no tree ever formed.)
 
 - Root: Ajay Newatia (FAPL-000, UID `3zdX5QBnTbQAcTdLzUjfXxefP8r2`)
-- Employees with no/invalid `managerId` attach directly under root
+- Employees with no/invalid `reportingManagerUid` attach directly under root
 - Max depth: 10 (guards against circular references in bad data)
 - Collapse/expand per node (chevron button below each card); Expand All / Collapse All buttons
 - Department filter (dropdown + legend chips): shows subtree containing matching employees, preserving ancestor chain

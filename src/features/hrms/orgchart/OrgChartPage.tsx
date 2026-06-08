@@ -44,6 +44,7 @@ function buildTree(
     department?: string;
     photoURL: string;
     managerId?: string;
+    reportingManagerUid?: string;
     employeeStatus?: string;
   }[],
 ): OrgNode {
@@ -60,8 +61,10 @@ function buildTree(
 
   for (const emp of active) {
     if (emp.userId === ROOT_UID) continue; // root handled separately
-    const parentId =
-      emp.managerId && byUid.has(emp.managerId) ? emp.managerId : ROOT_UID;
+    // Reporting manager is stored as `reportingManagerUid` by the Employees edit
+    // modal (Add Employee + edit). Fall back to legacy `managerId` if present.
+    const mgr = emp.reportingManagerUid || emp.managerId;
+    const parentId = mgr && byUid.has(mgr) ? mgr : ROOT_UID;
     if (!childrenOf.has(parentId)) childrenOf.set(parentId, []);
     childrenOf.get(parentId)!.push(emp.userId);
     attached.add(emp.userId);

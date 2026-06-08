@@ -2004,6 +2004,167 @@ async function startServer() {
     u.employeeStatus !== "inactive" &&
     (u.role === "admin" || u.crmAccess === true || ["lead_generator", "lead_convertor", "manager"].includes(u.crmRole));
 
+  // ─── Team (director) performance — strict downline via reportingManagerUid ────
+  // Set of all descendant uids of a manager (transitive org tree, excludes self).
+  function computeDownline(users: Array<{ uid: string; reportingManagerUid?: string }>, managerUid: string): Set<string> {
+    const childrenOf = new Map<string, string[]>();
+    for (const u of users) {
+      const mgr = u.reportingManagerUid;
+      if (mgr) { if (!childrenOf.has(mgr)) childrenOf.set(mgr, []); childrenOf.get(mgr)!.push(u.uid); }
+    }
+    const team = new Set<string>();
+    const stack = [...(childrenOf.get(managerUid) ?? [])];
+    while (stack.length) {
+      const id = stack.pop()!;
+      if (team.has(id) || id === managerUid) continue;
+      team.add(id);
+      for (const c of (childrenOf.get(id) ?? [])) stack.push(c);
+    }
+    return team;
+  }
+
+  // Aggregate a manager's whole downline performance for a period (YYYY-MM).
+  // Pure aggregation of existing Firestore data via Admin SDK — strictly team-scoped.
+  async function computeTeamSummary(managerUid: string, period: string) {
+    const usersSnap = await db.collection("users").get();
+    const users = usersSnap.docs.map((d) => ({ uid: d.id, ...(d.data() as any) }));
+    const byUid = new Map(users.map((u) => [u.uid, u]));
+    const teamSet = computeDownline(users, managerUid);
+    const members = [...teamSet].map((id) => byUid.get(id)).filter((u: any) => u && u.employeeStatus !== "inactive");
+    const memberIds = new Set(members.map((m: any) => m.uid));
+
+    const emptyTotals = { leads: 0, openOpps: 0, pipelineValue: 0, disbursalAmount: 0, target: 0, overdueSla: 0, dueCallbacks: 0 };
+    if (members.length === 0) {
+      return { members: [], totals: emptyTotals, actionNeeded: { callbacks: [], slaBreaches: [] }, period };
+    }
+
+    const startMs = new Date(Number(period.slice(0, 4)), Number(period.slice(5, 7)) - 1, 1).getTime();
+    const nowMs = Date.now();
+    const [leadsSnap, openSnap, crSnap, targetsSnap] = await Promise.all([
+      db.collection("leads").where("deleted", "==", false).get(),
+      db.collectionGroup("opportunities").where("status", "==", "open").get(),
+      db.collection("commission_records").get(),
+      db.collection("rm_targets").where("period", "==", period).get(),
+    ]);
+
+    const acc = new Map<string, any>();
+    for (const m of members as any[]) acc.set(m.uid, {
+      uid: m.uid, name: m.displayName ?? "—", designation: m.designation ?? "",
+      leads: 0, newLeads: 0, openOpps: 0, pipelineValue: 0, disbursalAmount: 0, commission: 0,
+      target: 0, achievementPct: 0, overdueSla: 0, dueCallbacks: 0,
+    });
+
+    const callbacks: any[] = [];
+    const slaBreaches: any[] = [];
+    const CLOSED = new Set(["not_interested", "no_response", "wrong_number", "converted"]);
+
+    leadsSnap.forEach((d) => {
+      const l: any = d.data();
+      const a = acc.get(l.primaryOwnerId); if (!a) return;
+      a.leads++;
+      const cms = l.createdAt?.toMillis ? l.createdAt.toMillis() : 0;
+      if (cms >= startMs) a.newLeads++;
+      if (l.leadStatus === "callback" && typeof l.callbackAt === "string" && new Date(l.callbackAt).getTime() <= nowMs) {
+        a.dueCallbacks++;
+        callbacks.push({ leadId: d.id, name: l.displayName ?? "Lead", phone: l.phone ?? "", ownerName: a.name, callbackAt: l.callbackAt });
+      }
+      const slaMs = l.slaDeadline?.toMillis ? l.slaDeadline.toMillis() : (typeof l.slaDeadline === "string" ? new Date(l.slaDeadline).getTime() : 0);
+      if (!CLOSED.has(l.leadStatus) && slaMs && slaMs < nowMs) {
+        a.overdueSla++;
+        slaBreaches.push({ leadId: d.id, name: l.displayName ?? "Lead", phone: l.phone ?? "", ownerName: a.name, slaDeadlineMs: slaMs });
+      }
+    });
+    openSnap.forEach((d) => {
+      const o: any = d.data();
+      const a = acc.get(o.ownerId); if (!a) return;
+      a.openOpps++; a.pipelineValue += Number(o.dealSize ?? 0);
+    });
+    crSnap.forEach((d) => {
+      const r: any = d.data();
+      const a = acc.get(r.rmOwnerId); if (!a) return;
+      if (typeof r.disbursalDate === "string" && r.disbursalDate.startsWith(period)) a.disbursalAmount += Number(r.disbursedAmount ?? 0);
+      if (r.status === "paid" && typeof r.actualPayoutDate === "string" && r.actualPayoutDate.startsWith(period)) a.commission += Number(r.actualAmount ?? r.calculatedCommission ?? 0);
+    });
+    targetsSnap.forEach((d) => {
+      const t: any = d.data();
+      const a = acc.get(t.rmId); if (!a) return;
+      a.target = Number(t.targets?.disbursalAmount ?? 0);
+    });
+
+    const rows = [...acc.values()].map((a) => ({ ...a, achievementPct: a.target > 0 ? Math.min(100, Math.round((a.disbursalAmount / a.target) * 100)) : 0 }));
+    rows.sort((x, y) => y.disbursalAmount - x.disbursalAmount);
+    const totals = rows.reduce((t, a) => ({
+      leads: t.leads + a.leads, openOpps: t.openOpps + a.openOpps, pipelineValue: t.pipelineValue + a.pipelineValue,
+      disbursalAmount: t.disbursalAmount + a.disbursalAmount, target: t.target + a.target,
+      overdueSla: t.overdueSla + a.overdueSla, dueCallbacks: t.dueCallbacks + a.dueCallbacks,
+    }), { ...emptyTotals });
+    callbacks.sort((a, b) => new Date(a.callbackAt).getTime() - new Date(b.callbackAt).getTime());
+    slaBreaches.sort((a, b) => a.slaDeadlineMs - b.slaDeadlineMs);
+    return { members: rows, totals, actionNeeded: { callbacks, slaBreaches }, period };
+  }
+
+  // GET /api/crm/team/performance?period=YYYY-MM — caller's OWN downline only.
+  // Any signed-in user may call it; non-managers simply get an empty team.
+  app.get("/api/crm/team/performance", async (req, res) => {
+    try {
+      const uid = await verifyFirebaseToken(req);
+      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+      const q = req.query.period;
+      const period = typeof q === "string" && /^\d{4}-\d{2}$/.test(q) ? q : new Date().toISOString().slice(0, 7);
+      return res.json(await computeTeamSummary(uid, period));
+    } catch (e) { return res.status(500).json({ error: String(e) }); }
+  });
+
+  // POST /api/admin/run-weekly-team-digest (OIDC or admin). Fridays — bell + email per manager.
+  app.post("/api/admin/run-weekly-team-digest", async (req, res) => {
+    if (!(await requireAdminOrScheduler(req, res))) return;
+    try {
+      const period = new Date().toISOString().slice(0, 7);
+      const usersSnap = await db.collection("users").get();
+      const users = usersSnap.docs.map((d) => ({ uid: d.id, ...(d.data() as any) }));
+      const managers = users.filter((u: any) =>
+        u.employeeStatus !== "inactive" &&
+        users.some((r: any) => r.reportingManagerUid === u.uid && r.employeeStatus !== "inactive"));
+      const fmt = (n: number) => "₹" + Math.round(n).toLocaleString("en-IN");
+      let sent = 0;
+      for (const mgr of managers as any[]) {
+        const summary = await computeTeamSummary(mgr.uid, period);
+        if (summary.members.length === 0) continue;
+        const t = summary.totals;
+        await db.collection("notifications").doc(mgr.uid).collection("items").add({
+          type: "follow_up_needed",
+          title: "Weekly team review",
+          body: `${summary.members.length} reports · ${t.dueCallbacks} callbacks due · ${t.overdueSla} SLA breaches · ${fmt(t.disbursalAmount)} disbursed`,
+          link: "/crm/team",
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        }).catch(() => {});
+        const authUser = await admin.auth().getUser(mgr.uid).catch(() => null);
+        if (authUser?.email) {
+          const html = buildBrandEmail({
+            title: "Your weekly team review",
+            intro: `Performance snapshot for your team of ${summary.members.length} for ${period}.`,
+            rows: [
+              { label: "Disbursed this month", value: fmt(t.disbursalAmount) },
+              { label: "Open pipeline", value: `${fmt(t.pipelineValue)} (${t.openOpps} deals)` },
+              { label: "Callbacks due now", value: String(t.dueCallbacks) },
+              { label: "Leads past SLA", value: String(t.overdueSla) },
+              { label: "Total active leads", value: String(t.leads) },
+            ],
+            note: (t.dueCallbacks + t.overdueSla) > 0
+              ? `${t.dueCallbacks} customers are waiting on a scheduled callback and ${t.overdueSla} leads have breached SLA. Review these with your team today.`
+              : undefined,
+            ctaLabel: "Open Team dashboard",
+            ctaLink: "https://pulse.finvastra.com/crm/team",
+          });
+          await sendGmailMessage(authUser.email, "Finvastra Pulse — Weekly team review", html).catch(() => {});
+        }
+        sent++;
+      }
+      return res.json({ managers: managers.length, sent });
+    } catch (e) { return res.status(500).json({ error: String(e) }); }
+  });
+
   // ─── PART 2 — Smart follow-up reminders ──────────────────────────────────────
   // POST /api/admin/run-followup-check (OIDC or admin). Daily 09:00 IST.
   app.post("/api/admin/run-followup-check", async (req, res) => {

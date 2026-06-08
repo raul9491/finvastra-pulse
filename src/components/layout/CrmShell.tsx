@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import {
   LayoutDashboard, TrendingUp, GitBranch, IndianRupee,
   Upload, Settings, LogOut, LayoutGrid, Inbox, Clock, Bookmark, Plus, Webhook, User,
-  Menu, X, PackageOpen, Target, BarChart3, Command,
+  Menu, X, PackageOpen, Target, BarChart3, Command, UsersRound,
 } from 'lucide-react';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
@@ -23,6 +23,7 @@ type NavEntry = { path: string; label: string; icon: ElementType; live: boolean;
 
 const NAV: NavEntry[] = [
   { path: '/crm/command-centre', label: 'Command Centre', icon: Command, live: true, end: true },
+  { path: '/crm/team',        label: 'My Team',     icon: UsersRound,      live: true,  end: true  },
   { path: '/crm/dashboard',   label: 'Dashboard',   icon: LayoutDashboard, live: true,  end: true  },
   { path: '/crm/my-queue',    label: 'My Queue',    icon: Inbox,           live: true,  end: true  },
   { path: '/crm/leads',       label: 'Customers',   icon: TrendingUp,      live: true,  end: false },
@@ -62,6 +63,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/crm/referrals/new':                   'Submit a Lead',
   '/crm/referrals/import':                'Import from CSV',
   '/crm/command-centre':                 'Command Centre',
+  '/crm/team':                           'My Team',
   '/crm/dashboard':                      'Dashboard',
   '/crm/import/history':                 'Import History',
   '/crm/my-queue':                       'My Queue',
@@ -237,6 +239,7 @@ export function CrmShell() {
             // Hide Import from viewers and from users without import access
             .filter((entry) => {
               if (entry.path === '/crm/command-centre') return isAdmin || profile?.commandCentreAccess === true;
+              if (entry.path === '/crm/team') return isManager || isAdmin;
               if (entry.path === '/crm/import') return canImport;
               if (entry.path === '/crm/import/queue') return canImport;
               if (entry.path === '/crm/my-queue') return isGenerator || isAdmin;

@@ -261,6 +261,7 @@ service cloud.firestore {
       // Admin sees all; RM sees their primary leads; HRMS employee tracks their own referrals.
       allow get:  if isAdmin() ||
                      (hasCrmAccess() && resource.data.primaryOwnerId == request.auth.uid) ||
+                     isManagerOf(resource.data.primaryOwnerId) ||
                      resource.data.get('referredBy', null) == request.auth.uid;
       allow list: if isAdmin() ||
                      (hasCrmAccess() && resource.data.primaryOwnerId == request.auth.uid) ||
@@ -277,7 +278,8 @@ service cloud.firestore {
       // cannot extend their own SLA to dodge the overdue badge.
       allow update: if isAdmin() ||
                        (hasCrmAccess() &&
-                        resource.data.primaryOwnerId == request.auth.uid &&
+                        (resource.data.primaryOwnerId == request.auth.uid
+                         || isManagerOf(resource.data.primaryOwnerId)) &&
                         incoming().diff(existing()).affectedKeys().hasOnly([
                           'displayName', 'phone', 'email', 'source', 'tags',
                           'primaryOwnerId', 'updatedAt', 'slaDeadline',
@@ -297,7 +299,8 @@ service cloud.firestore {
                           (hasCrmAccess() && (
                             resource.data.ownerId == request.auth.uid ||
                             get(/databases/$(database)/documents/leads/$(leadId)).data.primaryOwnerId == request.auth.uid
-                          ));
+                          )) ||
+                          isManagerOf(get(/databases/$(database)/documents/leads/$(leadId)).data.primaryOwnerId);
 
       // Only admin or lead's primary owner can create opportunities on that lead
       allow create: if isAdmin() ||
@@ -323,7 +326,8 @@ service cloud.firestore {
                      (hasCrmAccess() && (
                        get(/databases/$(database)/documents/leads/$(leadId)/opportunities/$(oppId)).data.ownerId == request.auth.uid ||
                        get(/databases/$(database)/documents/leads/$(leadId)).data.primaryOwnerId == request.auth.uid
-                     ));
+                     )) ||
+                     isManagerOf(get(/databases/$(database)/documents/leads/$(leadId)).data.primaryOwnerId);
       allow create: if hasCrmAccess() && isValidActivity(incoming());
       allow update: if isAdmin();
       allow delete: if isAdmin();
@@ -661,6 +665,13 @@ service cloud.firestore {
       return isSignedIn() &&
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('crmRole', null) == 'manager';
+    }
+    // True when the caller is a CRM manager AND the given user reports to them
+    // (HRMS reporting line). Lets a director view/edit their team's leads.
+    function isManagerOf(ownerUid) {
+      return isManager() &&
+             exists(/databases/$(database)/documents/users/$(ownerUid)) &&
+             get(/databases/$(database)/documents/users/$(ownerUid)).data.get('reportingManagerUid', '') == request.auth.uid;
     }
 
     // ─── HRMS: Attendance ─────────────────────────────────────────────────────────

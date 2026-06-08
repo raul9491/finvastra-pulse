@@ -121,6 +121,7 @@ const ImportReferralsPage      = lazyPage(() => import('./features/crm/referrals
 const TargetsPage              = lazyPage(() => import('./features/crm/targets/TargetsPage'), 'TargetsPage');
 const LeadAgingPage            = lazyPage(() => import('./features/crm/reports/LeadAgingPage'), 'LeadAgingPage');
 const CommandCentrePage        = lazyPage(() => import('./features/crm/dashboard/CommandCentrePage'), 'CommandCentrePage');
+const TeamPerformancePage      = lazyPage(() => import('./features/crm/team/TeamPerformancePage'), 'TeamPerformancePage');
 
 // ── MIS (lazy group) ─────────────────────────────────────────────────────────
 const MisShell                 = lazyPage(() => import('./components/layout/MisShell'), 'MisShell');
@@ -221,6 +222,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true,       element: <Navigate to="/crm/dashboard" replace /> },
       { path: 'command-centre', element: s(<CommandCentrePage />) },
+      { path: 'team',           element: s(<TeamPerformancePage />) },
       { path: 'dashboard',   element: s(<CrmDashboardPage />) },
       { path: 'my-queue',    element: s(<MyQueuePage />) },
       // leads/new before leads/:leadId so 'new' isn't treated as a leadId param

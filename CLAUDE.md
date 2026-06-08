@@ -2294,6 +2294,8 @@ Authoritative list of every Express route. Verify against `server.ts` after any 
 - `POST /api/admin/run-followup-check` (Phase N) · `POST /api/admin/run-daily-briefing` (Phase N)
 - `POST /api/admin/run-monthly-scorecards` (Phase N) · `POST /api/admin/generate-scorecard/:uid/:period` (Phase N — manual, admin)
 - `POST /api/admin/run-callback-reminders` — fires owner reminders when a lead's scheduled `callbackAt` arrives (every 15 min)
+- `GET  /api/crm/team/performance?period=` — caller's downline performance summary (Phase P)
+- `POST /api/admin/run-weekly-team-digest` — Friday bell+email team review per manager (Phase P)
 
 **SPA fallback**: `GET *` → `index.html` (prod static).
 
@@ -2353,7 +2355,7 @@ CRM performance suite — monthly RM targets vs live actuals, smart follow-up re
 `rm_targets` (read: **any signed-in** — targets are non-PII; write: admin/manager · delete: false); `follow_up_logs` + `scorecard_logs` (admin read, server-only write); `commission_statement_templates` (read: admin/misAccess · write+delete: admin). New helper `isManager()` (`crmRole=='manager'`).
 
 ### Cloud Scheduler jobs — ✅ registered & ENABLED (2026-06-08)
-`followup-check` daily 09:00 IST (`30 3 * * *`) · `daily-rm-briefing` daily 08:30 IST (`0 3 * * *`) · `monthly-scorecards` 1st 07:00 IST (`30 1 1 * *`) — all in `asia-south1`, hitting `pulse-api` with OIDC (SA `787616231546-compute@developer.gserviceaccount.com`). Plus **`callback-reminders`** every 15 min (`*/15 * * * *`) → `run-callback-reminders`. Manage: `gcloud scheduler jobs run|pause|describe <name> --location=asia-south1`.
+`followup-check` daily 09:00 IST (`30 3 * * *`) · `daily-rm-briefing` daily 08:30 IST (`0 3 * * *`) · `monthly-scorecards` 1st 07:00 IST (`30 1 1 * *`) — all in `asia-south1`, hitting `pulse-api` with OIDC (SA `787616231546-compute@developer.gserviceaccount.com`). Plus **`callback-reminders`** every 15 min (`*/15 * * * *`) → `run-callback-reminders`, and **`weekly-team-digest`** Fridays (`0 4 * * 5`, 09:30 IST) → `run-weekly-team-digest` (Phase P). Manage: `gcloud scheduler jobs run|pause|describe <name> --location=asia-south1`.
 
 ### Resolved follow-ups (2026-06-08)
 - **Targets read rule relaxed** to `isSignedIn()` — the "target not set" nav badge now works for every RM (no permission-denied on a non-existent own target). Targets are non-PII; writes stay admin/manager only.
@@ -2386,3 +2388,27 @@ Single cross-module command centre for Ajay & Kumar — reads **HRMS + CRM + MIS
 Reuses `useRmTargets` (`useTeamTargets`, `achievementPct`) for the targets/pipeline maths — no duplicated actuals logic.
 
 **Resilience**: each of the ~14 cross-module queries loads **fail-safe** (per-query `.catch` → empty) so a denied or unindexed collection degrades only its own section instead of blanking the whole dashboard. (A plain `Promise.all` would reject the entire batch on a single failure.)
+
+---
+
+## Phase P — Director / Team Performance (2026-06-08)
+
+Bridges the **HRMS reporting line into CRM scoping** so a manager/director sees and manages exactly their downline. **The "team" = the caller's transitive `reportingManagerUid` tree** (the same field the org chart uses). No new collections; deterministic aggregation of existing data.
+
+**Route**: `/crm/team` — `src/features/crm/team/TeamPerformancePage.tsx`. Nav "My Team" in CrmShell, shown to `crmRole==='manager'` or platform admin.
+
+### How it's scoped (strict team-only, no denormalised field)
+- **Heavy reads run server-side** via Admin SDK — `GET /api/crm/team/performance?period=YYYY-MM` computes the caller's downline and returns **only their reports'** aggregates. Any signed-in user may call it; non-managers get an empty team (no leak — you only ever see your own reports).
+- **Single-lead view/edit** is the only client-facing rule change: a CRM **manager can `get`/`update` a lead (and read its opportunities + activities) when he is the owner's reporting manager** — new `firestore.rules` helper `isManagerOf(ownerUid)` (`isManager()` + `get(users/owner).reportingManagerUid == caller`). Edit scope = same fields as the owner (status, callback, reassign-within-team, slaDeadline-clear). Opportunity deep-edit stays owner/admin. One cheap `get()` per single-doc op — no list-time fan-out (lists are server-driven).
+
+### Server (`server.ts`)
+- `computeDownline(users, managerUid)` — transitive descendant uid set.
+- `computeTeamSummary(managerUid, period)` — bulk-queries leads / open opps / commission_records / rm_targets once, aggregates per member: leads, openOpps, pipeline ₹, disbursed ₹, target (`targets.disbursalAmount`), achievement %, overdue SLA, due callbacks; plus team `actionNeeded` lists (due callbacks + SLA breaches with leadIds).
+- `GET /api/crm/team/performance` (signed-in; own downline).
+- `POST /api/admin/run-weekly-team-digest` (OIDC/admin) — for every manager with an active downline, sends a **bell + email** digest (disbursed, pipeline, callbacks due, SLA breaches). Cloud Scheduler **`weekly-team-digest`** Fridays `0 4 * * 5` (09:30 IST) — registered & ENABLED.
+
+### Page sections
+Team KPI chips (disbursed/target · open pipeline · callbacks due · leads past SLA) · **"Action needed today"** (due callbacks + SLA breaches, each click-through to `/crm/leads/:id`) · per-member performance table (target vs achieved %, colour-coded 🟢≥80 🟡≥50 🔴).
+
+### Access config
+A director needs `crmRole: 'manager'` + `crmAccess: true` (and `isHrmsManager` for HR-gated bits). Set via Permission Manager. **M Hemadri Babu** (FAPL-012) set to `crmRole: manager` on 2026-06-08 (was `crmRole: admin`, which the rules never honoured — only top-level `role==='admin'` grants platform-admin; `crmRole` is read by `isManager()`/`isManagerOf()`).

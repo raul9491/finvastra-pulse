@@ -38,6 +38,14 @@ function TableSkeleton() {
   );
 }
 
+const LEAD_BOARD_COLUMNS = [
+  { key: 'interested',     label: 'Interested',     color: '#34d399' },
+  { key: 'callback',       label: 'Callback later', color: '#C9A961' },
+  { key: 'no_response',    label: 'No response',    color: '#fbbf24' },
+  { key: 'not_interested', label: 'Not interested', color: '#f87171' },
+  { key: 'wrong_number',   label: 'Wrong number',   color: '#9ca3af' },
+] as const;
+
 export function LeadsPage() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
@@ -79,6 +87,22 @@ export function LeadsPage() {
     });
   }, [leads, search, filterSource, filterRm, filterUnassigned]);
 
+  // Dispositioned leads move to the Kanban board; only "remaining" leads stay in the table.
+  const tableLeads = useMemo(
+    () => filtered.filter((l) => !l.leadStatus || l.leadStatus === 'new'),
+    [filtered],
+  );
+  const boardByStatus = useMemo(() => {
+    const m = new Map<string, Lead[]>();
+    filtered.forEach((l) => {
+      if (l.leadStatus && l.leadStatus !== 'new') {
+        if (!m.has(l.leadStatus)) m.set(l.leadStatus, []);
+        m.get(l.leadStatus)!.push(l);
+      }
+    });
+    return m;
+  }, [filtered]);
+
   // Stage options derived from the first active loan opportunity type, with a
   // hardcoded fallback so the dropdown is never empty before Firestore loads.
   const loanStages = useMemo(() => {
@@ -98,10 +122,10 @@ export function LeadsPage() {
 
   // ─── Select-all toggle ────────────────────────────────────────────────────
   const allFilteredSelected =
-    filtered.length > 0 && filtered.every((l) => selectedLeadIds.has(l.id));
+    tableLeads.length > 0 && tableLeads.every((l) => selectedLeadIds.has(l.id));
 
   const handleSelectAll = (checked: boolean) => {
-    setSelectedLeadIds(checked ? new Set(filtered.map((l) => l.id)) : new Set());
+    setSelectedLeadIds(checked ? new Set(tableLeads.map((l) => l.id)) : new Set());
   };
 
   const handleToggleRow = (id: string, checked: boolean) => {
@@ -198,7 +222,7 @@ export function LeadsPage() {
             Customers
           </h2>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            {loading ? 'Loading…' : `${filtered.length} customer${filtered.length !== 1 ? 's' : ''} · each row is a person, not a deal`}
+            {loading ? 'Loading…' : `${tableLeads.length} to action · ${filtered.length} total · each row is a person, not a deal`}
           </p>
         </div>
         <button
@@ -275,6 +299,35 @@ export function LeadsPage() {
         )}
       </div>
 
+      {/* Disposition board — dispositioned leads grouped by status (click a card to open) */}
+      {!loading && (
+        <div className="mb-5 overflow-x-auto">
+          <div className="flex gap-3 min-w-max pb-1">
+            {LEAD_BOARD_COLUMNS.map((col) => {
+              const items = boardByStatus.get(col.key) ?? [];
+              return (
+                <div key={col.key} className="w-56 shrink-0 glass-panel p-3" style={{ borderTop: `2px solid ${col.color}` }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold" style={{ color: col.color }}>{col.label}</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${col.color}22`, color: col.color }}>{items.length}</span>
+                  </div>
+                  <div className="space-y-1.5 overflow-y-auto" style={{ maxHeight: 240 }}>
+                    {items.map((l) => (
+                      <button key={l.id} onClick={() => navigate(`/crm/leads/${l.id}`)}
+                        className="w-full text-left px-2.5 py-2 rounded-lg transition-colors hover:bg-white/5" style={{ border: '1px solid var(--shell-border)' }}>
+                        <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{l.displayName}</p>
+                        <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>{l.phone} · {rmName(l.primaryOwnerId)}</p>
+                      </button>
+                    ))}
+                    {items.length === 0 && <p className="text-[10px] text-center py-3" style={{ color: 'var(--text-muted)' }}>None</p>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Table — watermarked with employee name + date to deter screenshots */}
       <div className="glass-panel overflow-hidden relative">
         <LeadListWatermark
@@ -283,10 +336,10 @@ export function LeadsPage() {
         />
         {loading ? (
           <TableSkeleton />
-        ) : filtered.length === 0 ? (
+        ) : tableLeads.length === 0 ? (
           <div className="py-20 text-center">
             <p className="text-lg mb-2" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', color: 'var(--text-primary)' }}>
-              {leads.length === 0 ? 'No customers yet.' : 'No customers match your filters.'}
+              {leads.length === 0 ? 'No customers yet.' : filtered.length === 0 ? 'No customers match your filters.' : 'All matching leads have been actioned 🎉'}
             </p>
             {leads.length === 0 && (
               <button onClick={() => navigate('/crm/leads/new')}
@@ -316,7 +369,7 @@ export function LeadsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((lead: Lead) => (
+                {tableLeads.map((lead: Lead) => (
                   <tr key={lead.id}
                     onClick={() => navigate(`/crm/leads/${lead.id}`)}
                     className="cursor-pointer hover:bg-white/5 transition-colors"

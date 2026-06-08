@@ -84,6 +84,7 @@ import { SubmitReferralPage }          from './features/crm/referrals/SubmitRefe
 import { ImportReferralsPage }         from './features/crm/referrals/ImportReferralsPage';
 import { TargetsPage }                 from './features/crm/targets/TargetsPage';
 import { LeadAgingPage }               from './features/crm/reports/LeadAgingPage';
+import { CommandCentrePage }           from './features/crm/dashboard/CommandCentrePage';
 
 import { MisShell }                 from './components/layout/MisShell';
 import { MisOverviewPage }          from './features/mis/overview/MisOverviewPage';
@@ -182,6 +183,7 @@ export const router = createBrowserRouter([
     element: <CrmShell />,
     children: [
       { index: true,       element: <Navigate to="/crm/dashboard" replace /> },
+      { path: 'command-centre', element: <CommandCentrePage /> },
       { path: 'dashboard',   element: <CrmDashboardPage /> },
       { path: 'my-queue',    element: <MyQueuePage /> },
       // leads/new before leads/:leadId so 'new' isn't treated as a leadId param

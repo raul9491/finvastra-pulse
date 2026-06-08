@@ -5,9 +5,9 @@ import { AnimatePresence, motion } from 'motion/react';
 import {
   LayoutDashboard, TrendingUp, GitBranch, IndianRupee,
   Upload, Settings, LogOut, LayoutGrid, Inbox, Clock, Bookmark, Plus, Webhook, User,
-  Menu, X, PackageOpen, Target, BarChart3,
+  Menu, X, PackageOpen, Target, BarChart3, Command,
 } from 'lucide-react';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { useMyLeads } from '../../features/crm/hooks/useMyLeads';
@@ -22,6 +22,7 @@ import { AppsMenu } from '../ui/AppsMenu';
 type NavEntry = { path: string; label: string; icon: ElementType; live: boolean; end?: boolean; badge?: number };
 
 const NAV: NavEntry[] = [
+  { path: '/crm/command-centre', label: 'Command Centre', icon: Command, live: true, end: true },
   { path: '/crm/dashboard',   label: 'Dashboard',   icon: LayoutDashboard, live: true,  end: true  },
   { path: '/crm/my-queue',    label: 'My Queue',    icon: Inbox,           live: true,  end: true  },
   { path: '/crm/leads',       label: 'Customers',   icon: TrendingUp,      live: true,  end: false },
@@ -60,6 +61,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/crm/referrals':                       'My Referrals',
   '/crm/referrals/new':                   'Submit a Lead',
   '/crm/referrals/import':                'Import from CSV',
+  '/crm/command-centre':                 'Command Centre',
   '/crm/dashboard':                      'Dashboard',
   '/crm/import/history':                 'Import History',
   '/crm/my-queue':                       'My Queue',
@@ -139,6 +141,7 @@ export function CrmShell() {
   // Mobile nav drawer state
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [targetMissing, setTargetMissing] = useState(false);
+  const [pendingApprovals, setPendingApprovals] = useState(0);
 
   // Only subscribe to the queue when the user is a lead_generator — keeps
   // the hook call unconditional (Rules of Hooks) while skipping the Firestore
@@ -157,6 +160,22 @@ export function CrmShell() {
       .then((s) => setTargetMissing(!s.exists()))
       .catch(() => setTargetMissing(false));
   }, [user?.uid]);
+
+  // Command Centre badge — total pending approvals (admin/manager only)
+  useEffect(() => {
+    const can = profile?.role === 'admin' || profile?.crmRole === 'manager';
+    if (!can) return;
+    (async () => {
+      const snaps = await Promise.all([
+        getDocs(query(collection(db, 'leave_applications'), where('status', '==', 'pending'))),
+        getDocs(query(collection(db, 'claims'), where('status', '==', 'pending'))),
+        getDocs(query(collection(db, 'it_declarations'), where('status', '==', 'submitted'))),
+        getDocs(query(collection(db, 'attendance_regularizations'), where('status', '==', 'pending'))),
+        getDocs(query(collection(db, 'leave_encashment_requests'), where('status', '==', 'pending'))),
+      ]);
+      setPendingApprovals(snaps.reduce((s, c) => s + c.size, 0));
+    })().catch(() => setPendingApprovals(0));
+  }, [profile?.role, profile?.crmRole]);
 
   // Close mobile drawer on route change
   useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
@@ -217,6 +236,7 @@ export function CrmShell() {
           {NAV
             // Hide Import from viewers and from users without import access
             .filter((entry) => {
+              if (entry.path === '/crm/command-centre') return isAdmin || isManager;
               if (entry.path === '/crm/import') return canImport;
               if (entry.path === '/crm/import/queue') return canImport;
               if (entry.path === '/crm/my-queue') return isGenerator || isAdmin;
@@ -227,6 +247,7 @@ export function CrmShell() {
               if (entry.path === '/crm/my-queue' && isGenerator) enriched = { ...entry, badge: queueOverdue };
               else if (entry.path === '/crm/import/queue')       enriched = { ...entry, badge: queueAwaiting };
               else if (entry.path === '/crm/targets')            enriched = { ...entry, badge: targetMissing ? 1 : 0 };
+              else if (entry.path === '/crm/command-centre')     enriched = { ...entry, badge: pendingApprovals };
               // Exact match for /crm/import so it doesn't also light up on /crm/import/queue
               const isActive = entry.path === '/crm/import'
                 ? location.pathname === '/crm/import'

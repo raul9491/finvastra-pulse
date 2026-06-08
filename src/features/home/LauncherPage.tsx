@@ -1,6 +1,6 @@
 import { Navigate, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
-import { Users, TrendingUp, BarChart3, ArrowRight, LogOut } from 'lucide-react';
+import { Users, TrendingUp, BarChart3, ArrowRight, LogOut, Command } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../auth/AuthContext';
 import { VideoLogo } from '../../components/ui/VideoLogo';
@@ -67,6 +67,7 @@ export function LauncherPage() {
   const showHrms = isAdmin || profile?.hrmsAccess !== false;
   const showCrm  = isAdmin || profile?.crmAccess === true;
   const showMis  = isAdmin || profile?.misAccess != null;
+  const showCommand = isAdmin || profile?.crmRole === 'manager';
 
   const firstName = profile?.displayName?.split(' ')[0] ?? 'there';
 
@@ -129,10 +130,19 @@ export function LauncherPage() {
 
           {/* Module tiles */}
           {(() => {
-            const tileCount = [showHrms, showCrm, showMis].filter(Boolean).length;
-            const gridClass = tileCount >= 3 ? 'md:grid-cols-3' : tileCount === 2 ? 'md:grid-cols-2' : 'max-w-sm';
+            const tileCount = [showCommand, showHrms, showCrm, showMis].filter(Boolean).length;
+            const gridClass = tileCount >= 4 ? 'md:grid-cols-2' : tileCount === 3 ? 'md:grid-cols-3' : tileCount === 2 ? 'md:grid-cols-2' : 'max-w-sm';
             return (
               <div className={`grid gap-6 ${gridClass}`}>
+                {showCommand && (
+                  <ModuleTile
+                    icon={<Command size={24} />}
+                    name="Command Centre"
+                    description="Team overview + pending actions across HR, CRM, and MIS."
+                    path="/crm/command-centre"
+                    accentColor="#C9A961"
+                  />
+                )}
                 {showHrms && (
                   <ModuleTile
                     icon={<Users size={24} />}
@@ -165,7 +175,7 @@ export function LauncherPage() {
           })()}
 
           {/* No access fallback */}
-          {!showHrms && !showCrm && !showMis && (
+          {!showCommand && !showHrms && !showCrm && !showMis && (
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               No modules assigned yet. Contact your admin.
             </p>

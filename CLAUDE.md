@@ -189,7 +189,8 @@ src/
     │   │   ├── useRmTargets.ts       (Phase N — targets, computeActuals, achievementPct)
     │   │   └── config/              seedData.ts, seedDocumentTypes.ts, seedCrmConfig.ts, migrate.ts
     │   │
-    │   ├── dashboard/     CrmDashboardPage — RM performance table, pipeline by biz line, source breakdown
+    │   ├── dashboard/     CrmDashboardPage — RM perf table, pipeline by biz line, source breakdown;
+    │   │                  CommandCentrePage (/crm/command-centre) — cross-module manager dashboard  ← Phase O
     │   ├── leads/         LeadsPage, LeadDetailPage, NewLeadPage, MyQueuePage, QuickContactBar
     │   │                  FOIRCalculator, duplicate detection, bulk actions, PAN masking
     │   ├── opportunities/ OpportunityDetailPage (stage advance, activity timeline, stage data history)
@@ -2329,3 +2330,27 @@ CRM performance suite — monthly RM targets vs live actuals, smart follow-up re
 ### Resolved follow-ups (2026-06-08)
 - **Targets read rule relaxed** to `isSignedIn()` — the "target not set" nav badge now works for every RM (no permission-denied on a non-existent own target). Targets are non-PII; writes stay admin/manager only.
 - **Scorecard activity index added** — `activities (by ASC, at DESC)` collection-group composite, so calls/meetings counts are real instead of silently 0.
+
+---
+
+## Phase O — Manager Command Centre (2026-06-08)
+
+Single cross-module command centre for Ajay & Kumar — reads **HRMS + CRM + MIS**. Pure aggregation of existing Firestore data; **no new collections / endpoints / rules**, no AI.
+
+**Route**: `/crm/command-centre` (admin + manager) · **File**: `src/features/crm/dashboard/CommandCentrePage.tsx`
+
+| Section | Source collections |
+|---|---|
+| Header KPI chips (checked-in · pending approvals · leads overdue SLA · compliance overdue) | derived from the sections below; each chip scroll-jumps to its section |
+| Team attendance today | `/attendance` (date==today) × `/users` (active) → Present / On-Leave / Not-checked-in (last group only after 10:00 IST) |
+| Pending approvals | `/leave_applications` + `/claims` (pending) · `/it_declarations` (submitted) · `/attendance_regularizations` + `/leave_encashment_requests` (pending) → deep-links to HRMS admin pages |
+| Pipeline health | collectionGroup `opportunities` (open + won), `rm_targets` target/achievement via `useTeamTargets`, open pipeline by business line, overdue-SLA count |
+| RM targets snapshot | `useTeamTargets(period)` — table (desktop) / cards (mobile); deterministic 🟢 On track / 🟡 Watch / 🔴 Behind |
+| Compliance alerts | `/compliance_records` — overdue/due_soon computed from `dueDate`/`filedAt` (same logic as ComplianceCalendarPage) |
+| Recent activity feed | `/audit_logs` (5) + recent `/leave_applications` (3) + paid `/commission_records` (3), merged & sorted DESC, max 10 |
+
+**Navigation**: CrmShell nav "Command Centre" at the **TOP** (admin/manager only) with a red badge = total pending approvals; LauncherPage **4th card** "Command Centre" for admin/manager.
+
+**Mobile (< md)**: KPI chips 2×2; attendance avatars horizontal-scroll; RM targets render as cards not a table; pipeline business-line bars hidden (totals only); all sections stack.
+
+Reuses `useRmTargets` (`useTeamTargets`, `achievementPct`) for the targets/pipeline maths — no duplicated actuals logic.

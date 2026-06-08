@@ -2114,6 +2114,7 @@ Each opportunity stage now collects structured data on advance.
 - **StageDataHistory**: accordion timeline showing all captured stage data on `OpportunityDetailPage`
 - **Firestore rules**: `stageData` added to allowable update keys on `/leads/{id}/opportunities/{id}`
 - **Mark-as-Lost fix (2026-06-08)**: `lostDetails` added to the opportunity owner's allowed update keys (was denied for non-admin telecallers, so "Mark as Lost" silently failed for them); `slaDeadline` added to the **lead** owner's allowed keys **but only when cleared to `null`** (owners cannot extend their own SLA to dodge the overdue badge). On marking an opp lost with no other open opps, `OpportunityDetailPage` clears the lead's `slaDeadline` → it drops out of all overdue-SLA counts instantly.
+- **Lead disposition (2026-06-08)**: raw / no-opportunity leads can now be dispositioned **directly on `LeadDetailPage`** via a **Status dropdown** (New · Interested · Callback later · Not interested · No response · Wrong number), shown to the lead's owner or admin. Stored as `leadStatus` / `leadStatusAt` / `leadStatusBy` on `/leads/{id}` (added to the owner's allowed update keys). Closing dispositions (`not_interested` / `no_response` / `wrong_number`) also clear `slaDeadline` → instantly out of overdue. This closes the gap where "Mark as Lost" only existed at the **opportunity** level — useless for telecallers working freshly-distributed leads that have **0 opportunities**. New type: `LeadStatus`.
 
 ### CRM — Pipeline Kanban Board (`/crm/pipeline`)
 

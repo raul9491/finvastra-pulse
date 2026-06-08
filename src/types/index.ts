@@ -385,6 +385,10 @@ export type LeadSource = 'website' | 'instagram' | 'facebook' | 'walkin' | 'refe
 export type ConsentMethod = 'verbal' | 'written' | 'digital' | 'offline_collection';
 export type TriagePriority = 'high' | 'medium' | 'low';
 
+export type LeadStatus =
+  | 'new' | 'interested' | 'callback'
+  | 'not_interested' | 'no_response' | 'wrong_number' | 'converted';
+
 export interface Lead {
   id: string;
   displayName: string;
@@ -414,6 +418,10 @@ export interface Lead {
   // Employee referral provenance — UID of HRMS employee who submitted this lead.
   // Preserved after primaryOwnerId is reassigned; drives read access in Firestore rules.
   referredBy?: string;
+  // Telecaller disposition — for leads worked before any opportunity exists
+  leadStatus?: LeadStatus;
+  leadStatusAt?: any;
+  leadStatusBy?: string;
   // Bulk import provenance fields
   importBatchId?: string;
   importName?: string;    // denormalised batch label for source-quality analysis

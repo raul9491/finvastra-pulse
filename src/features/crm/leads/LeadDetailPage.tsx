@@ -12,7 +12,7 @@ import { auth, db } from '../../../lib/firebase';
 import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { FOIRCalculator } from './FOIRCalculator';
 import { QuickContactBar } from './QuickContactBar';
-import type { Opportunity, OpportunityType, OpportunityStatus } from '../../../types';
+import type { Opportunity, OpportunityType, OpportunityStatus, LeadStatus } from '../../../types';
 
 // ─── Opportunity type icons ───────────────────────────────────────────────────
 const TYPE_ICONS: Record<OpportunityType, React.ReactNode> = {
@@ -204,6 +204,36 @@ export function LeadDetailPage() {
     }
   };
 
+  // ─── Lead disposition (telecaller status) ──────────────────────────────────────
+  const [savingStatus, setSavingStatus] = useState(false);
+  const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
+    new:            'New',
+    interested:     'Interested',
+    callback:       'Callback later',
+    not_interested: 'Not interested',
+    no_response:    'No response / not reachable',
+    wrong_number:   'Wrong number',
+    converted:      'Converted',
+  };
+  const TERMINAL_STATUSES = new Set<LeadStatus>(['not_interested', 'no_response', 'wrong_number']);
+
+  const handleDisposition = async (status: LeadStatus) => {
+    if (!leadId || !user) return;
+    setSavingStatus(true);
+    try {
+      await updateDoc(doc(db, 'leads', leadId), {
+        leadStatus:   status,
+        leadStatusAt: serverTimestamp(),
+        leadStatusBy: user.uid,
+        updatedAt:    serverTimestamp(),
+        // Closing dispositions clear the SLA so the lead drops out of "overdue" instantly.
+        ...(TERMINAL_STATUSES.has(status) ? { slaDeadline: null } : {}),
+      });
+    } finally {
+      setSavingStatus(false);
+    }
+  };
+
   // ─── PAN reveal state ─────────────────────────────────────────────────────────
   const [revealedPan, setRevealedPan]         = useState<string | null>(null);
   const [revealingPan, setRevealingPan]       = useState(false);
@@ -335,6 +365,38 @@ export function LeadDetailPage() {
             })()}
           </div>
         </div>
+
+        {/* Lead disposition — telecaller marks the call outcome (works even with no opportunity) */}
+        {(isAdmin || isPrimaryOwner) && (
+          <div className="flex flex-wrap items-center gap-2 mb-5 pb-5" style={{ borderBottom: '1px solid var(--shell-border)' }}>
+            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Status</span>
+            <select
+              value={lead.leadStatus ?? 'new'}
+              disabled={savingStatus}
+              onChange={(e) => handleDisposition(e.target.value as LeadStatus)}
+              className="glass-inp text-sm"
+              style={{ maxWidth: 240, borderColor: lead.leadStatus && TERMINAL_STATUSES.has(lead.leadStatus) ? 'rgba(248,113,113,0.5)' : undefined }}
+            >
+              <option value="new">New</option>
+              <option value="interested">Interested</option>
+              <option value="callback">Callback later</option>
+              <option value="not_interested">Not interested</option>
+              <option value="no_response">No response / not reachable</option>
+              <option value="wrong_number">Wrong number</option>
+            </select>
+            {savingStatus && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Saving…</span>}
+            {!savingStatus && lead.leadStatus && lead.leadStatus !== 'new' && (
+              <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold"
+                style={{
+                  backgroundColor: TERMINAL_STATUSES.has(lead.leadStatus) ? 'rgba(248,113,113,0.12)' : 'rgba(201,169,97,0.12)',
+                  color: TERMINAL_STATUSES.has(lead.leadStatus) ? '#f87171' : '#C9A961',
+                }}>
+                {LEAD_STATUS_LABELS[lead.leadStatus]}{TERMINAL_STATUSES.has(lead.leadStatus) ? ' · closed, SLA cleared' : ''}
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Phone</p>

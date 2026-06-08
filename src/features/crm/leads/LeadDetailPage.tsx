@@ -159,7 +159,6 @@ export function LeadDetailPage() {
 
   const isAdmin = profile?.role === 'admin';
   const isPrimaryOwner = user?.uid === lead?.primaryOwnerId;
-  const canEditFinancials = isAdmin || isPrimaryOwner;
 
   // ─── Lead view audit log ──────────────────────────────────────────────────────
   // Fires once when the lead finishes loading. useRef guard prevents double-fire
@@ -176,33 +175,6 @@ export function LeadDetailPage() {
       viewedAt:     serverTimestamp(),
     }).catch(() => {});
   }, [lead?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Financials editing state ─────────────────────────────────────────────────
-  const [editingFinancials, setEditingFinancials] = useState(false);
-  const [incomeInput, setIncomeInput]             = useState('');
-  const [emisInput, setEmisInput]                 = useState('');
-  const [savingFinancials, setSavingFinancials]   = useState(false);
-
-  const handleEditFinancials = () => {
-    setIncomeInput(lead?.monthlyIncome ? String(lead.monthlyIncome) : '');
-    setEmisInput(lead?.existingEmis ? String(lead.existingEmis) : '');
-    setEditingFinancials(true);
-  };
-
-  const handleSaveFinancials = async () => {
-    if (!leadId) return;
-    setSavingFinancials(true);
-    try {
-      await updateDoc(doc(db, 'leads', leadId), {
-        monthlyIncome: incomeInput ? Number(incomeInput) : null,
-        existingEmis:  emisInput   ? Number(emisInput)   : null,
-        updatedAt: serverTimestamp(),
-      });
-      setEditingFinancials(false);
-    } finally {
-      setSavingFinancials(false);
-    }
-  };
 
   // ─── Lead disposition (telecaller status) ──────────────────────────────────────
   const [savingStatus, setSavingStatus] = useState(false);
@@ -447,60 +419,6 @@ export function LeadDetailPage() {
           )}
         </div>
 
-        {/* ─── Financials section ─────────────────────────────────────────────── */}
-        <div className="mt-5 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Financials</p>
-            {canEditFinancials && !editingFinancials && (
-              <button onClick={handleEditFinancials}
-                className="text-xs px-2.5 py-1 rounded border hover:bg-white/5 transition-colors"
-                style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>
-                Edit
-              </button>
-            )}
-          </div>
-          {editingFinancials ? (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Monthly Income ₹</p>
-                <input type="number" value={incomeInput} onChange={e => setIncomeInput(e.target.value)}
-                  className="glass-inp text-sm w-full" />
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Existing EMIs ₹/month</p>
-                <input type="number" value={emisInput} onChange={e => setEmisInput(e.target.value)}
-                  className="glass-inp text-sm w-full" />
-              </div>
-              <div className="col-span-2 flex gap-2">
-                <button onClick={handleSaveFinancials} disabled={savingFinancials}
-                  className="px-4 py-2 text-sm font-semibold rounded-lg transition-opacity disabled:opacity-50"
-                  style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
-                  {savingFinancials ? 'Saving…' : 'Save'}
-                </button>
-                <button onClick={() => setEditingFinancials(false)}
-                  className="px-4 py-2 text-sm border rounded-lg hover:bg-white/5 transition-colors"
-                  style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Monthly Income</p>
-                <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
-                  {lead.monthlyIncome ? `₹${lead.monthlyIncome.toLocaleString('en-IN')}` : '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Existing EMIs</p>
-                <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
-                  {lead.existingEmis ? `₹${lead.existingEmis.toLocaleString('en-IN')}/mo` : '—'}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Stats strip */}

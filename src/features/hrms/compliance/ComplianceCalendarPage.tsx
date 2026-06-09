@@ -9,7 +9,7 @@ import {
   ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Clock, X, Info, CalendarDays, List,
 } from 'lucide-react';
 import {
-  collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp,
+  collection, query, where, getDocs, setDoc, updateDoc, deleteDoc, doc, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
@@ -172,6 +172,18 @@ function seedPayload(item: SeedItem) {
     createdAt:       serverTimestamp(),
   };
 }
+
+// Deterministic doc ID — the SAME obligation always maps to ONE document, so
+// re-seeding can never create duplicates (the old random-id seeding could).
+function slugify(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+}
+function seedDocId(monthStr: string, type: ComplianceType, title: string) {
+  return `cmp_${monthStr}_${type}_${slugify(title)}`;
+}
+// Content key for matching legacy/random-id rows to an obligation.
+const contentKey = (r: { type?: string; title?: string; dueDate?: string }) =>
+  `${r.type ?? ''}|${r.title ?? ''}|${r.dueDate ?? ''}`;
 
 // ─── Mark Filed Modal ─────────────────────────────────────────────────────────
 
@@ -678,35 +690,55 @@ export function ComplianceCalendarPage() {
   const loadRecords = useCallback(async () => {
     setLoading(true);
     try {
-      let snap = await getDocs(
+      const snap = await getDocs(
         query(collection(db, 'compliance_records'), where('month', '==', monthStr)),
       );
+      const existing = snap.docs;
+      const existingById = new Map(existing.map((d) => [d.id, d]));
+      // Obligations already FILED (any id/format) — never re-create or delete these.
+      const filedKeys = new Set(
+        existing.filter((d) => d.data().filedAt).map((d) => contentKey(d.data())),
+      );
 
-      // Stale unfiled rows = seeded by an older schedule version (or pre-versioning).
-      const staleUnfiled = snap.docs.filter((d) => {
-        const x = d.data();
-        return !x.filedAt && (x.seedVersion ?? 0) < SEED_VERSION;
-      });
+      const expected = generateComplianceItems(year, month);
+      const expectedIds = new Set<string>();
+      const ops: Promise<unknown>[] = [];
 
-      if (snap.empty) {
-        setSeeding(true);
-        for (const item of generateComplianceItems(year, month)) {
-          await addDoc(collection(db, 'compliance_records'), seedPayload(item));
+      // 1. Ensure each expected obligation exists exactly once (deterministic id).
+      for (const item of expected) {
+        const id = seedDocId(monthStr, item.type, item.title ?? '');
+        expectedIds.add(id);
+        const ex = existingById.get(id);
+        if (ex) {
+          const x = ex.data();
+          // Refresh only stale UNFILED canonical rows; never touch filed ones.
+          if (!x.filedAt && (x.seedVersion ?? 0) < SEED_VERSION) {
+            ops.push(setDoc(doc(db, 'compliance_records', id), seedPayload(item)));
+          }
+        } else if (!filedKeys.has(contentKey(item))) {
+          ops.push(setDoc(doc(db, 'compliance_records', id), seedPayload(item)));
         }
-        setSeeding(false);
-        snap = await getDocs(query(collection(db, 'compliance_records'), where('month', '==', monthStr)));
-      } else if (staleUnfiled.length > 0) {
-        // Self-heal: replace stale unfiled rows with the current schedule; keep filed history.
-        setSeeding(true);
-        await Promise.all(staleUnfiled.map((d) => deleteDoc(doc(db, 'compliance_records', d.id))));
-        for (const item of generateComplianceItems(year, month)) {
-          await addDoc(collection(db, 'compliance_records'), seedPayload(item));
-        }
-        setSeeding(false);
-        snap = await getDocs(query(collection(db, 'compliance_records'), where('month', '==', monthStr)));
       }
 
-      setRecords(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ComplianceRecord));
+      // 2. Delete leftover UNFILED rows that aren't part of the current schedule
+      //    (old conventions / random-id duplicates). Filed history is preserved.
+      for (const d of existing) {
+        if (!expectedIds.has(d.id) && !d.data().filedAt) {
+          ops.push(deleteDoc(doc(db, 'compliance_records', d.id)));
+        }
+      }
+
+      if (ops.length > 0) {
+        setSeeding(true);
+        await Promise.all(ops);
+        setSeeding(false);
+        const snap2 = await getDocs(
+          query(collection(db, 'compliance_records'), where('month', '==', monthStr)),
+        );
+        setRecords(snap2.docs.map((d) => ({ id: d.id, ...d.data() }) as ComplianceRecord));
+      } else {
+        setRecords(existing.map((d) => ({ id: d.id, ...d.data() }) as ComplianceRecord));
+      }
     } finally {
       setLoading(false);
     }

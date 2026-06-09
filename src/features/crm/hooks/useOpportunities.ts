@@ -172,6 +172,7 @@ export async function createOpportunity(
   values: OpportunityFormValues,
   userId: string,
   customFields?: Record<string, unknown>,
+  connector?: { id: string; code: string; name: string } | null,
 ): Promise<string> {
   const now = serverTimestamp();
   const ref = await addDoc(collection(db, 'leads', leadId, 'opportunities'), {
@@ -184,6 +185,7 @@ export async function createOpportunity(
     ...(values.expectedCloseDate ? { expectedCloseDate: values.expectedCloseDate } : {}),
     ...(values.notes              ? { notes: values.notes }                         : {}),
     ...(customFields && Object.keys(customFields).length > 0 ? { customFields } : {}),
+    ...(connector ? { connectorId: connector.id, connectorCode: connector.code, connectorName: connector.name } : {}),
     createdAt: now,
     updatedAt: now,
   });

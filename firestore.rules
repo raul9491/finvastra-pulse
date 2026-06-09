@@ -808,6 +808,29 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ─── Connectors (channel partners / DSAs) ─────────────────────────────────────
+    // Managed in HRMS by admin/HR. The main record is also readable by CRM users so
+    // their name populates in the add-case picker. Sensitive PAN + bank live in a
+    // /private sub-doc readable only by admin/HR. Soft-delete only (deleted flag).
+    match /connectors/{connectorId} {
+      allow read:   if isAdmin() || isHrmsManager() || hasCrmAccess();
+      allow create,
+            update: if isAdmin() || isHrmsManager();
+      allow delete: if false;
+
+      match /private/{docId} {
+        allow read, write: if isAdmin() || isHrmsManager();
+      }
+    }
+
+    // What Finvastra owes a connector for a sourced case. Admin/HR only.
+    match /connector_payouts/{payoutId} {
+      allow read:   if isAdmin() || isHrmsManager();
+      allow create,
+            update: if isAdmin() || isHrmsManager();
+      allow delete: if false;
+    }
+
     // ─── HRMS: Onboarding Checklists ──────────────────────────────────────────────
     // Admin and HRMS managers only — created on employee add / reactivation.
     match /onboarding_checklists/{docId} {

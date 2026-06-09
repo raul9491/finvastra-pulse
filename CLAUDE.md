@@ -165,6 +165,7 @@ src/
     │   ├── salary/        AdminSalaryHistoryPage — salary revision history per employee
     │   ├── recruitment/   RecruitmentPage — job openings, candidate pipeline, Add-to-HRMS CTA
     │   ├── assets/        AssetsPage — laptop/SIM/card assign/return tracking
+    │   ├── connectors/    ConnectorsPage — channel-partner (DSA) registry + payouts (FAC-### codes)
     │   ├── onboarding/    OnboardingPage — 20-item checklist per new employee, 4 categories
     │   ├── probation/     ProbationPage — confirm/extend/fail probation, timeline
     │   ├── offboarding/   OffboardingPage — 16-item checklist + FnF calculator + FnF PDF
@@ -2348,7 +2349,7 @@ Every collection with a rule block. The global deny-all (`/{document=**}`) rejec
 
 **HRMS — payroll & compliance**: `payslips`, `compliance_records`, `salary_history`, `it_declarations`, `generated_letters`
 
-**HRMS — people ops**: `claims`, `company_documents`, `employee_documents`, `document_acknowledgements`, `announcements`, `assets`, `onboarding_checklists`, `offboarding_checklists`, `performance_reviews`, `probation_records`, `job_openings`, `candidates`, `training_programs`, `training_records`, `hr_tickets`, `profile_update_logs`
+**HRMS — people ops**: `claims`, `company_documents`, `employee_documents`, `document_acknowledgements`, `announcements`, `assets`, `connectors` (+ `connectors/{id}/private/{doc}`), `connector_payouts`, `onboarding_checklists`, `offboarding_checklists`, `performance_reviews`, `probation_records`, `job_openings`, `candidates`, `training_programs`, `training_records`, `hr_tickets`, `profile_update_logs`
 
 **MIS**: `commission_statements`, `commission_statements/{id}/lines`, `rm_payout_slabs`, `rm_payouts`
 
@@ -2441,3 +2442,46 @@ Team KPI chips (disbursed/target · open pipeline · callbacks due · leads past
 
 ### Access config
 A director needs `crmRole: 'manager'` + `crmAccess: true` (and `isHrmsManager` for HR-gated bits). Set via Permission Manager. **M Hemadri Babu** (FAPL-012) set to `crmRole: manager` on 2026-06-08 (was `crmRole: admin`, which the rules never honoured — only top-level `role==='admin'` grants platform-admin; `crmRole` is read by `isManager()`/`isManagerOf()`).
+
+---
+
+## Phase Q — Connectors (channel partners / DSAs) (2026-06-09)
+
+External partners who **source loan / insurance / wealth cases**. NOT employees — **no Google Workspace login**. Managed in HRMS; their name **populates in CRM** when a case is added. All deterministic — no AI.
+
+| Part | Where | Files |
+|---|---|---|
+| **Registry** (add/edit/soft-delete) | HRMS `/hrms/admin/connectors` (admin/HR) | `src/features/hrms/connectors/ConnectorsPage.tsx`, `src/features/hrms/hooks/useConnectors.ts` |
+| **CRM picker** ("Sourced by Connector" on add-case) | CRM `AddOpportunityPage` Step 3 | `src/features/crm/opportunities/AddOpportunityPage.tsx`, `createOpportunity` in `hooks/useOpportunities.ts` |
+| **Opportunity display** | CRM `OpportunityDetailPage` header meta | `OpportunityDetailPage.tsx` |
+| **Payouts** (what's owed per case) | Connector detail modal | `useConnectors.ts` (`useConnectorPayouts`, `addConnectorPayout`, `markConnectorPayoutPaid`) |
+| **Nav + route** | HrmsShell People group + router | `HrmsShell.tsx`, `router.tsx` |
+
+### Code scheme
+`FAC-###` (FAC-001, auto-incremented from the max existing via `nextConnectorCode`). Editable in the form.
+
+### Data model
+```
+/connectors/{id}                         ← main record (CRM-readable for the picker)
+  connectorCode: 'FAC-001', displayName, mobile, email (NOT a Workspace login),
+  address, firmName?, verticals: ('loan'|'wealth'|'insurance')[],
+  status: 'active'|'inactive', notes?, deleted?, createdBy, createdAt, updatedAt
+
+/connectors/{id}/private/financial       ← admin/HR ONLY (sensitive)
+  pan (stored raw; UI masks via maskPan), bank { accountHolderName, accountNumber, ifsc, bankName, branch? }, updatedAt
+
+/connector_payouts/{id}                   ← admin/HR ONLY — what Finvastra owes a connector
+  connectorId, connectorCode, connectorName, businessLine, caseLabel,
+  leadId?, opportunityId?, amount, status: 'pending'|'paid',
+  notes?, createdBy, createdAt, paidAt?, paidBy?, paymentReference?
+```
+`Opportunity` gained `connectorId?` / `connectorCode?` / `connectorName?` (denormalised; written at create only — the owner-update rule's `hasOnly` doesn't include them, but create has no field restriction).
+
+### Sensitivity split (least-privilege)
+The **main `/connectors/{id}` doc is readable by CRM users** (so the add-case picker can list names) but **writable only by admin/HR**. **PAN + bank live in `/connectors/{id}/private/financial`, readable/writable by admin/HR only** — CRM users never see financial data. Soft-delete only (`deleted` flag; `allow delete: if false`) so payout history survives. PAN masked in the read view (reveal toggle); bank account shown in full to admin/HR (needed for payouts). PAN/IFSC format-validated; only name + mobile + ≥1 vertical are hard-required so partial onboarding isn't blocked.
+
+### Firestore rules
+`/connectors/{id}` read `isAdmin() || isHrmsManager() || hasCrmAccess()`, write admin/HR, no delete · `/connectors/{id}/private/{doc}` read+write admin/HR · `/connector_payouts/{id}` read+write admin/HR, no delete.
+
+### Payouts flow
+On a connector's detail modal: pending/paid summary chips, **Add payout** (business line + case reference + amount + notes), each pending payout has **Mark as paid** (reveals a payment-reference field). The connectors list shows each connector's **pending ₹** total (live from a `connector_payouts` subscription). Manual entry for v1 — not auto-created from disbursals.

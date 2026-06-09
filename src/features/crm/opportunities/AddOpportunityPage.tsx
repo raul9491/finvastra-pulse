@@ -6,8 +6,10 @@ import { ArrowLeft, Briefcase, TrendingUp, ShieldCheck, ChevronRight, Settings }
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { useOpportunityTypes, createOpportunity } from '../hooks/useOpportunities';
+import { useConnectors } from '../../hrms/hooks/useConnectors';
+import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { opportunitySchema, type OpportunityFormValues } from '../leads/opportunitySchema';
-import type { OpportunityType, OpportunityTypeConfig, CustomFieldDefinition, ConditionalDocumentRule } from '../../../types';
+import type { OpportunityType, OpportunityTypeConfig, CustomFieldDefinition, ConditionalDocumentRule, Connector } from '../../../types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TYPE_META: Record<OpportunityType, { label: string; icon: React.ReactNode; desc: string; color: string }> = {
@@ -242,6 +244,9 @@ function Step2({
 function Step3({
   selectedTypeConfig,
   employees,
+  connectors,
+  connectorId,
+  onConnectorChange,
   defaultOwnerId,
   onBack,
   onSubmit,
@@ -252,6 +257,9 @@ function Step3({
 }: {
   selectedTypeConfig: OpportunityTypeConfig;
   employees: { userId: string; displayName: string }[];
+  connectors: Connector[];
+  connectorId: string;
+  onConnectorChange: (id: string) => void;
   defaultOwnerId: string;
   onBack: () => void;
   onSubmit: (v: OpportunityFormValues) => void;
@@ -325,6 +333,29 @@ function Step3({
 
         <div>
           <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
+            Sourced by Connector
+          </label>
+          <SearchableSelect
+            options={[
+              { value: '', label: 'Direct / no connector' },
+              ...connectors.map((c) => ({
+                value: c.id,
+                label: `${c.displayName} · ${c.connectorCode}`,
+                description: c.firmName ?? undefined,
+                searchKeywords: [c.connectorCode, c.mobile],
+              })),
+            ]}
+            value={connectorId}
+            onChange={onConnectorChange}
+            placeholder="Direct / no connector"
+          />
+          <p className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+            The channel partner who brought this case (manage in HRMS → Connectors).
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
             Expected Close Date
           </label>
           <input {...register('expectedCloseDate')} type="date" className={inputClass} />
@@ -386,6 +417,7 @@ export function AddOpportunityPage() {
   const { user, profile } = useAuth();
   const { types, loading: typesLoading } = useOpportunityTypes();
   const { employees } = useAllEmployees();
+  const { connectors } = useConnectors();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedType, setSelectedType] = useState<OpportunityType | null>(null);
@@ -393,6 +425,15 @@ export function AddOpportunityPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [customFields, setCustomFields] = useState<Record<string, unknown>>({});
+  const [connectorId, setConnectorId] = useState('');
+
+  // Active connectors that cover the chosen business line — for the source picker.
+  const connectorOptions = useMemo(
+    () => (selectedType
+      ? connectors.filter((c) => c.status === 'active' && c.verticals.includes(selectedType))
+      : []),
+    [connectors, selectedType],
+  );
 
   const isAdmin = profile?.role === 'admin';
 
@@ -408,6 +449,7 @@ export function AddOpportunityPage() {
     setIsSubmitting(true);
     setSubmitError('');
     try {
+      const conn = connectorId ? connectors.find((c) => c.id === connectorId) : null;
       const newId = await createOpportunity(
         leadId,
         selectedType,
@@ -416,6 +458,7 @@ export function AddOpportunityPage() {
         values,
         user.uid,
         customFields,
+        conn ? { id: conn.id, code: conn.connectorCode, name: conn.displayName } : null,
       );
       navigate(`/crm/leads/${leadId}/opportunities/${newId}`);
     } catch (e) {
@@ -479,6 +522,9 @@ export function AddOpportunityPage() {
         <Step3
           selectedTypeConfig={selectedTypeConfig}
           employees={rmOptions}
+          connectors={connectorOptions}
+          connectorId={connectorId}
+          onConnectorChange={setConnectorId}
           defaultOwnerId={profile?.userId ?? ''}
           onBack={() => setStep(2)}
           onSubmit={handleSubmit}

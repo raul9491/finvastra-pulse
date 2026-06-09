@@ -71,6 +71,7 @@ const AdminAnnouncementsPage   = lazyPage(() => import('./features/hrms/announce
 const ComplianceCalendarPage   = lazyPage(() => import('./features/hrms/compliance/ComplianceCalendarPage'), 'ComplianceCalendarPage');
 const PfTrackerPage            = lazyPage(() => import('./features/hrms/compliance/PfTrackerPage'), 'PfTrackerPage');
 const AssetsPage               = lazyPage(() => import('./features/hrms/assets/AssetsPage'), 'AssetsPage');
+const ConnectorsPage           = lazyPage(() => import('./features/hrms/connectors/ConnectorsPage'), 'ConnectorsPage');
 const OnboardingPage           = lazyPage(() => import('./features/hrms/onboarding/OnboardingPage'), 'OnboardingPage');
 const OffboardingPage          = lazyPage(() => import('./features/hrms/offboarding/OffboardingPage'), 'OffboardingPage');
 const ItDeclarationPage        = lazyPage(() => import('./features/hrms/itdeclaration/ItDeclarationPage'), 'ItDeclarationPage');
@@ -194,6 +195,7 @@ export const router = createBrowserRouter([
       { path: 'admin/compliance',    element: s(<ComplianceCalendarPage />) },
       { path: 'admin/pf-tracker',   element: s(<PfTrackerPage />) },
       { path: 'admin/assets',        element: s(<AssetsPage />) },
+      { path: 'admin/connectors',    element: s(<ConnectorsPage />) },
       { path: 'admin/onboarding',      element: s(<OnboardingPage />) },
       { path: 'admin/probation',       element: s(<ProbationPage />) },
       { path: 'performance',           element: s(<PerformancePage />) },

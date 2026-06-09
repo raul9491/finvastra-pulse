@@ -9,7 +9,7 @@ import {
   Settings, LogOut, LayoutGrid, ClipboardList, FileText, UserPlus, Inbox,
   ReceiptText, FolderOpen, Megaphone, Building2, Calculator,
   Laptop, UserMinus, Lock, FileSearch2, GraduationCap, TrendingUp, Briefcase, BookOpen, LifeBuoy,
-  BookUser, RotateCcw, ScrollText, HelpCircle, Database, User,
+  BookUser, RotateCcw, ScrollText, HelpCircle, Database, User, Handshake,
   Menu, X, ChevronDown, Search, Network,
 } from 'lucide-react';
 import { auth, db } from '../../lib/firebase';
@@ -210,6 +210,7 @@ const SEARCH_INDEX: SearchItem[] = [
   { path: '/hrms/employees',              label: 'Employees',            icon: Users,         group: 'People', admin: true },
   { path: '/hrms/admin/access-requests',  label: 'Access Requests',      icon: Inbox,         group: 'People', admin: true },
   { path: '/hrms/admin/import-employees', label: 'Import Employees',     icon: UserPlus,      group: 'People', admin: true },
+  { path: '/hrms/admin/connectors',       label: 'Connectors',           icon: Handshake,     group: 'People', admin: true },
   { path: '/hrms/admin/attendance',       label: 'Attendance — Admin',   icon: Clock,         group: 'Time & Leave', admin: true },
   { path: '/hrms/leave/admin',            label: 'Leave Approvals',      icon: ClipboardList, group: 'Time & Leave', admin: true },
   { path: '/hrms/admin/comp-off',         label: 'Comp Off Credits',     icon: CalendarDays,  group: 'Time & Leave', admin: true },
@@ -240,6 +241,7 @@ const SEARCH_INDEX: SearchItem[] = [
 const PAGE_TITLES: Record<string, string> = {
   '/hrms/dashboard':             'Dashboard',
   '/hrms/employees':             'Employees',
+  '/hrms/admin/connectors':      'Connectors',
   '/hrms/directory':             'Employee Directory',
   '/hrms/attendance':            'Attendance',
   '/hrms/leave':                 'Leave',
@@ -354,7 +356,7 @@ export function HrmsShell() {
     if (['/hrms/directory','/hrms/documents','/hrms/announcements','/hrms/org-chart'].some(r => p.startsWith(r))) return 'Company';
     if (['/hrms/performance','/hrms/training'].some(r => p.startsWith(r))) return 'Growth';
     if (['/hrms/hr-helpdesk','/hrms/guide','/hrms/settings','/hrms/it-declaration'].some(r => p.startsWith(r))) return 'Support';
-    if (['/hrms/employees','/hrms/admin/access','/hrms/admin/import'].some(r => p.startsWith(r))) return 'People';
+    if (['/hrms/employees','/hrms/admin/access','/hrms/admin/import','/hrms/admin/connectors'].some(r => p.startsWith(r))) return 'People';
     if (['/hrms/admin/attendance','/hrms/leave/admin','/hrms/admin/comp-off','/hrms/admin/leave-year-end','/hrms/admin/holidays'].some(r => p.startsWith(r))) return 'Time & Leave';
     if (['/hrms/admin/payslips','/hrms/admin/claims','/hrms/admin/salary-history','/hrms/admin/it-declarations'].some(r => p.startsWith(r))) return 'Payroll & Finance';
     if (['/hrms/admin/letters','/hrms/admin/documents','/hrms/admin/announcements'].some(r => p.startsWith(r))) return 'Content';
@@ -598,6 +600,7 @@ export function HrmsShell() {
             {navLink('/hrms/employees',             'Employees',       Users)}
             {navLink('/hrms/admin/access-requests', 'Access Requests', Inbox, !onAccessRequestsPage ? pendingRequests : 0, 'red')}
             {navLink('/hrms/admin/import-employees','Import Employees', UserPlus)}
+            {navLink('/hrms/admin/connectors',      'Connectors',      Handshake)}
           </NavSection>
 
           <NavSection label="Time & Leave" badge={pendingRegularizations + pendingEncashCount + leaveResetBadge} badgeColor="red" isOpen={openSections.has('Time & Leave')} onToggle={() => toggleSection('Time & Leave')}>

@@ -483,6 +483,10 @@ export interface Opportunity {
   notes?: string;
   lostDetails?: LostDetails;
   customFields?: Record<string, unknown>;
+  // Connector who sourced this case (channel partner / DSA) — see Connector below.
+  connectorId?: string;
+  connectorCode?: string;   // FAC-### — denormalised for display
+  connectorName?: string;   // denormalised so CRM views show it without a lookup
   createdAt: any;
   updatedAt: any;
 }
@@ -1039,6 +1043,70 @@ export interface Asset {
   addedBy: string;
   addedAt: import('firebase/firestore').Timestamp;
   updatedAt: import('firebase/firestore').Timestamp;
+}
+
+// ─── Connectors (channel partners / DSAs) ─────────────────────────────────────
+// External partners who source loan / insurance / wealth cases. NOT employees —
+// no Google Workspace login. Managed in HRMS; their name populates in CRM when a
+// case is added. Code scheme: FAC-### (auto-incremented).
+
+export type ConnectorVertical = 'loan' | 'wealth' | 'insurance';
+export type ConnectorStatus = 'active' | 'inactive';
+
+// Public-ish record — readable by CRM users (for the case picker) + admin/HR.
+// Sensitive PAN + bank live in /connectors/{id}/private/financial (admin/HR only).
+export interface Connector {
+  id: string;
+  connectorCode: string;          // FAC-001
+  displayName: string;
+  mobile: string;
+  email: string;                  // personal/business email — NOT a Workspace login
+  address: string;
+  firmName?: string;              // if they operate as a firm / DSA entity
+  verticals: ConnectorVertical[]; // what they bring
+  status: ConnectorStatus;
+  notes?: string;
+  deleted?: boolean;
+  createdBy: string;
+  createdAt: import('firebase/firestore').Timestamp;
+  updatedAt: import('firebase/firestore').Timestamp;
+}
+
+export interface ConnectorBankDetails {
+  accountHolderName: string;
+  accountNumber: string;
+  ifsc: string;
+  bankName: string;
+  branch?: string;
+}
+
+// /connectors/{id}/private/financial — admin/HR only.
+export interface ConnectorFinancial {
+  pan: string;                    // stored raw; UI always masks via maskPan()
+  bank: ConnectorBankDetails;
+  updatedAt: import('firebase/firestore').Timestamp;
+}
+
+export type ConnectorPayoutStatus = 'pending' | 'paid';
+
+// /connector_payouts/{id} — what Finvastra owes a connector for a sourced case.
+export interface ConnectorPayout {
+  id: string;
+  connectorId: string;
+  connectorCode: string;
+  connectorName: string;
+  businessLine: ConnectorVertical;
+  caseLabel: string;              // free-text reference to the case (loan no / customer / app no)
+  leadId?: string;
+  opportunityId?: string;
+  amount: number;
+  status: ConnectorPayoutStatus;
+  notes?: string;
+  createdBy: string;
+  createdAt: import('firebase/firestore').Timestamp;
+  paidAt?: import('firebase/firestore').Timestamp;
+  paidBy?: string;
+  paymentReference?: string;
 }
 
 // ─── Employee Lifecycle ───────────────────────────────────────────────────────

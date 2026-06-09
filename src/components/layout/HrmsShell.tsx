@@ -217,6 +217,7 @@ const SEARCH_INDEX: SearchItem[] = [
   { path: '/hrms/admin/holidays',         label: 'Manage Holidays',      icon: CalendarDays,  group: 'Time & Leave', admin: true },
   { path: '/hrms/admin/payslips',         label: 'Generate Payslips',    icon: FileText,      group: 'Payroll & Finance', admin: true },
   { path: '/hrms/admin/claims',           label: 'Claims — Admin',       icon: ReceiptText,   group: 'Payroll & Finance', admin: true },
+  { path: '/hrms/admin/claims-analytics', label: 'Claims Analytics',     icon: TrendingUp,    group: 'Payroll & Finance', admin: true },
   { path: '/hrms/admin/salary-history',   label: 'Salary History',       icon: TrendingUp,    group: 'Payroll & Finance', admin: true },
   { path: '/hrms/admin/it-declarations',  label: 'IT Declarations',      icon: FileSearch2,   group: 'Payroll & Finance', admin: true },
   { path: '/hrms/admin/letters',          label: 'HR Letters',           icon: ScrollText,    group: 'Content', admin: true },
@@ -258,6 +259,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/hrms/admin/holidays':        'Holidays — Admin',
   '/hrms/admin/payslips':        'Generate Payslips',
   '/hrms/admin/claims':          'Claims — Admin',
+  '/hrms/admin/claims-analytics':'Claims Analytics',
   '/hrms/admin/documents':       'Documents — Admin',
   '/hrms/admin/announcements':   'Announcements — Admin',
   '/hrms/it-declaration':         'IT Declaration',
@@ -609,6 +611,7 @@ export function HrmsShell() {
           <NavSection label="Payroll & Finance" badge={itDeclAdminBadge} badgeColor="red" isOpen={openSections.has('Payroll & Finance')} onToggle={() => toggleSection('Payroll & Finance')}>
             {navLink('/hrms/admin/payslips',        'Generate Payslips', FileText)}
             {navLink('/hrms/admin/claims',          'Claims',            ReceiptText)}
+            {navLink('/hrms/admin/claims-analytics','Claims Analytics',  TrendingUp)}
             {navLink('/hrms/admin/salary-history',  'Salary History',    TrendingUp)}
             {navLink('/hrms/admin/it-declarations', 'IT Declarations',   FileSearch2, itDeclAdminBadge, 'red')}
           </NavSection>

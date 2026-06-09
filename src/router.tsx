@@ -63,6 +63,7 @@ const HrmsSettingsPage         = lazyPage(() => import('./features/hrms/settings
 const SuperAdminPermissionsPage= lazyPage(() => import('./features/hrms/admin/SuperAdminPermissionsPage'), 'SuperAdminPermissionsPage');
 const ClaimsPage               = lazyPage(() => import('./features/hrms/claims/ClaimsPage'), 'ClaimsPage');
 const AdminClaimsPage          = lazyPage(() => import('./features/hrms/claims/AdminClaimsPage'), 'AdminClaimsPage');
+const ClaimsAnalyticsPage      = lazyPage(() => import('./features/hrms/claims/ClaimsAnalyticsPage'), 'ClaimsAnalyticsPage');
 const DocumentsPage            = lazyPage(() => import('./features/hrms/documents/DocumentsPage'), 'DocumentsPage');
 const AdminDocumentsPage       = lazyPage(() => import('./features/hrms/documents/AdminDocumentsPage'), 'AdminDocumentsPage');
 const AnnouncementsPage        = lazyPage(() => import('./features/hrms/announcements/AnnouncementsPage'), 'AnnouncementsPage');
@@ -187,6 +188,7 @@ export const router = createBrowserRouter([
       { path: 'admin/payslips',      element: s(<GeneratePayslipPage />) },
       { path: 'admin/holidays',      element: s(<HolidaysPage />) },
       { path: 'admin/claims',        element: s(<AdminClaimsPage />) },
+      { path: 'admin/claims-analytics', element: s(<ClaimsAnalyticsPage />) },
       { path: 'admin/documents',     element: s(<AdminDocumentsPage />) },
       { path: 'admin/announcements', element: s(<AdminAnnouncementsPage />) },
       { path: 'admin/compliance',    element: s(<ComplianceCalendarPage />) },

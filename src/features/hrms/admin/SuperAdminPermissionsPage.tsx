@@ -87,14 +87,17 @@ async function syncClaims(targetUid: string): Promise<void> {
 }
 
 // ─── Styled helpers ───────────────────────────────────────────────────────────
+// Theme-aware: text + surface + border all come from CSS vars so the page follows
+// dark/light. Gold/green/amber accents stay fixed (semantic).
 
-const SEL = 'text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white outline-none ' +
-            'focus:ring-2 focus:ring-navy/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed';
+const SEL = 'text-xs border rounded-lg px-2 py-1.5 outline-none text-(--text-primary) ' +
+            'border-(--shell-border) bg-(--glass-panel-bg) ' +
+            'focus:ring-2 focus:ring-gold/30 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed';
 
 // Column header with tooltip — wraps in a <span title="…">
 function ThTip({ children, tip }: { children: React.ReactNode; tip: string }) {
   return (
-    <span title={tip} className="cursor-help border-b border-dashed border-slate-400/40">
+    <span title={tip} className="cursor-help border-b border-dashed border-(--shell-border)">
       {children}
     </span>
   );
@@ -115,7 +118,7 @@ function SuperAdminRow({ employee }: { employee: UserProfile }) {
   return (
     <tr
       className="border-b"
-      style={{ backgroundColor: 'rgba(201,169,97,0.04)', borderColor: 'rgba(201,169,97,0.15)' }}
+      style={{ backgroundColor: 'rgba(201,169,97,0.06)', borderColor: 'rgba(201,169,97,0.18)' }}
     >
       {/* Employee */}
       <td className="px-4 py-3">
@@ -131,7 +134,7 @@ function SuperAdminRow({ employee }: { employee: UserProfile }) {
           )}
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-sm font-semibold text-ink">{employee.displayName}</p>
+              <p className="text-sm font-semibold text-(--text-primary)">{employee.displayName}</p>
               <span
                 className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
                 style={{
@@ -144,7 +147,7 @@ function SuperAdminRow({ employee }: { employee: UserProfile }) {
                 SUPER ADMIN
               </span>
             </div>
-            <p className="text-xs truncate" style={{ color: '#8B8B85' }}>{hierarchyLabel}</p>
+            <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{hierarchyLabel}</p>
           </div>
         </div>
       </td>
@@ -152,35 +155,35 @@ function SuperAdminRow({ employee }: { employee: UserProfile }) {
       {/* Role — read-only badge */}
       <td className="px-3 py-3">
         <span className="text-xs font-semibold px-2 py-1 rounded-lg"
-          style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#7A6030' }}>
+          style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961' }}>
           {employee.role === 'admin' ? 'Admin' : 'Employee'}
         </span>
       </td>
 
       {/* HRMS — always accessible */}
       <td className="px-3 py-3 text-center">
-        <span className="text-base" style={{ color: '#059669' }}>✓</span>
+        <span className="text-base" style={{ color: '#10B981' }}>✓</span>
       </td>
 
       {/* HR Mgr */}
       <td className="px-3 py-3 text-center">
-        <span className="text-base" style={{ color: employee.isHrmsManager ? '#059669' : '#CBD5E1' }}>
+        <span className="text-base" style={{ color: employee.isHrmsManager ? '#10B981' : 'var(--text-muted)' }}>
           {employee.isHrmsManager ? '✓' : '—'}
         </span>
       </td>
 
       {/* CRM On */}
       <td className="px-3 py-3 text-center">
-        <span className="text-base" style={{ color: employee.crmAccess ? '#059669' : '#CBD5E1' }}>
+        <span className="text-base" style={{ color: employee.crmAccess ? '#10B981' : 'var(--text-muted)' }}>
           {employee.crmAccess ? '✓' : '—'}
         </span>
       </td>
 
       {/* CRM Role + vertical if convertor */}
       <td className="px-3 py-3">
-        <span className="text-xs" style={{ color: '#475569' }}>{crmRoleDisplay}</span>
+        <span className="text-xs" style={{ color: 'var(--text-primary)' }}>{crmRoleDisplay}</span>
         {employee.crmRole === 'lead_convertor' && verticalDisplay && (
-          <p className="text-[10px] capitalize mt-0.5" style={{ color: '#8B8B85' }}>
+          <p className="text-[10px] capitalize mt-0.5" style={{ color: 'var(--text-muted)' }}>
             {verticalDisplay}
           </p>
         )}
@@ -188,14 +191,14 @@ function SuperAdminRow({ employee }: { employee: UserProfile }) {
 
       {/* MIS Access */}
       <td className="px-3 py-3">
-        <span className="text-xs capitalize" style={{ color: '#475569' }}>
+        <span className="text-xs capitalize" style={{ color: 'var(--text-primary)' }}>
           {employee.misAccess ?? '—'}
         </span>
       </td>
 
       {/* Lock icon */}
       <td className="px-3 py-3 text-center">
-        <Lock size={13} style={{ color: '#CBD5E1' }} />
+        <Lock size={13} style={{ color: 'var(--text-muted)' }} />
       </td>
     </tr>
   );
@@ -217,14 +220,14 @@ function PermRow({
   const initials = employee.displayName
     .split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
 
-  const rowBg     = dirty ? 'rgba(201,169,97,0.05)' : '';
+  const rowBg     = dirty ? 'rgba(201,169,97,0.08)' : '';
   const rowShadow = dirty ? 'inset 3px 0 0 #C9A961' : 'inset 3px 0 0 transparent';
 
   const isConvertor = draft.crmRole === 'lead_convertor';
 
   return (
     <tr
-      className="border-b border-slate-100 transition-colors"
+      className="border-b border-(--shell-border) transition-colors"
       style={{ backgroundColor: rowBg, boxShadow: rowShadow }}
     >
       {/* Employee */}
@@ -235,20 +238,20 @@ function PermRow({
               className="w-8 h-8 rounded-full object-cover shrink-0" />
           ) : (
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-              style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
+              style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961' }}>
               {initials}
             </div>
           )}
           <div className="min-w-0">
-            <p className="text-sm font-medium text-ink truncate">{employee.displayName}</p>
-            <p className="text-xs text-mute truncate">{employee.email}</p>
+            <p className="text-sm font-medium text-(--text-primary) truncate">{employee.displayName}</p>
+            <p className="text-xs text-(--text-muted) truncate">{employee.email}</p>
           </div>
         </div>
       </td>
 
       {/* Role — segmented Employee | Admin */}
       <td className="px-3 py-3">
-        <div className="inline-flex rounded-lg overflow-hidden border" style={{ borderColor: '#E2E8F0' }}>
+        <div className="inline-flex rounded-lg overflow-hidden border" style={{ borderColor: 'var(--shell-border)' }}>
           {(['employee', 'admin'] as const).map((r) => {
             const active = draft.role === r;
             return (
@@ -258,8 +261,8 @@ function PermRow({
                 onClick={() => onChange({ role: r })}
                 className="text-xs font-semibold px-2.5 py-1.5 transition-colors"
                 style={{
-                  backgroundColor: active ? (r === 'admin' ? '#C9A961' : '#0B1538') : '#fff',
-                  color:           active ? '#FAFAF7' : '#64748B',
+                  backgroundColor: active ? (r === 'admin' ? '#C9A961' : '#1B2A4E') : 'var(--glass-panel-bg)',
+                  color:           active ? (r === 'admin' ? '#0B1538' : '#FAFAF7') : 'var(--text-muted)',
                 }}
               >
                 {r === 'admin' ? 'Admin' : 'Employee'}
@@ -276,7 +279,7 @@ function PermRow({
           checked={draft.hrmsAccess}
           onChange={(e) => onChange({ hrmsAccess: e.target.checked })}
           className="w-4 h-4 rounded cursor-pointer"
-          style={{ accentColor: '#0B1538' }}
+          style={{ accentColor: '#C9A961' }}
         />
       </td>
 
@@ -287,7 +290,7 @@ function PermRow({
           checked={draft.isHrmsManager}
           onChange={(e) => onChange({ isHrmsManager: e.target.checked })}
           className="w-4 h-4 rounded cursor-pointer"
-          style={{ accentColor: '#0B1538' }}
+          style={{ accentColor: '#C9A961' }}
         />
       </td>
 
@@ -300,15 +303,15 @@ function PermRow({
             onChange={(e) => onChange({ crmAccess: e.target.checked })}
             className="sr-only peer"
           />
-          <div className="w-9 h-5 bg-slate-200 peer-checked:bg-navy rounded-full peer-focus:ring-2
-            peer-focus:ring-navy/20 transition-colors after:content-[''] after:absolute after:top-0.5
+          <div className="w-9 h-5 bg-white/20 peer-checked:bg-gold rounded-full peer-focus:ring-2
+            peer-focus:ring-gold/30 transition-colors after:content-[''] after:absolute after:top-0.5
             after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-transform
             peer-checked:after:translate-x-4" />
         </label>
         {/* Command Centre grant — admins always have it; a grantee also needs CRM access to enter the module */}
         <label className="flex items-center justify-center gap-1 mt-1.5 text-[10px] cursor-pointer"
           title="Show the cross-module Command Centre. Admins always have it. A non-admin grantee also needs CRM access (to enter the CRM module) and HR-manager (for the HR sections to populate)."
-          style={{ color: '#64748B' }}>
+          style={{ color: 'var(--text-muted)' }}>
           <input
             type="checkbox"
             checked={draft.commandCentreAccess}
@@ -344,7 +347,7 @@ function PermRow({
         {isConvertor && (
           <div className="mt-2">
             <p className="text-[9px] font-bold uppercase tracking-wider mb-1"
-              style={{ color: draft.convertorVerticals.length ? '#8B8B85' : '#D97706' }}>
+              style={{ color: draft.convertorVerticals.length ? 'var(--text-muted)' : '#D97706' }}>
               Verticals {draft.convertorVerticals.length === 0 && '· ⚠ pick at least one'}
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -362,9 +365,9 @@ function PermRow({
                     }}
                     className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg border transition-colors"
                     style={{
-                      backgroundColor: on ? 'rgba(201,169,97,0.15)' : '#fff',
-                      borderColor:     on ? '#C9A961' : '#E2E8F0',
-                      color:           on ? '#7A6030' : '#64748B',
+                      backgroundColor: on ? 'rgba(201,169,97,0.18)' : 'var(--glass-panel-bg)',
+                      borderColor:     on ? '#C9A961' : 'var(--shell-border)',
+                      color:           on ? '#C9A961' : 'var(--text-muted)',
                     }}
                   >
                     <span style={{ width: 9, display: 'inline-block' }}>{on ? '✓' : ''}</span>{VERTICAL_DISPLAY[v]}
@@ -578,7 +581,7 @@ export function SuperAdminPermissionsPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  const thCls = 'px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-left whitespace-nowrap';
+  const thCls = 'px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-left whitespace-nowrap text-(--text-muted)';
 
   const filterChips: { key: FilterKey; label: string; count: number }[] = [
     { key: 'all',         label: 'All',          count: editableEmployees.length },
@@ -600,12 +603,12 @@ export function SuperAdminPermissionsPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Lock size={18} style={{ color: '#C9A961' }} />
-            <h2 className="text-3xl text-ink"
+            <h2 className="text-3xl text-(--text-primary)"
               style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300 }}>
               Permission Manager
             </h2>
           </div>
-          <p className="text-sm text-mute">
+          <p className="text-sm text-(--text-muted)">
             {loading
               ? 'Loading…'
               : `${editableEmployees.length} employees · edit freely, then save once`}
@@ -614,7 +617,7 @@ export function SuperAdminPermissionsPage() {
 
         {/* Super Admin badge */}
         <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full mt-1"
-          style={{ backgroundColor: 'rgba(201,169,97,0.12)', color: '#9A7E3F' }}>
+          style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961' }}>
           ★ Super Admin Only
         </span>
       </div>
@@ -622,13 +625,13 @@ export function SuperAdminPermissionsPage() {
       {/* ── Saved confirmation banner ─────────────────────────────────────── */}
       {showSaved && (
         <div className="mb-5 flex items-center gap-3 px-5 py-4 rounded-2xl"
-          style={{ backgroundColor: '#ECFDF5', border: '1px solid #6EE7B7' }}>
-          <CheckCircle2 size={18} style={{ color: '#059669' }} className="shrink-0" />
+          style={{ backgroundColor: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.4)' }}>
+          <CheckCircle2 size={18} style={{ color: '#10B981' }} className="shrink-0" />
           <div>
-            <p className="text-sm font-semibold" style={{ color: '#065F46' }}>
+            <p className="text-sm font-semibold" style={{ color: '#10B981' }}>
               Permissions saved — {savedCount} employee{savedCount === 1 ? '' : 's'} updated
             </p>
-            <p className="text-xs mt-0.5" style={{ color: '#047857' }}>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
               Auth tokens refreshed · Changes take effect on next sign-in
             </p>
           </div>
@@ -636,7 +639,7 @@ export function SuperAdminPermissionsPage() {
       )}
 
       {/* ── Legend / column guide ─────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4 text-xs text-mute">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4 text-xs text-(--text-muted)">
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded border-l-2 inline-block"
             style={{ borderColor: '#C9A961', backgroundColor: 'rgba(201,169,97,0.1)' }} />
@@ -650,66 +653,69 @@ export function SuperAdminPermissionsPage() {
       {/* ── Filter chips + search ─────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted) pointer-events-none" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name or email…"
-            className="text-sm border border-slate-200 rounded-lg pl-9 pr-4 py-2 bg-white outline-none
-              focus:ring-2 focus:ring-navy/10 w-52"
+            className="text-sm border rounded-lg pl-9 pr-4 py-2 outline-none w-52
+              text-(--text-primary) border-(--shell-border) bg-(--glass-panel-bg)
+              placeholder:text-(--text-muted) focus:ring-2 focus:ring-gold/30"
           />
         </div>
-        {filterChips.map(({ key, label, count }) => (
-          <button
-            key={key}
-            onClick={() => setFilter(key)}
-            className="text-xs px-3 py-1.5 rounded-full font-semibold transition-colors"
-            style={{
-              backgroundColor: filter === key
-                ? (key === 'super_admin' ? '#9A7E3F' : '#0B1538')
-                : '#F1F5F9',
-              color: filter === key ? '#FAFAF7' : '#475569',
-            }}
-          >
-            {key === 'super_admin' && filter === key && '★ '}
-            {label}
-            <span className="ml-1.5 opacity-70">{count}</span>
-          </button>
-        ))}
+        {filterChips.map(({ key, label, count }) => {
+          const active = filter === key;
+          return (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className="text-xs px-3 py-1.5 rounded-full font-semibold transition-colors border"
+              style={{
+                backgroundColor: active ? (key === 'super_admin' ? '#9A7E3F' : '#C9A961') : 'var(--glass-panel-bg)',
+                color:       active ? '#0B1538' : 'var(--text-muted)',
+                borderColor: active ? 'transparent' : 'var(--shell-border)',
+              }}
+            >
+              {key === 'super_admin' && active && '★ '}
+              {label}
+              <span className="ml-1.5 opacity-70">{count}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Permissions table ─────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="rounded-2xl border overflow-hidden bg-(--glass-panel-bg) border-(--shell-border)">
         {loading ? (
-          <div className="animate-pulse divide-y divide-slate-100">
+          <div className="animate-pulse divide-y divide-(--shell-border)">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-14 bg-slate-50" />
+              <div key={i} className="h-14" style={{ backgroundColor: 'var(--glass-panel-bg)' }} />
             ))}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr style={{ backgroundColor: '#FAFAF7', borderBottom: '1px solid #E2E8F0' }}>
-                  <th className={`${thCls} pl-4 w-64`} style={{ color: '#8B8B85' }}>Employee</th>
-                  <th className={thCls} style={{ color: '#8B8B85' }}>Role</th>
-                  <th className={`${thCls} text-center`} style={{ color: '#8B8B85' }}>
+                <tr style={{ backgroundColor: 'var(--glass-panel-bg)', borderBottom: '1px solid var(--shell-border)' }}>
+                  <th className={`${thCls} pl-4 w-64`}>Employee</th>
+                  <th className={thCls}>Role</th>
+                  <th className={`${thCls} text-center`}>
                     <ThTip tip="Can access the HR module">HRMS</ThTip>
                   </th>
-                  <th className={`${thCls} text-center`} style={{ color: '#8B8B85' }}>
+                  <th className={`${thCls} text-center`}>
                     <ThTip tip="Can approve leave requests and manage attendance">HR Mgr</ThTip>
                   </th>
-                  <th className={`${thCls} text-center`} style={{ color: '#8B8B85' }}>
+                  <th className={`${thCls} text-center`}>
                     <ThTip tip="Can use the CRM module">CRM On</ThTip>
                   </th>
-                  <th className={thCls} style={{ color: '#8B8B85' }}>
+                  <th className={thCls}>
                     <ThTip tip="Their role within CRM — Generator, Convertor, Manager, or Admin">CRM Role</ThTip>
                   </th>
-                  <th className={thCls} style={{ color: '#8B8B85' }}>
+                  <th className={thCls}>
                     <ThTip tip="Can view or administer commission reconciliation data">MIS Access</ThTip>
                   </th>
-                  <th className={`${thCls} w-8`} style={{ color: '#8B8B85' }} />
+                  <th className={`${thCls} w-8`} />
                 </tr>
               </thead>
               <tbody>
@@ -722,13 +728,13 @@ export function SuperAdminPermissionsPage() {
                         colSpan={8}
                         className="px-4 py-2"
                         style={{
-                          backgroundColor: 'rgba(201,169,97,0.08)',
+                          backgroundColor: 'rgba(201,169,97,0.10)',
                           borderBottom: '1px solid rgba(201,169,97,0.2)',
                         }}
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-bold uppercase tracking-widest"
-                            style={{ color: '#9A7E3F' }}>
+                            style={{ color: '#C9A961' }}>
                             ★ Super Admin Accounts — Protected · Read Only
                           </span>
                           {/* Ajay fix button — shown only if his permissions are incorrect */}
@@ -739,9 +745,9 @@ export function SuperAdminPermissionsPage() {
                               className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg
                                 transition-colors disabled:opacity-50"
                               style={{
-                                backgroundColor: '#FEF3C7',
-                                color: '#92400E',
-                                border: '1px solid #FDE68A',
+                                backgroundColor: 'rgba(217,119,6,0.15)',
+                                color: '#D97706',
+                                border: '1px solid rgba(217,119,6,0.4)',
                               }}
                             >
                               <AlertCircle size={11} />
@@ -763,10 +769,10 @@ export function SuperAdminPermissionsPage() {
                         <td
                           colSpan={8}
                           className="px-4 py-1.5"
-                          style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}
+                          style={{ backgroundColor: 'var(--glass-panel-bg)', borderBottom: '1px solid var(--shell-border)' }}
                         >
                           <span className="text-[10px] font-bold uppercase tracking-widest"
-                            style={{ color: '#8B8B85' }}>
+                            style={{ color: 'var(--text-muted)' }}>
                             All Employees
                           </span>
                         </td>
@@ -779,7 +785,7 @@ export function SuperAdminPermissionsPage() {
                 {showRegularRows && (
                   filteredRows.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-6 py-16 text-center text-sm text-mute">
+                      <td colSpan={8} className="px-6 py-16 text-center text-sm text-(--text-muted)">
                         {filter === 'changed'
                           ? 'No unsaved changes yet — start editing rows above.'
                           : 'No employees match your search.'}
@@ -809,7 +815,7 @@ export function SuperAdminPermissionsPage() {
 
       {/* ── Count footer ─────────────────────────────────────────────────── */}
       {!loading && showRegularRows && filteredRows.length > 0 && (
-        <p className="text-xs text-mute mt-3 text-right">
+        <p className="text-xs text-(--text-muted) mt-3 text-right">
           {filteredRows.length} of {editableEmployees.length} employees shown
         </p>
       )}
@@ -843,7 +849,7 @@ export function SuperAdminPermissionsPage() {
               <button
                 onClick={handleDiscard}
                 className="flex items-center gap-1.5 text-xs transition-colors hover:text-slate-200"
-                style={{ color: '#64748B' }}
+                style={{ color: '#94A3B8' }}
               >
                 <RotateCcw size={13} />
                 Discard

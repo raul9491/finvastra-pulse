@@ -2118,6 +2118,16 @@ Complete visual overhaul to editorial-premium dark glass aesthetic.
 | Shell chrome | All three shells: zero hardcoded `rgba(240,236,224,…)` values — all use CSS variables |
 | ThemeToggle in shells | Placed in header (right side) of HrmsShell, CrmShell, MisShell |
 
+#### ⚠️ HRMS pages dark-mode gap (in progress — 2026-06-09)
+
+**Root cause**: the June glass/theme sweep converted **CRM + MIS** feature pages to theme CSS vars but **skipped the ~40 HRMS feature pages**, which still hardcode light colours (`bg-white`, `text-ink`/`text-mute` → fixed `--color-*` in `index.css @theme`, `slate-*`, and inline hex like `#8B8B85`/`#FAFAF7`). The **shells are theme-aware**, so in dark mode you get a **dark shell wrapping a light page**.
+
+**Why no global shim works**: `text-ink`/`text-mute`/`bg-paper` map to *fixed* `@theme` tokens; `bg-white`/`slate-*` are Tailwind built-ins that can't flip; and many colours are **inline `style={{}}` hex** that CSS can't override. Flipping the text tokens alone makes text invisible on the white cards that don't flip — so **text + surface must be converted together, per element**. It's a genuine per-page conversion.
+
+**Conversion mapping** (apply per HRMS page): `text-ink`→`text-(--text-primary)` · `text-mute`/inline `#8B8B85`/slate text→`var(--text-muted)` · `bg-white`/`#FAFAF7`bg/`bg-slate-50`/`#F8FAFC`/`#F1F5F9`→`var(--glass-panel-bg)` · `border-slate-*`/`#E2E8F0`→`var(--shell-border)` · `focus:ring-navy`→`focus:ring-gold/30`. Keep gold/green/amber/red **semantic** accents; keep white-on-accent text. Theme vars resolve via `glass.css` (dark default → `body.light-mode`).
+
+**Progress**: ✅ `SuperAdminPermissionsPage` (Permission Manager) converted 2026-06-09 (batch 1). ⬜ Remaining ~39 HRMS pages (Dashboard, Employees, Leave, Attendance, etc.) — convert in batches using the mapping above.
+
 ### CRM — Pipeline Stage Data Capture
 
 Each opportunity stage now collects structured data on advance.

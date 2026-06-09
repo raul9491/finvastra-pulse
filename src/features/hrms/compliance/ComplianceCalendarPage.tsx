@@ -2,27 +2,32 @@ import { type ElementType, useState, useEffect, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { format, parseISO, addMonths, subMonths } from 'date-fns';
 import {
-  Receipt, Building2, Heart, Landmark, FileText, Archive, BookOpen,
-  ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Clock, X,
+  Receipt, Building2, Heart, Coins, Percent, Calculator, Briefcase, FileText,
+  ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Clock, X, RefreshCw, Info,
 } from 'lucide-react';
 import {
-  collection, query, where, getDocs, addDoc, updateDoc, doc, serverTimestamp,
+  collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import type { ComplianceRecord, ComplianceType, ComplianceStatus } from '../../../types';
 
-// ─── Static metadata ──────────────────────────────────────────────────────────
+// ─── Static metadata (keyed by category — `title` carries the specific obligation) ──
 
 const TYPE_META: Record<ComplianceType, { icon: ElementType; title: string; iconColor: string }> = {
-  tds_deposit:          { icon: Receipt,  title: 'TDS Deposit',          iconColor: '#3B82F6' },
-  pf_deposit:           { icon: Building2, title: 'PF Deposit',           iconColor: '#8B5CF6' },
-  esic_deposit:         { icon: Heart,    title: 'ESIC Deposit',          iconColor: '#EC4899' },
-  pt_deposit:           { icon: Landmark, title: 'PT Deposit',            iconColor: '#F59E0B' },
-  tds_quarterly_return: { icon: FileText, title: 'TDS Quarterly Return',  iconColor: '#0EA5E9' },
-  pf_annual_return:     { icon: Archive,  title: 'PF Annual Return',      iconColor: '#10B981' },
-  pt_annual_return:     { icon: BookOpen, title: 'PT Annual Return',      iconColor: '#F97316' },
+  tds:        { icon: Receipt,    title: 'TDS / TCS',        iconColor: '#3B82F6' },
+  gst:        { icon: Percent,    title: 'GST',              iconColor: '#14B8A6' },
+  income_tax: { icon: Calculator, title: 'Income Tax',       iconColor: '#6366F1' },
+  pt:         { icon: Coins,      title: 'Professional Tax', iconColor: '#F59E0B' },
+  pf:         { icon: Building2,  title: 'Provident Fund',   iconColor: '#8B5CF6' },
+  esi:        { icon: Heart,      title: 'ESI',              iconColor: '#EC4899' },
+  mca:        { icon: Briefcase,  title: 'MCA / ROC',        iconColor: '#0EA5E9' },
+  payroll:    { icon: FileText,   title: 'Payroll',          iconColor: '#10B981' },
 };
+
+// Fallback for any legacy `type` value not in the category set above.
+const FALLBACK_META = { icon: FileText, title: 'Compliance', iconColor: '#94A3B8' };
+const metaFor = (t: ComplianceType) => TYPE_META[t] ?? FALLBACK_META;
 
 const STATUS_META: Record<ComplianceStatus, { label: string; bg: string; text: string }> = {
   upcoming: { label: 'Upcoming', bg: '#F1F5F9', text: 'var(--text-muted)' },
@@ -45,47 +50,101 @@ function computeStatus(dueDate: string, filedAt: unknown): ComplianceStatus {
   return 'upcoming';
 }
 
-// ─── Seed generator ───────────────────────────────────────────────────────────
+// ─── Seed generator — Finvastra CA Compliance Calendar FY 2026-27 ─────────────
+// Convention: a month's view lists every obligation DUE within that month (the
+// same way the CA's table is laid out). The recurring monthly deposits/returns
+// are for the *previous* month's period (e.g. April shows March's TDS/PF/PT/ESI).
 
 function pad2(n: number) { return String(n).padStart(2, '0'); }
+
+const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
 
 type SeedItem = Omit<ComplianceRecord, 'id' | 'createdAt' | 'amount' | 'filedAt' | 'filedBy' | 'referenceNumber' | 'notes'>;
 
 function generateComplianceItems(year: number, month: number): SeedItem[] {
-  const nextMonth = month === 12 ? 1 : month + 1;
-  const nextYear  = month === 12 ? year + 1 : year;
-  const monthStr  = `${year}-${pad2(month)}`;
-  const lastDay   = new Date(year, month, 0).getDate(); // day-0 of next month = last day of this month
+  const monthStr = `${year}-${pad2(month)}`;
+  const prevM = month === 1 ? 12 : month - 1;
+  const prevY = month === 1 ? year - 1 : year;
+  const prev  = `${MONTH_NAMES[prevM]} ${prevY}`;
+  const iso = (d: number) => `${year}-${pad2(month)}-${pad2(d)}`;
 
-  function make(type: ComplianceType, description: string, dueDate: string): SeedItem {
-    return { type, description, dueDate, month: monthStr, year, status: computeStatus(dueDate, null) };
+  function make(type: ComplianceType, title: string, description: string, dueDate: string): SeedItem {
+    return { type, title, description, dueDate, month: monthStr, year, status: computeStatus(dueDate, null) };
   }
 
+  // ── Monthly deposits / returns (for the previous month's period) ──────────
   const items: SeedItem[] = [
-    make('tds_deposit', 'TDS Deposit — Section 200 Income Tax Act',
-      `${nextYear}-${pad2(nextMonth)}-07`),
-    make('pf_deposit', 'PF Deposit — EPFO (Employee + Employer)',
-      `${nextYear}-${pad2(nextMonth)}-15`),
-    make('pt_deposit', 'Professional Tax Deposit — Telangana',
-      `${year}-${pad2(month)}-${pad2(lastDay)}`),
-    make('esic_deposit', 'ESIC Deposit (if applicable — salary < ₹21,000)',
-      `${nextYear}-${pad2(nextMonth)}-21`),
+    make('tds', 'TDS Deposit',         `TDS deducted in ${prev} — deposit (Sec 200)`,        iso(7)),
+    make('gst', 'GSTR-1',              `Outward supplies for ${prev}`,                       iso(11)),
+    make('gst', 'GSTR-3B',             `Summary return + tax payment for ${prev}`,           iso(20)),
+    make('pt',  'PT Deposit & Return', `Professional Tax (Telangana) for ${prev}`,           iso(10)),
+    make('pf',  'PF Deposit',          `EPF — employee + employer for ${prev}`,              iso(15)),
+    make('esi', 'ESI Deposit',         `ESI contribution for ${prev} (wages ≤ ₹21,000)`,     iso(15)),
   ];
 
-  // Quarterly TDS Return — added in the last month of each quarter
-  // Q1 Apr-Jun → June → due 31 Jul
-  // Q2 Jul-Sep → Sep  → due 31 Oct
-  // Q3 Oct-Dec → Dec  → due 31 Jan (next year)
-  // Q4 Jan-Mar → Mar  → due 31 May
-  if (month === 6)  items.push(make('tds_quarterly_return', 'TDS Quarterly Return — Q1 (Apr–Jun)', `${year}-07-31`));
-  if (month === 9)  items.push(make('tds_quarterly_return', 'TDS Quarterly Return — Q2 (Jul–Sep)', `${year}-10-31`));
-  if (month === 12) items.push(make('tds_quarterly_return', 'TDS Quarterly Return — Q3 (Oct–Dec)', `${nextYear}-01-31`));
-  if (month === 3)  items.push(make('tds_quarterly_return', 'TDS Quarterly Return — Q4 (Jan–Mar)', `${year}-05-31`));
-
-  // Annual returns — seeded in March (end of Indian financial year)
-  if (month === 3) {
-    items.push(make('pf_annual_return', 'PF Annual Return — EPF Misc Provisions Act', `${year}-06-30`));
-    items.push(make('pt_annual_return', 'Professional Tax Annual Return — Telangana', `${year}-04-30`));
+  // ── Month-specific statutory items ────────────────────────────────────────
+  switch (month) {
+    case 4: // April
+      items.push(make('tds', 'TDS Deposit (special)',           'March TDS — special provisions (govt / 194-IA etc.)', iso(30)));
+      items.push(make('pt',  'PT Annual Return (Form V)',       'Telangana Professional Tax annual return',            iso(10)));
+      items.push(make('esi', 'ESI Half-Yearly Return (Form 5)', 'For the Oct–Mar contribution period',                 iso(11)));
+      break;
+    case 5: // May
+      items.push(make('tds',        'TDS Return — Q4 (Jan–Mar)',        'Quarterly TDS statement',          iso(31)));
+      items.push(make('tds',        'TCS Return — Q4 (Jan–Mar)',        'Quarterly TCS statement',          iso(15)));
+      items.push(make('income_tax', 'Form 15G / 15H — Q4',              'Quarterly upload of declarations', iso(15)));
+      items.push(make('pf',         'PF Annual Return (Form 3A / 6A)',  'EPFO annual return',               iso(31)));
+      break;
+    case 6: // June
+      items.push(make('income_tax', 'Advance Tax — 1st instalment (15%)', 'AY 2027-28',                       iso(15)));
+      items.push(make('mca',        'Board Meeting — Q1',                 'Min 4/year; max 120-day gap',      iso(30)));
+      break;
+    case 7: // July
+      items.push(make('income_tax', 'ITR Filing (non-audit)',     'Individual / HUF / firm — no audit', iso(31)));
+      items.push(make('tds',        'TDS Return — Q1 (Apr–Jun)',  'Quarterly TDS statement',            iso(31)));
+      items.push(make('tds',        'TCS Return — Q1 (Apr–Jun)',  'Quarterly TCS statement',            iso(15)));
+      items.push(make('income_tax', 'Form 15G / 15H — Q1',        'Quarterly upload of declarations',   iso(15)));
+      break;
+    case 9: // September
+      items.push(make('income_tax', 'Advance Tax — 2nd instalment (45%)', 'AY 2027-28',                  iso(15)));
+      items.push(make('income_tax', 'Tax Audit Report',                   'Sec 44AB audit report',       iso(30)));
+      items.push(make('mca',        'DIR-3 KYC',                          'Director KYC (annual)',       iso(30)));
+      items.push(make('mca',        'AGM',                                'Within 6 months of FY end',   iso(30)));
+      items.push(make('mca',        'Board Meeting — Q2',                 'Min 4/year; max 120-day gap', iso(30)));
+      break;
+    case 10: // October
+      items.push(make('income_tax', 'ITR-6 Filing (audit case)',         'Companies / audited business',  iso(31)));
+      items.push(make('tds',        'TDS Return — Q2 (Jul–Sep)',         'Quarterly TDS statement',       iso(31)));
+      items.push(make('tds',        'TCS Return — Q2 (Jul–Sep)',         'Quarterly TCS statement',       iso(15)));
+      items.push(make('income_tax', 'Form 15G / 15H — Q2',               'Quarterly upload of declarations', iso(15)));
+      items.push(make('esi',        'ESI Half-Yearly Return (Form 5)',   'For the Apr–Sep contribution period', iso(11)));
+      items.push(make('mca',        'ADT-1 — Auditor Appointment',       'Within 15 days of AGM',         iso(15)));
+      items.push(make('mca',        'AOC-4 — Financial Statements',      'Within 30 days of AGM',         iso(30)));
+      items.push(make('mca',        'MGT-14 — Board Resolutions',        'If applicable, post-AGM filing', iso(30)));
+      break;
+    case 11: // November
+      items.push(make('mca', 'MGT-7 — Annual Return', 'Within 60 days of AGM', iso(30)));
+      break;
+    case 12: // December
+      items.push(make('gst',        'GSTR-9 — Annual Return',            'GST annual return (prior FY)', iso(31)));
+      items.push(make('income_tax', 'Advance Tax — 3rd instalment (75%)', 'AY 2027-28',                  iso(15)));
+      items.push(make('mca',        'Board Meeting — Q3',                'Min 4/year; max 120-day gap',  iso(31)));
+      break;
+    case 1: // January
+      items.push(make('tds',        'TDS Return — Q3 (Oct–Dec)',  'Quarterly TDS statement',          iso(31)));
+      items.push(make('tds',        'TCS Return — Q3 (Oct–Dec)',  'Quarterly TCS statement',          iso(15)));
+      items.push(make('income_tax', 'Form 15G / 15H — Q3',        'Quarterly upload of declarations', iso(15)));
+      items.push(make('esi',        'ESI Annual Return (Form 5)', 'Annual return',                    iso(31)));
+      break;
+    case 3: // March
+      items.push(make('income_tax', 'Advance Tax — 4th instalment (100%)', 'AY 2027-28',                  iso(15)));
+      items.push(make('mca',        'Board Meeting — Q4',                  'Min 4/year; max 120-day gap', iso(31)));
+      items.push(make('pf',         'Reconcile Annual PF Accounts',        'Year-end PF reconciliation',  iso(31)));
+      items.push(make('payroll',    'Payroll Year-End Audit',              'Close payroll for the FY',    iso(31)));
+      items.push(make('payroll',    'Form 16 / 16A Preparation',           'Begin TDS certificate prep',  iso(31)));
+      break;
+    // February (2) and August (8): monthly recurring items only.
   }
 
   return items;
@@ -107,7 +166,8 @@ function MarkFiledModal({ record, actorUid, onClose, onSaved }: MarkFiledModalPr
   const [saving, setSaving] = useState(false);
   const [err,    setErr]    = useState('');
 
-  const meta = TYPE_META[record.type];
+  const meta  = metaFor(record.type);
+  const title = record.title ?? meta.title;
 
   async function handleSave() {
     if (!refNum.trim()) { setErr('Challan / reference number is required.'); return; }
@@ -139,7 +199,7 @@ function MarkFiledModal({ record, actorUid, onClose, onSaved }: MarkFiledModalPr
           <button onClick={onClose}><X size={18} style={{ color: 'var(--text-muted)' }} /></button>
         </div>
         <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{meta.title}</span>
+          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{title}</span>
           {' — '}Due {format(parseISO(record.dueDate), 'd MMM yyyy')}
         </p>
 
@@ -193,7 +253,8 @@ function ViewDetailsModal({ record, onClose, onEdit }: {
   onClose: () => void;
   onEdit: () => void;
 }) {
-  const meta = TYPE_META[record.type];
+  const meta  = metaFor(record.type);
+  const title = record.title ?? meta.title;
   const filedDate = record.filedAt
     ? format((record.filedAt as { toDate(): Date }).toDate(), 'd MMM yyyy')
     : null;
@@ -207,9 +268,13 @@ function ViewDetailsModal({ record, onClose, onEdit }: {
         </div>
 
         <div className="space-y-3 text-sm" style={{ color: 'var(--text-primary)' }}>
+          <div className="flex justify-between gap-4">
+            <span style={{ color: 'var(--text-muted)' }}>Obligation</span>
+            <span className="font-medium text-right">{title}</span>
+          </div>
           <div className="flex justify-between">
-            <span style={{ color: 'var(--text-muted)' }}>Type</span>
-            <span className="font-medium">{meta.title}</span>
+            <span style={{ color: 'var(--text-muted)' }}>Category</span>
+            <span>{meta.title}</span>
           </div>
           <div className="flex justify-between">
             <span style={{ color: 'var(--text-muted)' }}>Due Date</span>
@@ -261,7 +326,8 @@ function ComplianceCard({ record, onMarkFiled, onView }: {
   onMarkFiled: () => void;
   onView: () => void;
 }) {
-  const meta   = TYPE_META[record.type];
+  const meta   = metaFor(record.type);
+  const title  = record.title ?? meta.title;
   const status = computeStatus(record.dueDate, record.filedAt);
   const sm     = STATUS_META[status];
   const Icon   = meta.icon;
@@ -280,8 +346,9 @@ function ComplianceCard({ record, onMarkFiled, onView }: {
           <Icon size={18} style={{ color: meta.iconColor }} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{meta.title}</p>
-          <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>{record.description}</p>
+          <p className="font-semibold text-sm leading-snug" style={{ color: 'var(--text-primary)' }}>{title}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider mt-0.5" style={{ color: meta.iconColor }}>{meta.title}</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{record.description}</p>
         </div>
         <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full shrink-0"
           style={{ backgroundColor: sm.bg, color: sm.text }}>
@@ -314,7 +381,7 @@ function ComplianceCard({ record, onMarkFiled, onView }: {
       )}
 
       {/* Action */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 mt-auto">
         {status !== 'filed' ? (
           <button onClick={onMarkFiled}
             className="flex-1 text-xs font-semibold py-2 rounded-lg transition-colors"
@@ -370,18 +437,55 @@ export function useOverdueComplianceCount(enabled: boolean): number {
   return count;
 }
 
+// ─── Key dates reference (CA, FY 2026-27) ────────────────────────────────────
+
+const KEY_DATES: string[][] = [
+  ['TDS deposit', '7th of next month (March → 30 Apr)'],
+  ['PT — Telangana', 'Deposit + return by 10th; annual Form V by 10 Apr'],
+  ['Provident Fund', '15th; annual Form 3A/6A by 30 Apr–31 May'],
+  ['ESI', '15th; half-yearly Form 5 by 11 Apr & 11 Oct'],
+  ['GST', 'GSTR-1 11th · GSTR-3B 20th · GSTR-9 by 31 Dec'],
+  ['Advance Tax', '15% Jun · 45% Sep · 75% Dec · 100% Mar (all 15th)'],
+  ['TDS returns', 'Q1 31 Jul · Q2 31 Oct · Q3 31 Jan · Q4 31 May'],
+  ['Income Tax', 'ITR (non-audit) 31 Jul · Tax Audit 30 Sep · ITR-6 31 Oct'],
+  ['MCA / ROC', 'AGM 30 Sep · ADT-1 +15d · AOC-4 +30d · MGT-7 +60d · DIR-3 KYC 30 Sep'],
+  ['Board meetings', '≥ 4/year, max 120-day gap (Jun/Sep/Dec/Mar)'],
+  ['Salary', 'Paid 1st–7th; processed on the last working day prior'],
+];
+
+function KeyDatesPanel() {
+  return (
+    <div className="mt-8 bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-5">
+      <h3 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+        <Info size={15} style={{ color: '#C9A961' }} /> Key dates &amp; rules — CA calendar, FY 2026-27
+      </h3>
+      <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-xs">
+        {KEY_DATES.map(([label, rule]) => (
+          <div key={label} className="flex gap-2">
+            <span className="font-semibold shrink-0" style={{ color: 'var(--text-primary)' }}>{label}</span>
+            <span style={{ color: 'var(--text-muted)' }}>— {rule}</span>
+          </div>
+        ))}
+      </div>
+      <p className="text-[11px] mt-4 pt-3 border-t border-(--shell-border)" style={{ color: 'var(--text-muted)' }}>
+        Finvastra Advisors Pvt. Ltd. · Hyderabad, Telangana · Financial Services. Dates per the
+        firm's CA. Items are auto-seeded each month; use <b>Reset to CA calendar</b> after any rule change.
+      </p>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function ComplianceCalendarPage() {
   const { user, profile } = useAuth();
 
   // ── All hooks unconditionally at the top — Rules of Hooks ───────────────────
-  // The auth guard comes AFTER this block. useState/useCallback/useEffect must
-  // never appear after an early return or React throws Error #300.
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [records,     setRecords]     = useState<ComplianceRecord[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [seeding,     setSeeding]     = useState(false);
+  const [resyncing,   setResyncing]   = useState(false);
 
   const [markFiledFor, setMarkFiledFor] = useState<ComplianceRecord | null>(null);
   const [viewFor,      setViewFor]      = useState<ComplianceRecord | null>(null);
@@ -415,7 +519,6 @@ export function ComplianceCalendarPage() {
           });
         }
         setSeeding(false);
-        // Re-fetch after seeding
         const snap2 = await getDocs(
           query(collection(db, 'compliance_records'), where('month', '==', monthStr)),
         );
@@ -430,9 +533,41 @@ export function ComplianceCalendarPage() {
 
   useEffect(() => { loadRecords(); }, [loadRecords]);
 
+  // ── Re-sync this month with the latest CA calendar ──────────────────────────
+  // Deletes unfiled items and re-seeds; FILED items are preserved as history.
+  const handleResync = useCallback(async () => {
+    if (!window.confirm(
+      `Refresh ${monthLabel} with the latest CA calendar?\n\nUnfiled items are replaced; anything already marked Filed is kept.`,
+    )) return;
+    setResyncing(true);
+    try {
+      const snap = await getDocs(
+        query(collection(db, 'compliance_records'), where('month', '==', monthStr)),
+      );
+      await Promise.all(
+        snap.docs
+          .filter((d) => !d.data().filedAt)
+          .map((d) => deleteDoc(doc(db, 'compliance_records', d.id))),
+      );
+      const items = generateComplianceItems(year, month);
+      for (const item of items) {
+        await addDoc(collection(db, 'compliance_records'), {
+          ...item,
+          amount:          null,
+          filedAt:         null,
+          filedBy:         null,
+          referenceNumber: null,
+          notes:           null,
+          createdAt:       serverTimestamp(),
+        });
+      }
+      await loadRecords();
+    } finally {
+      setResyncing(false);
+    }
+  }, [monthStr, monthLabel, year, month, loadRecords]);
+
   // ── Auth guard (after all hooks) ─────────────────────────────────────────────
-  // Only redirect once profile has loaded. While profile===null the app is still
-  // initialising — redirecting then would break the hook count on the next render.
   if (profile && profile.role !== 'admin' && !profile.isHrmsManager) {
     return <Navigate to="/hrms/dashboard" replace />;
   }
@@ -470,11 +605,11 @@ export function ComplianceCalendarPage() {
           Compliance Calendar
         </h2>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Track statutory filing deadlines — TDS, PF, PT, ESIC
+          Every statutory deadline — TDS/TCS, GST, Income Tax, PF, ESI, PT &amp; MCA/ROC · CA calendar FY 2026-27
         </p>
       </div>
 
-      {/* Month navigator */}
+      {/* Month navigator + re-sync */}
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => setCurrentDate((d) => subMonths(d, 1))}
@@ -490,6 +625,16 @@ export function ComplianceCalendarPage() {
           className="p-2 rounded-lg hover:bg-(--glass-panel-bg) transition-colors"
           style={{ color: 'var(--text-muted)' }}>
           <ChevronRight size={18} />
+        </button>
+
+        <button
+          onClick={handleResync}
+          disabled={resyncing || loading || seeding}
+          title="Replace this month's unfiled items with the latest CA calendar"
+          className="ml-auto text-xs font-semibold px-3 py-2 rounded-lg border border-(--shell-border) flex items-center gap-1.5 disabled:opacity-50"
+          style={{ color: 'var(--text-muted)' }}>
+          <RefreshCw size={13} className={resyncing ? 'animate-spin' : ''} />
+          {resyncing ? 'Syncing…' : 'Reset to CA calendar'}
         </button>
       </div>
 
@@ -541,6 +686,9 @@ export function ComplianceCalendarPage() {
           )}
         </div>
       )}
+
+      {/* Key dates reference */}
+      {!loading && !seeding && <KeyDatesPanel />}
 
       {/* Modals */}
       {markFiledFor && (

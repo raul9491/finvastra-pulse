@@ -872,16 +872,19 @@ export interface EmployeeDocument {
 
 // ─── Statutory Compliance ─────────────────────────────────────────────────────
 
+// Category — drives the icon/colour. The specific obligation is in `title`.
+// (Legacy per-item values like 'tds_deposit' may still exist on old records; the
+//  UI falls back to a generic meta for any value not in this set.)
 export type ComplianceType =
-  | 'tds_deposit' | 'pf_deposit' | 'esic_deposit' | 'pt_deposit'
-  | 'tds_quarterly_return' | 'pf_annual_return' | 'pt_annual_return';
+  | 'tds' | 'gst' | 'income_tax' | 'pt' | 'pf' | 'esi' | 'mca' | 'payroll';
 
 export type ComplianceStatus = 'upcoming' | 'due_soon' | 'overdue' | 'filed';
 
 export interface ComplianceRecord {
   id: string;
   type: ComplianceType;
-  month: string;               // YYYY-MM
+  title?: string;              // specific obligation, e.g. "GSTR-1" — `type` is the category
+  month: string;               // YYYY-MM — the month the filing is DUE
   year: number;
   dueDate: string;             // YYYY-MM-DD
   description: string;

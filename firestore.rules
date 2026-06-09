@@ -788,12 +788,15 @@ service cloud.firestore {
     }
 
     // ─── HRMS: Compliance Records ─────────────────────────────────────────────────
-    // Admin and HRMS managers read and write; no deletes — permanent audit trail.
+    // Admin and HRMS managers read and write. Delete is allowed so they can
+    // re-sync a month with the CA calendar (the page deletes only UNFILED items
+    // before re-seeding). These are operational reminders, not legal-retention
+    // records, so immutability isn't required here.
     match /compliance_records/{recordId} {
       allow read:   if isAdmin() || isHrmsManager();
       allow create,
             update: if isAdmin() || isHrmsManager();
-      allow delete: if false;
+      allow delete: if isAdmin() || isHrmsManager();
     }
 
     // ─── HRMS: Asset Management ───────────────────────────────────────────────────

@@ -1125,20 +1125,29 @@ Deterministic compliance tracking and PF calculation. All logic is rule-based �
 **Access**: admin + isHrmsManager  
 **Collection**: `/compliance_records/{recordId}`
 
-Auto-seeds the current month when no records exist. Items seeded per month:
-- TDS deposit — 7th of following month (e.g. June TDS due 7 July)
-- PF deposit — 15th of following month
-- PT deposit — last day of the month (Feb = 28/29)
-- ESIC deposit — 21st of following month
-- Quarterly TDS return — last month of each quarter (June/Sep/Dec/Mar)
-- Annual PF return — March
-- Annual PT return — March
+> **Rebuilt 2026-06-09 to the firm's CA Compliance Calendar FY 2026-27** (`Finvastra_Compliance_Calendar_FY2627.pdf`). The old seed had wrong dates (PT was month-end, ESI was 21st, PF annual was in March) and tracked only 7 obligations. Now **due-month convention** — opening a month lists everything *due in that month* (matching the CA's table layout); the recurring monthly deposits/returns are for the **previous** month's period (e.g. April shows March's TDS/PF/PT/ESI).
 
-Status computation:
-- `filed` — `filedAt` is non-null
-- `overdue` — `dueDate < today` and not filed
-- `due_soon` — due within 7 days and not filed
-- `upcoming` — more than 7 days away
+**Data model** (`src/types/index.ts`): `ComplianceType` is now a **category** — `tds | gst | income_tax | pt | pf | esi | mca | payroll` (drives icon/colour); the specific obligation is stored in the new `ComplianceRecord.title` field. Legacy records (old per-item types like `tds_deposit`) render via a `FALLBACK_META` so they don't break.
+
+**Seed (`generateComplianceItems`) — full FY 2026-27 schedule:**
+- **Every month** (for the prior period): TDS deposit (7th), GSTR-1 (11th), GSTR-3B (20th), PT deposit + return (10th), PF deposit (15th), ESI deposit (15th)
+- **April**: TDS special deposit (30th), PT Annual Return Form V (10th), ESI Half-Yearly Form 5 / Oct–Mar (11th)
+- **May**: TDS Return Q4 (31st), TCS Return Q4 (15th), 15G/15H Q4 (15th), PF Annual Return Form 3A/6A (31st)
+- **June**: Advance Tax 15% (15th), Board Meeting Q1
+- **July**: ITR non-audit (31st), TDS Return Q1 (31st), TCS Return Q1 (15th), 15G/15H Q1 (15th)
+- **September**: Advance Tax 45% (15th), Tax Audit Report (30th), DIR-3 KYC (30th), AGM (30th), Board Meeting Q2
+- **October**: ITR-6 audit (31st), TDS Return Q2 (31st), TCS Return Q2 (15th), 15G/15H Q2 (15th), ESI Half-Yearly Form 5 / Apr–Sep (11th), ADT-1 (15th), AOC-4 (30th), MGT-14 (30th)
+- **November**: MGT-7 Annual Return (30th)
+- **December**: GSTR-9 Annual (31st), Advance Tax 75% (15th), Board Meeting Q3
+- **January**: TDS Return Q3 (31st), TCS Return Q3 (15th), 15G/15H Q3 (15th), ESI Annual Return Form 5 (31st)
+- **March**: Advance Tax 100% (15th), Board Meeting Q4, Reconcile Annual PF, Payroll Year-End Audit, Form 16/16A prep (all 31st)
+- **February / August**: monthly recurring only
+
+Status computation (unchanged): `filed` (filedAt non-null) · `overdue` (dueDate < today, unfiled) · `due_soon` (≤7 days) · `upcoming`.
+
+**Reset to CA calendar** button (admin/HR, top-right next to month nav): deletes the month's **unfiled** items and re-seeds from the current schedule — **filed items are kept as history**. Needed because already-seeded months don't auto-re-seed. Backed by a rules change: `/compliance_records` `allow delete: if isAdmin() || isHrmsManager()` (was `if false`; these are operational reminders, not legal-retention records).
+
+**Key Dates panel** at the bottom: quick-reference card of the CA's rules (TDS 7th, PT 10th, PF 15th, ESI 15th, GST 11th/20th, Advance Tax %, TDS returns quarterly, AGM/ADT-1/AOC-4/MGT-7 windows, board-meeting 120-day rule, salary 1st–7th).
 
 `useOverdueComplianceCount(enabled)` — exported hook; HrmsShell uses it to show a red badge on the "Statutory" nav section header when overdue items exist.
 

@@ -998,7 +998,7 @@ Additional HRMS features built after Phase 5 hardening. All have zero TS errors.
 
 | Feature | Status | Files |
 |---|---|---|
-| **Claims & Reimbursements** | ✅ Complete | `src/features/hrms/claims/ClaimsPage.tsx`, `AdminClaimsPage.tsx`, `src/features/hrms/hooks/useClaims.ts` |
+| **Claims & Reimbursements** | ✅ Complete | `src/features/hrms/claims/ClaimsPage.tsx`, `AdminClaimsPage.tsx`, `src/features/hrms/hooks/useClaims.ts`. **Bill/receipt upload (2026-06-09)**: employee attaches an image or PDF on the New Claim form → **images compressed client-side** (`src/lib/imageCompression.ts`, canvas resize→JPEG, max 1600px / q0.7; PDFs pass through, both capped 10 MB) → uploaded to Storage `claim-receipts/{uid}/…` with a progress bar → URL saved to `receiptUrl` (via `submitClaim({ ...receiptUrl })`). "View bill" link shown on the employee row + the Admin Claims table. Compressing in-browser means the large original never uploads — Storage stays tiny (well inside the 5 GB free tier). |
 | **Company Document Library** | ✅ Complete | `src/features/hrms/documents/DocumentsPage.tsx`, `AdminDocumentsPage.tsx`, `src/features/hrms/hooks/useDocuments.ts`; Firebase Storage via `uploadBytesResumable` |
 | **Announcements** | ✅ Complete | `src/features/hrms/announcements/AnnouncementsPage.tsx`, `AdminAnnouncementsPage.tsx`, `src/features/hrms/hooks/useAnnouncements.ts`; `readBy` tracking; unread badge in nav |
 | **Dashboard improvements** | ✅ Complete | AnnouncementBanner strip; TeamTodayCard (admin/manager only); Quick Actions updated |
@@ -1745,6 +1745,10 @@ match /company-documents/{allPaths=**} {
 match /employee-documents/{employeeId}/{allPaths=**} {
   allow read:  employee reads own OR admin/isHrmsManager
   allow write: admin/isHrmsManager only
+}
+match /claim-receipts/{employeeId}/{allPaths=**} {   // claim bills — added 2026-06-09
+  allow read:  employee reads own OR admin/isHrmsManager (custom claims)
+  allow write: employee writes OWN, contentType image/* or application/pdf, size < 10 MB
 }
 ```
 

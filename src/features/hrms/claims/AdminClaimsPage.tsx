@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Car, Smartphone, Heart, Fuel, Users, HelpCircle, Download, Check, X } from 'lucide-react';
+import { Car, Smartphone, Heart, Fuel, Users, HelpCircle, Download, Check, X, Paperclip } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllClaims, approveClaim, rejectClaim, markClaimsPaid, exportClaimsCSV } from '../hooks/useClaims';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
@@ -316,7 +316,16 @@ export function AdminClaimsPage() {
                     <td className="p-4 text-right font-semibold text-(--text-primary)">
                       ₹{c.amount.toLocaleString('en-IN')}
                     </td>
-                    <td className="p-4 text-(--text-muted) max-w-xs truncate">{c.description}</td>
+                    <td className="p-4 max-w-xs">
+                      <p className="text-(--text-muted) truncate">{c.description}</p>
+                      {c.receiptUrl && (
+                        <a href={c.receiptUrl} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs mt-0.5 transition-colors hover:opacity-70"
+                          style={{ color: '#C9A961' }} title="View attached bill">
+                          <Paperclip size={12} /> View bill
+                        </a>
+                      )}
+                    </td>
                     <td className="p-4 text-(--text-muted) whitespace-nowrap">
                       {submittedDate ? format(submittedDate, 'dd MMM yyyy') : '—'}
                     </td>

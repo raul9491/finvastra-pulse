@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { PlusCircle, ReceiptText, Car, Smartphone, Heart, Fuel, Users, HelpCircle, X } from 'lucide-react';
+import { PlusCircle, ReceiptText, Car, Smartphone, Heart, Fuel, Users, HelpCircle, X, Paperclip, FileText } from 'lucide-react';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { storage } from '../../../lib/firebase';
+import { compressImage, formatBytes } from '../../../lib/imageCompression';
 import { useAuth } from '../../auth/AuthContext';
 import { useMyClaims, submitClaim, cancelClaim } from '../hooks/useClaims';
 import type { ClaimType, ClaimStatus, Claim, ClaimTravelDetails } from '../../../types';
@@ -42,8 +45,19 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
   const [mode, setMode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
 
   const isTravel = claimType === 'travel';
+
+  const onPickFile = (f: File | null) => {
+    setError('');
+    if (!f) { setFile(null); return; }
+    const okType = f.type.startsWith('image/') || f.type === 'application/pdf';
+    if (!okType) { setError('Please attach an image or a PDF.'); return; }
+    if (f.size > 10 * 1024 * 1024) { setError('File too large — max 10 MB.'); return; }
+    setFile(f);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,6 +71,24 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
     setSubmitting(true);
     setError('');
     try {
+      // Upload the bill first (compress images client-side), then create the claim.
+      let receiptUrl: string | null = null;
+      if (file) {
+        const toUpload = await compressImage(file);   // PDFs/undecodable pass through unchanged
+        if (toUpload.size > 10 * 1024 * 1024) { setError('File too large — max 10 MB.'); setSubmitting(false); return; }
+        const ext  = toUpload.name.includes('.') ? toUpload.name.slice(toUpload.name.lastIndexOf('.')) : '';
+        const path = `claim-receipts/${user.uid}/${Date.now()}${ext}`;
+        const task = uploadBytesResumable(ref(storage, path), toUpload, { contentType: toUpload.type });
+        setUploadPct(0);
+        receiptUrl = await new Promise<string>((resolve, reject) => {
+          task.on('state_changed',
+            (s) => setUploadPct(Math.round((s.bytesTransferred / s.totalBytes) * 100)),
+            reject,
+            async () => resolve(await getDownloadURL(task.snapshot.ref)),
+          );
+        });
+        setUploadPct(null);
+      }
       const travel: ClaimTravelDetails | undefined = isTravel
         ? { fromLocation: from.trim(), toLocation: to.trim(), distanceKm: parseFloat(distance), modeOfTransport: mode.trim() }
         : undefined;
@@ -67,9 +99,11 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
         amount: amt,
         description: description.trim(),
         ...(travel ? { travelDetails: travel } : {}),
+        receiptUrl,
       });
       onClose();
     } catch {
+      setUploadPct(null);
       setError('Failed to submit. Please try again.');
       setSubmitting(false);
     }
@@ -150,6 +184,36 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
             </div>
           )}
 
+          {/* Attach bill / receipt — image is compressed in-browser before upload */}
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
+              Attach Bill <span className="normal-case tracking-normal opacity-70">(photo or PDF — optional)</span>
+            </label>
+            {!file ? (
+              <label className="flex items-center justify-center gap-2 py-3 rounded-xl cursor-pointer text-sm transition-colors hover:bg-white/5"
+                style={{ border: '1px dashed rgba(255,255,255,0.18)', color: 'var(--text-muted)' }}>
+                <Paperclip size={15} /> Choose a photo or PDF…
+                <input type="file" accept="image/*,application/pdf" className="hidden"
+                  onChange={(e) => onPickFile(e.target.files?.[0] ?? null)} />
+              </label>
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+                style={{ border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                <FileText size={15} style={{ color: '#C9A961' }} className="shrink-0" />
+                <span className="text-sm truncate flex-1" style={{ color: 'var(--text-primary)' }}>{file.name}</span>
+                <span className="text-[11px] shrink-0" style={{ color: 'var(--text-muted)' }}>{formatBytes(file.size)}</span>
+                <button type="button" onClick={() => setFile(null)} className="p-1 rounded hover:bg-white/10 shrink-0" aria-label="Remove file">
+                  <X size={13} style={{ color: 'var(--text-muted)' }} />
+                </button>
+              </div>
+            )}
+            {uploadPct !== null && (
+              <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.10)' }}>
+                <div className="h-full transition-all" style={{ width: `${uploadPct}%`, backgroundColor: '#C9A961' }} />
+              </div>
+            )}
+          </div>
+
           {error && <p className="text-sm" style={{ color: '#f87171' }}>{error}</p>}
 
           <div className="flex gap-3 pt-2">
@@ -160,7 +224,7 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
                 color:      'var(--text-primary)',
                 border:     '1px solid rgba(201,169,97,0.40)',
               }}>
-              {submitting ? 'Submitting…' : 'Submit Claim'}
+              {submitting ? (uploadPct !== null ? `Uploading… ${uploadPct}%` : 'Submitting…') : 'Submit Claim'}
             </button>
             <button type="button" onClick={onClose}
               className="px-5 py-2.5 rounded-xl text-sm transition-colors hover:bg-white/10"
@@ -197,6 +261,13 @@ function ClaimRow({ claim, onCancel }: { claim: Claim; onCancel: () => void }) {
         </p>
       </div>
       <p className="text-sm font-semibold shrink-0" style={{ color: 'var(--text-primary)' }}>₹{claim.amount.toLocaleString('en-IN')}</p>
+      {claim.receiptUrl && (
+        <a href={claim.receiptUrl} target="_blank" rel="noopener noreferrer"
+          className="flex items-center gap-1 text-xs shrink-0 transition-colors hover:opacity-70"
+          style={{ color: '#C9A961' }} title="View attached bill">
+          <Paperclip size={13} /> Bill
+        </a>
+      )}
       <span
         className="px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide shrink-0"
         style={{ backgroundColor: st.bg, color: st.color }}

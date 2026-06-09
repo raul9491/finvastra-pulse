@@ -2197,7 +2197,7 @@ Email notifications are live. All HR actions send both an in-app bell (`writeNot
 
 **`/api/hrms/notify/email` endpoint**: Updated to call `sendGmailMessage()`. Falls back to nodemailer SMTP only when a PDF attachment is present and `SMTP_USER`/`SMTP_APP_PASSWORD` are set.
 
-**`/api/admin/test-smtp` endpoint** (admin only): POST to send a test email to `rahulv@finvastra.com`.
+**`/api/admin/test-smtp` endpoint** (admin **or scheduler OIDC**): POST sends a **branded** test email (new logo template via `buildBrandEmail`) to `rahulv@finvastra.com` (or body `{ to }`). Since it accepts scheduler OIDC, it can be fired without a browser admin token via a one-off Cloud Scheduler job → `run` → `delete`.
 
 **Call sites** (all fire-and-forget `.catch(() => {})`):
 - `AdminLeavePage.tsx` — leave approved, leave rejected

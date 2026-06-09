@@ -1660,45 +1660,40 @@ async function startServer() {
   });
 
   // ─── SMTP / Gmail Test Endpoint ───────────────────────────────────────────
-  // POST /api/admin/test-smtp  (admin only)
-  // Sends a test email to rahulv@finvastra.com to confirm email delivery works.
-  app.post("/api/admin/test-smtp", async (req, res) => {
-    const uid = await verifyFirebaseToken(req);
-    if (!uid) return res.status(401).json({ error: "Unauthorized" });
-    const snap = await db.collection("users").doc(uid).get();
-    if (snap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
-
+  // POST /api/admin/test-smtp  (admin OR scheduler OIDC)
+  // Sends a BRANDED test email (new logo template) to confirm delivery + branding.
+  // Body (optional): { to: "someone@finvastra.com" } — defaults to rahulv@finvastra.com.
+  app.post("/api/admin/test-smtp", express.json(), async (req, res) => {
+    if (!(await requireAdminOrScheduler(req, res))) return;
+    const to = (req.body && typeof req.body.to === "string" && req.body.to.trim()) || "rahulv@finvastra.com";
     const timestamp = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-    const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;padding:24px;">
-      <h2 style="color:#0B1538;">Finvastra Pulse — SMTP Test</h2>
-      <p>Email delivery is working correctly.</p>
-      <p style="color:#8B8B85;font-size:12px;">Sent at ${timestamp} IST</p>
-    </body></html>`;
-
+    const html = buildBrandEmail({
+      title: "Test email from Finvastra Pulse",
+      intro: "If you can see the Finvastra logo above and this reads cleanly, the new email branding and encoding are working.",
+      rows: [
+        { label: "Status",   value: "Delivery OK" },
+        { label: "Template", value: "Branded — logo header" },
+        { label: "Sent at",  value: `${timestamp} IST` },
+      ],
+      ctaLabel: "Open Pulse",
+      ctaLink:  "https://pulse.finvastra.com",
+    });
     try {
-      await sendGmailMessage("rahulv@finvastra.com", "Finvastra Pulse — SMTP Test", html);
-      return res.json({ ok: true, message: `Test email sent to rahulv@finvastra.com at ${timestamp}` });
+      await sendGmailMessage(to, "Test email from Finvastra Pulse", html);
+      return res.json({ ok: true, message: `Test email sent to ${to} at ${timestamp}` });
     } catch (e: unknown) {
       const err = e as {
-        message?: string;
-        code?: string | number;
-        status?: number;
-        errors?: unknown;
-        response?: { data?: unknown; status?: number };
+        message?: string; code?: string | number; status?: number;
+        errors?: unknown; response?: { data?: unknown; status?: number };
       };
       console.error("[test-smtp] Gmail API error:", JSON.stringify({
-        message: err.message,
-        code:    err.code,
+        message: err.message, code: err.code,
         status:  err.status ?? err.response?.status,
-        errors:  err.errors,
-        data:    err.response?.data,
+        errors:  err.errors, data: err.response?.data,
       }, null, 2));
-      return res.json({
-        ok:      false,
-        error:   err.message ?? String(e),
-        code:    err.code,
-        status:  err.status ?? err.response?.status,
-        details: err.errors ?? err.response?.data,
+      return res.status(500).json({
+        ok: false, error: err.message ?? String(e), code: err.code,
+        status: err.status ?? err.response?.status, details: err.errors ?? err.response?.data,
       });
     }
   });

@@ -90,7 +90,7 @@ function RejectModal({ application, rejectedBy, onClose }: RejectModalProps) {
       }).catch(() => {});
       sendHrEmailNotification({
         employeeId: application.employeeId,
-        subject: 'Leave Request Update — Finvastra Pulse',
+        subject: 'Update on your leave request',
         htmlBody: buildHrEmailHtml({
           title: 'Your leave request was not approved',
           lines: [
@@ -188,7 +188,7 @@ function PendingTab({ approverId, employeeNameById }: PendingTabProps) {
       }).catch(() => {});
       sendHrEmailNotification({
         employeeId: app.employeeId,
-        subject: 'Leave Approved — Finvastra Pulse',
+        subject: 'Your leave has been approved',
         htmlBody: buildHrEmailHtml({
           title: 'Your leave has been approved',
           lines: [

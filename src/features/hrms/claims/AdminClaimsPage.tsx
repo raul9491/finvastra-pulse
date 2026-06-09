@@ -211,7 +211,7 @@ function MarkPaidModal({ claims, totalAmount, onClose }: { claims: Claim[]; tota
       }).catch(() => {});
       sendHrEmailNotification({
         employeeId: c.employeeId,
-        subject: 'Claim Paid — Finvastra Pulse',
+        subject: 'Your claim has been paid',
         htmlBody: buildHrEmailHtml({
           title: 'Your claim has been paid',
           lines: [
@@ -288,7 +288,7 @@ export function AdminClaimsPage() {
     }).catch(() => {});
     sendHrEmailNotification({
       employeeId: claim.employeeId,
-      subject: 'Claim Approved — Finvastra Pulse',
+      subject: 'Your claim has been approved',
       htmlBody: buildHrEmailHtml({
         title: 'Your claim has been approved',
         lines: [
@@ -311,7 +311,7 @@ export function AdminClaimsPage() {
     }).catch(() => {});
     sendHrEmailNotification({
       employeeId: claim.employeeId,
-      subject: 'Claim Update — Finvastra Pulse',
+      subject: 'Update on your claim',
       htmlBody: buildHrEmailHtml({
         title: 'Your claim was not approved',
         lines: [

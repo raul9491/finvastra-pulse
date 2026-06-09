@@ -1341,6 +1341,10 @@ async function startServer() {
 
   // Sends an HTML email via the Gmail API (domain-wide delegation).
   // Falls back to console.log when the SA key is not configured (emulator mode).
+  // RFC 2047-encode the Subject header so non-ASCII (em-dash, emoji, accents) is
+  // never mangled into mojibake (e.g. "—" → "Ã¢Â€Â"") by the receiving client.
+  const encodeEmailSubject = (s: string) => `=?UTF-8?B?${Buffer.from(s, "utf8").toString("base64")}?=`;
+
   async function sendGmailMessage(to: string, subject: string, htmlBody: string) {
     const senderEmail  = process.env.GMAIL_SENDER ?? "admin@finvastra.com";
     const senderName   = "Finvastra Pulse";
@@ -1353,7 +1357,7 @@ async function startServer() {
     const raw = [
       `From: ${senderName} <${senderEmail}>`,
       `To: ${to}`,
-      `Subject: ${subject}`,
+      `Subject: ${encodeEmailSubject(subject)}`,
       "MIME-Version: 1.0",
       "Content-Type: text/html; charset=UTF-8",
       "",
@@ -1941,7 +1945,7 @@ async function startServer() {
       ? `<div style="margin-top:20px;padding:14px 16px;background:#FAF6EC;border-left:3px solid #C9A961;border-radius:8px;color:#2A2A2A;font-size:14px;"><strong>Priority:</strong> ${opts.note}</div>` : "";
     const ctaHtml = opts.ctaLink
       ? `<table width="100%"><tr><td align="center" style="padding-top:24px;"><a href="${opts.ctaLink}" style="display:inline-block;background:linear-gradient(135deg,#0B1538,#1B2A4E);color:#C9A961;padding:12px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">${opts.ctaLabel ?? "Open"} &rarr;</a></td></tr></table>` : "";
-    return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#F2EFE7;font-family:Arial,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#F2EFE7;padding:32px 0;"><tr><td align="center"><table width="600" style="max-width:600px;width:100%;"><tr><td style="background:linear-gradient(135deg,#0B1538,#1B2A4E);border-radius:16px 16px 0 0;padding:28px 40px;text-align:center;"><div style="color:#C9A961;font-size:12px;font-weight:700;letter-spacing:3px;">FINVASTRA PULSE</div></td></tr><tr><td style="background:#fff;padding:36px 40px;"><h1 style="font-family:Georgia,serif;font-size:22px;color:#0A0A0A;margin:0 0 6px;">${opts.title}</h1><p style="font-size:14px;color:#2A2A2A;margin:0 0 18px;">${opts.intro}</p><table width="100%" style="border-collapse:collapse;">${rowsHtml}</table>${noteHtml}${ctaHtml}</td></tr><tr><td style="padding:18px 40px;text-align:center;color:#8B8B85;font-size:11px;">Finvastra Advisors Pvt. Ltd. &middot; Finvastra Pulse</td></tr></table></td></tr></table></body></html>`;
+    return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#F2EFE7;font-family:Arial,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#F2EFE7;padding:32px 0;"><tr><td align="center"><table width="600" style="max-width:600px;width:100%;"><tr><td style="background:#ffffff;border-radius:16px 16px 0 0;padding:26px 40px 18px;text-align:center;border-bottom:3px solid #C9A961;"><img src="https://pulse.finvastra.com/images/logo-finvastra.png" alt="Finvastra" width="150" style="display:block;width:150px;max-width:60%;height:auto;border:0;margin:0 auto;"/></td></tr><tr><td style="background:#fff;padding:36px 40px;"><h1 style="font-family:Georgia,serif;font-size:22px;color:#0A0A0A;margin:0 0 6px;">${opts.title}</h1><p style="font-size:14px;color:#2A2A2A;margin:0 0 18px;">${opts.intro}</p><table width="100%" style="border-collapse:collapse;">${rowsHtml}</table>${noteHtml}${ctaHtml}</td></tr><tr><td style="padding:18px 40px;text-align:center;color:#8B8B85;font-size:11px;">Finvastra Advisors Pvt. Ltd. &middot; Finvastra Pulse</td></tr></table></td></tr></table></body></html>`;
   }
 
   // Send a branded email WITH a PDF attachment (multipart MIME via Gmail API).

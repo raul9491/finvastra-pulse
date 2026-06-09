@@ -2193,6 +2193,8 @@ Email notifications are live. All HR actions send both an in-app bell (`writeNot
 
 **Transport**: Gmail API via domain-wide delegation (`GOOGLE_SA_JSON_BASE64` + `GMAIL_SENDER=admin@finvastra.com`). No SMTP password required — same transport used by login alerts and password reset emails.
 
+**Branding & encoding (2026-06-09)**: the shared template (`buildHrEmailHtml` in `src/lib/notifications.ts` for client-sent HR emails; `buildBrandEmail` in `server.ts` for scheduled-job emails) now leads with the **actual Finvastra logo** on a white header + gold rule — hosted at the stable URL **`https://pulse.finvastra.com/images/logo-finvastra.png`** (`public/images/logo-finvastra.png`, copied unhashed to `dist/`). **Subject headers are RFC 2047-encoded** in `sendGmailMessage`/`sendGmailWithAttachment` (`=?UTF-8?B?…?=` via `encodeEmailSubject`) — previously a raw `—` in the subject rendered as mojibake (`Ã¢Â€Â"`). **Subjects rewritten human/warm** (no "— Finvastra Pulse" suffix; brand is in the `From` name): e.g. "Your claim has been approved", "Update on your leave request", "Your IT declaration is accepted".
+
 **`/api/hrms/notify/email` endpoint**: Updated to call `sendGmailMessage()`. Falls back to nodemailer SMTP only when a PDF attachment is present and `SMTP_USER`/`SMTP_APP_PASSWORD` are set.
 
 **`/api/admin/test-smtp` endpoint** (admin only): POST to send a test email to `rahulv@finvastra.com`.

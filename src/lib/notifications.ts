@@ -64,28 +64,23 @@ export function writeNotification(
 // ─── Email notification ───────────────────────────────────────────────────────
 
 const BRAND_HEADER = `
-<table width="100%" cellpadding="0" cellspacing="0" border="0"
-       style="background:#0B1538;padding:20px 32px;">
-  <tr>
-    <td style="font-family:'DM Sans',Arial,sans-serif;font-size:18px;font-weight:700;
-               color:#C9A961;letter-spacing:0.5px;">
-      Finvastra Pulse
-    </td>
-    <td align="right" style="font-family:'DM Sans',Arial,sans-serif;font-size:11px;
-                              color:#8B8B85;letter-spacing:1px;text-transform:uppercase;">
-      HR Notification
-    </td>
-  </tr>
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;">
+  <tr><td align="center" style="padding:30px 32px 22px;">
+    <img src="https://pulse.finvastra.com/images/logo-finvastra.png" alt="Finvastra"
+         width="158" style="display:block;width:158px;max-width:62%;height:auto;border:0;margin:0 auto;" />
+  </td></tr>
+  <tr><td style="height:3px;line-height:3px;font-size:0;background:#C9A961;">&nbsp;</td></tr>
 </table>`;
 
 const BRAND_FOOTER = `
 <table width="100%" cellpadding="0" cellspacing="0" border="0"
-       style="background:#F2EFE7;padding:16px 32px;border-top:1px solid #e2e8f0;">
+       style="background:#F2EFE7;border-top:1px solid #e7e2d6;">
   <tr>
     <td style="font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:#8B8B85;
-               text-align:center;">
-      This is an automated message from Finvastra Pulse &middot;
-      <a href="https://pulse.finvastra.com" style="color:#C9A961;">pulse.finvastra.com</a>
+               text-align:center;padding:18px 32px;line-height:1.7;">
+      Sent with care by the Finvastra team &middot;
+      <a href="https://pulse.finvastra.com" style="color:#9A7E3F;text-decoration:none;">pulse.finvastra.com</a><br/>
+      Finvastra Advisors Pvt. Ltd.
     </td>
   </tr>
 </table>`;

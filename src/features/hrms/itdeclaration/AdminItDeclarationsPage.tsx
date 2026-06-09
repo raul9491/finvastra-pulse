@@ -337,7 +337,7 @@ export function AdminItDeclarationsPage() {
             }).catch(() => {});
             sendHrEmailNotification({
               employeeId: selectedDecl.employeeId,
-              subject: 'IT Declaration Accepted — Finvastra Pulse',
+              subject: 'Your IT declaration is accepted',
               htmlBody: buildHrEmailHtml({
                 title: 'Your IT declaration has been accepted',
                 lines: [{ label: 'Financial Year', value: fyStr }],
@@ -358,7 +358,7 @@ export function AdminItDeclarationsPage() {
             }).catch(() => {});
             sendHrEmailNotification({
               employeeId: selectedDecl.employeeId,
-              subject: 'IT Declaration — Revision Required',
+              subject: 'Action needed on your IT declaration',
               htmlBody: buildHrEmailHtml({
                 title: 'HR has requested a revision to your IT declaration',
                 lines: [{ label: 'Financial Year', value: fyStr }],
@@ -509,7 +509,7 @@ export function AdminItDeclarationsPage() {
                                   }).catch(() => {});
                                   sendHrEmailNotification({
                                     employeeId: decl.employeeId,
-                                    subject: 'IT Declaration Accepted — Finvastra Pulse',
+                                    subject: 'Your IT declaration is accepted',
                                     htmlBody: buildHrEmailHtml({
                                       title: 'Your IT declaration has been accepted',
                                       lines: [{ label: 'Financial Year', value: fyStr }],

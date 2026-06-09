@@ -234,7 +234,7 @@ function RejectRegModal({ req, reviewerName, reviewerId, onDone, onCancel }: Rej
       }).catch(() => {});
       sendHrEmailNotification({
         employeeId: req.employeeId,
-        subject: 'Attendance Correction Update — Finvastra Pulse',
+        subject: 'Update on your attendance correction',
         htmlBody: buildHrEmailHtml({
           title: 'Your attendance correction was not approved',
           lines: [{ label: 'Date', value: req.date }],
@@ -320,7 +320,7 @@ function RegularizationsTab({ reviewerId, reviewerName }: RegTabProps) {
       }).catch(() => {});
       sendHrEmailNotification({
         employeeId: req.employeeId,
-        subject: 'Attendance Correction Approved — Finvastra Pulse',
+        subject: 'Your attendance correction was approved',
         htmlBody: buildHrEmailHtml({
           title: 'Your attendance correction has been approved',
           lines: [

@@ -2130,6 +2130,8 @@ Complete visual overhaul to editorial-premium dark glass aesthetic.
 
 **Known minor stragglers** (acceptable; clean up if noticed): a few `bg-white/NN` translucent overlays (fine in dark), `hover:bg-slate-200` hovers, and gold-bordered (not gold-filled) chips with navy text. CRM/MIS pages may also have isolated hardcoded spots — convert with the same mapping if they surface.
 
+**Separate class — dark-*built* modals** (opposite problem: hardcoded navy bg breaks in LIGHT mode). The codemod only handled light-built pages. A hand-rolled modal using `backgroundColor: 'rgba(11,21,56,0.9…)'` + white-alpha borders stays dark in light mode → invisible labels. **Fix: use the theme-aware classes `glass-modal-overlay` / `glass-modal-panel` / `glass-modal-header`** (as `EditMyDetailsModal` does) instead of hardcoded navy; white-alpha borders → `var(--shell-border)`, panels → `var(--glass-panel-bg)`; navy text on gold buttons → keep `#0B1538`. Fixed the New Claim modal (`ClaimsPage`) this way 2026-06-09 — it was the only HRMS modal not using the shared `Modal` component.
+
 ### CRM — Pipeline Stage Data Capture
 
 Each opportunity stage now collects structured data on advance.

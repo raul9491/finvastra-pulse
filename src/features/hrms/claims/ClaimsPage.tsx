@@ -110,23 +110,11 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.60)', backdropFilter: 'blur(4px)' }}
-    >
-      <div
-        className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl"
-        style={{
-          backgroundColor:     'rgba(11,21,56,0.92)',
-          border:              '1px solid rgba(255,255,255,0.12)',
-          backdropFilter:      'blur(20px)',
-          WebkitBackdropFilter:'blur(20px)',
-          boxShadow:           '0 24px 64px rgba(0,0,0,0.50)',
-        }}
-      >
-        <div className="flex items-center justify-between p-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay">
+      <div className="w-full max-w-md max-h-[90vh] overflow-y-auto glass-modal-panel">
+        <div className="flex items-center justify-between p-6 glass-modal-header">
           <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>New Claim</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:bg-white/10">
+          <button onClick={onClose} className="p-1.5 rounded-lg transition-colors nav-item-hover">
             <X size={18} style={{ color: 'var(--text-muted)' }} />
           </button>
         </div>
@@ -160,7 +148,7 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
           </div>
 
           {isTravel && (
-            <div className="space-y-3 p-4 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)' }}>
+            <div className="space-y-3 p-4 rounded-xl" style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid var(--shell-border)' }}>
               <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Travel Details</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -191,14 +179,14 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
             </label>
             {!file ? (
               <label className="flex items-center justify-center gap-2 py-3 rounded-xl cursor-pointer text-sm transition-colors hover:bg-white/5"
-                style={{ border: '1px dashed rgba(255,255,255,0.18)', color: 'var(--text-muted)' }}>
+                style={{ border: '1px dashed var(--shell-border)', color: 'var(--text-muted)' }}>
                 <Paperclip size={15} /> Choose a photo or PDF…
                 <input type="file" accept="image/*,application/pdf" className="hidden"
                   onChange={(e) => onPickFile(e.target.files?.[0] ?? null)} />
               </label>
             ) : (
               <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
-                style={{ border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                style={{ border: '1px solid var(--shell-border)', backgroundColor: 'var(--glass-panel-bg)' }}>
                 <FileText size={15} style={{ color: '#C9A961' }} className="shrink-0" />
                 <span className="text-sm truncate flex-1" style={{ color: 'var(--text-primary)' }}>{file.name}</span>
                 <span className="text-[11px] shrink-0" style={{ color: 'var(--text-muted)' }}>{formatBytes(file.size)}</span>
@@ -208,7 +196,7 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
               </div>
             )}
             {uploadPct !== null && (
-              <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.10)' }}>
+              <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--shell-border)' }}>
                 <div className="h-full transition-all" style={{ width: `${uploadPct}%`, backgroundColor: '#C9A961' }} />
               </div>
             )}
@@ -221,7 +209,7 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110 disabled:opacity-50"
               style={{
                 background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
-                color:      'var(--text-primary)',
+                color:      '#0B1538',
                 border:     '1px solid rgba(201,169,97,0.40)',
               }}>
               {submitting ? (uploadPct !== null ? `Uploading… ${uploadPct}%` : 'Submitting…') : 'Submit Claim'}
@@ -322,7 +310,7 @@ export function ClaimsPage() {
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
           style={{
             background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
-            color:      'var(--text-primary)',
+            color:      '#0B1538',
             border:     '1px solid rgba(201,169,97,0.40)',
           }}
         >

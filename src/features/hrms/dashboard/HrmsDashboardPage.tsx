@@ -146,7 +146,7 @@ function BirthdaySection({
               title="Dismiss"
               aria-label={`Dismiss birthday card for ${emp.displayName}`}
             >
-              <X size={14} style={{ color: '#8B8B85' }} />
+              <X size={14} style={{ color: 'var(--text-muted)' }} />
             </button>
           </div>
         ))}
@@ -272,7 +272,7 @@ function AnniversarySection({
                 title="Dismiss"
                 aria-label={`Dismiss anniversary card for ${emp.displayName}`}
               >
-                <X size={14} style={{ color: '#8B8B85' }} />
+                <X size={14} style={{ color: 'var(--text-muted)' }} />
               </button>
             </div>
           );
@@ -303,7 +303,7 @@ function UpcomingAnniversariesSection({ employees }: { employees: UpcomingAnnive
                   className="w-7 h-7 rounded-full object-cover shrink-0" />
               ) : (
                 <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                  style={{ backgroundColor: 'rgba(11,21,56,0.1)', color: '#0B1538' }}>
+                  style={{ backgroundColor: 'rgba(11,21,56,0.1)', color: 'var(--text-primary)' }}>
                   {initials}
                 </div>
               )}
@@ -410,7 +410,7 @@ function HolidayBanner({ holidays }: { holidays: Array<{ id: string; date: strin
               title="Dismiss"
               aria-label={`Dismiss ${name} notification`}
             >
-              <X size={14} style={{ color: '#8B8B85' }} />
+              <X size={14} style={{ color: 'var(--text-muted)' }} />
             </button>
           </div>
         );

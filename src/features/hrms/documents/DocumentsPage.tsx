@@ -9,7 +9,7 @@ import type { CompanyDocument, EmployeeDocument, CompanyDocumentCategory, Employ
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const CATEGORY_META: Record<CompanyDocumentCategory, { label: string; icon: typeof FileText; color: string }> = {
-  policy:   { label: 'Policy',   icon: BookOpen, color: '#0B1538' },
+  policy:   { label: 'Policy',   icon: BookOpen, color: 'var(--text-primary)' },
   handbook: { label: 'Handbook', icon: Book,     color: '#C9A961' },
   circular: { label: 'Circular', icon: Bell,     color: '#3B82F6' },
 };
@@ -38,15 +38,15 @@ function CompanyDocCard({ doc: d, ackedAt }: { doc: CompanyDocument; ackedAt?: D
   const uploadedDate = toTs(d.uploadedAt);
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col gap-3">
+    <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl p-5 flex flex-col gap-3">
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
           style={{ backgroundColor: meta.color + '15', color: meta.color }}>
           <Icon size={18} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-ink">{d.title}</p>
-          {d.description && <p className="text-xs text-mute mt-0.5 line-clamp-2">{d.description}</p>}
+          <p className="text-sm font-semibold text-(--text-primary)">{d.title}</p>
+          {d.description && <p className="text-xs text-(--text-muted) mt-0.5 line-clamp-2">{d.description}</p>}
         </div>
       </div>
       <div className="flex items-center justify-between">
@@ -56,10 +56,10 @@ function CompanyDocCard({ doc: d, ackedAt }: { doc: CompanyDocument; ackedAt?: D
             {meta.label}
           </span>
           {d.financialYear && (
-            <span className="text-[10px] text-mute">FY {d.financialYear}</span>
+            <span className="text-[10px] text-(--text-muted)">FY {d.financialYear}</span>
           )}
           {uploadedDate && (
-            <span className="text-[10px] text-mute">
+            <span className="text-[10px] text-(--text-muted)">
               {uploadedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
             </span>
           )}
@@ -71,8 +71,8 @@ function CompanyDocCard({ doc: d, ackedAt }: { doc: CompanyDocument; ackedAt?: D
           )}
         </div>
         <a href={d.fileUrl} target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors hover:bg-slate-100"
-          style={{ color: '#0B1538' }}>
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors hover:bg-(--glass-panel-bg)"
+          style={{ color: 'var(--text-primary)' }}>
           <Download size={13} />
           Download
         </a>
@@ -89,20 +89,20 @@ function EmployeeDocRow({ doc: d }: { doc: EmployeeDocument }) {
   return (
     <div className="flex items-center gap-4 py-3.5 border-b border-slate-50 last:border-0">
       <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-        style={{ backgroundColor: '#0B153815', color: '#0B1538' }}>
+        style={{ backgroundColor: '#0B153815', color: 'var(--text-primary)' }}>
         <FileText size={16} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-ink">{d.title}</p>
-        <p className="text-xs text-mute">
+        <p className="text-sm font-medium text-(--text-primary)">{d.title}</p>
+        <p className="text-xs text-(--text-muted)">
           {DOC_TYPE_LABELS[d.documentType]}
           {d.financialYear ? ` · FY ${d.financialYear}` : ''}
           {uploadedDate ? ` · ${uploadedDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
         </p>
       </div>
       <a href={d.fileUrl} target="_blank" rel="noopener noreferrer"
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors hover:bg-slate-100 shrink-0"
-        style={{ color: '#0B1538' }}>
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors hover:bg-(--glass-panel-bg) shrink-0"
+        style={{ color: 'var(--text-primary)' }}>
         <Download size={13} />
         Download
       </a>
@@ -148,11 +148,11 @@ function AcknowledgementBanner({
       <div className="flex items-start gap-3">
         <AlertTriangle size={16} style={{ color: '#D97706' }} className="mt-0.5 shrink-0" />
         <div className="flex-1">
-          <p className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>{d.title}</p>
-          {d.description && <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>{d.description}</p>}
+          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{d.title}</p>
+          {d.description && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{d.description}</p>}
           <a href={d.fileUrl} target="_blank" rel="noopener noreferrer"
             className="inline-flex items-center gap-1 mt-1 text-xs font-medium hover:opacity-70"
-            style={{ color: '#0B1538' }}>
+            style={{ color: 'var(--text-primary)' }}>
             <Download size={11} />Read document
           </a>
         </div>
@@ -160,7 +160,7 @@ function AcknowledgementBanner({
       <label className="flex items-start gap-2 cursor-pointer">
         <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)}
           className="mt-0.5 shrink-0" />
-        <span className="text-xs" style={{ color: '#2A2A2A' }}>
+        <span className="text-xs" style={{ color: 'var(--text-primary)' }}>
           I confirm that I have read, understood, and agree to comply with the policies described in this document.
         </span>
       </label>
@@ -198,10 +198,10 @@ export function DocumentsPage() {
     <div className="max-w-3xl mx-auto space-y-8">
       <div>
         <h2 className="text-3xl mb-1"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
           Documents
         </h2>
-        <p className="text-sm text-mute">Company policies and your personal documents.</p>
+        <p className="text-sm text-(--text-muted)">Company policies and your personal documents.</p>
       </div>
 
       {/* ── Pending Acknowledgements ── */}
@@ -240,15 +240,15 @@ export function DocumentsPage() {
       {/* Company Documents */}
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#475569' }}>Company Documents</h3>
+          <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Company Documents</h3>
           <div className="flex gap-2">
             {(['', 'policy', 'handbook', 'circular'] as const).map((cat) => (
               <button key={cat}
                 onClick={() => setCategoryFilter(cat)}
                 className="px-3 py-1 rounded-full text-xs font-semibold transition-colors"
                 style={categoryFilter === cat
-                  ? { backgroundColor: '#0B1538', color: '#FFFFFF' }
-                  : { backgroundColor: '#F2EFE7', color: '#2A2A2A' }}>
+                  ? { backgroundColor: 'var(--text-primary)', color: '#FFFFFF' }
+                  : { backgroundColor: '#F2EFE7', color: 'var(--text-primary)' }}>
                 {cat ? CATEGORY_META[cat].label : 'All'}
               </button>
             ))}
@@ -257,12 +257,12 @@ export function DocumentsPage() {
 
         {compLoading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 size={24} className="animate-spin text-mute" />
+            <Loader2 size={24} className="animate-spin text-(--text-muted)" />
           </div>
         ) : companyDocs.length === 0 ? (
-          <div className="bg-white border border-slate-200 rounded-2xl py-12 text-center">
+          <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl py-12 text-center">
             <FileText size={36} className="mx-auto mb-3 text-slate-300" />
-            <p className="text-sm text-mute">No company documents yet.</p>
+            <p className="text-sm text-(--text-muted)">No company documents yet.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -277,16 +277,16 @@ export function DocumentsPage() {
 
       {/* My Documents */}
       <section>
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#475569' }}>My Documents</h3>
-        <div className="bg-white border border-slate-200 rounded-2xl p-6">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'var(--text-muted)' }}>My Documents</h3>
+        <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl p-6">
           {myLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 size={24} className="animate-spin text-mute" />
+              <Loader2 size={24} className="animate-spin text-(--text-muted)" />
             </div>
           ) : myDocs.length === 0 ? (
             <div className="text-center py-8">
               <FileText size={36} className="mx-auto mb-3 text-slate-300" />
-              <p className="text-sm text-mute">Your documents will appear here once HR uploads them.</p>
+              <p className="text-sm text-(--text-muted)">Your documents will appear here once HR uploads them.</p>
             </div>
           ) : (
             <div>

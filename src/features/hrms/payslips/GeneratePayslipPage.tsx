@@ -100,7 +100,7 @@ function NumberInput({ value, onChange, disabled = false }: NumberInputProps) {
       style={{
         border: '1px solid #E5E7EB',
         backgroundColor: disabled ? '#F9FAFB' : '#FFFFFF',
-        color: '#0A0A0A',
+        color: 'var(--text-primary)',
         outline: 'none',
       }}
     />
@@ -123,7 +123,7 @@ function ConfirmModal({ count, onConfirm, onCancel }: ConfirmModalProps) {
     >
       <div
         className="rounded-2xl p-8 max-w-sm w-full mx-4"
-        style={{ backgroundColor: '#FFFFFF', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}
+        style={{ backgroundColor: 'var(--glass-panel-bg)', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}
       >
         <h3
           className="text-xl mb-2"
@@ -131,14 +131,14 @@ function ConfirmModal({ count, onConfirm, onCancel }: ConfirmModalProps) {
             fontFamily: '"Fraunces", Georgia, serif',
             fontStyle: 'italic',
             fontWeight: 400,
-            color: '#0B1538',
+            color: 'var(--text-primary)',
           }}
         >
           Generate All Payslips
         </h3>
-        <p className="mb-6 text-sm" style={{ color: '#2A2A2A' }}>
+        <p className="mb-6 text-sm" style={{ color: 'var(--text-primary)' }}>
           This will generate payslips for{' '}
-          <span className="font-semibold" style={{ color: '#0B1538' }}>
+          <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
             {count} employee{count !== 1 ? 's' : ''}
           </span>{' '}
           who don&apos;t have a payslip for this month yet. Proceed?
@@ -147,7 +147,7 @@ function ConfirmModal({ count, onConfirm, onCancel }: ConfirmModalProps) {
           <button
             onClick={onCancel}
             className="px-4 py-2 rounded-lg text-sm font-medium"
-            style={{ border: '1px solid #E5E7EB', color: '#2A2A2A', backgroundColor: '#FFFFFF' }}
+            style={{ border: '1px solid #E5E7EB', color: 'var(--text-primary)', backgroundColor: 'var(--glass-panel-bg)' }}
           >
             Cancel
           </button>
@@ -555,12 +555,12 @@ export function GeneratePayslipPage() {
               fontFamily: '"Fraunces", Georgia, serif',
               fontStyle: 'italic',
               fontWeight: 300,
-              color: '#0A0A0A',
+              color: 'var(--text-primary)',
             }}
           >
             Generate Payslips
           </h2>
-          <p className="text-sm" style={{ color: '#8B8B85' }}>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
             Enter salary figures provided by CA
           </p>
         </div>
@@ -574,8 +574,8 @@ export function GeneratePayslipPage() {
             className="px-3 py-2 rounded-lg text-sm"
             style={{
               border: '1px solid #E5E7EB',
-              backgroundColor: '#FFFFFF',
-              color: '#0A0A0A',
+              backgroundColor: 'var(--glass-panel-bg)',
+              color: 'var(--text-primary)',
             }}
           />
 
@@ -604,7 +604,7 @@ export function GeneratePayslipPage() {
 
       {/* Loading */}
       {isLoading && (
-        <div className="text-sm py-12 text-center" style={{ color: '#8B8B85' }}>
+        <div className="text-sm py-12 text-center" style={{ color: 'var(--text-muted)' }}>
           Loading employees…
         </div>
       )}
@@ -636,7 +636,7 @@ export function GeneratePayslipPage() {
                   <th
                     key={h}
                     className="px-3 py-3 text-left font-semibold whitespace-nowrap"
-                    style={{ color: '#0B1538' }}
+                    style={{ color: 'var(--text-primary)' }}
                   >
                     {h}
                   </th>
@@ -660,10 +660,10 @@ export function GeneratePayslipPage() {
                     }}
                   >
                     {/* Employee name */}
-                    <td className="px-3 py-3 whitespace-nowrap" style={{ color: '#0A0A0A' }}>
+                    <td className="px-3 py-3 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                       <div className="font-medium">{emp.displayName}</div>
                       {emp.designation && (
-                        <div className="text-xs" style={{ color: '#8B8B85' }}>
+                        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
                           {emp.designation}
                         </div>
                       )}
@@ -686,7 +686,7 @@ export function GeneratePayslipPage() {
                           'presentDays',
                           'lopDays',
                         ].map((field) => (
-                          <td key={field} className="px-3 py-3 text-right" style={{ color: '#8B8B85' }}>
+                          <td key={field} className="px-3 py-3 text-right" style={{ color: 'var(--text-muted)' }}>
                             {existing
                               ? existing[field as keyof Payslip] as React.ReactNode
                               : '—'}
@@ -700,7 +700,7 @@ export function GeneratePayslipPage() {
                           {existing ? formatCurrency(existing.netPay) : '—'}
                         </td>
                         {/* Notes */}
-                        <td className="px-3 py-3" style={{ color: '#8B8B85' }}>
+                        <td className="px-3 py-3" style={{ color: 'var(--text-muted)' }}>
                           {existing?.notes || '—'}
                         </td>
                         {/* Action — Download + Send Email */}
@@ -833,7 +833,7 @@ export function GeneratePayslipPage() {
                             value={values.professionalTax}
                             onChange={(v) => updateField(emp.userId, 'professionalTax', v)}
                           />
-                          <p className="text-[9px] mt-0.5 leading-tight" style={{ color: '#8B8B85' }}>
+                          <p className="text-[9px] mt-0.5 leading-tight" style={{ color: 'var(--text-muted)' }}>
                             Auto-calc · TG PT Act
                           </p>
                         </td>
@@ -876,10 +876,10 @@ export function GeneratePayslipPage() {
                           style={{ color: '#C9A961' }}
                         >
                           {formatCurrency(netPay)}
-                          <div className="text-xs font-normal" style={{ color: '#8B8B85' }}>
+                          <div className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>
                             E: {formatCurrency(totalEarnings)}
                           </div>
-                          <div className="text-xs font-normal" style={{ color: '#8B8B85' }}>
+                          <div className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>
                             D: {formatCurrency(totalDeductions)}
                           </div>
                         </td>
@@ -894,8 +894,8 @@ export function GeneratePayslipPage() {
                             className="px-2 py-1 rounded text-xs w-24"
                             style={{
                               border: '1px solid #E5E7EB',
-                              backgroundColor: '#FFFFFF',
-                              color: '#0A0A0A',
+                              backgroundColor: 'var(--glass-panel-bg)',
+                              color: 'var(--text-primary)',
                             }}
                           />
                         </td>
@@ -922,7 +922,7 @@ export function GeneratePayslipPage() {
                   <td
                     colSpan={16}
                     className="px-6 py-12 text-center text-sm"
-                    style={{ color: '#8B8B85' }}
+                    style={{ color: 'var(--text-muted)' }}
                   >
                     No employees found.
                   </td>

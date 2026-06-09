@@ -113,14 +113,14 @@ function RejectModal({ application, rejectedBy, onClose }: RejectModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xl p-6 w-full max-w-md space-y-4">
-        <h3 className="text-base font-semibold" style={{ color: '#0A0A0A' }}>
+      <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) shadow-xl p-6 w-full max-w-md space-y-4">
+        <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
           Reject Leave Application
         </h3>
         <div className="space-y-1.5">
           <label
             className="block text-xs font-semibold uppercase tracking-wide"
-            style={{ color: '#8B8B85' }}
+            style={{ color: 'var(--text-muted)' }}
           >
             Reason (mandatory)
           </label>
@@ -129,8 +129,8 @@ function RejectModal({ application, rejectedBy, onClose }: RejectModalProps) {
             onChange={(e) => setReason(e.target.value)}
             rows={3}
             placeholder="Explain why the leave is being rejected…"
-            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
-            style={{ color: '#0A0A0A' }}
+            className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
+            style={{ color: 'var(--text-primary)' }}
           />
         </div>
         {error && (
@@ -153,7 +153,7 @@ function RejectModal({ application, rejectedBy, onClose }: RejectModalProps) {
           <button
             onClick={onClose}
             className="text-sm transition-opacity hover:opacity-60"
-            style={{ color: '#8B8B85' }}
+            style={{ color: 'var(--text-muted)' }}
           >
             Cancel
           </button>
@@ -211,12 +211,12 @@ function PendingTab({ approverId, employeeNameById }: PendingTabProps) {
   };
 
   if (loading) {
-    return <div className="p-6 text-sm" style={{ color: '#8B8B85' }}>Loading…</div>;
+    return <div className="p-6 text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</div>;
   }
 
   if (applications.length === 0) {
     return (
-      <div className="px-6 py-10 text-center text-sm" style={{ color: '#8B8B85' }}>
+      <div className="px-6 py-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
         No pending applications.
       </div>
     );
@@ -227,12 +227,12 @@ function PendingTab({ approverId, employeeNameById }: PendingTabProps) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-100">
+            <tr className="border-b border-(--shell-border)">
               {['Employee', 'Type', 'Period', 'Days', 'Reason', 'Applied', ''].map((h) => (
                 <th
                   key={h}
                   className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide"
-                  style={{ color: '#8B8B85' }}
+                  style={{ color: 'var(--text-muted)' }}
                 >
                   {h}
                 </th>
@@ -241,29 +241,29 @@ function PendingTab({ approverId, employeeNameById }: PendingTabProps) {
           </thead>
           <tbody>
             {applications.map((app) => (
-              <tr key={app.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                <td className="px-6 py-3.5 font-medium" style={{ color: '#0A0A0A' }}>
+              <tr key={app.id} className="border-b border-slate-50 hover:bg-(--glass-panel-bg) transition-colors">
+                <td className="px-6 py-3.5 font-medium" style={{ color: 'var(--text-primary)' }}>
                   {employeeNameById(app.employeeId)}
                 </td>
-                <td className="px-6 py-3.5" style={{ color: '#2A2A2A' }}>
+                <td className="px-6 py-3.5" style={{ color: 'var(--text-primary)' }}>
                   {TYPE_LABELS[app.type]}
                 </td>
-                <td className="px-6 py-3.5 whitespace-nowrap" style={{ color: '#2A2A2A' }}>
+                <td className="px-6 py-3.5 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                   {format(new Date(app.fromDate), 'd MMM')}
                   {' – '}
                   {format(new Date(app.toDate), 'd MMM yyyy')}
                 </td>
-                <td className="px-6 py-3.5" style={{ color: '#2A2A2A' }}>
+                <td className="px-6 py-3.5" style={{ color: 'var(--text-primary)' }}>
                   {app.days}
                 </td>
                 <td
                   className="px-6 py-3.5 max-w-xs truncate"
-                  style={{ color: '#2A2A2A' }}
+                  style={{ color: 'var(--text-primary)' }}
                   title={app.reason}
                 >
                   {app.reason}
                 </td>
-                <td className="px-6 py-3.5 text-xs whitespace-nowrap" style={{ color: '#8B8B85' }}>
+                <td className="px-6 py-3.5 text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
                   {app.appliedAt
                     ? format(
                         (app.appliedAt as import('firebase/firestore').Timestamp).toDate(),
@@ -353,12 +353,12 @@ function AllTab({ employeeNameById, employees }: AllTabProps) {
   return (
     <div>
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 px-6 pt-4 pb-3 border-b border-slate-100">
+      <div className="flex flex-wrap gap-3 px-6 pt-4 pb-3 border-b border-(--shell-border)">
         <select
           value={filterEmployee}
           onChange={(e) => setFilterEmployee(e.target.value)}
-          className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm"
-          style={{ color: '#0A0A0A' }}
+          className="border border-(--shell-border) rounded-lg px-3 py-1.5 text-sm"
+          style={{ color: 'var(--text-primary)' }}
         >
           <option value="">All Employees</option>
           {employees.map((emp) => (
@@ -369,8 +369,8 @@ function AllTab({ employeeNameById, employees }: AllTabProps) {
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value as LeaveStatus | '')}
-          className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm"
-          style={{ color: '#0A0A0A' }}
+          className="border border-(--shell-border) rounded-lg px-3 py-1.5 text-sm"
+          style={{ color: 'var(--text-primary)' }}
         >
           <option value="">All Statuses</option>
           <option value="pending">Pending</option>
@@ -382,8 +382,8 @@ function AllTab({ employeeNameById, employees }: AllTabProps) {
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value as LeaveType | '')}
-          className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm"
-          style={{ color: '#0A0A0A' }}
+          className="border border-(--shell-border) rounded-lg px-3 py-1.5 text-sm"
+          style={{ color: 'var(--text-primary)' }}
         >
           <option value="">All Types</option>
           {(Object.entries(TYPE_LABELS) as [LeaveType, string][]).map(([v, l]) => (
@@ -393,21 +393,21 @@ function AllTab({ employeeNameById, employees }: AllTabProps) {
       </div>
 
       {loading ? (
-        <div className="p-6 text-sm" style={{ color: '#8B8B85' }}>Loading…</div>
+        <div className="p-6 text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</div>
       ) : filtered.length === 0 ? (
-        <div className="px-6 py-10 text-center text-sm" style={{ color: '#8B8B85' }}>
+        <div className="px-6 py-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
           No applications match the current filters.
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-100">
+              <tr className="border-b border-(--shell-border)">
                 {['Employee', 'Type', 'Period', 'Days', 'Status', 'Applied'].map((h) => (
                   <th
                     key={h}
                     className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide"
-                    style={{ color: '#8B8B85' }}
+                    style={{ color: 'var(--text-muted)' }}
                   >
                     {h}
                   </th>
@@ -416,25 +416,25 @@ function AllTab({ employeeNameById, employees }: AllTabProps) {
             </thead>
             <tbody>
               {filtered.map((app) => (
-                <tr key={app.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-3.5 font-medium" style={{ color: '#0A0A0A' }}>
+                <tr key={app.id} className="border-b border-slate-50 hover:bg-(--glass-panel-bg) transition-colors">
+                  <td className="px-6 py-3.5 font-medium" style={{ color: 'var(--text-primary)' }}>
                     {employeeNameById(app.employeeId)}
                   </td>
-                  <td className="px-6 py-3.5" style={{ color: '#2A2A2A' }}>
+                  <td className="px-6 py-3.5" style={{ color: 'var(--text-primary)' }}>
                     {TYPE_LABELS[app.type]}
                   </td>
-                  <td className="px-6 py-3.5 whitespace-nowrap" style={{ color: '#2A2A2A' }}>
+                  <td className="px-6 py-3.5 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                     {format(new Date(app.fromDate), 'd MMM')}
                     {' – '}
                     {format(new Date(app.toDate), 'd MMM yyyy')}
                   </td>
-                  <td className="px-6 py-3.5" style={{ color: '#2A2A2A' }}>
+                  <td className="px-6 py-3.5" style={{ color: 'var(--text-primary)' }}>
                     {app.days}
                   </td>
                   <td className="px-6 py-3.5">
                     <StatusPill status={app.status} />
                   </td>
-                  <td className="px-6 py-3.5 text-xs" style={{ color: '#8B8B85' }}>
+                  <td className="px-6 py-3.5 text-xs" style={{ color: 'var(--text-muted)' }}>
                     {app.appliedAt
                       ? format(
                           (app.appliedAt as import('firebase/firestore').Timestamp).toDate(),
@@ -606,15 +606,15 @@ function EditLeaveBalanceModal({
     }
   };
 
-  const baseInp = 'w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-white transition-colors';
+  const baseInp = 'w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-(--glass-panel-bg) transition-colors';
   const inp = (field?: string) =>
     `${baseInp} ${field && fieldErrors[field]
       ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30'
-      : 'border-slate-200 focus:ring-gold'}`;
+      : 'border-(--shell-border) focus:ring-gold'}`;
 
   const fLabel = (text: string, field?: string, required = false) => (
     <label className="block text-xs font-semibold uppercase tracking-wider mb-1"
-      style={{ color: field && fieldErrors[field] ? '#DC2626' : '#8B8B85' }}>
+      style={{ color: field && fieldErrors[field] ? '#DC2626' : 'var(--text-muted)' }}>
       {text}{required && <span className="text-red-500 ml-0.5">*</span>}
       {field && fieldErrors[field] && (
         <span className="ml-2 text-red-500 font-medium normal-case tracking-normal">
@@ -631,13 +631,13 @@ function EditLeaveBalanceModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-y-auto">
+      <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) shadow-xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="px-6 pt-6 pb-4 border-b border-slate-100">
-          <h3 className="text-base font-semibold" style={{ color: '#0A0A0A' }}>
+        <div className="px-6 pt-6 pb-4 border-b border-(--shell-border)">
+          <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
             Edit Leave Balances
           </h3>
-          <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
             Adjust annual leave totals. Changes are logged with a reason for audit purposes.
           </p>
         </div>
@@ -680,20 +680,20 @@ function EditLeaveBalanceModal({
 
           {/* Balance rows */}
           {selectedUid && (
-            <div className="rounded-xl border border-slate-200 overflow-hidden">
+            <div className="rounded-xl border border-(--shell-border) overflow-hidden">
               <div className="overflow-x-auto">
-              <div className="grid grid-cols-3 min-w-70 text-xs font-semibold uppercase tracking-wide px-4 py-2 border-b border-slate-100" style={{ color: '#8B8B85', backgroundColor: '#FAFAF7' }}>
+              <div className="grid grid-cols-3 min-w-70 text-xs font-semibold uppercase tracking-wide px-4 py-2 border-b border-(--shell-border)" style={{ color: 'var(--text-muted)', backgroundColor: 'var(--glass-panel-bg)' }}>
                 <span>Leave Type</span>
                 <span className="text-center">Current Total</span>
                 <span className="text-center">New Total</span>
               </div>
               {loading ? (
-                <div className="px-4 py-6 text-sm text-center" style={{ color: '#8B8B85' }}>Loading current balances…</div>
+                <div className="px-4 py-6 text-sm text-center" style={{ color: 'var(--text-muted)' }}>Loading current balances…</div>
               ) : (
                 rows.map((r) => (
                   <div key={r.type} className="grid grid-cols-3 min-w-70 items-center px-4 py-3 border-b border-slate-50 last:border-0">
-                    <span className="text-sm font-medium" style={{ color: '#0A0A0A' }}>{r.label}</span>
-                    <span className="text-center text-sm" style={{ color: '#8B8B85' }}>{r.current} days</span>
+                    <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{r.label}</span>
+                    <span className="text-center text-sm" style={{ color: 'var(--text-muted)' }}>{r.current} days</span>
                     <div className="flex justify-center">
                       <input
                         type="number"
@@ -704,7 +704,7 @@ function EditLeaveBalanceModal({
                         className={`w-20 text-center text-sm px-2 py-1.5 border rounded-lg outline-none focus:ring-2 transition-colors ${
                           fieldErrors[r.type]
                             ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30'
-                            : 'border-slate-200 focus:ring-gold'
+                            : 'border-(--shell-border) focus:ring-gold'
                         }`}
                       />
                     </div>
@@ -744,7 +744,7 @@ function EditLeaveBalanceModal({
             className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity"
             style={{
               backgroundColor: '#C9A961',
-              color: '#0B1538',
+              color: 'var(--text-primary)',
               opacity: saving || loading || !selectedUid ? 0.5 : 1,
               cursor: saving || loading || !selectedUid ? 'not-allowed' : 'pointer',
             }}
@@ -754,7 +754,7 @@ function EditLeaveBalanceModal({
           <button
             onClick={onClose}
             className="text-sm transition-opacity hover:opacity-60"
-            style={{ color: '#8B8B85' }}
+            style={{ color: 'var(--text-muted)' }}
           >
             Cancel
           </button>
@@ -818,8 +818,8 @@ function BalancesTab({ employees, actorUid, actorName }: BalancesTabProps) {
   return (
     <div>
       {/* Action bar */}
-      <div className="flex items-center justify-between px-6 pt-4 pb-3 border-b border-slate-100">
-        <p className="text-sm" style={{ color: '#8B8B85' }}>
+      <div className="flex items-center justify-between px-6 pt-4 pb-3 border-b border-(--shell-border)">
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           History of manual leave balance adjustments
         </p>
         <button
@@ -833,21 +833,21 @@ function BalancesTab({ employees, actorUid, actorName }: BalancesTabProps) {
 
       {/* Adjustment history */}
       {loading ? (
-        <div className="p-6 text-sm" style={{ color: '#8B8B85' }}>Loading…</div>
+        <div className="p-6 text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</div>
       ) : records.length === 0 ? (
-        <div className="px-6 py-10 text-center text-sm" style={{ color: '#8B8B85' }}>
+        <div className="px-6 py-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
           No adjustments recorded yet.
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-100">
+              <tr className="border-b border-(--shell-border)">
                 {['Employee', 'Year', 'Type', 'Old Total', 'New Total', 'Delta', 'Reason', 'Adjusted By', 'Date'].map((h) => (
                   <th
                     key={h}
                     className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide"
-                    style={{ color: '#8B8B85' }}
+                    style={{ color: 'var(--text-muted)' }}
                   >
                     {h}
                   </th>
@@ -856,27 +856,27 @@ function BalancesTab({ employees, actorUid, actorName }: BalancesTabProps) {
             </thead>
             <tbody>
               {records.map((r) => (
-                <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-3 font-medium" style={{ color: '#0A0A0A' }}>
+                <tr key={r.id} className="border-b border-slate-50 hover:bg-(--glass-panel-bg) transition-colors">
+                  <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>
                     {employeeNameById(r.employeeId)}
                   </td>
-                  <td className="px-4 py-3" style={{ color: '#2A2A2A' }}>{r.year}</td>
-                  <td className="px-4 py-3" style={{ color: '#2A2A2A' }}>
+                  <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>{r.year}</td>
+                  <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>
                     {leaveTypeLabel[r.leaveType] ?? r.leaveType}
                   </td>
-                  <td className="px-4 py-3 text-center" style={{ color: '#2A2A2A' }}>{r.oldTotal}</td>
-                  <td className="px-4 py-3 text-center" style={{ color: '#2A2A2A' }}>{r.newTotal}</td>
+                  <td className="px-4 py-3 text-center" style={{ color: 'var(--text-primary)' }}>{r.oldTotal}</td>
+                  <td className="px-4 py-3 text-center" style={{ color: 'var(--text-primary)' }}>{r.newTotal}</td>
                   <td className="px-4 py-3 text-center font-semibold"
-                    style={{ color: r.delta > 0 ? '#065F46' : r.delta < 0 ? '#991B1B' : '#8B8B85' }}>
+                    style={{ color: r.delta > 0 ? '#065F46' : r.delta < 0 ? '#991B1B' : 'var(--text-muted)' }}>
                     {r.delta > 0 ? `+${r.delta}` : r.delta}
                   </td>
-                  <td className="px-4 py-3 max-w-xs truncate" style={{ color: '#2A2A2A' }} title={r.reason}>
+                  <td className="px-4 py-3 max-w-xs truncate" style={{ color: 'var(--text-primary)' }} title={r.reason}>
                     {r.reason}
                   </td>
-                  <td className="px-4 py-3 text-xs" style={{ color: '#8B8B85' }}>
+                  <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
                     {r.adjustedByName}
                   </td>
-                  <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: '#8B8B85' }}>
+                  <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
                     {r.adjustedAt ? format(r.adjustedAt.toDate(), 'd MMM yyyy') : '—'}
                   </td>
                 </tr>
@@ -947,11 +947,11 @@ function EncashmentTab({ actorUid }: { actorUid: string }) {
       )}
 
       {loading ? (
-        <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="h-12 bg-slate-100 rounded-xl animate-pulse" />)}</div>
+        <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="h-12 bg-(--glass-panel-bg) rounded-xl animate-pulse" />)}</div>
       ) : pendingRequests.length === 0 && otherRequests.length === 0 ? (
         <div className="py-10 text-center">
           <Coins size={32} className="mx-auto mb-3 text-slate-200" />
-          <p className="text-sm text-mute">No encashment requests yet.</p>
+          <p className="text-sm text-(--text-muted)">No encashment requests yet.</p>
         </div>
       ) : (
         <>
@@ -965,11 +965,11 @@ function EncashmentTab({ actorUid }: { actorUid: string }) {
                   <div key={r.id} className="p-4 rounded-2xl border border-amber-200 bg-amber-50/40">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-sm font-semibold text-ink">{r.employeeName}</p>
-                        <p className="text-xs text-mute mt-0.5">
+                        <p className="text-sm font-semibold text-(--text-primary)">{r.employeeName}</p>
+                        <p className="text-xs text-(--text-muted) mt-0.5">
                           {r.leaveDays} day{r.leaveDays !== 1 ? 's' : ''} · ₹{r.dailyRate.toLocaleString('en-IN')}/day · Total: <strong>₹{r.totalAmount.toLocaleString('en-IN')}</strong>
                         </p>
-                        <p className="text-xs text-mute">Month: {r.month} · "{r.reason}"</p>
+                        <p className="text-xs text-(--text-muted)">Month: {r.month} · "{r.reason}"</p>
                       </div>
                       <div className="flex gap-2 shrink-0">
                         <button onClick={() => handleApprove(r.id)} disabled={busy === r.id}
@@ -986,14 +986,14 @@ function EncashmentTab({ actorUid }: { actorUid: string }) {
                     </div>
                     {showRej === r.id && (
                       <div className="mt-3 flex gap-2">
-                        <input className="flex-1 text-sm px-3 py-1.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-red-200"
+                        <input className="flex-1 text-sm px-3 py-1.5 border border-(--shell-border) rounded-lg outline-none focus:ring-2 focus:ring-red-200"
                           placeholder="Rejection reason…" value={rejReason} onChange={(e) => setRejReason(e.target.value)} />
                         <button onClick={() => handleReject(r.id)} disabled={!rejReason.trim() || busy === r.id}
                           className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
                           style={{ backgroundColor: '#DC2626', color: '#FFFFFF' }}>
                           Confirm
                         </button>
-                        <button onClick={() => setShowRej(null)} className="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 hover:bg-slate-50">
+                        <button onClick={() => setShowRej(null)} className="px-3 py-1.5 rounded-lg text-xs font-medium border border-(--shell-border) hover:bg-(--glass-panel-bg)">
                           Cancel
                         </button>
                       </div>
@@ -1006,14 +1006,14 @@ function EncashmentTab({ actorUid }: { actorUid: string }) {
 
           {otherRequests.length > 0 && (
             <div>
-              <h4 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#475569' }}>
+              <h4 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>
                 Processed
               </h4>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100">
+                  <tr className="border-b border-(--shell-border)">
                     {['Employee', 'Month', 'Days', 'Amount', 'Status', 'Date'].map((h) => (
-                      <th key={h} className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-mute">{h}</th>
+                      <th key={h} className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -1028,15 +1028,15 @@ function EncashmentTab({ actorUid }: { actorUid: string }) {
                     const cfg = statusCfg[r.status] ?? { label: r.status, color: '#374151', bg: '#F3F4F6' };
                     return (
                       <tr key={r.id} className="border-b border-slate-50">
-                        <td className="px-3 py-2.5 font-medium text-ink">{r.employeeName}</td>
-                        <td className="px-3 py-2.5 text-mute">{r.month}</td>
-                        <td className="px-3 py-2.5 text-mute">{r.leaveDays}</td>
+                        <td className="px-3 py-2.5 font-medium text-(--text-primary)">{r.employeeName}</td>
+                        <td className="px-3 py-2.5 text-(--text-muted)">{r.month}</td>
+                        <td className="px-3 py-2.5 text-(--text-muted)">{r.leaveDays}</td>
                         <td className="px-3 py-2.5 font-semibold">₹{r.totalAmount.toLocaleString('en-IN')}</td>
                         <td className="px-3 py-2.5">
                           <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
                             style={{ color: cfg.color, backgroundColor: cfg.bg }}>{cfg.label}</span>
                         </td>
-                        <td className="px-3 py-2.5 text-mute text-xs">{d ? format(d, 'd MMM yyyy') : '—'}</td>
+                        <td className="px-3 py-2.5 text-(--text-muted) text-xs">{d ? format(d, 'd MMM yyyy') : '—'}</td>
                       </tr>
                     );
                   })}
@@ -1071,8 +1071,8 @@ export function AdminLeavePage() {
 
   const tabStyle = (t: TabId): React.CSSProperties =>
     activeTab === t
-      ? { borderBottom: '2px solid #C9A961', color: '#0A0A0A', fontWeight: 600 }
-      : { borderBottom: '2px solid transparent', color: '#8B8B85' };
+      ? { borderBottom: '2px solid #C9A961', color: 'var(--text-primary)', fontWeight: 600 }
+      : { borderBottom: '2px solid transparent', color: 'var(--text-muted)' };
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -1085,20 +1085,20 @@ export function AdminLeavePage() {
             fontStyle: 'italic',
             fontVariationSettings: '"SOFT" 30',
             fontWeight: 300,
-            color: '#0A0A0A',
+            color: 'var(--text-primary)',
           }}
         >
           Leave Management
         </h2>
-        <p className="text-sm" style={{ color: '#8B8B85' }}>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Review and act on leave applications
         </p>
       </div>
 
       {/* ── Card with tabs ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
         {/* Tab bar */}
-        <div className="flex border-b border-slate-100">
+        <div className="flex border-b border-(--shell-border)">
           {([
             ['pending',    'Pending Approvals'],
             ['all',        'All Applications'],

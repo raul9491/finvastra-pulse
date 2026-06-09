@@ -25,9 +25,9 @@ function BalanceChip({ employeeId }: { employeeId: string }) {
   const year = new Date().getFullYear();
   const { balance, loading } = useMyLeaveBalance(employeeId, year);
 
-  if (loading) return <span className="text-xs text-mute">Loading balance…</span>;
+  if (loading) return <span className="text-xs text-(--text-muted)">Loading balance…</span>;
   if (!balance?.comp_off) {
-    return <span className="text-xs text-mute">Comp Off balance: 0 days (no record yet)</span>;
+    return <span className="text-xs text-(--text-muted)">Comp Off balance: 0 days (no record yet)</span>;
   }
   const { total, used, remaining } = balance.comp_off;
   return (
@@ -109,14 +109,14 @@ export function AdminCompOffPage() {
 
   // Style helpers
   const inp = (field?: string) => {
-    const base = 'w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-2 bg-white transition-colors';
+    const base = 'w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-2 bg-(--glass-panel-bg) transition-colors';
     const err  = field && fieldErrors[field];
-    return `${base} ${err ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30' : 'border-slate-200 focus:ring-navy/10 focus:border-navy'}`;
+    return `${base} ${err ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30' : 'border-(--shell-border) focus:ring-navy/10 focus:border-navy'}`;
   };
 
   const fLabel = (text: string, field?: string, required = false) => (
     <label className="block text-xs font-semibold uppercase tracking-wider mb-1"
-      style={{ color: field && fieldErrors[field] ? '#DC2626' : '#8B8B85' }}>
+      style={{ color: field && fieldErrors[field] ? '#DC2626' : 'var(--text-muted)' }}>
       {text}{required && <span className="text-red-500 ml-0.5">*</span>}
       {field && fieldErrors[field] && (
         <span className="ml-2 font-medium normal-case tracking-normal text-red-500">
@@ -137,16 +137,16 @@ export function AdminCompOffPage() {
       {/* Header */}
       <div>
         <h2 className="text-3xl mb-1"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
           Compensatory Off
         </h2>
-        <p className="text-sm text-mute">Grant comp off credits when employees work on Sundays or public holidays.</p>
+        <p className="text-sm text-(--text-muted)">Grant comp off credits when employees work on Sundays or public holidays.</p>
       </div>
 
       {/* Grant Form */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-5">
-        <h3 className="text-sm font-semibold text-ink flex items-center gap-2">
-          <PlusCircle size={15} style={{ color: '#0B1538' }} />
+      <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl p-6 space-y-5">
+        <h3 className="text-sm font-semibold text-(--text-primary) flex items-center gap-2">
+          <PlusCircle size={15} style={{ color: 'var(--text-primary)' }} />
           Grant Comp Off
         </h3>
 
@@ -217,7 +217,7 @@ export function AdminCompOffPage() {
                 if (fieldErrors.days) setFieldErrors((p) => { const n = {...p}; delete n.days; return n; });
               }}
             />
-            <p className="text-[10px] text-mute mt-1">0.5 = half day · 1 = full day</p>
+            <p className="text-[10px] text-(--text-muted) mt-1">0.5 = half day · 1 = full day</p>
           </div>
 
           {/* Notes */}
@@ -248,39 +248,39 @@ export function AdminCompOffPage() {
 
       {/* Recent Credits Table */}
       <div className="space-y-3">
-        <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#475569' }}>
+        <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
           Recent Comp Off Credits
         </h3>
-        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+        <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl overflow-hidden">
           {creditsLoading ? (
             <div className="p-6 space-y-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-10 bg-slate-100 rounded-lg animate-pulse" />
+                <div key={i} className="h-10 bg-(--glass-panel-bg) rounded-lg animate-pulse" />
               ))}
             </div>
           ) : credits.length === 0 ? (
             <div className="py-12 text-center">
               <CalendarDays size={36} className="mx-auto mb-3 text-slate-200" />
-              <p className="text-sm text-mute">No comp off credits granted yet.</p>
+              <p className="text-sm text-(--text-muted)">No comp off credits granted yet.</p>
             </div>
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Employee</th>
-                  <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Date Worked</th>
-                  <th className="text-center p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Days</th>
-                  <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Note</th>
-                  <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Granted</th>
+                <tr className="border-b border-(--shell-border)">
+                  <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Employee</th>
+                  <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Date Worked</th>
+                  <th className="text-center p-4 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Days</th>
+                  <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Note</th>
+                  <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Granted</th>
                 </tr>
               </thead>
               <tbody>
                 {credits.map((c) => {
                   const grantedDate = toTs(c.grantedAt);
                   return (
-                    <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                      <td className="p-4 font-medium text-ink">{c.employeeName}</td>
-                      <td className="p-4 text-mute">
+                    <tr key={c.id} className="border-b border-slate-50 hover:bg-(--glass-panel-bg)/50">
+                      <td className="p-4 font-medium text-(--text-primary)">{c.employeeName}</td>
+                      <td className="p-4 text-(--text-muted)">
                         {format(new Date(c.dateWorked + 'T00:00:00'), 'EEE, d MMM yyyy')}
                       </td>
                       <td className="p-4 text-center">
@@ -289,10 +289,10 @@ export function AdminCompOffPage() {
                           {c.daysGranted} day{c.daysGranted !== 1 ? 's' : ''}
                         </span>
                       </td>
-                      <td className="p-4 text-mute text-xs max-w-[200px] truncate">
+                      <td className="p-4 text-(--text-muted) text-xs max-w-[200px] truncate">
                         {c.notes ?? '—'}
                       </td>
-                      <td className="p-4 text-mute text-xs">
+                      <td className="p-4 text-(--text-muted) text-xs">
                         <p>{c.grantedByName}</p>
                         {grantedDate && <p>{format(grantedDate, 'd MMM yyyy')}</p>}
                       </td>

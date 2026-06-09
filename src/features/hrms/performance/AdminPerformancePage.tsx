@@ -49,7 +49,7 @@ function RatingRow({ label, value, onChange }: {
 }) {
   return (
     <div className="flex items-center justify-between py-1.5">
-      <span className="text-sm" style={{ color: '#2A2A2A' }}>{label}</span>
+      <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{label}</span>
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((n) => (
           <button
@@ -59,7 +59,7 @@ function RatingRow({ label, value, onChange }: {
             className={`w-7 h-7 rounded text-xs font-semibold transition-all ${onChange ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`}
             style={{
               backgroundColor: n <= value ? '#C9A961' : '#F1F5F9',
-              color: n <= value ? '#0B1538' : '#94A3B8',
+              color: n <= value ? '#0B1538' : 'var(--text-muted)',
             }}
           >
             {n}
@@ -103,13 +103,13 @@ function SelfAssessmentModal({ review, onClose }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-(--shell-border)">
           <div>
-            <h3 className="text-base font-semibold" style={{ color: '#0A0A0A' }}>Self-Assessment</h3>
-            <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>{review.employeeName} · {review.year}</p>
+            <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Self-Assessment</h3>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{review.employeeName} · {review.year}</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100"><X size={16} style={{ color: '#8B8B85' }} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--glass-panel-bg)"><X size={16} style={{ color: 'var(--text-muted)' }} /></button>
         </div>
         <div className="px-6 py-5 space-y-4">
           {[
@@ -119,19 +119,19 @@ function SelfAssessmentModal({ review, onClose }: {
             { label: 'Career Goals',       val: careerGoals,  set: setCareerGoals,  rows: 2 },
           ].map(({ label, val, set, rows }) => (
             <div key={label}>
-              <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: '#8B8B85' }}>{label}</label>
+              <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-muted)' }}>{label}</label>
               <textarea value={val} onChange={(e) => set(e.target.value)} rows={rows}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
-                style={{ color: '#0A0A0A' }} />
+                className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
+                style={{ color: 'var(--text-primary)' }} />
             </div>
           ))}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#8B8B85' }}>Overall Self-Rating</p>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>Overall Self-Rating</p>
             <div className="flex gap-2">
               {[1, 2, 3, 4, 5].map((n) => (
                 <button key={n} type="button" onClick={() => setSelfRating(n)}
                   className="w-9 h-9 rounded-xl text-sm font-semibold transition-all"
-                  style={{ backgroundColor: selfRating === n ? '#C9A961' : '#F1F5F9', color: selfRating === n ? '#0B1538' : '#94A3B8' }}>
+                  style={{ backgroundColor: selfRating === n ? '#C9A961' : '#F1F5F9', color: selfRating === n ? '#0B1538' : 'var(--text-muted)' }}>
                   {n}
                 </button>
               ))}
@@ -141,10 +141,10 @@ function SelfAssessmentModal({ review, onClose }: {
           <div className="flex items-center gap-3 pt-1">
             <button onClick={handleSave} disabled={saving}
               className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity"
-              style={{ backgroundColor: '#0B1538', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}>
+              style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}>
               {saving ? 'Saving…' : 'Save Self-Assessment'}
             </button>
-            <button onClick={onClose} className="text-sm hover:opacity-60" style={{ color: '#8B8B85' }}>Cancel</button>
+            <button onClick={onClose} className="text-sm hover:opacity-60" style={{ color: 'var(--text-muted)' }}>Cancel</button>
           </div>
         </div>
       </div>
@@ -197,25 +197,25 @@ function ManagerReviewModal({ review, byUid, onClose }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-(--shell-border)">
           <div>
-            <h3 className="text-base font-semibold" style={{ color: '#0A0A0A' }}>Manager's Review</h3>
-            <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>{review.employeeName} · {review.year}</p>
+            <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Manager's Review</h3>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{review.employeeName} · {review.year}</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100"><X size={16} style={{ color: '#8B8B85' }} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--glass-panel-bg)"><X size={16} style={{ color: 'var(--text-muted)' }} /></button>
         </div>
         <div className="px-6 py-5 space-y-5">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: '#8B8B85' }}>Reporting Manager Name *</label>
+            <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-muted)' }}>Reporting Manager Name *</label>
             <input value={managerName} onChange={(e) => setManagerName(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
-              style={{ color: '#0A0A0A' }} />
+              className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              style={{ color: 'var(--text-primary)' }} />
           </div>
 
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#8B8B85' }}>KRA Ratings (1–5)</p>
-            <div className="rounded-xl border border-slate-100 px-4 divide-y divide-slate-50">
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>KRA Ratings (1–5)</p>
+            <div className="rounded-xl border border-(--shell-border) px-4 divide-y divide-slate-50">
               <RatingRow label="Work Quality"  value={workQuality}   onChange={setWorkQuality} />
               <RatingRow label="Work Quantity" value={workQuantity}  onChange={setWorkQuantity} />
               <RatingRow label="Initiative"    value={initiative}    onChange={setInitiative} />
@@ -225,7 +225,7 @@ function ManagerReviewModal({ review, byUid, onClose }: {
             </div>
             <div className="mt-2 flex items-center gap-2 px-1">
               <Star size={13} style={{ color: '#C9A961' }} />
-              <span className="text-xs font-semibold" style={{ color: '#0A0A0A' }}>Overall: {overallRating} / 5</span>
+              <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Overall: {overallRating} / 5</span>
             </div>
           </div>
 
@@ -235,27 +235,27 @@ function ManagerReviewModal({ review, byUid, onClose }: {
             { label: 'Notes (optional)', val: notes, set: setNotes, rows: 2 },
           ].map(({ label, val, set, rows }) => (
             <div key={label}>
-              <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: '#8B8B85' }}>{label}</label>
+              <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-muted)' }}>{label}</label>
               <textarea value={val} onChange={(e) => set(e.target.value)} rows={rows}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
-                style={{ color: '#0A0A0A' }} />
+                className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
+                style={{ color: 'var(--text-primary)' }} />
             </div>
           ))}
 
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <input type="checkbox" checked={promo} onChange={(e) => setPromo(e.target.checked)}
               className="w-4 h-4 rounded" />
-            <span className="text-sm" style={{ color: '#0A0A0A' }}>Recommend for Promotion</span>
+            <span className="text-sm" style={{ color: 'var(--text-primary)' }}>Recommend for Promotion</span>
           </label>
 
           {error && <p className="text-sm font-medium" style={{ color: '#DC2626' }}>{error}</p>}
           <div className="flex items-center gap-3 pt-1">
             <button onClick={handleSave} disabled={saving}
               className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity"
-              style={{ backgroundColor: '#0B1538', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}>
+              style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}>
               {saving ? 'Saving…' : 'Submit Manager Review'}
             </button>
-            <button onClick={onClose} className="text-sm hover:opacity-60" style={{ color: '#8B8B85' }}>Cancel</button>
+            <button onClick={onClose} className="text-sm hover:opacity-60" style={{ color: 'var(--text-muted)' }}>Cancel</button>
           </div>
         </div>
       </div>
@@ -301,33 +301,33 @@ function FinalizeModal({ review, byUid, onClose }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-(--shell-border)">
           <div>
-            <h3 className="text-base font-semibold" style={{ color: '#0A0A0A' }}>Finalize Review</h3>
-            <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>{review.employeeName} · {review.year}</p>
+            <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Finalize Review</h3>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{review.employeeName} · {review.year}</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100"><X size={16} style={{ color: '#8B8B85' }} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--glass-panel-bg)"><X size={16} style={{ color: 'var(--text-muted)' }} /></button>
         </div>
         <div className="px-6 py-5 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: '#8B8B85' }}>
+              <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-muted)' }}>
                 Previous Gross (₹) *
               </label>
               <input type="number" value={oldSalary} onChange={(e) => setOldSalary(e.target.value)}
                 placeholder="e.g. 50000"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
-                style={{ color: '#0A0A0A' }} />
+                className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                style={{ color: 'var(--text-primary)' }} />
             </div>
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: '#8B8B85' }}>
+              <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-muted)' }}>
                 Increment % *
               </label>
               <input type="number" value={incrementPct} onChange={(e) => setIncrementPct(e.target.value)}
                 placeholder="e.g. 10"
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
-                style={{ color: '#0A0A0A' }} />
+                className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                style={{ color: 'var(--text-primary)' }} />
             </div>
           </div>
 
@@ -343,21 +343,21 @@ function FinalizeModal({ review, byUid, onClose }: {
           )}
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: '#8B8B85' }}>
+            <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-muted)' }}>
               Effective Date *
             </label>
             <input type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
-              style={{ color: '#0A0A0A' }} />
+              className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              style={{ color: 'var(--text-primary)' }} />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: '#8B8B85' }}>
+            <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-muted)' }}>
               HR Notes (optional)
             </label>
             <textarea value={hrNotes} onChange={(e) => setHrNotes(e.target.value)} rows={2}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
-              style={{ color: '#0A0A0A' }} />
+              className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
+              style={{ color: 'var(--text-primary)' }} />
           </div>
 
           {error && <p className="text-sm font-medium" style={{ color: '#DC2626' }}>{error}</p>}
@@ -368,7 +368,7 @@ function FinalizeModal({ review, byUid, onClose }: {
               <Check size={14} />
               {saving ? 'Finalizing…' : 'Finalize & Issue Increment'}
             </button>
-            <button onClick={onClose} className="text-sm hover:opacity-60" style={{ color: '#8B8B85' }}>Cancel</button>
+            <button onClick={onClose} className="text-sm hover:opacity-60" style={{ color: 'var(--text-muted)' }}>Cancel</button>
           </div>
         </div>
       </div>
@@ -496,14 +496,14 @@ function ReviewDetailPanel({ review }: { review: PerformanceReview }) {
     <div className="space-y-2 px-2">
       {/* Self-assessment */}
       {review.selfAssessment && (
-        <div className="border border-slate-100 rounded-xl overflow-hidden">
+        <div className="border border-(--shell-border) rounded-xl overflow-hidden">
           <button type="button" onClick={() => setOpen(open === 'sa' ? null : 'sa')}
-            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 text-left">
-            <span className="text-xs font-semibold" style={{ color: '#0A0A0A' }}>Self-Assessment</span>
-            {open === 'sa' ? <ChevronDown size={14} style={{ color: '#8B8B85' }} /> : <ChevronRight size={14} style={{ color: '#8B8B85' }} />}
+            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-(--glass-panel-bg) text-left">
+            <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Self-Assessment</span>
+            {open === 'sa' ? <ChevronDown size={14} style={{ color: 'var(--text-muted)' }} /> : <ChevronRight size={14} style={{ color: 'var(--text-muted)' }} />}
           </button>
           {open === 'sa' && (
-            <div className="px-4 pb-4 pt-1 border-t border-slate-100 space-y-3">
+            <div className="px-4 pb-4 pt-1 border-t border-(--shell-border) space-y-3">
               {[
                 { l: 'Achievements',   v: review.selfAssessment.achievements },
                 { l: 'Challenges',     v: review.selfAssessment.challenges },
@@ -511,8 +511,8 @@ function ReviewDetailPanel({ review }: { review: PerformanceReview }) {
                 { l: 'Career Goals',   v: review.selfAssessment.careerGoals },
               ].map(({ l, v }) => v ? (
                 <div key={l}>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: '#8B8B85' }}>{l}</p>
-                  <p className="text-xs whitespace-pre-wrap" style={{ color: '#2A2A2A' }}>{v}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-muted)' }}>{l}</p>
+                  <p className="text-xs whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>{v}</p>
                 </div>
               ) : null)}
               <p className="text-xs font-semibold" style={{ color: '#C9A961' }}>Self-rating: {review.selfAssessment.overallSelfRating}/5</p>
@@ -522,14 +522,14 @@ function ReviewDetailPanel({ review }: { review: PerformanceReview }) {
       )}
       {/* Manager review */}
       {review.managerReview && (
-        <div className="border border-slate-100 rounded-xl overflow-hidden">
+        <div className="border border-(--shell-border) rounded-xl overflow-hidden">
           <button type="button" onClick={() => setOpen(open === 'mr' ? null : 'mr')}
-            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 text-left">
-            <span className="text-xs font-semibold" style={{ color: '#0A0A0A' }}>Manager Review — {review.managerReview.overallRating}/5</span>
-            {open === 'mr' ? <ChevronDown size={14} style={{ color: '#8B8B85' }} /> : <ChevronRight size={14} style={{ color: '#8B8B85' }} />}
+            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-(--glass-panel-bg) text-left">
+            <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Manager Review — {review.managerReview.overallRating}/5</span>
+            {open === 'mr' ? <ChevronDown size={14} style={{ color: 'var(--text-muted)' }} /> : <ChevronRight size={14} style={{ color: 'var(--text-muted)' }} />}
           </button>
           {open === 'mr' && (
-            <div className="px-4 pb-4 pt-2 border-t border-slate-100 space-y-2">
+            <div className="px-4 pb-4 pt-2 border-t border-(--shell-border) space-y-2">
               {[
                 ['Work Quality', review.managerReview.workQuality],
                 ['Work Quantity', review.managerReview.workQuantity],
@@ -539,13 +539,13 @@ function ReviewDetailPanel({ review }: { review: PerformanceReview }) {
                 ['Punctuality', review.managerReview.punctuality],
               ].map(([l, v]) => (
                 <div key={l as string} className="flex items-center justify-between text-xs">
-                  <span style={{ color: '#2A2A2A' }}>{l as string}</span>
+                  <span style={{ color: 'var(--text-primary)' }}>{l as string}</span>
                   <span className="font-semibold" style={{ color: '#C9A961' }}>{v as number}/5</span>
                 </div>
               ))}
               <div className="pt-1 text-xs space-y-1">
-                <p><span style={{ color: '#8B8B85' }}>Strengths: </span>{review.managerReview.strengths}</p>
-                {review.managerReview.areasForImprovement && <p><span style={{ color: '#8B8B85' }}>Improve: </span>{review.managerReview.areasForImprovement}</p>}
+                <p><span style={{ color: 'var(--text-muted)' }}>Strengths: </span>{review.managerReview.strengths}</p>
+                {review.managerReview.areasForImprovement && <p><span style={{ color: 'var(--text-muted)' }}>Improve: </span>{review.managerReview.areasForImprovement}</p>}
                 {review.managerReview.recommendedForPromotion && <p className="font-semibold" style={{ color: '#059669' }}>★ Recommended for Promotion</p>}
               </div>
             </div>
@@ -633,7 +633,7 @@ export function AdminPerformancePage() {
           }}>
             Performance Reviews
           </h2>
-          <p className="text-sm" style={{ color: '#8B8B85' }}>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
             Annual review cycle management
           </p>
         </div>

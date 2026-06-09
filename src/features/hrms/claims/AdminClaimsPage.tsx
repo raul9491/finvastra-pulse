@@ -16,7 +16,7 @@ const CLAIM_TYPE_META: Record<ClaimType, { label: string; icon: typeof Car; colo
   medical:              { label: 'Medical',              icon: Heart,      color: '#EF4444' },
   petrol:               { label: 'Petrol',               icon: Fuel,       color: '#F59E0B' },
   client_entertainment: { label: 'Client Entertainment', icon: Users,      color: '#10B981' },
-  other:                { label: 'Other',                icon: HelpCircle, color: '#8B8B85' },
+  other:                { label: 'Other',                icon: HelpCircle, color: 'var(--text-muted)' },
 };
 
 const STATUS_STYLES: Record<ClaimStatus, { label: string; bg: string; color: string }> = {
@@ -72,10 +72,10 @@ function RejectModal({ claim, onClose }: { claim: Claim; onClose: () => void }) 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-        <h3 className="text-base font-semibold text-ink">Reject Claim</h3>
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+        <h3 className="text-base font-semibold text-(--text-primary)">Reject Claim</h3>
         <textarea
-          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none outline-none focus:ring-2 focus:ring-red-200"
+          className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm resize-none outline-none focus:ring-2 focus:ring-red-200"
           rows={3} value={reason} onChange={(e) => setReason(e.target.value)}
           placeholder="Reason for rejection (required)…" />
         <div className="flex gap-3">
@@ -84,7 +84,7 @@ function RejectModal({ claim, onClose }: { claim: Claim; onClose: () => void }) 
             style={{ backgroundColor: '#DC2626', color: '#FFFFFF' }}>
             {saving ? 'Rejecting…' : 'Reject'}
           </button>
-          <button onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm border border-slate-200 hover:bg-slate-50">
+          <button onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm border border-(--shell-border) hover:bg-(--glass-panel-bg)">
             Cancel
           </button>
         </div>
@@ -130,16 +130,16 @@ function MarkPaidModal({ claims, totalAmount, onClose }: { claims: Claim[]; tota
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
         <div>
-          <h3 className="text-base font-semibold text-ink">Mark {claims.length} Claims as Paid</h3>
-          <p className="text-sm text-mute mt-1">Total: ₹{totalAmount.toLocaleString('en-IN')}</p>
+          <h3 className="text-base font-semibold text-(--text-primary)">Mark {claims.length} Claims as Paid</h3>
+          <p className="text-sm text-(--text-muted) mt-1">Total: ₹{totalAmount.toLocaleString('en-IN')}</p>
         </div>
         <div>
-          <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>
+          <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
             Payment Reference (NEFT / Cash) *
           </label>
-          <input className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-navy/10"
+          <input className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-navy/10"
             value={ref} onChange={(e) => setRef(e.target.value)} placeholder="e.g. NEFT123456 / Cash" />
         </div>
         <div className="flex gap-3">
@@ -148,7 +148,7 @@ function MarkPaidModal({ claims, totalAmount, onClose }: { claims: Claim[]; tota
             style={{ backgroundColor: '#166534', color: '#FFFFFF' }}>
             {saving ? 'Marking paid…' : 'Mark Paid'}
           </button>
-          <button onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm border border-slate-200 hover:bg-slate-50">
+          <button onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm border border-(--shell-border) hover:bg-(--glass-panel-bg)">
             Cancel
           </button>
         </div>
@@ -207,14 +207,14 @@ export function AdminClaimsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
             Claims — Admin
           </h2>
-          <p className="text-sm text-mute">Review, approve, and mark claims as paid.</p>
+          <p className="text-sm text-(--text-muted)">Review, approve, and mark claims as paid.</p>
         </div>
         <button onClick={() => exportClaimsCSV(month)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 hover:bg-slate-50 transition-colors"
-          style={{ color: '#2A2A2A' }}>
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors"
+          style={{ color: 'var(--text-primary)' }}>
           <Download size={16} />
           Export {month}
         </button>
@@ -223,12 +223,12 @@ export function AdminClaimsPage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <select
-          className="border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-navy/10"
+          className="border border-(--shell-border) rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-navy/10"
           value={month} onChange={(e) => setMonth(e.target.value)}>
           {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
         </select>
         <select
-          className="border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-navy/10"
+          className="border border-(--shell-border) rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-navy/10"
           value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
           <option value="">All statuses</option>
           <option value="pending">Pending</option>
@@ -259,33 +259,33 @@ export function AdminClaimsPage() {
             style={{ backgroundColor: '#166534', color: '#FFFFFF' }}>
             Mark as Paid
           </button>
-          <button onClick={() => setSelected(new Set())} className="text-sm text-mute hover:opacity-70 ml-auto">
+          <button onClick={() => setSelected(new Set())} className="text-sm text-(--text-muted) hover:opacity-70 ml-auto">
             Clear selection
           </button>
         </div>
       )}
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
         {loading ? (
           <div className="p-6 space-y-3">
-            {[1,2,3,4].map(i => <div key={i} className="h-12 bg-slate-100 rounded-lg animate-pulse" />)}
+            {[1,2,3,4].map(i => <div key={i} className="h-12 bg-(--glass-panel-bg) rounded-lg animate-pulse" />)}
           </div>
         ) : claims.length === 0 ? (
           <div className="py-16 text-center">
-            <p className="text-sm text-mute">No claims found for the selected filters.</p>
+            <p className="text-sm text-(--text-muted)">No claims found for the selected filters.</p>
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-100">
+              <tr className="border-b border-(--shell-border)">
                 <th className="w-10 p-4" />
-                <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Employee</th>
-                <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Type</th>
-                <th className="text-right p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Amount</th>
-                <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Description</th>
-                <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Submitted</th>
-                <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Status</th>
+                <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Employee</th>
+                <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Type</th>
+                <th className="text-right p-4 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Amount</th>
+                <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Description</th>
+                <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Submitted</th>
+                <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Status</th>
                 <th className="p-4" />
               </tr>
             </thead>
@@ -297,7 +297,7 @@ export function AdminClaimsPage() {
                 const submittedDate = toTs(c.submittedAt);
                 const isApproved = c.status === 'approved';
                 return (
-                  <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                  <tr key={c.id} className="border-b border-slate-50 hover:bg-(--glass-panel-bg)/50 transition-colors">
                     <td className="p-4">
                       {isApproved && (
                         <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)}
@@ -305,7 +305,7 @@ export function AdminClaimsPage() {
                       )}
                     </td>
                     <td className="p-4">
-                      <p className="font-medium text-ink">{c.employeeName}</p>
+                      <p className="font-medium text-(--text-primary)">{c.employeeName}</p>
                     </td>
                     <td className="p-4">
                       <span className="flex items-center gap-1.5">
@@ -313,11 +313,11 @@ export function AdminClaimsPage() {
                         {meta.label}
                       </span>
                     </td>
-                    <td className="p-4 text-right font-semibold text-ink">
+                    <td className="p-4 text-right font-semibold text-(--text-primary)">
                       ₹{c.amount.toLocaleString('en-IN')}
                     </td>
-                    <td className="p-4 text-mute max-w-xs truncate">{c.description}</td>
-                    <td className="p-4 text-mute whitespace-nowrap">
+                    <td className="p-4 text-(--text-muted) max-w-xs truncate">{c.description}</td>
+                    <td className="p-4 text-(--text-muted) whitespace-nowrap">
                       {submittedDate ? format(submittedDate, 'dd MMM yyyy') : '—'}
                     </td>
                     <td className="p-4">

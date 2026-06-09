@@ -373,17 +373,17 @@ export function DataImportPage() {
           <Database size={20} style={{ color: '#C9A961' }} />
         </div>
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#0A0A0A', fontFamily: 'Fraunces, serif' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Fraunces, serif' }}>
             Data Import
           </h1>
-          <p className="text-sm mt-0.5" style={{ color: '#8B8B85' }}>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
             Bulk-load data from Excel or CSV. Super Admin only.
           </p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 p-1 rounded-xl border border-slate-200 bg-slate-50 w-fit">
+      <div className="flex gap-2 p-1 rounded-xl border border-(--shell-border) bg-(--glass-panel-bg) w-fit">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -391,8 +391,8 @@ export function DataImportPage() {
             className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
             style={
               activeTab === t.id
-                ? { backgroundColor: '#0B1538', color: '#FFFFFF' }
-                : { color: '#475569' }
+                ? { backgroundColor: 'var(--text-primary)', color: '#FFFFFF' }
+                : { color: 'var(--text-muted)' }
             }
           >
             {t.label}
@@ -401,7 +401,7 @@ export function DataImportPage() {
       </div>
 
       {/* Tab description */}
-      <p className="text-sm -mt-4" style={{ color: '#8B8B85' }}>
+      <p className="text-sm -mt-4" style={{ color: 'var(--text-muted)' }}>
         {TABS.find((t) => t.id === activeTab)?.description}
       </p>
 
@@ -432,7 +432,7 @@ export function DataImportPage() {
             )}
           </div>
           {result.messages.length > 0 && (
-            <div className="rounded-lg bg-white border border-slate-200 p-4 space-y-1 max-h-48 overflow-y-auto">
+            <div className="rounded-lg bg-(--glass-panel-bg) border border-(--shell-border) p-4 space-y-1 max-h-48 overflow-y-auto">
               {result.messages.map((m, i) => (
                 <p key={i} className="text-xs" style={{ color: '#374151' }}>{m}</p>
               ))}
@@ -451,26 +451,26 @@ export function DataImportPage() {
       {!result && (
         <>
           {/* Step 1 — Download template */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
+          <div className="rounded-2xl border border-(--shell-border) bg-(--glass-panel-bg) p-6 space-y-4">
             <div className="flex items-center gap-2">
               <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                 style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>1</span>
-              <h2 className="text-base font-bold" style={{ color: '#0A0A0A' }}>Download the template</h2>
+              <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Download the template</h2>
             </div>
-            <p className="text-sm" style={{ color: '#475569' }}>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               Fill in this CSV template with your data. Save as CSV or XLSX — both are accepted.
             </p>
             <button
               onClick={() => downloadCsv(TEMPLATE_FN[activeTab](), TEMPLATE_NAMES[activeTab])}
               className={`${primaryBtn}`}
-              style={{ backgroundColor: '#0B1538', color: '#FFFFFF' }}
+              style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF' }}
             >
               <Download size={15} /> Download Template
             </button>
 
             {/* Column hints */}
-            <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-              <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#475569' }}>
+            <div className="rounded-xl border border-(--shell-border) bg-(--glass-panel-bg) p-4">
+              <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
                 Column guide
               </p>
               <ul className="space-y-1.5">
@@ -485,23 +485,23 @@ export function DataImportPage() {
           </div>
 
           {/* Step 2 — Upload */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
+          <div className="rounded-2xl border border-(--shell-border) bg-(--glass-panel-bg) p-6 space-y-4">
             <div className="flex items-center gap-2">
               <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                 style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>2</span>
-              <h2 className="text-base font-bold" style={{ color: '#0A0A0A' }}>Upload your filled file</h2>
+              <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Upload your filled file</h2>
             </div>
 
             <label
-              className="flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-xl p-10 cursor-pointer transition-colors hover:bg-slate-50"
-              style={{ borderColor: file ? '#C9A961' : '#CBD5E1' }}
+              className="flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-xl p-10 cursor-pointer transition-colors hover:bg-(--glass-panel-bg)"
+              style={{ borderColor: file ? '#C9A961' : 'var(--text-muted)' }}
             >
-              <FileSpreadsheet size={36} style={{ color: file ? '#C9A961' : '#94A3B8' }} />
+              <FileSpreadsheet size={36} style={{ color: file ? '#C9A961' : 'var(--text-muted)' }} />
               <div className="text-center">
-                <p className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                   {file ? file.name : 'Click to choose a file'}
                 </p>
-                <p className="text-xs mt-1" style={{ color: '#8B8B85' }}>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
                   {file ? `${(file.size / 1024).toFixed(1)} KB` : 'Excel (.xlsx) or CSV (.csv) accepted'}
                 </p>
               </div>
@@ -515,10 +515,10 @@ export function DataImportPage() {
             </label>
 
             {parsing && (
-              <div className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 bg-slate-50">
+              <div className="flex items-center gap-3 p-4 rounded-xl border border-(--shell-border) bg-(--glass-panel-bg)">
                 <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin shrink-0"
                   style={{ borderColor: '#C9A961', borderTopColor: 'transparent' }} />
-                <p className="text-sm" style={{ color: '#475569' }}>Reading file…</p>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Reading file…</p>
               </div>
             )}
 
@@ -539,12 +539,12 @@ export function DataImportPage() {
 
           {/* Step 3 — Preview & Confirm */}
           {parsedRows && parsedRows.length > 0 && globalErrors.length === 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
+            <div className="rounded-2xl border border-(--shell-border) bg-(--glass-panel-bg) p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                     style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>3</span>
-                  <h2 className="text-base font-bold" style={{ color: '#0A0A0A' }}>Preview & confirm</h2>
+                  <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Preview & confirm</h2>
                 </div>
                 <div className="flex items-center gap-4 text-sm">
                   <span className="flex items-center gap-1.5" style={{ color: '#16A34A' }}>
@@ -569,7 +569,7 @@ export function DataImportPage() {
               )}
 
               {/* Preview table */}
-              <div className="overflow-auto max-h-72 rounded-xl border border-slate-200">
+              <div className="overflow-auto max-h-72 rounded-xl border border-(--shell-border)">
                 <PreviewTable rows={parsedRows} importType={activeTab} />
               </div>
 
@@ -578,7 +578,7 @@ export function DataImportPage() {
                   onClick={handleImport}
                   disabled={importing || validRows === 0}
                   className={`${primaryBtn}`}
-                  style={{ backgroundColor: '#0B1538', color: '#FFFFFF' }}
+                  style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF' }}
                 >
                   {importing ? (
                     <>
@@ -593,7 +593,7 @@ export function DataImportPage() {
                   )}
                 </button>
                 <button onClick={reset} className={`${ghostBtn}`}
-                  style={{ borderColor: '#E2E8F0', color: '#475569' }}>
+                  style={{ borderColor: 'var(--shell-border)', color: 'var(--text-muted)' }}>
                   Cancel
                 </button>
               </div>
@@ -618,16 +618,16 @@ function PreviewTable({
     const r = rows as AssetRow[];
     return (
       <table className="w-full text-xs">
-        <thead style={{ backgroundColor: '#F8FAFC', position: 'sticky', top: 0 }}>
+        <thead style={{ backgroundColor: 'var(--glass-panel-bg)', position: 'sticky', top: 0 }}>
           <tr>{['Row','Emp Code','Asset Type','Asset Name','Serial No.','Date','Condition','Status'].map((h) => (
             <th key={h} className="px-3 py-2.5 text-left font-semibold text-slate-500 whitespace-nowrap">{h}</th>
           ))}</tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-(--shell-border)">
           {r.map((row) => (
             <tr key={row.rowIndex} style={{ backgroundColor: row._errors.length ? '#FEF2F2' : undefined }}>
-              <td className="px-3 py-2 text-slate-400">{row.rowIndex}</td>
-              <td className="px-3 py-2 font-mono font-medium" style={{ color: '#0B1538' }}>{row.empCode}</td>
+              <td className="px-3 py-2 text-(--text-muted)">{row.rowIndex}</td>
+              <td className="px-3 py-2 font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{row.empCode}</td>
               <td className="px-3 py-2 text-slate-600">{row.assetType}</td>
               <td className="px-3 py-2 text-slate-700">{row.assetName}</td>
               <td className="px-3 py-2 text-slate-500">{row.serialNumber || '—'}</td>
@@ -649,16 +649,16 @@ function PreviewTable({
     const r = rows as LeaveBalanceRow[];
     return (
       <table className="w-full text-xs">
-        <thead style={{ backgroundColor: '#F8FAFC', position: 'sticky', top: 0 }}>
+        <thead style={{ backgroundColor: 'var(--glass-panel-bg)', position: 'sticky', top: 0 }}>
           <tr>{['Row','Emp Code','Year','CL','SL','EL','Comp Off','Status'].map((h) => (
             <th key={h} className="px-3 py-2.5 text-left font-semibold text-slate-500 whitespace-nowrap">{h}</th>
           ))}</tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-(--shell-border)">
           {r.map((row) => (
             <tr key={row.rowIndex} style={{ backgroundColor: row._errors.length ? '#FEF2F2' : undefined }}>
-              <td className="px-3 py-2 text-slate-400">{row.rowIndex}</td>
-              <td className="px-3 py-2 font-mono font-medium" style={{ color: '#0B1538' }}>{row.empCode}</td>
+              <td className="px-3 py-2 text-(--text-muted)">{row.rowIndex}</td>
+              <td className="px-3 py-2 font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{row.empCode}</td>
               <td className="px-3 py-2 text-slate-600">{row.year}</td>
               <td className="px-3 py-2 text-slate-600">{row.clTotal} / {row.clUsed} used</td>
               <td className="px-3 py-2 text-slate-600">{row.slTotal} / {row.slUsed} used</td>
@@ -680,16 +680,16 @@ function PreviewTable({
   const r = rows as EmployeeProfileRow[];
   return (
     <table className="w-full text-xs">
-      <thead style={{ backgroundColor: '#F8FAFC', position: 'sticky', top: 0 }}>
+      <thead style={{ backgroundColor: 'var(--glass-panel-bg)', position: 'sticky', top: 0 }}>
         <tr>{['Row','Emp Code','Joining Date','Salary','Department','Designation','UAN','Status'].map((h) => (
           <th key={h} className="px-3 py-2.5 text-left font-semibold text-slate-500 whitespace-nowrap">{h}</th>
         ))}</tr>
       </thead>
-      <tbody className="divide-y divide-slate-100">
+      <tbody className="divide-y divide-(--shell-border)">
         {r.map((row) => (
           <tr key={row.rowIndex} style={{ backgroundColor: row._errors.length ? '#FEF2F2' : undefined }}>
-            <td className="px-3 py-2 text-slate-400">{row.rowIndex}</td>
-            <td className="px-3 py-2 font-mono font-medium" style={{ color: '#0B1538' }}>{row.empCode}</td>
+            <td className="px-3 py-2 text-(--text-muted)">{row.rowIndex}</td>
+            <td className="px-3 py-2 font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{row.empCode}</td>
             <td className="px-3 py-2 text-slate-600">{row.joiningDate || '—'}</td>
             <td className="px-3 py-2 text-slate-600">{row.grossSalary != null ? `₹${row.grossSalary.toLocaleString('en-IN')}` : '—'}</td>
             <td className="px-3 py-2 text-slate-600">{row.department || '—'}</td>

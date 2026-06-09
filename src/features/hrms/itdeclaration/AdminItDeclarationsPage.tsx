@@ -79,15 +79,15 @@ function DeclarationDetail({
       {/* Back + title */}
       <div className="flex items-center gap-3">
         <button onClick={onBack}
-          className="flex items-center gap-1.5 text-sm text-mute hover:opacity-70 transition-opacity">
+          className="flex items-center gap-1.5 text-sm text-(--text-muted) hover:opacity-70 transition-opacity">
           <ChevronLeft size={15} /> Back to list
         </button>
         <div className="w-px h-4 bg-slate-200" />
         <div>
-          <p className="text-base font-semibold" style={{ color: '#0A0A0A' }}>
+          <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
             {employeeName} — IT Declaration ({fyLabel(decl.year)})
           </p>
-          <p className="text-xs mt-0.5 text-mute">
+          <p className="text-xs mt-0.5 text-(--text-muted)">
             {submittedDate ? `Submitted ${format(submittedDate, 'dd MMM yyyy')}` : 'Not yet submitted'}
             {acceptedDate  ? ` · Accepted ${format(acceptedDate, 'dd MMM yyyy')}` : ''}
           </p>
@@ -107,16 +107,16 @@ function DeclarationDetail({
 
       {decl.revisionNote && (
         <div className="text-sm px-4 py-3 rounded-xl"
-          style={{ backgroundColor: '#F1F5F9', color: '#475569', border: '1px solid #E2E8F0' }}>
+          style={{ backgroundColor: 'var(--glass-panel-bg)', color: 'var(--text-muted)', border: '1px solid #E2E8F0' }}>
           <span className="font-semibold">HR Note: </span>{decl.revisionNote}
         </div>
       )}
 
       {/* Detail sections */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-100"
-          style={{ backgroundColor: '#FAFAF7' }}>
-          <p className="text-xs font-bold uppercase tracking-widest text-mute">Section 80C</p>
+      <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
+        <div className="px-5 py-3 border-b border-(--shell-border)"
+          style={{ backgroundColor: 'var(--glass-panel-bg)' }}>
+          <p className="text-xs font-bold uppercase tracking-widest text-(--text-muted)">Section 80C</p>
         </div>
         <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
           {[
@@ -131,20 +131,20 @@ function DeclarationDetail({
             ['Other 80C',              decl.section80C.other80C],
           ].map(([label, val]) => (
             <div key={label as string} className="flex justify-between text-sm py-0.5">
-              <span className="text-mute">{label as string}</span>
-              <span className="font-medium" style={{ color: '#2A2A2A' }}>{inr(val as number)}</span>
+              <span className="text-(--text-muted)">{label as string}</span>
+              <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{inr(val as number)}</span>
             </div>
           ))}
-          <div className="col-span-full border-t border-slate-100 pt-2 mt-1 flex justify-between text-sm font-semibold">
-            <span style={{ color: '#0A0A0A' }}>Total 80C Deduction</span>
-            <span style={{ color: '#0B1538' }}>{inr(decl.section80C.total80C)} of {inr(MAX_80C)}</span>
+          <div className="col-span-full border-t border-(--shell-border) pt-2 mt-1 flex justify-between text-sm font-semibold">
+            <span style={{ color: 'var(--text-primary)' }}>Total 80C Deduction</span>
+            <span style={{ color: 'var(--text-primary)' }}>{inr(decl.section80C.total80C)} of {inr(MAX_80C)}</span>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-100" style={{ backgroundColor: '#FAFAF7' }}>
-          <p className="text-xs font-bold uppercase tracking-widest text-mute">Section 80D</p>
+      <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
+        <div className="px-5 py-3 border-b border-(--shell-border)" style={{ backgroundColor: 'var(--glass-panel-bg)' }}>
+          <p className="text-xs font-bold uppercase tracking-widest text-(--text-muted)">Section 80D</p>
         </div>
         <div className="px-5 py-4 space-y-2">
           {[
@@ -152,23 +152,23 @@ function DeclarationDetail({
             ['Parents Premium',        decl.section80D.parentsPremium],
           ].map(([label, val]) => (
             <div key={label as string} className="flex justify-between text-sm">
-              <span className="text-mute">{label as string}</span>
-              <span className="font-medium" style={{ color: '#2A2A2A' }}>{inr(val as number)}</span>
+              <span className="text-(--text-muted)">{label as string}</span>
+              <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{inr(val as number)}</span>
             </div>
           ))}
-          <p className="text-xs text-mute">
+          <p className="text-xs text-(--text-muted)">
             Parents senior citizens: {decl.section80D.parentsSenior ? 'Yes' : 'No'}
           </p>
-          <div className="border-t border-slate-100 pt-2 flex justify-between text-sm font-semibold">
-            <span style={{ color: '#0A0A0A' }}>Total 80D Deduction</span>
-            <span style={{ color: '#0B1538' }}>{inr(decl.section80D.total80D)}</span>
+          <div className="border-t border-(--shell-border) pt-2 flex justify-between text-sm font-semibold">
+            <span style={{ color: 'var(--text-primary)' }}>Total 80D Deduction</span>
+            <span style={{ color: 'var(--text-primary)' }}>{inr(decl.section80D.total80D)}</span>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-100" style={{ backgroundColor: '#FAFAF7' }}>
-          <p className="text-xs font-bold uppercase tracking-widest text-mute">HRA / Home Loan / LTA / 80E</p>
+      <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
+        <div className="px-5 py-3 border-b border-(--shell-border)" style={{ backgroundColor: 'var(--glass-panel-bg)' }}>
+          <p className="text-xs font-bold uppercase tracking-widest text-(--text-muted)">HRA / Home Loan / LTA / 80E</p>
         </div>
         <div className="px-5 py-4 space-y-2">
           <DetailRow label="HRA Exemption" value={decl.hra.claimingHra ? 'Claimed' : 'Not claimed'} />
@@ -181,7 +181,7 @@ function DeclarationDetail({
               <DetailRow label="City Type" value={decl.hra.cityType === 'metro' ? 'Metro' : 'Non-Metro'} />
             </>
           )}
-          <div className="border-t border-slate-100 pt-2">
+          <div className="border-t border-(--shell-border) pt-2">
             <DetailRow label="Home Loan Interest (Sec 24b)" value={decl.homeLoan.claimingHomeLoan ? `${inr(hlDeduction)} deductible` : 'Not claimed'} />
             {decl.homeLoan.claimingHomeLoan && (
               <>
@@ -190,7 +190,7 @@ function DeclarationDetail({
               </>
             )}
           </div>
-          <div className="border-t border-slate-100 pt-2">
+          <div className="border-t border-(--shell-border) pt-2">
             <DetailRow label="LTA" value={decl.lta.claimingLta ? `${inr(decl.lta.travelAmount)} claimed` : 'Not claimed'} />
             <DetailRow label="Education Loan (80E)" value={decl.section80E.claimingEducationLoan ? `${inr(decl.section80E.annualInterest)} interest` : 'Not claimed'} />
           </div>
@@ -198,9 +198,9 @@ function DeclarationDetail({
       </div>
 
       {/* Summary */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <div className="px-5 py-3 border-b border-slate-100"
-          style={{ backgroundColor: '#0B1538' }}>
+      <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
+        <div className="px-5 py-3 border-b border-(--shell-border)"
+          style={{ backgroundColor: 'var(--text-primary)' }}>
           <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#C9A961' }}>
             Summary
           </p>
@@ -230,16 +230,16 @@ function DeclarationDetail({
               <button
                 onClick={() => setShowReviseForm(true)}
                 disabled={acting}
-                className="flex items-center gap-2 text-sm px-5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-50 font-medium"
-                style={{ color: '#2A2A2A' }}
+                className="flex items-center gap-2 text-sm px-5 py-2.5 rounded-xl border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors disabled:opacity-50 font-medium"
+                style={{ color: 'var(--text-primary)' }}
               >
                 <RotateCcw size={14} />
                 Request Revision
               </button>
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
-              <p className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>
+            <div className="bg-(--glass-panel-bg) rounded-xl border border-(--shell-border) p-4 space-y-3">
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                 Request Revision
               </p>
               <textarea
@@ -247,7 +247,7 @@ function DeclarationDetail({
                 onChange={(e) => setRevisionNote(e.target.value)}
                 placeholder="Explain what the employee needs to correct or add…"
                 rows={3}
-                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 resize-none"
+                className="w-full text-sm border border-(--shell-border) rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 resize-none"
               />
               <div className="flex gap-3">
                 <button
@@ -260,7 +260,7 @@ function DeclarationDetail({
                 </button>
                 <button
                   onClick={() => setShowReviseForm(false)}
-                  className="text-sm px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50"
+                  className="text-sm px-4 py-2 rounded-lg border border-(--shell-border) hover:bg-(--glass-panel-bg)"
                 >
                   Cancel
                 </button>
@@ -276,8 +276,8 @@ function DeclarationDetail({
 function DetailRow({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
   return (
     <div className="flex items-center justify-between text-sm py-0.5">
-      <span className="text-mute">{label}</span>
-      <span className={bold ? 'font-bold' : 'font-medium'} style={{ color: '#2A2A2A' }}>{value}</span>
+      <span className="text-(--text-muted)">{label}</span>
+      <span className={bold ? 'font-bold' : 'font-medium'} style={{ color: 'var(--text-primary)' }}>{value}</span>
     </div>
   );
 }
@@ -381,17 +381,17 @@ export function AdminItDeclarationsPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
             IT Declarations
           </h2>
-          <p className="text-sm text-mute">Review and accept employee investment declarations for TDS.</p>
+          <p className="text-sm text-(--text-muted)">Review and accept employee investment declarations for TDS.</p>
         </div>
         <div className="flex items-center gap-3">
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="text-sm border border-slate-200 rounded-xl px-4 py-2 bg-white outline-none focus:ring-2 focus:ring-blue-100 font-semibold"
-            style={{ color: '#0B1538' }}
+            className="text-sm border border-(--shell-border) rounded-xl px-4 py-2 bg-(--glass-panel-bg) outline-none focus:ring-2 focus:ring-blue-100 font-semibold"
+            style={{ color: 'var(--text-primary)' }}
           >
             {fyOptions.map((y) => <option key={y} value={y}>{fyLabel(y)}</option>)}
           </select>
@@ -403,8 +403,8 @@ export function AdminItDeclarationsPage() {
                 empCode: e.employeeId, department: e.department,
               })),
             )}
-            className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors font-medium"
-            style={{ color: '#2A2A2A' }}
+            className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors font-medium"
+            style={{ color: 'var(--text-primary)' }}
           >
             <Download size={14} />
             Export CSV
@@ -415,12 +415,12 @@ export function AdminItDeclarationsPage() {
       {/* Summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total Employees',  value: activeEmployees.length,   bg: '#FAFAF7', text: '#2A2A2A' },
+          { label: 'Total Employees',  value: activeEmployees.length,   bg: '#FAFAF7', text: 'var(--text-primary)' },
           { label: 'Submitted',        value: submitted,                 bg: '#DBEAFE', text: '#1D4ED8' },
           { label: 'Accepted',         value: accepted,                  bg: '#D1FAE5', text: '#065F46' },
           { label: 'Not Submitted',    value: notSubmitted,              bg: '#FEF3C7', text: '#92400E' },
         ].map(({ label, value, bg, text }) => (
-          <div key={label} className="rounded-xl border border-slate-200 px-4 py-3 text-center"
+          <div key={label} className="rounded-xl border border-(--shell-border) px-4 py-3 text-center"
             style={{ backgroundColor: bg }}>
             <p className="text-2xl font-bold" style={{ color: text }}>{value}</p>
             <p className="text-xs mt-0.5 font-medium" style={{ color: text }}>{label}</p>
@@ -429,15 +429,15 @@ export function AdminItDeclarationsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
         {loading ? (
-          <div className="divide-y divide-slate-100 animate-pulse">
+          <div className="divide-y divide-(--shell-border) animate-pulse">
             {[1,2,3,4,5].map((i) => (
               <div key={i} className="flex items-center gap-4 px-6 py-4">
                 <div className="h-4 bg-slate-200 rounded w-36" />
-                <div className="h-4 bg-slate-100 rounded w-24 ml-auto" />
-                <div className="h-4 bg-slate-100 rounded w-16" />
-                <div className="h-4 bg-slate-100 rounded w-16" />
+                <div className="h-4 bg-(--glass-panel-bg) rounded w-24 ml-auto" />
+                <div className="h-4 bg-(--glass-panel-bg) rounded w-16" />
+                <div className="h-4 bg-(--glass-panel-bg) rounded w-16" />
               </div>
             ))}
           </div>
@@ -445,9 +445,9 @@ export function AdminItDeclarationsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead>
-                <tr style={{ backgroundColor: '#FAFAF7', borderBottom: '1px solid #E2E8F0' }}>
+                <tr style={{ backgroundColor: 'var(--glass-panel-bg)', borderBottom: '1px solid #E2E8F0' }}>
                   {['Employee', 'Department', 'Status', '80C', '80D', 'HRA', 'Submitted On', 'Actions'].map((h) => (
-                    <th key={h} className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-mute whitespace-nowrap">
+                    <th key={h} className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-(--text-muted) whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -456,31 +456,31 @@ export function AdminItDeclarationsPage() {
               <tbody>
                 {rows.map(({ employee: emp, decl }) => (
                   <tr key={emp.userId}
-                    className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors">
+                    className="border-b border-slate-50 last:border-0 hover:bg-(--glass-panel-bg)/50 transition-colors">
                     <td className="px-5 py-4">
-                      <p className="font-semibold" style={{ color: '#0A0A0A' }}>{emp.displayName}</p>
-                      <p className="text-xs text-mute mt-0.5">{emp.employeeId}</p>
+                      <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{emp.displayName}</p>
+                      <p className="text-xs text-(--text-muted) mt-0.5">{emp.employeeId}</p>
                     </td>
-                    <td className="px-5 py-4 text-mute whitespace-nowrap">{emp.department ?? '—'}</td>
+                    <td className="px-5 py-4 text-(--text-muted) whitespace-nowrap">{emp.department ?? '—'}</td>
                     <td className="px-5 py-4">
                       {decl
                         ? <StatusBadge status={decl.status} reopenRequested={decl.reopenRequested} />
-                        : <span className="text-xs text-mute italic">Not submitted</span>}
+                        : <span className="text-xs text-(--text-muted) italic">Not submitted</span>}
                     </td>
-                    <td className="px-5 py-4 text-mute whitespace-nowrap">
+                    <td className="px-5 py-4 text-(--text-muted) whitespace-nowrap">
                       {decl ? inr(decl.section80C.total80C) : '—'}
                     </td>
-                    <td className="px-5 py-4 text-mute whitespace-nowrap">
+                    <td className="px-5 py-4 text-(--text-muted) whitespace-nowrap">
                       {decl ? inr(decl.section80D.total80D) : '—'}
                     </td>
                     <td className="px-5 py-4">
                       {decl
                         ? (decl.hra.claimingHra
                           ? <span className="text-xs font-semibold" style={{ color: '#059669' }}>Yes</span>
-                          : <span className="text-xs text-mute">No</span>)
-                        : <span className="text-mute">—</span>}
+                          : <span className="text-xs text-(--text-muted)">No</span>)
+                        : <span className="text-(--text-muted)">—</span>}
                     </td>
-                    <td className="px-5 py-4 text-mute whitespace-nowrap">
+                    <td className="px-5 py-4 text-(--text-muted) whitespace-nowrap">
                       {decl?.submittedAt
                         ? (() => { const d = toDate(decl.submittedAt); return d ? format(d, 'dd MMM yy') : '—'; })()
                         : '—'}
@@ -491,8 +491,8 @@ export function AdminItDeclarationsPage() {
                           <>
                             <button
                               onClick={() => setSelectedDecl(decl)}
-                              className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors font-medium"
-                              style={{ color: '#2A2A2A' }}
+                              className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors font-medium"
+                              style={{ color: 'var(--text-primary)' }}
                             >
                               <Eye size={12} /> View
                             </button>
@@ -526,7 +526,7 @@ export function AdminItDeclarationsPage() {
                             )}
                           </>
                         ) : (
-                          <span className="text-xs text-mute italic">No declaration</span>
+                          <span className="text-xs text-(--text-muted) italic">No declaration</span>
                         )}
                       </div>
                     </td>

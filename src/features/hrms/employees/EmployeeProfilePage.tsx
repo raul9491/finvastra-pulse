@@ -752,19 +752,19 @@ function EditMyDetailsModal({ userId, empName, details, onSave, onClose }: EditM
             </p>
             <div className="grid grid-cols-1 gap-3">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-mute">Personal Mobile</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-(--text-muted)">Personal Mobile</label>
                 <input className={inp} placeholder="10-digit mobile number" value={phone} onChange={(e) => setPhone(e.target.value)} />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-mute">Personal Email</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-(--text-muted)">Personal Email</label>
                 <input type="email" className={inp} placeholder="personal@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-mute">Present Address</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-(--text-muted)">Present Address</label>
                 <textarea className={`${inp} resize-none`} rows={2} placeholder="Current residential address" value={address} onChange={(e) => setAddress(e.target.value)} />
               </div>
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-mute">Blood Group</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-(--text-muted)">Blood Group</label>
                 <select className={inp} value={bloodGroup} onChange={(e) => setBloodGroup(e.target.value)}>
                   <option value="">— Not specified —</option>
                   {['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−'].map((bg) => (
@@ -781,16 +781,16 @@ function EditMyDetailsModal({ userId, empName, details, onSave, onClose }: EditM
             </p>
             <div className="grid grid-cols-1 gap-3">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-mute">Full Name</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-(--text-muted)">Full Name</label>
                 <input className={inp} placeholder="Emergency contact name" value={ecName} onChange={(e) => setEcName(e.target.value)} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-mute">Phone</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-(--text-muted)">Phone</label>
                   <input className={inp} placeholder="Mobile number" value={ecPhone} onChange={(e) => setEcPhone(e.target.value)} />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-mute">Relationship</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-(--text-muted)">Relationship</label>
                   <input className={inp} placeholder="e.g. Spouse, Parent" value={ecRel} onChange={(e) => setEcRel(e.target.value)} />
                 </div>
               </div>

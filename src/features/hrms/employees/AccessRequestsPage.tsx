@@ -131,15 +131,15 @@ function ApproveModal({
     }
   };
 
-  const inp = 'w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2';
+  const inp = 'w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border border-(--shell-border) rounded-lg outline-none focus:ring-2';
   const sel = `${inp} cursor-pointer`;
 
   return (
     <Modal isOpen onClose={onClose} title={`Approve — ${request.fullName}`} size="sm"
       footer={
         <>
-          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-slate-200 rounded-xl"
-            style={{ color: '#2A2A2A' }}>Cancel</button>
+          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-(--shell-border) rounded-xl"
+            style={{ color: 'var(--text-primary)' }}>Cancel</button>
           <button onClick={handleApprove} disabled={submitting || !emailValid || !codeValid}
             className="px-7 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-50"
             style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
@@ -150,17 +150,17 @@ function ApproveModal({
       <div className="space-y-3">
         {error && <p className="text-sm text-red-500 px-1">{error}</p>}
 
-        <div className="rounded-xl px-4 py-3 text-xs space-y-0.5" style={{ backgroundColor: '#F8FAFC' }}>
-          <p style={{ color: '#8B8B85' }}>{request.department} · {request.designation}</p>
-          <p style={{ color: '#8B8B85' }}>Personal: {request.personalEmail} · {request.mobileNumber}</p>
-          {request.message && <p style={{ color: '#475569' }}>"{request.message}"</p>}
+        <div className="rounded-xl px-4 py-3 text-xs space-y-0.5" style={{ backgroundColor: 'var(--glass-panel-bg)' }}>
+          <p style={{ color: 'var(--text-muted)' }}>{request.department} · {request.designation}</p>
+          <p style={{ color: 'var(--text-muted)' }}>Personal: {request.personalEmail} · {request.mobileNumber}</p>
+          {request.message && <p style={{ color: 'var(--text-muted)' }}>"{request.message}"</p>}
         </div>
 
         <div>
           <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1"
-            style={{ color: '#8B8B85' }}>Official Email *</label>
+            style={{ color: 'var(--text-muted)' }}>Official Email *</label>
           <input value={form.officialEmail} onChange={(e) => setForm((f) => ({ ...f, officialEmail: e.target.value }))}
-            placeholder="name@finvastra.com" className={inp} style={{ color: '#0A0A0A' }} />
+            placeholder="name@finvastra.com" className={inp} style={{ color: 'var(--text-primary)' }} />
           {form.officialEmail.length > 0 && !emailValid && (
             <p className="mt-0.5 text-xs text-red-500">Must end with @finvastra.com</p>
           )}
@@ -168,9 +168,9 @@ function ApproveModal({
 
         <div>
           <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1"
-            style={{ color: '#8B8B85' }}>Employee Code *</label>
+            style={{ color: 'var(--text-muted)' }}>Employee Code *</label>
           <input value={form.employeeId} onChange={(e) => setForm((f) => ({ ...f, employeeId: e.target.value }))}
-            placeholder="FAPL-023" className={inp} style={{ color: '#0A0A0A' }} />
+            placeholder="FAPL-023" className={inp} style={{ color: 'var(--text-primary)' }} />
           {form.employeeId.length > 0 && !codeValid && (
             <p className="mt-0.5 text-xs text-red-500">Format: FAPL-001 or similar</p>
           )}
@@ -178,16 +178,16 @@ function ApproveModal({
 
         <div>
           <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1"
-            style={{ color: '#8B8B85' }}>Platform Role</label>
+            style={{ color: 'var(--text-muted)' }}>Platform Role</label>
           <select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as 'admin' | 'employee' }))}
-            className={sel} style={{ color: '#0A0A0A' }}>
+            className={sel} style={{ color: 'var(--text-primary)' }}>
             <option value="employee">Employee</option>
             <option value="admin">Admin</option>
           </select>
         </div>
 
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: '#2A2A2A' }}>
+          <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-primary)' }}>
             <input type="checkbox" checked={form.crmAccess}
               onChange={(e) => setForm((f) => ({ ...f, crmAccess: e.target.checked, crmRole: e.target.checked ? f.crmRole : null }))}
               className="w-4 h-4 rounded" />
@@ -195,7 +195,7 @@ function ApproveModal({
           </label>
           {form.crmAccess && (
             <select value={form.crmRole ?? ''} onChange={(e) => setForm((f) => ({ ...f, crmRole: (e.target.value || null) as CrmRole }))}
-              className="text-sm px-2 py-1 border border-slate-200 rounded-lg bg-slate-50" style={{ color: '#0A0A0A' }}>
+              className="text-sm px-2 py-1 border border-(--shell-border) rounded-lg bg-(--glass-panel-bg)" style={{ color: 'var(--text-primary)' }}>
               <option value="">No role</option>
               <option value="lead_generator">Generator</option>
               <option value="lead_convertor">Convertor</option>
@@ -207,9 +207,9 @@ function ApproveModal({
 
         <div>
           <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1"
-            style={{ color: '#8B8B85' }}>MIS Access</label>
+            style={{ color: 'var(--text-muted)' }}>MIS Access</label>
           <select value={form.misAccess ?? ''} onChange={(e) => setForm((f) => ({ ...f, misAccess: (e.target.value || null) as MisAccess | null }))}
-            className={sel} style={{ color: '#0A0A0A' }}>
+            className={sel} style={{ color: 'var(--text-primary)' }}>
             <option value="">None</option>
             <option value="viewer">Viewer</option>
             <option value="admin">Admin</option>
@@ -254,8 +254,8 @@ function RejectModal({
     <Modal isOpen onClose={onClose} title={`Reject — ${request.fullName}`} size="sm"
       footer={
         <>
-          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-slate-200 rounded-xl"
-            style={{ color: '#2A2A2A' }}>Cancel</button>
+          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-(--shell-border) rounded-xl"
+            style={{ color: 'var(--text-primary)' }}>Cancel</button>
           <button onClick={handleReject} disabled={!reason.trim() || submitting}
             className="px-7 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-50"
             style={{ backgroundColor: '#991B1B', color: '#FFFFFF' }}>
@@ -264,13 +264,13 @@ function RejectModal({
         </>
       }>
       <div className="space-y-3">
-        <p className="text-sm" style={{ color: '#8B8B85' }}>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Provide a reason. This will be logged against the request.
         </p>
         <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3}
           placeholder="Reason for rejection…"
-          className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 resize-none"
-          style={{ color: '#0A0A0A' }} />
+          className="w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border border-(--shell-border) rounded-lg outline-none focus:ring-2 resize-none"
+          style={{ color: 'var(--text-primary)' }} />
       </div>
     </Modal>
   );
@@ -303,55 +303,55 @@ export function AccessRequestsPage() {
     <div className="max-w-6xl mx-auto space-y-5">
       <div>
         <h2 className="text-3xl mb-1"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
           Access Requests
         </h2>
-        <p className="text-sm" style={{ color: '#8B8B85' }}>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Review and approve or reject employee account requests.
         </p>
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-(--glass-panel-bg) rounded-xl p-1 w-fit">
         {TABS.map(({ label, value }) => (
           <button key={value} onClick={() => setTab(value)}
             className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all"
             style={tab === value
-              ? { backgroundColor: '#FFFFFF', color: '#0A0A0A', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }
-              : { color: '#8B8B85' }}>
+              ? { backgroundColor: 'var(--glass-panel-bg)', color: 'var(--text-primary)', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }
+              : { color: 'var(--text-muted)' }}>
             {label}
           </button>
         ))}
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-sm animate-pulse" style={{ color: '#8B8B85' }}>Loading…</div>
+          <div className="p-8 text-center text-sm animate-pulse" style={{ color: 'var(--text-muted)' }}>Loading…</div>
         ) : requests.length === 0 ? (
-          <div className="p-12 text-center text-sm" style={{ color: '#8B8B85' }}>
+          <div className="p-12 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
             No {tab === 'all' ? '' : tab} requests.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ backgroundColor: '#FAFAF7', borderBottom: '1px solid #E2E8F0' }}>
+                <tr style={{ backgroundColor: 'var(--glass-panel-bg)', borderBottom: '1px solid #E2E8F0' }}>
                   {['Name', 'Department', 'Designation', 'Personal Email', 'Mobile', 'Submitted', 'Status', ''].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest"
-                      style={{ color: '#8B8B85' }}>{h}</th>
+                      style={{ color: 'var(--text-muted)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {requests.map((req) => (
-                  <tr key={req.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 font-medium" style={{ color: '#0A0A0A' }}>{req.fullName}</td>
-                    <td className="px-4 py-3 text-xs" style={{ color: '#475569' }}>{req.department}</td>
-                    <td className="px-4 py-3 text-xs" style={{ color: '#475569' }}>{req.designation}</td>
-                    <td className="px-4 py-3 text-xs" style={{ color: '#475569' }}>{req.personalEmail}</td>
-                    <td className="px-4 py-3 text-xs font-mono" style={{ color: '#475569' }}>{req.mobileNumber}</td>
-                    <td className="px-4 py-3 text-xs" style={{ color: '#8B8B85' }}>{formatTs(req.submittedAt)}</td>
+                  <tr key={req.id} className="border-b border-slate-50 last:border-0 hover:bg-(--glass-panel-bg) transition-colors">
+                    <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{req.fullName}</td>
+                    <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{req.department}</td>
+                    <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{req.designation}</td>
+                    <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{req.personalEmail}</td>
+                    <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{req.mobileNumber}</td>
+                    <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{formatTs(req.submittedAt)}</td>
                     <td className="px-4 py-3"><StatusPill status={req.status} /></td>
                     <td className="px-4 py-3">
                       {req.status === 'pending' && (
@@ -369,7 +369,7 @@ export function AccessRequestsPage() {
                         </div>
                       )}
                       {req.status === 'rejected' && req.rejectionReason && (
-                        <span className="text-xs italic" style={{ color: '#8B8B85' }}
+                        <span className="text-xs italic" style={{ color: 'var(--text-muted)' }}
                           title={req.rejectionReason}>
                           "{req.rejectionReason.slice(0, 30)}{req.rejectionReason.length > 30 ? '…' : ''}"
                         </span>

@@ -67,15 +67,15 @@ function EditRow({ record, userId, date, onSave, onCancel }: EditRowProps) {
   };
 
   return (
-    <tr style={{ backgroundColor: '#FAFAF7' }}>
+    <tr style={{ backgroundColor: 'var(--glass-panel-bg)' }}>
       <td colSpan={4} />
       <td colSpan={2} className="px-4 py-3">
         <div className="flex flex-wrap items-center gap-3">
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as AttendanceStatus)}
-            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white"
-            style={{ color: '#0A0A0A' }}
+            className="text-sm border border-(--shell-border) rounded-lg px-2 py-1.5 bg-(--glass-panel-bg)"
+            style={{ color: 'var(--text-primary)' }}
           >
             {ALL_STATUSES.map((s) => (
               <option key={s} value={s}>{STATUS_STYLES[s].label}</option>
@@ -86,8 +86,8 @@ function EditRow({ record, userId, date, onSave, onCancel }: EditRowProps) {
             placeholder="Notes (optional)"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white flex-1 min-w-[140px]"
-            style={{ color: '#0A0A0A' }}
+            className="text-sm border border-(--shell-border) rounded-lg px-2 py-1.5 bg-(--glass-panel-bg) flex-1 min-w-[140px]"
+            style={{ color: 'var(--text-primary)' }}
           />
           <button
             onClick={handleSave}
@@ -99,8 +99,8 @@ function EditRow({ record, userId, date, onSave, onCancel }: EditRowProps) {
           </button>
           <button
             onClick={onCancel}
-            className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 hover:bg-slate-50"
-            style={{ color: '#2A2A2A' }}
+            className="px-3 py-1.5 rounded-lg text-sm border border-(--shell-border) hover:bg-(--glass-panel-bg)"
+            style={{ color: 'var(--text-primary)' }}
           >
             Cancel
           </button>
@@ -193,8 +193,8 @@ function ExportMonthButton({ employees, month }: MonthExportProps) {
     <button
       onClick={handleExport}
       disabled={exporting}
-      className="px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-50"
-      style={{ color: '#2A2A2A' }}
+      className="px-4 py-2 rounded-xl text-sm font-semibold border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors disabled:opacity-50"
+      style={{ color: 'var(--text-primary)' }}
     >
       {exporting ? 'Exporting…' : 'Export Month CSV'}
     </button>
@@ -252,13 +252,13 @@ function RejectRegModal({ req, reviewerName, reviewerId, onDone, onCancel }: Rej
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-        <h3 className="text-base font-semibold text-ink">Reject Correction Request</h3>
-        <p className="text-xs text-mute">
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+        <h3 className="text-base font-semibold text-(--text-primary)">Reject Correction Request</h3>
+        <p className="text-xs text-(--text-muted)">
           {req.employeeName} · {req.date}
         </p>
         <div>
-          <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>
+          <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
             Rejection Reason <span className="text-red-500">*</span>
           </label>
           <textarea
@@ -266,7 +266,7 @@ function RejectRegModal({ req, reviewerName, reviewerId, onDone, onCancel }: Rej
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Why is this request rejected?"
-            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none outline-none focus:ring-2 focus:ring-navy/10"
+            className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm resize-none outline-none focus:ring-2 focus:ring-navy/10"
           />
         </div>
         <div className="flex gap-3">
@@ -279,7 +279,7 @@ function RejectRegModal({ req, reviewerName, reviewerId, onDone, onCancel }: Rej
             {saving ? 'Rejecting…' : 'Reject'}
           </button>
           <button onClick={onCancel}
-            className="px-4 py-2.5 rounded-xl text-sm border border-slate-200 hover:bg-slate-50">
+            className="px-4 py-2.5 rounded-xl text-sm border border-(--shell-border) hover:bg-(--glass-panel-bg)">
             Cancel
           </button>
         </div>
@@ -348,7 +348,7 @@ function RegularizationsTab({ reviewerId, reviewerName }: RegTabProps) {
             className="px-4 py-1.5 rounded-full text-xs font-semibold capitalize transition-colors"
             style={{
               backgroundColor: statusFilter === f ? '#0B1538' : '#F2EFE7',
-              color: statusFilter === f ? '#C9A961' : '#2A2A2A',
+              color: statusFilter === f ? '#C9A961' : 'var(--text-primary)',
             }}
           >
             {f === 'all' ? 'All' : REG_STATUS_STYLES[f as keyof typeof REG_STATUS_STYLES].label}
@@ -357,12 +357,12 @@ function RegularizationsTab({ reviewerId, reviewerName }: RegTabProps) {
       </div>
 
       {loading && (
-        <div className="py-8 text-center text-sm animate-pulse" style={{ color: '#8B8B85' }}>Loading…</div>
+        <div className="py-8 text-center text-sm animate-pulse" style={{ color: 'var(--text-muted)' }}>Loading…</div>
       )}
 
       {!loading && requests.length === 0 && (
-        <div className="py-10 text-center rounded-2xl border border-slate-200">
-          <p className="text-sm" style={{ color: '#8B8B85' }}>No {statusFilter !== 'all' ? statusFilter : ''} correction requests.</p>
+        <div className="py-10 text-center rounded-2xl border border-(--shell-border)">
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No {statusFilter !== 'all' ? statusFilter : ''} correction requests.</p>
         </div>
       )}
 
@@ -374,12 +374,12 @@ function RegularizationsTab({ reviewerId, reviewerName }: RegTabProps) {
             return (
               <div
                 key={req.id}
-                className="bg-white rounded-2xl border border-slate-200 p-5"
+                className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-5"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold text-sm" style={{ color: '#0A0A0A' }}>
+                      <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
                         {req.employeeName}
                       </span>
                       <span
@@ -390,22 +390,22 @@ function RegularizationsTab({ reviewerId, reviewerName }: RegTabProps) {
                         {st.label}
                       </span>
                     </div>
-                    <p className="text-xs mb-2" style={{ color: '#8B8B85' }}>
+                    <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
                       {format(parseISO(req.date), 'EEEE, dd MMM yyyy')}
                       {req.existingStatus && ` · Was: ${req.existingStatus}`}
                     </p>
-                    <div className="flex flex-wrap gap-4 text-xs" style={{ color: '#2A2A2A' }}>
+                    <div className="flex flex-wrap gap-4 text-xs" style={{ color: 'var(--text-primary)' }}>
                       {req.requestedCheckIn  && <span>🕐 Check-in: <strong>{req.requestedCheckIn}</strong></span>}
                       {req.requestedCheckOut && <span>🕐 Check-out: <strong>{req.requestedCheckOut}</strong></span>}
                     </div>
-                    <p className="text-xs mt-2 italic" style={{ color: '#8B8B85' }}>"{req.reason}"</p>
+                    <p className="text-xs mt-2 italic" style={{ color: 'var(--text-muted)' }}>"{req.reason}"</p>
                     {req.rejectionReason && (
                       <p className="text-xs mt-1" style={{ color: '#991B1B' }}>
                         Rejected: {req.rejectionReason}
                       </p>
                     )}
                     {req.reviewedByName && req.status !== 'pending' && (
-                      <p className="text-[11px] mt-1" style={{ color: '#8B8B85' }}>
+                      <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
                         Reviewed by {req.reviewedByName}
                       </p>
                     )}
@@ -494,28 +494,28 @@ function MonthlyView({ employees, month }: { employees: UserProfile[]; month: st
   (records ?? []).forEach((r) => statusByKey.set(`${r.userId}_${Number(r.date.slice(8, 10))}`, r.status));
 
   if (records === null) {
-    return <div className="py-16 text-center text-sm" style={{ color: '#8B8B85' }}>Loading month…</div>;
+    return <div className="py-16 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Loading month…</div>;
   }
 
   const sorted = [...employees].sort((a, b) => a.displayName.localeCompare(b.displayName));
 
   return (
     <div>
-      <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#8B8B85' }}>
+      <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>
         {format(parseISO(`${month}-01`), 'MMMM yyyy')} &nbsp;·&nbsp; P present · ½ half · A absent · L leave · H holiday · · no record
       </p>
-      <div className="overflow-auto rounded-xl border border-slate-200" style={{ maxHeight: 600 }}>
+      <div className="overflow-auto rounded-xl border border-(--shell-border)" style={{ maxHeight: 600 }}>
         <table className="text-xs border-collapse">
           <thead>
             <tr style={{ backgroundColor: '#F2EFE7' }}>
               <th className="sticky left-0 z-20 px-3 py-2 text-left font-bold whitespace-nowrap"
-                style={{ backgroundColor: '#F2EFE7', color: '#8B8B85', minWidth: 180 }}>Employee</th>
+                style={{ backgroundColor: '#F2EFE7', color: 'var(--text-muted)', minWidth: 180 }}>Employee</th>
               {dayNums.map((d) => (
                 <th key={d} className="px-1.5 py-2 text-center font-semibold"
-                  style={{ color: isSunday(d) ? '#B45454' : '#8B8B85', backgroundColor: isSunday(d) ? 'rgba(0,0,0,0.04)' : undefined, minWidth: 22 }}>{d}</th>
+                  style={{ color: isSunday(d) ? '#B45454' : 'var(--text-muted)', backgroundColor: isSunday(d) ? 'rgba(0,0,0,0.04)' : undefined, minWidth: 22 }}>{d}</th>
               ))}
               {['P', 'A', 'L'].map((h) => (
-                <th key={h} className="px-2 py-2 text-center font-bold sticky right-0" style={{ color: '#8B8B85', backgroundColor: '#F2EFE7' }}>{h}</th>
+                <th key={h} className="px-2 py-2 text-center font-bold sticky right-0" style={{ color: 'var(--text-muted)', backgroundColor: '#F2EFE7' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -531,16 +531,16 @@ function MonthlyView({ employees, month }: { employees: UserProfile[]; month: st
                 return (
                   <td key={d} className="px-1.5 py-1.5 text-center"
                     style={{ backgroundColor: mark?.bg ?? (isSunday(d) ? 'rgba(0,0,0,0.04)' : undefined) }}>
-                    <span style={{ color: mark?.color ?? '#CBD5E1', fontWeight: mark ? 700 : 400 }}>{mark?.ch ?? '·'}</span>
+                    <span style={{ color: mark?.color ?? 'var(--text-muted)', fontWeight: mark ? 700 : 400 }}>{mark?.ch ?? '·'}</span>
                   </td>
                 );
               });
               return (
-                <tr key={emp.userId} className="border-t border-slate-100">
+                <tr key={emp.userId} className="border-t border-(--shell-border)">
                   <td className="sticky left-0 z-10 px-3 py-1.5 font-medium whitespace-nowrap"
-                    style={{ backgroundColor: '#FFFFFF', color: '#0A0A0A', minWidth: 180 }}>{emp.displayName}</td>
+                    style={{ backgroundColor: 'var(--glass-panel-bg)', color: 'var(--text-primary)', minWidth: 180 }}>{emp.displayName}</td>
                   {cells}
-                  <td className="px-2 py-1.5 text-center font-bold sticky right-0" style={{ color: '#065F46', backgroundColor: '#FFFFFF' }}>{p}</td>
+                  <td className="px-2 py-1.5 text-center font-bold sticky right-0" style={{ color: '#065F46', backgroundColor: 'var(--glass-panel-bg)' }}>{p}</td>
                   <td className="px-2 py-1.5 text-center font-bold" style={{ color: '#991B1B' }}>{a}</td>
                   <td className="px-2 py-1.5 text-center font-bold" style={{ color: '#7A6030' }}>{l}</td>
                 </tr>
@@ -588,11 +588,11 @@ export function AdminAttendancePage() {
         <div>
           <h2
             className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}
+            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}
           >
             Attendance — Admin View
           </h2>
-          <p className="text-sm" style={{ color: '#8B8B85' }}>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
             View and override attendance records for any employee.
           </p>
         </div>
@@ -606,8 +606,8 @@ export function AdminAttendancePage() {
                 setSelectedDate(e.target.value);
                 setEditingUserId(null);
               }}
-              className="text-sm border border-slate-200 rounded-xl px-3 py-2 bg-white"
-              style={{ color: '#0A0A0A' }}
+              className="text-sm border border-(--shell-border) rounded-xl px-3 py-2 bg-(--glass-panel-bg)"
+              style={{ color: 'var(--text-primary)' }}
             />
             <ExportMonthButton employees={employees} month={exportMonth} />
           </div>
@@ -627,7 +627,7 @@ export function AdminAttendancePage() {
             className="px-5 py-2 rounded-lg text-sm font-semibold transition-all"
             style={{
               backgroundColor: activeTab === key ? '#0B1538' : 'transparent',
-              color: activeTab === key ? '#C9A961' : '#8B8B85',
+              color: activeTab === key ? '#C9A961' : 'var(--text-muted)',
             }}
           >
             {label}
@@ -639,25 +639,25 @@ export function AdminAttendancePage() {
       {activeTab === 'day' && (
         <>
           {/* Date heading */}
-          <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#8B8B85' }}>
+          <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>
             {format(parseISO(selectedDate), 'EEEE, dd MMMM yyyy')}
           </p>
 
           {/* Attendance table */}
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
             {loading ? (
-              <div className="p-8 text-center text-sm animate-pulse" style={{ color: '#8B8B85' }}>
+              <div className="p-8 text-center text-sm animate-pulse" style={{ color: 'var(--text-muted)' }}>
                 Loading…
               </div>
             ) : (
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100" style={{ backgroundColor: '#FAFAF7' }}>
+                  <tr className="border-b border-(--shell-border)" style={{ backgroundColor: 'var(--glass-panel-bg)' }}>
                     {['Employee', 'Status', 'Check-in', 'Check-out', 'Hours', 'Edit'].map((h) => (
                       <th
                         key={h}
                         className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider"
-                        style={{ color: '#8B8B85' }}
+                        style={{ color: 'var(--text-muted)' }}
                       >
                         {h}
                       </th>
@@ -667,7 +667,7 @@ export function AdminAttendancePage() {
                 <tbody>
                   {employees.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-6 text-center text-sm" style={{ color: '#8B8B85' }}>
+                      <td colSpan={6} className="px-4 py-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
                         No employees found.
                       </td>
                     </tr>
@@ -681,13 +681,13 @@ export function AdminAttendancePage() {
                       <>
                         <tr
                           key={emp.userId}
-                          className="border-b border-slate-50 hover:bg-slate-50 transition-colors"
+                          className="border-b border-slate-50 hover:bg-(--glass-panel-bg) transition-colors"
                         >
                           {/* Employee name */}
-                          <td className="px-4 py-3 font-medium" style={{ color: '#0A0A0A' }}>
+                          <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>
                             {emp.displayName}
                             {emp.designation && (
-                              <span className="ml-1 text-xs" style={{ color: '#8B8B85' }}>
+                              <span className="ml-1 text-xs" style={{ color: 'var(--text-muted)' }}>
                                 · {emp.designation}
                               </span>
                             )}
@@ -708,7 +708,7 @@ export function AdminAttendancePage() {
                             ) : (
                               <span
                                 className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                                style={{ backgroundColor: '#F8F9FA', color: '#8B8B85' }}
+                                style={{ backgroundColor: '#F8F9FA', color: 'var(--text-muted)' }}
                               >
                                 No record
                               </span>
@@ -716,17 +716,17 @@ export function AdminAttendancePage() {
                           </td>
 
                           {/* Check-in */}
-                          <td className="px-4 py-3" style={{ color: '#2A2A2A' }}>
+                          <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>
                             {rec ? formatTime(rec.checkIn) : '—'}
                           </td>
 
                           {/* Check-out */}
-                          <td className="px-4 py-3" style={{ color: '#2A2A2A' }}>
+                          <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>
                             {rec ? formatTime(rec.checkOut) : '—'}
                           </td>
 
                           {/* Hours */}
-                          <td className="px-4 py-3" style={{ color: '#2A2A2A' }}>
+                          <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>
                             {rec ? rec.workingHours.toFixed(1) : '—'}
                           </td>
 
@@ -736,15 +736,15 @@ export function AdminAttendancePage() {
                               <button
                                 onClick={() => setEditingUserId(null)}
                                 className="text-xs underline"
-                                style={{ color: '#8B8B85' }}
+                                style={{ color: 'var(--text-muted)' }}
                               >
                                 Cancel
                               </button>
                             ) : (
                               <button
                                 onClick={() => setEditingUserId(emp.userId)}
-                                className="px-3 py-1 rounded-lg text-xs font-semibold border border-slate-200 hover:bg-slate-50 transition-colors"
-                                style={{ color: '#2A2A2A' }}
+                                className="px-3 py-1 rounded-lg text-xs font-semibold border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors"
+                                style={{ color: 'var(--text-primary)' }}
                               >
                                 Edit
                               </button>
@@ -773,18 +773,18 @@ export function AdminAttendancePage() {
 
           {/* Footer summary */}
           {!loading && records.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs" style={{ color: '#8B8B85' }}>
+            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs" style={{ color: 'var(--text-muted)' }}>
               {(['present', 'half_day', 'absent', 'leave', 'holiday'] as AttendanceStatus[]).map((s) => {
                 const count = records.filter((r) => r.status === s).length;
                 if (!count) return null;
                 return (
                   <span key={s}>
-                    {STATUS_STYLES[s].label}: <strong style={{ color: '#2A2A2A' }}>{count}</strong>
+                    {STATUS_STYLES[s].label}: <strong style={{ color: 'var(--text-primary)' }}>{count}</strong>
                   </span>
                 );
               })}
               <span>
-                No record: <strong style={{ color: '#2A2A2A' }}>{employees.length - records.length}</strong>
+                No record: <strong style={{ color: 'var(--text-primary)' }}>{employees.length - records.length}</strong>
               </span>
             </div>
           )}

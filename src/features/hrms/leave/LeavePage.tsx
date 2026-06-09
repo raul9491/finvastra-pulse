@@ -200,7 +200,7 @@ export function LeavePage() {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
             style={{
               background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
-              color:      '#0B1538',
+              color:      'var(--text-primary)',
               border:     '1px solid rgba(201,169,97,0.40)',
             }}
           >
@@ -342,7 +342,7 @@ export function LeavePage() {
               className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:brightness-110"
               style={{
                 background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
-                color:      '#0B1538',
+                color:      'var(--text-primary)',
                 border:     '1px solid rgba(201,169,97,0.40)',
               }}
             >
@@ -421,7 +421,7 @@ export function LeavePage() {
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-all hover:brightness-110"
                 style={{
                   background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
-                  color:      '#0B1538',
+                  color:      'var(--text-primary)',
                   border:     '1px solid rgba(201,169,97,0.40)',
                 }}
               >

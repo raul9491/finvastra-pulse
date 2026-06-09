@@ -37,7 +37,7 @@ const STATUS_INFO: Record<PerformanceReviewStatus, {
 function RatingDisplay({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex items-center justify-between py-1.5">
-      <span className="text-sm" style={{ color: '#2A2A2A' }}>{label}</span>
+      <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{label}</span>
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((n) => (
           <div
@@ -45,7 +45,7 @@ function RatingDisplay({ label, value }: { label: string; value: number }) {
             className="w-7 h-7 rounded text-xs font-semibold flex items-center justify-center"
             style={{
               backgroundColor: n <= value ? '#C9A961' : '#F1F5F9',
-              color: n <= value ? '#0B1538' : '#CBD5E1',
+              color: n <= value ? '#0B1538' : 'var(--text-muted)',
             }}
           >
             {n}
@@ -99,8 +99,8 @@ export function PerformancePage() {
   if (loading) {
     return (
       <div className="max-w-2xl space-y-8">
-        <div className="h-8 w-48 bg-slate-100 rounded animate-pulse" />
-        <div className="h-24 bg-slate-100 rounded-2xl animate-pulse" />
+        <div className="h-8 w-48 bg-(--glass-panel-bg) rounded animate-pulse" />
+        <div className="h-24 bg-(--glass-panel-bg) rounded-2xl animate-pulse" />
       </div>
     );
   }
@@ -119,24 +119,24 @@ export function PerformancePage() {
             fontStyle: 'italic',
             fontVariationSettings: '"SOFT" 30',
             fontWeight: 300,
-            color: '#0A0A0A',
+            color: 'var(--text-primary)',
           }}
         >
           My Performance Review
         </h2>
-        <p className="text-sm" style={{ color: '#8B8B85' }}>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           {year} Annual Review
         </p>
       </div>
 
       {/* ── No review created yet ── */}
       {!review && (
-        <div className="bg-white rounded-2xl border border-slate-200 px-6 py-10 text-center">
-          <TrendingUp size={32} className="mx-auto mb-3" style={{ color: '#CBD5E1' }} />
-          <p className="text-sm font-medium" style={{ color: '#0A0A0A' }}>
+        <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) px-6 py-10 text-center">
+          <TrendingUp size={32} className="mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
+          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             No review cycle started yet
           </p>
-          <p className="text-xs mt-1" style={{ color: '#8B8B85' }}>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
             HR will initiate the {year} review cycle. You'll see your form here once it's started.
           </p>
         </div>
@@ -160,14 +160,14 @@ export function PerformancePage() {
 
       {/* ── Self-assessment form (if pending) ── */}
       {review?.status === 'pending' && (
-        <form onSubmit={handleSubmitSelf} className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
-          <h3 className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>Self-Assessment</h3>
-          <p className="text-xs" style={{ color: '#8B8B85' }}>
+        <form onSubmit={handleSubmitSelf} className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-6 space-y-5">
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Self-Assessment</h3>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
             Be specific and honest — this feeds directly into your manager's review and HR finalization.
           </p>
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-semibold uppercase tracking-wide" style={{ color: '#8B8B85' }}>
+            <label className="block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
               Key Achievements This Year <span className="text-red-500">*</span>
             </label>
             <textarea
@@ -175,13 +175,13 @@ export function PerformancePage() {
               onChange={(e) => setAchievements(e.target.value)}
               rows={3}
               placeholder="What were your biggest contributions and wins this year?"
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
-              style={{ color: '#0A0A0A' }}
+              className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
+              style={{ color: 'var(--text-primary)' }}
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-semibold uppercase tracking-wide" style={{ color: '#8B8B85' }}>
+            <label className="block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
               Challenges Faced <span className="text-red-500">*</span>
             </label>
             <textarea
@@ -189,13 +189,13 @@ export function PerformancePage() {
               onChange={(e) => setChallenges(e.target.value)}
               rows={3}
               placeholder="What were the major challenges, and how did you handle them?"
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
-              style={{ color: '#0A0A0A' }}
+              className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
+              style={{ color: 'var(--text-primary)' }}
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-semibold uppercase tracking-wide" style={{ color: '#8B8B85' }}>
+            <label className="block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
               Training &amp; Development Needs
             </label>
             <textarea
@@ -203,13 +203,13 @@ export function PerformancePage() {
               onChange={(e) => setTrainingNeeds(e.target.value)}
               rows={2}
               placeholder="Skills, certifications, or training you'd like to pursue…"
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
-              style={{ color: '#0A0A0A' }}
+              className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
+              style={{ color: 'var(--text-primary)' }}
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-semibold uppercase tracking-wide" style={{ color: '#8B8B85' }}>
+            <label className="block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
               Career Goals
             </label>
             <textarea
@@ -217,14 +217,14 @@ export function PerformancePage() {
               onChange={(e) => setCareerGoals(e.target.value)}
               rows={2}
               placeholder="Where do you see yourself in 1–3 years?"
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
-              style={{ color: '#0A0A0A' }}
+              className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
+              style={{ color: 'var(--text-primary)' }}
             />
           </div>
 
           {/* Self-rating */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#8B8B85' }}>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>
               Overall Self-Rating
             </p>
             <div className="flex items-center gap-2">
@@ -238,7 +238,7 @@ export function PerformancePage() {
                     className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all text-xs font-semibold"
                     style={{
                       backgroundColor: selfRating === n ? '#C9A961' : '#F1F5F9',
-                      color: selfRating === n ? '#0B1538' : '#94A3B8',
+                      color: selfRating === n ? '#0B1538' : 'var(--text-muted)',
                     }}
                   >
                     <span className="text-base">{n}</span>
@@ -256,7 +256,7 @@ export function PerformancePage() {
               type="submit"
               disabled={saving}
               className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity"
-              style={{ backgroundColor: '#0B1538', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}
+              style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}
             >
               {saving ? 'Submitting…' : 'Submit Self-Assessment'}
             </button>
@@ -266,26 +266,26 @@ export function PerformancePage() {
 
       {/* ── Submitted self-assessment (readonly) ── */}
       {review?.selfAssessment && (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
           <button
             type="button"
             onClick={() => setOpenSection(openSection === 'self' ? null : 'self')}
-            className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors text-left"
+            className="w-full flex items-center justify-between px-6 py-4 hover:bg-(--glass-panel-bg) transition-colors text-left"
           >
             <div>
-              <p className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>Your Self-Assessment</p>
-              <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Your Self-Assessment</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                 Submitted {review.selfAssessment.submittedAt
                   ? format(toDate(review.selfAssessment.submittedAt) ?? new Date(), 'd MMM yyyy')
                   : ''}
               </p>
             </div>
             {openSection === 'self'
-              ? <ChevronDown size={16} style={{ color: '#8B8B85' }} />
-              : <ChevronRight size={16} style={{ color: '#8B8B85' }} />}
+              ? <ChevronDown size={16} style={{ color: 'var(--text-muted)' }} />
+              : <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />}
           </button>
           {openSection === 'self' && (
-            <div className="px-6 pb-6 pt-2 border-t border-slate-100 space-y-4">
+            <div className="px-6 pb-6 pt-2 border-t border-(--shell-border) space-y-4">
               {[
                 { label: 'Achievements', val: review.selfAssessment.achievements },
                 { label: 'Challenges',   val: review.selfAssessment.challenges },
@@ -293,15 +293,15 @@ export function PerformancePage() {
                 { label: 'Career Goals',   val: review.selfAssessment.careerGoals },
               ].map(({ label, val }) => val ? (
                 <div key={label}>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#8B8B85' }}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>
                     {label}
                   </p>
-                  <p className="text-sm whitespace-pre-wrap" style={{ color: '#2A2A2A' }}>{val}</p>
+                  <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>{val}</p>
                 </div>
               ) : null)}
               <div className="flex items-center gap-2 pt-1">
                 <Star size={13} style={{ color: '#C9A961' }} />
-                <span className="text-xs font-semibold" style={{ color: '#0A0A0A' }}>
+                <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
                   Self-rating: {review.selfAssessment.overallSelfRating} / 5
                 </span>
               </div>
@@ -312,25 +312,25 @@ export function PerformancePage() {
 
       {/* ── Manager review (readonly) ── */}
       {review?.managerReview && (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
           <button
             type="button"
             onClick={() => setOpenSection(openSection === 'mgr' ? null : 'mgr')}
-            className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors text-left"
+            className="w-full flex items-center justify-between px-6 py-4 hover:bg-(--glass-panel-bg) transition-colors text-left"
           >
             <div>
-              <p className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>Manager's Review</p>
-              <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Manager's Review</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                 by {review.managerReview.managerName} ·{' '}
                 Overall: {review.managerReview.overallRating} / 5
               </p>
             </div>
             {openSection === 'mgr'
-              ? <ChevronDown size={16} style={{ color: '#8B8B85' }} />
-              : <ChevronRight size={16} style={{ color: '#8B8B85' }} />}
+              ? <ChevronDown size={16} style={{ color: 'var(--text-muted)' }} />
+              : <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />}
           </button>
           {openSection === 'mgr' && (
-            <div className="px-6 pb-6 pt-2 border-t border-slate-100 space-y-4">
+            <div className="px-6 pb-6 pt-2 border-t border-(--shell-border) space-y-4">
               <div className="divide-y divide-slate-50">
                 <RatingDisplay label="Work Quality"  value={review.managerReview.workQuality} />
                 <RatingDisplay label="Work Quantity" value={review.managerReview.workQuantity} />
@@ -341,14 +341,14 @@ export function PerformancePage() {
               </div>
               {review.managerReview.strengths && (
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#8B8B85' }}>Strengths</p>
-                  <p className="text-sm" style={{ color: '#2A2A2A' }}>{review.managerReview.strengths}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Strengths</p>
+                  <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{review.managerReview.strengths}</p>
                 </div>
               )}
               {review.managerReview.areasForImprovement && (
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#8B8B85' }}>Areas for Improvement</p>
-                  <p className="text-sm" style={{ color: '#2A2A2A' }}>{review.managerReview.areasForImprovement}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>Areas for Improvement</p>
+                  <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{review.managerReview.areasForImprovement}</p>
                 </div>
               )}
               {review.managerReview.recommendedForPromotion && (
@@ -364,17 +364,17 @@ export function PerformancePage() {
 
       {/* ── Finalization / Increment details ── */}
       {review?.status === 'completed' && review.incrementPercentage !== undefined && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
-          <h3 className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>Increment Details</h3>
+        <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-6 space-y-4">
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Increment Details</h3>
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-xl p-4" style={{ backgroundColor: '#F2EFE7' }}>
-              <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#8B8B85' }}>
+              <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>
                 Previous Salary
               </p>
-              <p className="text-lg font-semibold" style={{ color: '#0A0A0A' }}>
+              <p className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {review.oldGrossSalary ? inr(review.oldGrossSalary) : '—'}
               </p>
-              <p className="text-xs" style={{ color: '#8B8B85' }}>per month</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>per month</p>
             </div>
             <div className="rounded-xl p-4" style={{ backgroundColor: '#D1FAE5' }}>
               <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#065F46' }}>
@@ -388,20 +388,20 @@ export function PerformancePage() {
           </div>
           <div className="flex items-center gap-4 text-sm">
             <div>
-              <span style={{ color: '#8B8B85' }}>Increment: </span>
+              <span style={{ color: 'var(--text-muted)' }}>Increment: </span>
               <span className="font-semibold" style={{ color: '#059669' }}>{review.incrementPercentage}%</span>
             </div>
             {review.incrementEffectiveDate && (
               <div>
-                <span style={{ color: '#8B8B85' }}>Effective: </span>
-                <span className="font-semibold" style={{ color: '#0A0A0A' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Effective: </span>
+                <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
                   {format(new Date(review.incrementEffectiveDate), 'd MMM yyyy')}
                 </span>
               </div>
             )}
           </div>
           {review.hrNotes && (
-            <p className="text-xs rounded-xl px-4 py-3" style={{ backgroundColor: '#F8FAFC', color: '#2A2A2A' }}>
+            <p className="text-xs rounded-xl px-4 py-3" style={{ backgroundColor: 'var(--glass-panel-bg)', color: 'var(--text-primary)' }}>
               {review.hrNotes}
             </p>
           )}

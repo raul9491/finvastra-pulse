@@ -283,7 +283,7 @@ function RegularizeModal({
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 transition-all hover:brightness-110"
                 style={{
                   background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
-                  color: '#0B1538',
+                  color: 'var(--text-primary)',
                   border: '1px solid rgba(201,169,97,0.40)',
                 }}
               >
@@ -451,7 +451,7 @@ export function AttendancePage() {
               className="w-full py-4 rounded-2xl font-bold transition-all hover:brightness-110 disabled:opacity-50 flex items-center justify-center gap-3"
               style={{
                 background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
-                color: '#0B1538',
+                color: 'var(--text-primary)',
                 border: '1px solid rgba(201,169,97,0.40)',
                 fontSize: '1.1rem',
               }}

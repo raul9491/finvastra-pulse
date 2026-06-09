@@ -94,13 +94,13 @@ const DEFAULT_SALARY_ROWS: SalaryRow[] = [
 
 // ─── Form style helpers ───────────────────────────────────────────────────────
 
-const baseInp = 'w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-2 bg-white transition-colors';
+const baseInp = 'w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-2 bg-(--glass-panel-bg) transition-colors';
 const baseTa  = `${baseInp} resize-none`;
 
 const inp = (field?: string, fe?: Record<string, string>) =>
   `${baseInp} ${field && fe?.[field]
     ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30'
-    : 'border-slate-200 focus:ring-navy/10 focus:border-navy'}`;
+    : 'border-(--shell-border) focus:ring-navy/10 focus:border-navy'}`;
 
 const fLabel = (
   text: string,
@@ -109,7 +109,7 @@ const fLabel = (
   req = false,
 ) => (
   <label className="block text-xs font-semibold uppercase tracking-wider mb-1"
-    style={{ color: field && fe[field] ? '#DC2626' : '#8B8B85' }}>
+    style={{ color: field && fe[field] ? '#DC2626' : 'var(--text-muted)' }}>
     {text}{req && <span className="text-red-500 ml-0.5">*</span>}
     {field && fe[field] && (
       <span className="ml-2 font-medium normal-case tracking-normal text-red-500">
@@ -498,20 +498,20 @@ export function HrLetterGeneratorPage() {
       {/* Header */}
       <div>
         <h2 className="text-3xl mb-1"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
           HR Letters
         </h2>
-        <p className="text-sm" style={{ color: '#8B8B85' }}>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Generate official Finvastra HR letters — stored in Firebase and available for employees to download.
         </p>
       </div>
 
       {/* Form */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-5">
+      <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl p-6 space-y-5">
 
         {/* Letter type grid */}
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#475569' }}>
+          <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>
             Letter Type
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
@@ -520,11 +520,11 @@ export function HrLetterGeneratorPage() {
                 key={value}
                 onClick={() => { setLetterType(value); setSuccess(''); setError(''); setFieldErrors({}); }}
                 className={`p-3 rounded-xl border text-left transition-all ${
-                  letterType === value ? 'border-navy bg-navy/5' : 'border-slate-200 hover:border-slate-300'
+                  letterType === value ? 'border-navy bg-navy/5' : 'border-(--shell-border) hover:border-slate-300'
                 }`}
               >
-                <p className={`text-xs font-semibold ${letterType === value ? 'text-navy' : 'text-ink'}`}>{lbl}</p>
-                <p className="text-[10px] mt-0.5 leading-tight" style={{ color: '#8B8B85' }}>{desc}</p>
+                <p className={`text-xs font-semibold ${letterType === value ? 'text-navy' : 'text-(--text-primary)'}`}>{lbl}</p>
+                <p className="text-[10px] mt-0.5 leading-tight" style={{ color: 'var(--text-muted)' }}>{desc}</p>
               </button>
             ))}
           </div>
@@ -554,13 +554,13 @@ export function HrLetterGeneratorPage() {
                 <button type="button"
                   onClick={() => { setManualMode(false); setFieldErrors({}); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                  style={{ backgroundColor: !manualMode ? '#0B1538' : '#F2EFE7', color: !manualMode ? '#C9A961' : '#8B8B85' }}>
+                  style={{ backgroundColor: !manualMode ? '#0B1538' : '#F2EFE7', color: !manualMode ? '#C9A961' : 'var(--text-muted)' }}>
                   <Users size={13} />Existing Employee
                 </button>
                 <button type="button"
                   onClick={() => { setManualMode(true); setFieldErrors({}); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                  style={{ backgroundColor: manualMode ? '#0B1538' : '#F2EFE7', color: manualMode ? '#C9A961' : '#8B8B85' }}>
+                  style={{ backgroundColor: manualMode ? '#0B1538' : '#F2EFE7', color: manualMode ? '#C9A961' : 'var(--text-muted)' }}>
                   <UserPlus size={13} />New / No Account
                 </button>
               </div>
@@ -633,7 +633,7 @@ export function HrLetterGeneratorPage() {
                       <option value="HK">HK</option>
                       <option value="CON">CON</option>
                     </select>
-                    <span className="text-slate-400 font-mono text-sm shrink-0">—</span>
+                    <span className="text-(--text-muted) font-mono text-sm shrink-0">—</span>
                     <input type="number" min={1} className={`${I('manualCode')} flex-none`} style={{ width: 80 }}
                       placeholder="001"
                       value={manualNumber}
@@ -655,14 +655,14 @@ export function HrLetterGeneratorPage() {
             {L('Sequence Number', 'seq', true)}
             <input type="number" min="1" className={I('seq')} value={seq}
               onChange={(e) => { setSeq(e.target.value); setFieldErrors((p) => { const n={...p}; delete n.seq; return n; }); }} />
-            <p className="text-[10px] mt-1" style={{ color: '#8B8B85' }}>Ref: {refPreview}</p>
+            <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Ref: {refPreview}</p>
           </div>
         </div>
 
         {/* ── Offer Letter fields ── */}
         {letterType === 'offer_letter' && (
-          <div className="space-y-4 pt-2 border-t border-slate-100">
-            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#475569' }}>Offer Details</p>
+          <div className="space-y-4 pt-2 border-t border-(--shell-border)">
+            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Offer Details</p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
@@ -729,13 +729,13 @@ export function HrLetterGeneratorPage() {
 
         {/* ── Appointment fields ── */}
         {letterType === 'appointment' && (
-          <div className="space-y-4 pt-2 border-t border-slate-100">
-            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#475569' }}>Appointment Details</p>
+          <div className="space-y-4 pt-2 border-t border-(--shell-border)">
+            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Appointment Details</p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
                 {L('Residential Address (for contract party description)', 'apt_empAddress', true)}
-                <textarea className={`${baseTa} ${fe.apt_empAddress ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30' : 'border-slate-200 focus:ring-navy/10 focus:border-navy'}`}
+                <textarea className={`${baseTa} ${fe.apt_empAddress ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30' : 'border-(--shell-border) focus:ring-navy/10 focus:border-navy'}`}
                   rows={2} placeholder="e.g. 116, Gayatri Hills, Jubilee Hills, Hyderabad, Telangana - 500033"
                   value={apt_empAddress} onChange={(e) => setApt_empAddress(e.target.value)} />
               </div>
@@ -781,7 +781,7 @@ export function HrLetterGeneratorPage() {
                 {L('CTC in Words (auto-filled)', 'apt_ctcInWords', true)}
                 <input className={I('apt_ctcInWords')} placeholder="Auto-fills when you enter CTC above"
                   value={apt_ctcInWords} onChange={(e) => setApt_ctcInWords(e.target.value)} />
-                <p className="text-[10px] mt-1" style={{ color: '#8B8B85' }}>Auto-calculated — edit if needed</p>
+                <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Auto-calculated — edit if needed</p>
               </div>
             </div>
 
@@ -790,15 +790,15 @@ export function HrLetterGeneratorPage() {
               <div className="flex items-center justify-between mb-2">
                 {L('Salary Breakdown (Annexure I)', 'apt_salary', true)}
                 <button type="button" onClick={addSalaryRow}
-                  className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-slate-200 hover:bg-slate-50">
+                  className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg border border-(--shell-border) hover:bg-(--glass-panel-bg)">
                   <Plus size={11} /> Add Row
                 </button>
               </div>
               {fe.apt_salary && <p className="text-xs text-red-500 mb-2">{fe.apt_salary}</p>}
-              <div className="rounded-xl border border-slate-200 overflow-hidden">
+              <div className="rounded-xl border border-(--shell-border) overflow-hidden">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr style={{ backgroundColor: '#0B1538' }}>
+                    <tr style={{ backgroundColor: 'var(--text-primary)' }}>
                       <th className="px-3 py-2 text-left font-semibold text-[10px] uppercase tracking-wider" style={{ color: '#C9A961', width: '35%' }}>Component</th>
                       <th className="px-3 py-2 text-left font-semibold text-[10px] uppercase tracking-wider" style={{ color: '#C9A961', width: '30%' }}>Description</th>
                       <th className="px-3 py-2 text-right font-semibold text-[10px] uppercase tracking-wider" style={{ color: '#C9A961', width: '17%' }}>Monthly (₹)</th>
@@ -811,9 +811,9 @@ export function HrLetterGeneratorPage() {
                       const monthly = parseFloat(row.monthly.replace(/,/g, '')) || 0;
                       const annual  = (monthly * 12).toLocaleString('en-IN');
                       return (
-                        <tr key={idx} className="border-t border-slate-100">
+                        <tr key={idx} className="border-t border-(--shell-border)">
                           <td className="px-2 py-1.5">
-                            <select className="w-full text-xs px-2 py-1 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-navy/10 bg-white"
+                            <select className="w-full text-xs px-2 py-1 border border-(--shell-border) rounded-lg outline-none focus:ring-2 focus:ring-navy/10 bg-(--glass-panel-bg)"
                               value={row.component}
                               onChange={(e) => updateSalaryRow(idx, 'component', e.target.value)}>
                               <option value="">— Select component —</option>
@@ -821,16 +821,16 @@ export function HrLetterGeneratorPage() {
                             </select>
                           </td>
                           <td className="px-2 py-1.5">
-                            <input className="w-full text-xs px-2 py-1 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-navy/10"
+                            <input className="w-full text-xs px-2 py-1 border border-(--shell-border) rounded-lg outline-none focus:ring-2 focus:ring-navy/10"
                               value={row.description} placeholder="e.g. Monthly Fixed"
                               onChange={(e) => updateSalaryRow(idx, 'description', e.target.value)} />
                           </td>
                           <td className="px-2 py-1.5">
-                            <input className="w-full text-xs px-2 py-1 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-navy/10 text-right"
+                            <input className="w-full text-xs px-2 py-1 border border-(--shell-border) rounded-lg outline-none focus:ring-2 focus:ring-navy/10 text-right"
                               value={row.monthly} placeholder="35000"
                               onChange={(e) => updateSalaryRow(idx, 'monthly', e.target.value.replace(/[^0-9,]/g, ''))} />
                           </td>
-                          <td className="px-3 py-1.5 text-right font-medium" style={{ color: '#475569' }}>
+                          <td className="px-3 py-1.5 text-right font-medium" style={{ color: 'var(--text-muted)' }}>
                             {monthly > 0 ? annual : '—'}
                           </td>
                           <td className="px-2 py-1.5 text-center">
@@ -844,11 +844,11 @@ export function HrLetterGeneratorPage() {
                     })}
                     {/* Totals row */}
                     <tr className="border-t-2 border-slate-300" style={{ backgroundColor: '#F5EDD8' }}>
-                      <td className="px-3 py-2 text-xs font-bold" style={{ color: '#0B1538' }} colSpan={2}>TOTAL COST TO COMPANY (CTC)</td>
-                      <td className="px-3 py-2 text-xs font-bold text-right" style={{ color: '#0B1538' }}>
+                      <td className="px-3 py-2 text-xs font-bold" style={{ color: 'var(--text-primary)' }} colSpan={2}>TOTAL COST TO COMPANY (CTC)</td>
+                      <td className="px-3 py-2 text-xs font-bold text-right" style={{ color: 'var(--text-primary)' }}>
                         {totalMonthly > 0 ? totalMonthly.toLocaleString('en-IN') : '—'}
                       </td>
-                      <td className="px-3 py-2 text-xs font-bold text-right" style={{ color: '#0B1538' }}>
+                      <td className="px-3 py-2 text-xs font-bold text-right" style={{ color: 'var(--text-primary)' }}>
                         {totalMonthly > 0 ? (totalMonthly * 12).toLocaleString('en-IN') : '—'}
                       </td>
                       <td></td>
@@ -862,7 +862,7 @@ export function HrLetterGeneratorPage() {
 
         {/* ── Confirmation fields ── */}
         {letterType === 'confirmation' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-(--shell-border)">
             <div>
               {L('Designation', 'con_designation', true)}
               <input className={I('con_designation')} value={con_designation} onChange={(e) => setCon_designation(e.target.value)} />
@@ -892,7 +892,7 @@ export function HrLetterGeneratorPage() {
 
         {/* ── Probation Extension fields ── */}
         {letterType === 'probation_extension' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-(--shell-border)">
             <div>
               {L('Designation', 'pex_designation', true)}
               <input className={I('pex_designation')} value={pex_designation} onChange={(e) => setPex_designation(e.target.value)} />
@@ -917,10 +917,10 @@ export function HrLetterGeneratorPage() {
 
         {/* ── Consultant Agreement fields ── */}
         {letterType === 'consultant_agreement' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-(--shell-border)">
             <div className="sm:col-span-2">
               {L('Residential Address (for contract party description)', 'cag_consultantAddress', true)}
-              <textarea className={`${baseTa} ${fe.cag_consultantAddress ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30' : 'border-slate-200 focus:ring-navy/10 focus:border-navy'}`}
+              <textarea className={`${baseTa} ${fe.cag_consultantAddress ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30' : 'border-(--shell-border) focus:ring-navy/10 focus:border-navy'}`}
                 rows={2} placeholder="e.g. 42, Banjara Hills Road No. 12, Hyderabad, Telangana - 500034"
                 value={cag_consultantAddress} onChange={(e) => setCag_consultantAddress(e.target.value)} />
             </div>
@@ -956,7 +956,7 @@ export function HrLetterGeneratorPage() {
             </div>
             <div className="sm:col-span-2">
               {L('Scope of Services', 'cag_scopeOfServices', true)}
-              <textarea className={`${baseTa} ${fe.cag_scopeOfServices ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30' : 'border-slate-200 focus:ring-navy/10 focus:border-navy'}`}
+              <textarea className={`${baseTa} ${fe.cag_scopeOfServices ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30' : 'border-(--shell-border) focus:ring-navy/10 focus:border-navy'}`}
                 rows={4} placeholder="Describe the services to be provided — shooting and editing visual content, developing creative concepts, etc."
                 value={cag_scopeOfServices} onChange={(e) => setCag_scopeOfServices(e.target.value)} />
             </div>
@@ -989,26 +989,26 @@ export function HrLetterGeneratorPage() {
 
       {/* Recent letters log */}
       <div className="space-y-3">
-        <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#475569' }}>
+        <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
           Recently Generated Letters
         </h3>
-        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+        <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl overflow-hidden">
           {llLoading ? (
             <div className="p-6 space-y-3">
-              {[1, 2, 3].map((i) => <div key={i} className="h-10 bg-slate-100 rounded-lg animate-pulse" />)}
+              {[1, 2, 3].map((i) => <div key={i} className="h-10 bg-(--glass-panel-bg) rounded-lg animate-pulse" />)}
             </div>
           ) : letters.length === 0 ? (
             <div className="py-10 text-center">
               <FileText size={32} className="mx-auto mb-3 text-slate-200" />
-              <p className="text-sm" style={{ color: '#8B8B85' }}>No letters generated yet.</p>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No letters generated yet.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100">
+                  <tr className="border-b border-(--shell-border)">
                     {['Employee', 'Letter Type', 'Ref #', 'Generated By', 'Date', ''].map((h) => (
-                      <th key={h} className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>{h}</th>
+                      <th key={h} className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -1033,31 +1033,31 @@ function LetterRow({ letter: l }: { letter: GeneratedLetter }) {
   const typeLabel = LETTER_TYPES.find((t) => t.value === l.letterType)?.label ?? l.letterType;
 
   return (
-    <tr className="border-b border-slate-50 hover:bg-slate-50/50">
-      <td className="px-4 py-3 font-medium" style={{ color: '#0A0A0A' }}>{l.employeeName}</td>
+    <tr className="border-b border-slate-50 hover:bg-(--glass-panel-bg)/50">
+      <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{l.employeeName}</td>
       <td className="px-4 py-3">
         <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
           style={{ backgroundColor: '#EDE9FE', color: '#5B21B6' }}>
           {typeLabel}
         </span>
       </td>
-      <td className="px-4 py-3 font-mono text-xs" style={{ color: '#8B8B85' }}>{l.refNumber}</td>
-      <td className="px-4 py-3 text-xs" style={{ color: '#8B8B85' }}>{l.generatedByName}</td>
-      <td className="px-4 py-3 text-xs" style={{ color: '#8B8B85' }}>
+      <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>{l.refNumber}</td>
+      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{l.generatedByName}</td>
+      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
         {d ? format(d, 'd MMM yyyy, h:mm a') : '—'}
       </td>
       <td className="px-4 py-3">
         {l.storageUrl ? (
           <button
             onClick={() => window.open(l.storageUrl!, '_blank')}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-200 hover:bg-slate-50 transition-colors"
-            style={{ color: '#0B1538' }}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors"
+            style={{ color: 'var(--text-primary)' }}
             title="Open / download PDF"
           >
             <Download size={12} /> PDF
           </button>
         ) : (
-          <span className="text-xs" style={{ color: '#8B8B85' }}>—</span>
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>
         )}
       </td>
     </tr>

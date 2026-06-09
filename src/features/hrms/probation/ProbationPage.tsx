@@ -75,7 +75,7 @@ function RatingRow({
 }: { label: string; value: number; onChange?: (v: number) => void }) {
   return (
     <div className="flex items-center justify-between py-1.5">
-      <span className="text-sm" style={{ color: '#2A2A2A' }}>{label}</span>
+      <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{label}</span>
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((n) => (
           <button
@@ -85,7 +85,7 @@ function RatingRow({
             className={`w-7 h-7 rounded text-xs font-semibold transition-all ${onChange ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`}
             style={{
               backgroundColor: n <= value ? '#C9A961' : '#F1F5F9',
-              color: n <= value ? '#0B1538' : '#94A3B8',
+              color: n <= value ? '#0B1538' : 'var(--text-muted)',
             }}
           >
             {n}
@@ -145,17 +145,17 @@ function EvalModal({ record, byUid, onClose }: EvalModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-(--shell-border)">
           <div>
-            <h3 className="text-base font-semibold" style={{ color: '#0A0A0A' }}>
+            <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
               Probation Evaluation
             </h3>
-            <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>{record.employeeName}</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{record.employeeName}</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
-            <X size={16} style={{ color: '#8B8B85' }} />
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--glass-panel-bg) transition-colors">
+            <X size={16} style={{ color: 'var(--text-muted)' }} />
           </button>
         </div>
 
@@ -163,24 +163,24 @@ function EvalModal({ record, byUid, onClose }: EvalModalProps) {
           {/* Reporting Manager */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5"
-              style={{ color: '#8B8B85' }}>
+              style={{ color: 'var(--text-muted)' }}>
               Evaluated By (Reporting Manager)
             </label>
             <input
               value={rmName}
               onChange={(e) => setRmName(e.target.value)}
               placeholder="e.g. Ajay Newatia"
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
-              style={{ color: '#0A0A0A' }}
+              className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              style={{ color: 'var(--text-primary)' }}
             />
           </div>
 
           {/* Competency Ratings */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#8B8B85' }}>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>
               Competency Ratings
             </p>
-            <div className="rounded-xl border border-slate-100 px-4 divide-y divide-slate-50">
+            <div className="rounded-xl border border-(--shell-border) px-4 divide-y divide-slate-50">
               <RatingRow label="Work Quality"       value={workQuality}   onChange={setWorkQuality} />
               <RatingRow label="Communication"      value={communication} onChange={setCommunication} />
               <RatingRow label="Attendance"         value={attendance}    onChange={setAttendance} />
@@ -189,7 +189,7 @@ function EvalModal({ record, byUid, onClose }: EvalModalProps) {
             </div>
             <div className="mt-2 flex items-center gap-2 px-1">
               <Star size={13} style={{ color: '#C9A961' }} />
-              <span className="text-xs font-semibold" style={{ color: '#0A0A0A' }}>
+              <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
                 Overall: {overallRating} / 5
               </span>
             </div>
@@ -197,7 +197,7 @@ function EvalModal({ record, byUid, onClose }: EvalModalProps) {
 
           {/* Recommendation */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#8B8B85' }}>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>
               Recommendation
             </p>
             <div className="grid grid-cols-3 gap-2">
@@ -216,7 +216,7 @@ function EvalModal({ record, byUid, onClose }: EvalModalProps) {
                     className="py-2 rounded-xl text-xs font-semibold transition-all"
                     style={{
                       backgroundColor: active ? cfg.bg : '#F8FAFC',
-                      color: active ? cfg.color : '#94A3B8',
+                      color: active ? cfg.color : 'var(--text-muted)',
                       border: `2px solid ${active ? cfg.bg : '#F1F5F9'}`,
                     }}
                   >
@@ -230,7 +230,7 @@ function EvalModal({ record, byUid, onClose }: EvalModalProps) {
           {/* Notes */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5"
-              style={{ color: '#8B8B85' }}>
+              style={{ color: 'var(--text-muted)' }}>
               Notes <span className="font-normal normal-case">(optional)</span>
             </label>
             <textarea
@@ -238,8 +238,8 @@ function EvalModal({ record, byUid, onClose }: EvalModalProps) {
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
               placeholder="Areas of improvement, strengths, specific feedback…"
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
-              style={{ color: '#0A0A0A' }}
+              className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
+              style={{ color: 'var(--text-primary)' }}
             />
           </div>
 
@@ -250,12 +250,12 @@ function EvalModal({ record, byUid, onClose }: EvalModalProps) {
               onClick={handleSave}
               disabled={saving}
               className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity"
-              style={{ backgroundColor: '#0B1538', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}
+              style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}
             >
               {saving ? 'Saving…' : 'Save Evaluation'}
             </button>
             <button onClick={onClose} className="text-sm transition-opacity hover:opacity-60"
-              style={{ color: '#8B8B85' }}>
+              style={{ color: 'var(--text-muted)' }}>
               Cancel
             </button>
           </div>
@@ -292,13 +292,13 @@ function ConfirmModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h3 className="text-base font-semibold" style={{ color: '#0A0A0A' }}>
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-(--shell-border)">
+          <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
             Confirm Probation
           </h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
-            <X size={16} style={{ color: '#8B8B85' }} />
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--glass-panel-bg) transition-colors">
+            <X size={16} style={{ color: 'var(--text-muted)' }} />
           </button>
         </div>
         <div className="px-6 py-5 space-y-4">
@@ -312,15 +312,15 @@ function ConfirmModal({
           </div>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5"
-              style={{ color: '#8B8B85' }}>
+              style={{ color: 'var(--text-muted)' }}>
               Notes <span className="font-normal normal-case">(optional)</span>
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
-              style={{ color: '#0A0A0A' }}
+              className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
+              style={{ color: 'var(--text-primary)' }}
             />
           </div>
           <div className="flex items-center gap-3 pt-1">
@@ -333,7 +333,7 @@ function ConfirmModal({
               {saving ? 'Confirming…' : 'Confirm Employment'}
             </button>
             <button onClick={onClose} className="text-sm transition-opacity hover:opacity-60"
-              style={{ color: '#8B8B85' }}>
+              style={{ color: 'var(--text-muted)' }}>
               Cancel
             </button>
           </div>
@@ -379,13 +379,13 @@ function ExtendModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h3 className="text-base font-semibold" style={{ color: '#0A0A0A' }}>
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-(--shell-border)">
+          <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
             Extend Probation
           </h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
-            <X size={16} style={{ color: '#8B8B85' }} />
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--glass-panel-bg) transition-colors">
+            <X size={16} style={{ color: 'var(--text-muted)' }} />
           </button>
         </div>
         <div className="px-6 py-5 space-y-4">
@@ -401,7 +401,7 @@ function ExtendModal({
           {/* Extension period */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide mb-2"
-              style={{ color: '#8B8B85' }}>
+              style={{ color: 'var(--text-muted)' }}>
               Extend By
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -413,7 +413,7 @@ function ExtendModal({
                   className="py-2.5 rounded-xl text-sm font-semibold transition-all"
                   style={{
                     backgroundColor: months === m ? '#0B1538' : '#F8FAFC',
-                    color: months === m ? '#FFFFFF' : '#94A3B8',
+                    color: months === m ? '#FFFFFF' : 'var(--text-muted)',
                   }}
                 >
                   {m} Month{m > 1 ? 's' : ''}
@@ -424,10 +424,10 @@ function ExtendModal({
 
           {/* New end date preview */}
           <div className="rounded-xl px-4 py-3" style={{ backgroundColor: '#F2EFE7' }}>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-0.5" style={{ color: '#8B8B85' }}>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-muted)' }}>
               New Probation End Date
             </p>
-            <p className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
               {fmtDate(newEndDate)}
             </p>
           </div>
@@ -435,7 +435,7 @@ function ExtendModal({
           {/* Reason */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5"
-              style={{ color: '#8B8B85' }}>
+              style={{ color: 'var(--text-muted)' }}>
               Reason for Extension <span className="text-red-500">*</span>
             </label>
             <textarea
@@ -443,8 +443,8 @@ function ExtendModal({
               onChange={(e) => setReason(e.target.value)}
               rows={3}
               placeholder="Describe the areas requiring improvement or circumstances…"
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
-              style={{ color: '#0A0A0A' }}
+              className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
+              style={{ color: 'var(--text-primary)' }}
             />
           </div>
 
@@ -455,12 +455,12 @@ function ExtendModal({
               onClick={handleExtend}
               disabled={saving}
               className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity"
-              style={{ backgroundColor: '#0B1538', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}
+              style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}
             >
               {saving ? 'Extending…' : 'Extend Probation'}
             </button>
             <button onClick={onClose} className="text-sm transition-opacity hover:opacity-60"
-              style={{ color: '#8B8B85' }}>
+              style={{ color: 'var(--text-muted)' }}>
               Cancel
             </button>
           </div>
@@ -687,12 +687,12 @@ function downloadExtensionLetter(record: ProbationRecord): void {
 
 function StatCard({ label, count, color }: { label: string; count: number; color: string }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 flex items-center gap-4">
+    <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-5 flex items-center gap-4">
       <div className="w-10 h-10 rounded-xl flex items-center justify-center"
         style={{ backgroundColor: color + '20' }}>
         <span className="text-lg font-bold" style={{ color }}>{count}</span>
       </div>
-      <p className="text-sm font-medium" style={{ color: '#2A2A2A' }}>{label}</p>
+      <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{label}</p>
     </div>
   );
 }
@@ -801,12 +801,12 @@ export function ProbationPage() {
             fontStyle: 'italic',
             fontVariationSettings: '"SOFT" 30',
             fontWeight: 300,
-            color: '#0A0A0A',
+            color: 'var(--text-primary)',
           }}
         >
           Probation Management
         </h2>
-        <p className="text-sm" style={{ color: '#8B8B85' }}>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           6-month probation tracking · confirmation &amp; extension letters
         </p>
       </div>
@@ -827,8 +827,8 @@ export function ProbationPage() {
             onClick={() => setFilter(f)}
             className="px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all"
             style={filter === f
-              ? { backgroundColor: '#0B1538', color: '#FFFFFF' }
-              : { backgroundColor: '#F1F5F9', color: '#64748B' }}
+              ? { backgroundColor: 'var(--text-primary)', color: '#FFFFFF' }
+              : { backgroundColor: 'var(--glass-panel-bg)', color: 'var(--text-muted)' }}
           >
             {FILTER_LABELS[f]}
           </button>
@@ -836,23 +836,23 @@ export function ProbationPage() {
       </div>
 
       {/* ── Table ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
         {loading ? (
-          <div className="p-6 text-sm" style={{ color: '#8B8B85' }}>Loading…</div>
+          <div className="p-6 text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</div>
         ) : filtered.length === 0 ? (
           <div className="px-6 py-12 text-center">
-            <GraduationCap size={32} className="mx-auto mb-3" style={{ color: '#CBD5E1' }} />
-            <p className="text-sm" style={{ color: '#8B8B85' }}>No probation records for this filter.</p>
+            <GraduationCap size={32} className="mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No probation records for this filter.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100">
+                <tr className="border-b border-(--shell-border)">
                   {['Employee', 'Dept / Role', 'Joining', 'Probation End', 'Timeline', 'Eval', 'Status', ''].map((h) => (
                     <th key={h}
                       className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide"
-                      style={{ color: '#8B8B85' }}>
+                      style={{ color: 'var(--text-muted)' }}>
                       {h}
                     </th>
                   ))}
@@ -867,30 +867,30 @@ export function ProbationPage() {
 
                   return (
                     <tr key={rec.id}
-                      className={`border-b border-slate-50 transition-colors ${isSuccess ? 'bg-green-50' : 'hover:bg-slate-50'}`}>
+                      className={`border-b border-slate-50 transition-colors ${isSuccess ? 'bg-green-50' : 'hover:bg-(--glass-panel-bg)'}`}>
                       {/* Employee */}
                       <td className="px-5 py-3.5">
-                        <p className="font-semibold text-sm" style={{ color: '#0A0A0A' }}>
+                        <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
                           {rec.employeeName}
                         </p>
                         {rec.employeeCode && (
-                          <p className="text-xs" style={{ color: '#8B8B85' }}>{rec.employeeCode}</p>
+                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{rec.employeeCode}</p>
                         )}
                       </td>
 
                       {/* Dept / Role */}
                       <td className="px-5 py-3.5">
-                        <p className="text-xs" style={{ color: '#2A2A2A' }}>{rec.department ?? '—'}</p>
-                        <p className="text-xs" style={{ color: '#8B8B85' }}>{rec.designation ?? ''}</p>
+                        <p className="text-xs" style={{ color: 'var(--text-primary)' }}>{rec.department ?? '—'}</p>
+                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{rec.designation ?? ''}</p>
                       </td>
 
                       {/* Joining */}
-                      <td className="px-5 py-3.5 text-xs" style={{ color: '#2A2A2A' }}>
+                      <td className="px-5 py-3.5 text-xs" style={{ color: 'var(--text-primary)' }}>
                         {fmtDate(rec.joiningDate)}
                       </td>
 
                       {/* Probation End */}
-                      <td className="px-5 py-3.5 text-xs" style={{ color: '#2A2A2A' }}>
+                      <td className="px-5 py-3.5 text-xs" style={{ color: 'var(--text-primary)' }}>
                         {fmtDate(rec.probationEndDate)}
                         {rec.status === 'extended' && (
                           <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold"
@@ -914,7 +914,7 @@ export function ProbationPage() {
                             {label}
                           </span>
                         ) : rec.status === 'confirmed' ? (
-                          <span className="text-xs" style={{ color: '#8B8B85' }}>
+                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                             {rec.confirmedAt ? format(toDate(rec.confirmedAt) ?? new Date(), 'd MMM yyyy') : '—'}
                           </span>
                         ) : null}
@@ -926,18 +926,18 @@ export function ProbationPage() {
                           <div>
                             <div className="flex items-center gap-1">
                               <Star size={11} style={{ color: '#C9A961' }} />
-                              <span className="text-xs font-semibold" style={{ color: '#0A0A0A' }}>
+                              <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
                                 {rec.evaluation!.overallRating}
                               </span>
                             </div>
-                            <p className="text-[10px] mt-0.5" style={{ color: '#8B8B85' }}>
+                            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
                               {rec.evaluation!.recommendation === 'confirm' ? '→ Confirm' :
                                rec.evaluation!.recommendation === 'extend'  ? '→ Extend' :
                                '→ Terminate'}
                             </p>
                           </div>
                         ) : (
-                          <span className="text-xs" style={{ color: '#CBD5E1' }}>
+                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                             {isActive ? 'Pending' : '—'}
                           </span>
                         )}
@@ -982,8 +982,8 @@ export function ProbationPage() {
                           {rec.status === 'confirmed' && (
                             <button
                               onClick={() => downloadConfirmationLetter(rec)}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors hover:bg-slate-100"
-                              style={{ color: '#8B8B85' }}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors hover:bg-(--glass-panel-bg)"
+                              style={{ color: 'var(--text-muted)' }}
                               title="Download Confirmation Letter"
                             >
                               <Download size={11} />
@@ -993,8 +993,8 @@ export function ProbationPage() {
                           {rec.status === 'extended' && (
                             <button
                               onClick={() => downloadExtensionLetter(rec)}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors hover:bg-slate-100"
-                              style={{ color: '#8B8B85' }}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors hover:bg-(--glass-panel-bg)"
+                              style={{ color: 'var(--text-muted)' }}
                               title="Download Extension Letter"
                             >
                               <Download size={11} />
@@ -1013,7 +1013,7 @@ export function ProbationPage() {
       </div>
 
       {/* ── Info footer ── */}
-      <p className="text-xs" style={{ color: '#8B8B85' }}>
+      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
         Probation records are auto-created for all active employees with a joining date. HR Handbook: 6-month standard probation.
         Evaluation form is shared by the Reporting Manager after 90 days.
       </p>

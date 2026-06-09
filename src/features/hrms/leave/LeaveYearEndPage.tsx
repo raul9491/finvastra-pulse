@@ -152,10 +152,10 @@ export function LeaveYearEndPage() {
       {/* Header */}
       <div>
         <h2 className="text-3xl mb-1"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
           Leave Year-End Reset
         </h2>
-        <p className="text-sm text-mute">
+        <p className="text-sm text-(--text-muted)">
           Resets all employee leave balances at the start of each financial year (April 1).
           EL carry-forward is capped at 30 days; 15 new EL days are always added.
         </p>
@@ -217,8 +217,8 @@ export function LeaveYearEndPage() {
       )}
 
       {/* Reset rules reference */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6">
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#475569' }}>
+      <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl p-6">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'var(--text-muted)' }}>
           Reset Rules — HR Handbook
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -228,58 +228,58 @@ export function LeaveYearEndPage() {
             { label: 'Earned Leave', rule: 'Carry + 15', note: 'min(prev EL, 30) + 15' },
             { label: 'Comp Off',     rule: 'Reset to 0', note: 'Grants credited separately' },
           ].map(({ label, rule, note }) => (
-            <div key={label} className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-mute mb-1">{label}</p>
-              <p className="text-sm font-bold" style={{ color: '#0B1538' }}>{rule}</p>
-              <p className="text-[11px] text-mute mt-0.5">{note}</p>
+            <div key={label} className="p-3 rounded-xl bg-(--glass-panel-bg) border border-(--shell-border)">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-(--text-muted) mb-1">{label}</p>
+              <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{rule}</p>
+              <p className="text-[11px] text-(--text-muted) mt-0.5">{note}</p>
             </div>
           ))}
         </div>
       </div>
 
       {/* Preview table */}
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>
+      <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-(--shell-border) flex items-center justify-between">
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
             Preview — FY {year}–{year + 1}
           </h3>
-          <span className="text-xs text-mute">
+          <span className="text-xs text-(--text-muted)">
             Based on {prevYear} EL remaining
           </span>
         </div>
         {previewLoading ? (
           <div className="p-6 space-y-3">
-            {[1, 2, 3, 4].map((i) => <div key={i} className="h-10 bg-slate-100 rounded-lg animate-pulse" />)}
+            {[1, 2, 3, 4].map((i) => <div key={i} className="h-10 bg-(--glass-panel-bg) rounded-lg animate-pulse" />)}
           </div>
         ) : preview.length === 0 ? (
-          <div className="py-10 text-center text-sm text-mute">No active employees found.</div>
+          <div className="py-10 text-center text-sm text-(--text-muted)">No active employees found.</div>
         ) : (
           <>
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/50">
-                  <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-mute">Employee</th>
-                  <th className="text-center px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-mute">CL</th>
-                  <th className="text-center px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-mute">SL</th>
-                  <th className="text-center px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-mute">EL (prev remaining)</th>
-                  <th className="text-center px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-mute">EL carry</th>
-                  <th className="text-center px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-mute">New EL total</th>
-                  <th className="text-center px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-mute">Comp Off</th>
+                <tr className="border-b border-(--shell-border) bg-(--glass-panel-bg)/50">
+                  <th className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Employee</th>
+                  <th className="text-center px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">CL</th>
+                  <th className="text-center px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">SL</th>
+                  <th className="text-center px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">EL (prev remaining)</th>
+                  <th className="text-center px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">EL carry</th>
+                  <th className="text-center px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">New EL total</th>
+                  <th className="text-center px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Comp Off</th>
                 </tr>
               </thead>
               <tbody>
                 {displayRows.map((row) => (
-                  <tr key={row.empId} className="border-b border-slate-50 hover:bg-slate-50/50">
+                  <tr key={row.empId} className="border-b border-slate-50 hover:bg-(--glass-panel-bg)/50">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-ink">{row.name}</p>
-                      <p className="text-[11px] text-mute">{row.empCode}</p>
+                      <p className="font-medium text-(--text-primary)">{row.name}</p>
+                      <p className="text-[11px] text-(--text-muted)">{row.empCode}</p>
                     </td>
-                    <td className="px-4 py-3 text-center font-semibold" style={{ color: '#0B1538' }}>8</td>
-                    <td className="px-4 py-3 text-center font-semibold" style={{ color: '#0B1538' }}>7</td>
-                    <td className="px-4 py-3 text-center text-mute">{row.prevElRemain}</td>
+                    <td className="px-4 py-3 text-center font-semibold" style={{ color: 'var(--text-primary)' }}>8</td>
+                    <td className="px-4 py-3 text-center font-semibold" style={{ color: 'var(--text-primary)' }}>7</td>
+                    <td className="px-4 py-3 text-center text-(--text-muted)">{row.prevElRemain}</td>
                     <td className="px-4 py-3 text-center">
                       <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                        style={{ backgroundColor: row.elCarryForward > 0 ? '#FEF3C7' : '#F1F5F9', color: row.elCarryForward > 0 ? '#92400E' : '#64748B' }}>
+                        style={{ backgroundColor: row.elCarryForward > 0 ? '#FEF3C7' : '#F1F5F9', color: row.elCarryForward > 0 ? '#92400E' : 'var(--text-muted)' }}>
                         {row.elCarryForward}
                       </span>
                     </td>
@@ -289,7 +289,7 @@ export function LeaveYearEndPage() {
                         {row.newElTotal}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center text-mute text-xs">0 (reset)</td>
+                    <td className="px-4 py-3 text-center text-(--text-muted) text-xs">0 (reset)</td>
                   </tr>
                 ))}
               </tbody>
@@ -297,7 +297,7 @@ export function LeaveYearEndPage() {
             {preview.length > 8 && (
               <button
                 onClick={() => setShowAll((p) => !p)}
-                className="w-full py-3 text-xs font-medium text-mute hover:text-ink flex items-center justify-center gap-1.5 border-t border-slate-100 transition-colors"
+                className="w-full py-3 text-xs font-medium text-(--text-muted) hover:text-(--text-primary) flex items-center justify-center gap-1.5 border-t border-(--shell-border) transition-colors"
               >
                 {showAll
                   ? <><ChevronUp size={13} /> Show fewer</>
@@ -328,17 +328,17 @@ export function LeaveYearEndPage() {
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-5">
+          <div className="bg-(--glass-panel-bg) rounded-2xl shadow-xl w-full max-w-md p-6 space-y-5">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full flex items-center justify-center"
                 style={{ backgroundColor: '#FEF3C7' }}>
                 <AlertCircle size={20} style={{ color: '#D97706' }} />
               </div>
               <div>
-                <h3 className="text-base font-semibold" style={{ color: '#0A0A0A' }}>
+                <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
                   Confirm Year-End Reset
                 </h3>
-                <p className="text-xs text-mute">FY {year}–{year + 1} · {preview.length} employees</p>
+                <p className="text-xs text-(--text-muted)">FY {year}–{year + 1} · {preview.length} employees</p>
               </div>
             </div>
 
@@ -348,14 +348,14 @@ export function LeaveYearEndPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-mute">
-                Type <span className="font-mono text-ink bg-slate-100 px-1.5 py-0.5 rounded">{confirmPhrase}</span> to confirm
+              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-(--text-muted)">
+                Type <span className="font-mono text-(--text-primary) bg-(--glass-panel-bg) px-1.5 py-0.5 rounded">{confirmPhrase}</span> to confirm
               </label>
               <input
                 type="text"
-                className="w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-2 bg-white"
+                className="w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-2 bg-(--glass-panel-bg)"
                 style={{
-                  borderColor: confirmInput && !isConfirmed ? '#F87171' : '#CBD5E1',
+                  borderColor: confirmInput && !isConfirmed ? '#F87171' : 'var(--text-muted)',
                   ...(isConfirmed && { borderColor: '#6EE7B7', backgroundColor: '#F0FDF4' }),
                 }}
                 placeholder={confirmPhrase}
@@ -372,7 +372,7 @@ export function LeaveYearEndPage() {
               <button
                 onClick={() => setShowConfirm(false)}
                 disabled={running}
-                className="px-4 py-2 rounded-xl text-sm font-medium border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                className="px-4 py-2 rounded-xl text-sm font-medium border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>

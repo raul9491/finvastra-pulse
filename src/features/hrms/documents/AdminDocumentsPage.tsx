@@ -37,7 +37,7 @@ function toTs(ts: any): Date | null {
   return null;
 }
 
-const inp = 'w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-navy/10 focus:border-navy';
+const inp = 'w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-navy/10 focus:border-navy';
 
 // ─── Upload Company Doc Modal ──────────────────────────────────────────────────
 
@@ -78,53 +78,53 @@ function UploadCompanyDocModal({ uploadedBy, onClose }: { uploadedBy: string; on
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold text-ink">Upload Company Document</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100"><X size={18} style={{ color: '#8B8B85' }} /></button>
+          <h3 className="text-base font-semibold text-(--text-primary)">Upload Company Document</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--glass-panel-bg)"><X size={18} style={{ color: 'var(--text-muted)' }} /></button>
         </div>
         <form onSubmit={handleUpload} className="space-y-3">
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>Title *</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>Title *</label>
             <input className={inp} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Document title" />
           </div>
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>Category</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>Category</label>
             <select className={inp} value={category} onChange={(e) => setCategory(e.target.value as CompanyDocumentCategory)}>
               {COMPANY_CATEGORIES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>Description</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>Description</label>
             <textarea className={`${inp} resize-none`} rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>Financial Year</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>Financial Year</label>
             <input className={inp} value={fy} onChange={(e) => setFy(e.target.value)} placeholder="2025-26" />
           </div>
           {/* Requires Acknowledgement toggle */}
-          <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200">
+          <div className="flex items-center justify-between p-3 rounded-xl border border-(--shell-border)">
             <div>
-              <p className="text-sm font-medium text-ink">Requires Acknowledgement</p>
-              <p className="text-xs text-mute mt-0.5">Employees must digitally confirm they've read this</p>
+              <p className="text-sm font-medium text-(--text-primary)">Requires Acknowledgement</p>
+              <p className="text-xs text-(--text-muted) mt-0.5">Employees must digitally confirm they've read this</p>
             </div>
             <button type="button" onClick={() => setRequiresAck((v) => !v)}
               className="shrink-0 transition-colors"
-              style={{ color: requiresAck ? '#059669' : '#94A3B8' }}>
+              style={{ color: requiresAck ? '#059669' : 'var(--text-muted)' }}>
               {requiresAck ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
             </button>
           </div>
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>File * (PDF / DOCX)</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>File * (PDF / DOCX)</label>
             <input ref={fileRef} type="file" accept=".pdf,.doc,.docx" className="hidden"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
             <button type="button" onClick={() => fileRef.current?.click()}
-              className="w-full border-2 border-dashed border-slate-200 rounded-xl py-4 text-sm text-mute hover:border-slate-300 transition-colors flex items-center justify-center gap-2">
+              className="w-full border-2 border-dashed border-(--shell-border) rounded-xl py-4 text-sm text-(--text-muted) hover:border-slate-300 transition-colors flex items-center justify-center gap-2">
               <Upload size={16} />
               {file ? file.name : 'Choose file'}
             </button>
             {uploading && (
-              <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div className="mt-2 h-1.5 bg-(--glass-panel-bg) rounded-full overflow-hidden">
                 <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: '#C9A961' }} />
               </div>
             )}
@@ -136,7 +136,7 @@ function UploadCompanyDocModal({ uploadedBy, onClose }: { uploadedBy: string; on
               style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
               {uploading ? `Uploading ${progress}%…` : 'Upload'}
             </button>
-            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm border border-slate-200 hover:bg-slate-50">Cancel</button>
+            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm border border-(--shell-border) hover:bg-(--glass-panel-bg)">Cancel</button>
           </div>
         </form>
       </div>
@@ -180,37 +180,37 @@ function UploadEmployeeDocModal({ uploadedBy, employeeId, onClose }: { uploadedB
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold text-ink">Upload Employee Document</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100"><X size={18} style={{ color: '#8B8B85' }} /></button>
+          <h3 className="text-base font-semibold text-(--text-primary)">Upload Employee Document</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--glass-panel-bg)"><X size={18} style={{ color: 'var(--text-muted)' }} /></button>
         </div>
         <form onSubmit={handleUpload} className="space-y-3">
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>Document Type</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>Document Type</label>
             <select className={inp} value={docType} onChange={(e) => setDocType(e.target.value as EmployeeDocumentType)}>
               {EMP_DOC_TYPES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>Title *</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>Title *</label>
             <input className={inp} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Increment Letter — May 2026" />
           </div>
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>Financial Year</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>Financial Year</label>
             <input className={inp} value={fy} onChange={(e) => setFy(e.target.value)} placeholder="2025-26" />
           </div>
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>File * (PDF / DOCX)</label>
+            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>File * (PDF / DOCX)</label>
             <input ref={fileRef} type="file" accept=".pdf,.doc,.docx" className="hidden"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
             <button type="button" onClick={() => fileRef.current?.click()}
-              className="w-full border-2 border-dashed border-slate-200 rounded-xl py-4 text-sm text-mute hover:border-slate-300 transition-colors flex items-center justify-center gap-2">
+              className="w-full border-2 border-dashed border-(--shell-border) rounded-xl py-4 text-sm text-(--text-muted) hover:border-slate-300 transition-colors flex items-center justify-center gap-2">
               <Upload size={16} />
               {file ? file.name : 'Choose file'}
             </button>
             {uploading && (
-              <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div className="mt-2 h-1.5 bg-(--glass-panel-bg) rounded-full overflow-hidden">
                 <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: '#C9A961' }} />
               </div>
             )}
@@ -222,7 +222,7 @@ function UploadEmployeeDocModal({ uploadedBy, employeeId, onClose }: { uploadedB
               style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
               {uploading ? `Uploading ${progress}%…` : 'Upload'}
             </button>
-            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm border border-slate-200 hover:bg-slate-50">Cancel</button>
+            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm border border-(--shell-border) hover:bg-(--glass-panel-bg)">Cancel</button>
           </div>
         </form>
       </div>
@@ -254,18 +254,18 @@ function AcknowledgementDetailModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col">
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-start justify-between p-5 border-b border-slate-100">
+        <div className="flex items-start justify-between p-5 border-b border-(--shell-border)">
           <div>
-            <h3 className="text-base font-semibold text-ink">{d.title}</h3>
-            <p className="text-xs text-mute mt-0.5">Acknowledgement Status</p>
+            <h3 className="text-base font-semibold text-(--text-primary)">{d.title}</h3>
+            <p className="text-xs text-(--text-muted) mt-0.5">Acknowledgement Status</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100"><X size={18} style={{ color: '#8B8B85' }} /></button>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--glass-panel-bg)"><X size={18} style={{ color: 'var(--text-muted)' }} /></button>
         </div>
 
         {/* Summary strip */}
-        <div className="flex gap-4 px-5 py-3 border-b border-slate-100">
+        <div className="flex gap-4 px-5 py-3 border-b border-(--shell-border)">
           <div className="flex items-center gap-2">
             <CheckCircle2 size={14} style={{ color: '#059669' }} />
             <span className="text-sm font-semibold" style={{ color: '#059669' }}>{ackedList.length} Acknowledged</span>
@@ -278,7 +278,7 @@ function AcknowledgementDetailModal({
 
         {loading ? (
           <div className="flex items-center justify-center py-10">
-            <div className="w-5 h-5 border-2 border-slate-200 border-t-navy rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-(--shell-border) border-t-navy rounded-full animate-spin" />
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -295,8 +295,8 @@ function AcknowledgementDetailModal({
                         {e.displayName[0]}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-ink truncate">{e.displayName}</p>
-                        {e.department && <p className="text-xs text-mute">{e.department}</p>}
+                        <p className="text-sm font-medium text-(--text-primary) truncate">{e.displayName}</p>
+                        {e.department && <p className="text-xs text-(--text-muted)">{e.department}</p>}
                       </div>
                     </div>
                   ))}
@@ -320,8 +320,8 @@ function AcknowledgementDetailModal({
                           {e.displayName[0]}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-ink truncate">{e.displayName}</p>
-                          {ackedAt && <p className="text-xs text-mute">{format(ackedAt, 'd MMM yyyy, HH:mm')}</p>}
+                          <p className="text-sm font-medium text-(--text-primary) truncate">{e.displayName}</p>
+                          {ackedAt && <p className="text-xs text-(--text-muted)">{format(ackedAt, 'd MMM yyyy, HH:mm')}</p>}
                         </div>
                         <CheckCircle2 size={14} style={{ color: '#059669' }} className="shrink-0" />
                       </div>
@@ -332,7 +332,7 @@ function AcknowledgementDetailModal({
             )}
 
             {notAcked.length === 0 && ackedList.length === 0 && (
-              <p className="text-sm text-mute text-center py-6">No active employees found.</p>
+              <p className="text-sm text-(--text-muted) text-center py-6">No active employees found.</p>
             )}
           </div>
         )}
@@ -374,10 +374,10 @@ export function AdminDocumentsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
             Documents — Admin
           </h2>
-          <p className="text-sm text-mute">Manage company policies and employee documents.</p>
+          <p className="text-sm text-(--text-muted)">Manage company policies and employee documents.</p>
         </div>
       </div>
 
@@ -386,7 +386,7 @@ export function AdminDocumentsPage() {
         {(['company', 'employee'] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
-            style={tab === t ? { backgroundColor: '#0B1538', color: '#FFFFFF' } : { backgroundColor: '#F2EFE7', color: '#2A2A2A' }}>
+            style={tab === t ? { backgroundColor: 'var(--text-primary)', color: '#FFFFFF' } : { backgroundColor: '#F2EFE7', color: 'var(--text-primary)' }}>
             {t === 'company' ? 'Company Documents' : 'Employee Documents'}
           </button>
         ))}
@@ -401,20 +401,20 @@ export function AdminDocumentsPage() {
               <PlusCircle size={16} /> Upload Document
             </button>
           </div>
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
             {compLoading ? (
-              <div className="p-6 space-y-3">{[1,2,3].map(i => <div key={i} className="h-10 bg-slate-100 rounded-lg animate-pulse" />)}</div>
+              <div className="p-6 space-y-3">{[1,2,3].map(i => <div key={i} className="h-10 bg-(--glass-panel-bg) rounded-lg animate-pulse" />)}</div>
             ) : companyDocs.length === 0 ? (
-              <div className="py-12 text-center"><p className="text-sm text-mute">No company documents yet.</p></div>
+              <div className="py-12 text-center"><p className="text-sm text-(--text-muted)">No company documents yet.</p></div>
             ) : (
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100">
-                    <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Title</th>
-                    <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Category</th>
-                    <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Uploaded</th>
-                    <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Acknowledgements</th>
-                    <th className="text-center p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Active</th>
+                  <tr className="border-b border-(--shell-border)">
+                    <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Title</th>
+                    <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Category</th>
+                    <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Uploaded</th>
+                    <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Acknowledgements</th>
+                    <th className="text-center p-4 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Active</th>
                     <th className="p-4" />
                   </tr>
                 </thead>
@@ -424,10 +424,10 @@ export function AdminDocumentsPage() {
                     const ackedCount = ackCountMap[d.id] ?? 0;
                     const totalActive = activeEmployees.length;
                     return (
-                      <tr key={d.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                        <td className="p-4 font-medium text-ink">{d.title}</td>
-                        <td className="p-4 text-mute capitalize">{d.category}</td>
-                        <td className="p-4 text-mute">{uploadedDate ? format(uploadedDate, 'dd MMM yyyy') : '—'}</td>
+                      <tr key={d.id} className="border-b border-slate-50 hover:bg-(--glass-panel-bg)/50">
+                        <td className="p-4 font-medium text-(--text-primary)">{d.title}</td>
+                        <td className="p-4 text-(--text-muted) capitalize">{d.category}</td>
+                        <td className="p-4 text-(--text-muted)">{uploadedDate ? format(uploadedDate, 'dd MMM yyyy') : '—'}</td>
                         <td className="p-4">
                           {d.requiresAcknowledgement ? (
                             <button
@@ -437,14 +437,14 @@ export function AdminDocumentsPage() {
                               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ackedCount >= totalActive ? 'text-green-700 bg-green-50' : 'text-amber-700 bg-amber-50'}`}>
                                 {ackedCount}/{totalActive}
                               </span>
-                              <ChevronRight size={12} style={{ color: '#94A3B8' }} className="group-hover:text-ink transition-colors" />
+                              <ChevronRight size={12} style={{ color: 'var(--text-muted)' }} className="group-hover:text-(--text-primary) transition-colors" />
                             </button>
                           ) : (
-                            <span className="text-xs text-mute">—</span>
+                            <span className="text-xs text-(--text-muted)">—</span>
                           )}
                         </td>
                         <td className="p-4 text-center">
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${d.isActive ? 'text-green-700 bg-green-50' : 'text-mute bg-slate-100'}`}>
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${d.isActive ? 'text-green-700 bg-green-50' : 'text-(--text-muted) bg-(--glass-panel-bg)'}`}>
                             {d.isActive ? 'Active' : 'Inactive'}
                           </span>
                         </td>
@@ -486,23 +486,23 @@ export function AdminDocumentsPage() {
           </div>
 
           {!selectedEmp ? (
-            <div className="bg-white border border-slate-200 rounded-2xl py-16 text-center">
+            <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl py-16 text-center">
               <FileText size={36} className="mx-auto mb-3 text-slate-300" />
-              <p className="text-sm text-mute">Select an employee to view their documents.</p>
+              <p className="text-sm text-(--text-muted)">Select an employee to view their documents.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
               {empLoading ? (
-                <div className="p-6 space-y-3">{[1,2].map(i => <div key={i} className="h-10 bg-slate-100 rounded-lg animate-pulse" />)}</div>
+                <div className="p-6 space-y-3">{[1,2].map(i => <div key={i} className="h-10 bg-(--glass-panel-bg) rounded-lg animate-pulse" />)}</div>
               ) : empDocs.length === 0 ? (
-                <div className="py-12 text-center"><p className="text-sm text-mute">No documents uploaded for this employee.</p></div>
+                <div className="py-12 text-center"><p className="text-sm text-(--text-muted)">No documents uploaded for this employee.</p></div>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-100">
-                      <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Title</th>
-                      <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Type</th>
-                      <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-mute">Uploaded</th>
+                    <tr className="border-b border-(--shell-border)">
+                      <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Title</th>
+                      <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Type</th>
+                      <th className="text-left p-4 text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Uploaded</th>
                       <th className="p-4" />
                     </tr>
                   </thead>
@@ -511,10 +511,10 @@ export function AdminDocumentsPage() {
                       const uploadedDate = toTs(d.uploadedAt);
                       const typeLabel = EMP_DOC_TYPES.find(t => t.value === d.documentType)?.label ?? d.documentType;
                       return (
-                        <tr key={d.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                          <td className="p-4 font-medium text-ink">{d.title}</td>
-                          <td className="p-4 text-mute">{typeLabel}</td>
-                          <td className="p-4 text-mute">{uploadedDate ? format(uploadedDate, 'dd MMM yyyy') : '—'}</td>
+                        <tr key={d.id} className="border-b border-slate-50 hover:bg-(--glass-panel-bg)/50">
+                          <td className="p-4 font-medium text-(--text-primary)">{d.title}</td>
+                          <td className="p-4 text-(--text-muted)">{typeLabel}</td>
+                          <td className="p-4 text-(--text-muted)">{uploadedDate ? format(uploadedDate, 'dd MMM yyyy') : '—'}</td>
                           <td className="p-4">
                             {d.isActive && (
                               <button onClick={() => handleDeleteEmp(d.id)} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors">

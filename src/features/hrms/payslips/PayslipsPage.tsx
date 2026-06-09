@@ -65,7 +65,7 @@ function ProfileBanner({ profile }: { profile: UserProfile }) {
         ) : (
           <div
             className="w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold text-gold"
-            style={{ backgroundColor: '#0B1538', border: '4px solid white', boxShadow: '0 4px 16px rgba(0,0,0,0.15)' }}
+            style={{ backgroundColor: 'var(--text-primary)', border: '4px solid white', boxShadow: '0 4px 16px rgba(0,0,0,0.15)' }}
           >
             {initials}
           </div>
@@ -86,12 +86,12 @@ function ProfileMeta({ profile }: { profile: UserProfile }) {
   return (
     <div className="px-2 mb-8">
       <h2
-        className="text-2xl text-ink mb-1"
+        className="text-2xl text-(--text-primary) mb-1"
         style={{ fontFamily: '"Fraunces", Georgia, serif', fontWeight: 600 }}
       >
         {profile.displayName}
       </h2>
-      <div className="flex flex-wrap items-center gap-3 text-xs text-mute">
+      <div className="flex flex-wrap items-center gap-3 text-xs text-(--text-muted)">
         {profile.designation && <span>{profile.designation}</span>}
         {profile.designation && profile.department && <span className="text-slate-300">·</span>}
         {profile.department && <span>{profile.department}</span>}
@@ -139,16 +139,16 @@ function PayslipBreakdown({
         >
           {/* Header row */}
           <div className="flex items-center justify-between px-5 py-3 bg-paper">
-            <span className="text-xs font-bold uppercase tracking-widest text-mute">
+            <span className="text-xs font-bold uppercase tracking-widest text-(--text-muted)">
               Payslip breakdown — {formatMonth(payslip.month)}
             </span>
-            <button onClick={onClose} className="text-mute hover:text-ink transition-colors">
+            <button onClick={onClose} className="text-(--text-muted) hover:text-(--text-primary) transition-colors">
               <X size={14} />
             </button>
           </div>
 
           {/* Two-column breakdown */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-(--shell-border)">
             {/* Earnings */}
             <div className="p-5">
               <p className="text-[10px] font-bold uppercase tracking-widest mb-3 text-emerald-700">
@@ -156,12 +156,12 @@ function PayslipBreakdown({
               </p>
               {earnings.map(({ label, value }) => (
                 <div key={label} className="flex justify-between py-1.5 text-sm">
-                  <span className="text-ink-soft">{label}</span>
-                  <span className="font-medium text-ink">{formatCurrency(value)}</span>
+                  <span className="text-(--text-primary)">{label}</span>
+                  <span className="font-medium text-(--text-primary)">{formatCurrency(value)}</span>
                 </div>
               ))}
-              <div className="flex justify-between pt-2.5 mt-2 border-t border-slate-200 text-sm font-semibold">
-                <span className="text-ink">Total Earnings</span>
+              <div className="flex justify-between pt-2.5 mt-2 border-t border-(--shell-border) text-sm font-semibold">
+                <span className="text-(--text-primary)">Total Earnings</span>
                 <span className="text-emerald-700">{formatCurrency(payslip.totalEarnings)}</span>
               </div>
             </div>
@@ -173,12 +173,12 @@ function PayslipBreakdown({
               </p>
               {deductions.map(({ label, value }) => (
                 <div key={label} className="flex justify-between py-1.5 text-sm">
-                  <span className="text-ink-soft">{label}</span>
-                  <span className="font-medium text-ink">{formatCurrency(value)}</span>
+                  <span className="text-(--text-primary)">{label}</span>
+                  <span className="font-medium text-(--text-primary)">{formatCurrency(value)}</span>
                 </div>
               ))}
-              <div className="flex justify-between pt-2.5 mt-2 border-t border-slate-200 text-sm font-semibold">
-                <span className="text-ink">Total Deductions</span>
+              <div className="flex justify-between pt-2.5 mt-2 border-t border-(--shell-border) text-sm font-semibold">
+                <span className="text-(--text-primary)">Total Deductions</span>
                 <span className="text-red-600">{formatCurrency(payslip.totalDeductions)}</span>
               </div>
             </div>
@@ -284,25 +284,25 @@ export function PayslipsPage() {
 
       {/* Section title */}
       <h3
-        className="text-3xl mb-1 text-ink"
+        className="text-3xl mb-1 text-(--text-primary)"
         style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300 }}
       >
         Payslips
       </h3>
-      <p className="text-sm text-mute mb-6">Last 12 months · click a row to expand</p>
+      <p className="text-sm text-(--text-muted) mb-6">Last 12 months · click a row to expand</p>
 
       {/* Table — horizontally scrollable on mobile */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
         <div className="overflow-x-auto">
         <table className="w-full text-sm min-w-140">
           <thead>
-            <tr className="border-b border-slate-200 bg-paper">
-              <th className="px-6 py-3.5 text-left text-[10px] font-bold uppercase tracking-widest text-mute">Month</th>
-              <th className="px-6 py-3.5 text-right text-[10px] font-bold uppercase tracking-widest text-mute">Net Pay</th>
-              <th className="px-6 py-3.5 text-right text-[10px] font-bold uppercase tracking-widest text-mute">Working Days</th>
-              <th className="px-6 py-3.5 text-right text-[10px] font-bold uppercase tracking-widest text-mute">Present</th>
-              <th className="px-6 py-3.5 text-right text-[10px] font-bold uppercase tracking-widest text-mute">LOP</th>
-              <th className="px-6 py-3.5 text-right text-[10px] font-bold uppercase tracking-widest text-mute" />
+            <tr className="border-b border-(--shell-border) bg-paper">
+              <th className="px-6 py-3.5 text-left text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Month</th>
+              <th className="px-6 py-3.5 text-right text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Net Pay</th>
+              <th className="px-6 py-3.5 text-right text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Working Days</th>
+              <th className="px-6 py-3.5 text-right text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">Present</th>
+              <th className="px-6 py-3.5 text-right text-[10px] font-bold uppercase tracking-widest text-(--text-muted)">LOP</th>
+              <th className="px-6 py-3.5 text-right text-[10px] font-bold uppercase tracking-widest text-(--text-muted)" />
             </tr>
           </thead>
           <tbody>
@@ -335,17 +335,17 @@ export function PayslipsPage() {
                   className="cursor-pointer hover:bg-paper transition-colors"
                   style={{ borderTop: idx > 0 ? '1px solid #F3F4F6' : undefined }}
                 >
-                  <td className="px-6 py-4 font-medium text-ink">
+                  <td className="px-6 py-4 font-medium text-(--text-primary)">
                     {formatMonth(payslip.month)}
                   </td>
                   <td className="px-6 py-4 text-right font-semibold text-navy">
                     {formatCurrency(payslip.netPay)}
                   </td>
-                  <td className="px-6 py-4 text-right text-ink-soft">{payslip.workingDays}</td>
-                  <td className="px-6 py-4 text-right text-ink-soft">{payslip.presentDays}</td>
-                  <td className="px-6 py-4 text-right text-ink-soft">{payslip.lopDays}</td>
+                  <td className="px-6 py-4 text-right text-(--text-primary)">{payslip.workingDays}</td>
+                  <td className="px-6 py-4 text-right text-(--text-primary)">{payslip.presentDays}</td>
+                  <td className="px-6 py-4 text-right text-(--text-primary)">{payslip.lopDays}</td>
                   <td className="px-6 py-4 text-right">
-                    <span className="text-mute">
+                    <span className="text-(--text-muted)">
                       {expandedId === payslip.id ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                     </span>
                   </td>

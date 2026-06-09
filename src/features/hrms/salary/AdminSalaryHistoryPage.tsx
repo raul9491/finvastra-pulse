@@ -61,19 +61,19 @@ function EmployeeTimeline({
   const { records, loading } = useEmployeeSalaryHistory(employeeId);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end p-0" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <div className="bg-white h-full w-full max-w-md overflow-y-auto flex flex-col shadow-2xl">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+      <div className="bg-(--glass-panel-bg) h-full w-full max-w-md overflow-y-auto flex flex-col shadow-2xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-(--shell-border) shrink-0">
           <div>
             <h2 className="text-base font-semibold">{employeeName}</h2>
-            <p className="text-xs" style={{ color: '#8B8B85' }}>Salary history</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Salary history</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-(--text-muted) hover:text-slate-600"><X size={18} /></button>
         </div>
         <div className="flex-1 p-6">
           {loading ? (
-            <p className="text-sm" style={{ color: '#8B8B85' }}>Loading…</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</p>
           ) : records.length === 0 ? (
-            <p className="text-sm" style={{ color: '#8B8B85' }}>No salary records yet for this employee.</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No salary records yet for this employee.</p>
           ) : (
             <div className="relative">
               {/* Vertical timeline line */}
@@ -84,13 +84,13 @@ function EmployeeTimeline({
                     {/* Dot */}
                     <div className="w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 relative z-10"
                       style={{ backgroundColor: i === 0 ? '#0B1538' : '#F8FAFC', borderColor: i === 0 ? '#0B1538' : '#E2E8F0' }}>
-                      {i === 0 && <div className="w-2 h-2 rounded-full bg-white" />}
+                      {i === 0 && <div className="w-2 h-2 rounded-full bg-(--glass-panel-bg)" />}
                     </div>
                     {/* Content */}
                     <div className="flex-1 pb-2">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-sm" style={{ color: '#0A0A0A' }}>
-                          {fmtINR(r.grossSalary)}<span className="font-normal text-xs" style={{ color: '#8B8B85' }}>/mo</span>
+                        <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+                          {fmtINR(r.grossSalary)}<span className="font-normal text-xs" style={{ color: 'var(--text-muted)' }}>/mo</span>
                         </span>
                         {r.incrementPercentage != null && (
                           <span className="text-[10px] font-bold flex items-center gap-0.5"
@@ -100,12 +100,12 @@ function EmployeeTimeline({
                         )}
                         <ReasonPill reason={r.reason} />
                       </div>
-                      <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                         Effective {format(new Date(r.effectiveDate), 'd MMM yyyy')}
                       </p>
-                      {r.notes && <p className="text-xs mt-1 italic" style={{ color: '#8B8B85' }}>{r.notes}</p>}
+                      {r.notes && <p className="text-xs mt-1 italic" style={{ color: 'var(--text-muted)' }}>{r.notes}</p>}
                       {r.basicSalary != null && (
-                        <p className="text-xs mt-1" style={{ color: '#94A3B8' }}>
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
                           Basic {fmtINR(r.basicSalary)} · HRA {fmtINR(r.hra ?? 0)} · Other {fmtINR(r.otherAllowances ?? 0)}
                         </p>
                       )}
@@ -184,13 +184,13 @@ function AddRevisionModal({
   };
 
   const inp = (f?: string) =>
-    `w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-white transition-colors ${
+    `w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-(--glass-panel-bg) transition-colors ${
       f && errors[f] ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30'
-                      : 'border-slate-200 focus:ring-[#0B1538]'}`;
+                      : 'border-(--shell-border) focus:ring-[#0B1538]'}`;
 
   const lbl = (text: string, f?: string, req = false) => (
     <label className="block text-xs font-semibold uppercase tracking-wider mb-1"
-      style={{ color: f && errors[f] ? '#DC2626' : '#8B8B85' }}>
+      style={{ color: f && errors[f] ? '#DC2626' : 'var(--text-muted)' }}>
       {text}{req && <span className="text-red-500 ml-0.5">*</span>}
       {f && errors[f] && <span className="ml-2 text-red-500 font-medium normal-case tracking-normal">— {errors[f]}</span>}
     </label>
@@ -198,16 +198,16 @@ function AddRevisionModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-(--shell-border)">
           <h2 className="text-base font-semibold">Record Salary Revision</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-(--text-muted) hover:text-slate-600"><X size={18} /></button>
         </div>
         <div className="p-6 space-y-4">
           {/* Employee */}
           <div>
             {lbl('Employee', 'employeeId', true)}
-            <input className="w-full text-sm px-3.5 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#0B1538] mb-1"
+            <input className="w-full text-sm px-3.5 py-2 border border-(--shell-border) rounded-lg outline-none focus:ring-2 focus:ring-[#0B1538] mb-1"
               placeholder="Search…" value={empSearch} onChange={(e) => setEmpSearch(e.target.value)} />
             <select className={inp('employeeId')} value={form.employeeId}
               onChange={(e) => set('employeeId', e.target.value)} size={4}>
@@ -254,14 +254,14 @@ function AddRevisionModal({
 
           {/* Optional breakdown */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#8B8B85' }}>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
               Breakdown (optional)
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {[['basicSalary', 'Basic'], ['hra', 'HRA'], ['otherAllowances', 'Other Allow.']] .map(([k, label]) => (
                 <div key={k}>
-                  <label className="block text-[10px] font-medium mb-0.5" style={{ color: '#8B8B85' }}>{label}</label>
-                  <input className="w-full text-sm px-3 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#0B1538] bg-white"
+                  <label className="block text-[10px] font-medium mb-0.5" style={{ color: 'var(--text-muted)' }}>{label}</label>
+                  <input className="w-full text-sm px-3 py-2 border border-(--shell-border) rounded-lg outline-none focus:ring-2 focus:ring-[#0B1538] bg-(--glass-panel-bg)"
                     type="number" min="0" value={(form as unknown as Record<string, string>)[k as string]}
                     onChange={(e) => setForm((p) => ({ ...p, [k as string]: e.target.value }))}
                     placeholder="₹" />
@@ -277,11 +277,11 @@ function AddRevisionModal({
               placeholder="Performance review ID, any context…" />
           </div>
         </div>
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100">
-          <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Cancel</button>
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-(--shell-border)">
+          <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-(--shell-border) hover:bg-(--glass-panel-bg)">Cancel</button>
           <button onClick={handleSave} disabled={saving}
             className="px-5 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-50"
-            style={{ backgroundColor: '#0B1538' }}>
+            style={{ backgroundColor: 'var(--text-primary)' }}>
             {saving ? 'Saving…' : 'Record Revision'}
           </button>
         </div>
@@ -395,26 +395,26 @@ export function AdminSalaryHistoryPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ backgroundColor: '#0B1538' }}>
+            style={{ backgroundColor: 'var(--text-primary)' }}>
             <TrendingUp size={20} style={{ color: '#C9A961' }} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold" style={{ color: '#0A0A0A', fontFamily: 'Fraunces, serif' }}>
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Fraunces, serif' }}>
               Salary History
             </h1>
-            <p className="text-sm" style={{ color: '#8B8B85' }}>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               Track CTC revisions — joining, increments, promotions
             </p>
           </div>
         </div>
         <div className="flex gap-2">
           <button onClick={exportCSV}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors">
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors">
             <Download size={14} />CSV
           </button>
           <button onClick={() => { loadEmployees(); setShowAdd(true); }}
             className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl text-white"
-            style={{ backgroundColor: '#0B1538' }}>
+            style={{ backgroundColor: 'var(--text-primary)' }}>
             <Plus size={15} />Record Revision
           </button>
         </div>
@@ -423,7 +423,7 @@ export function AdminSalaryHistoryPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         {[
-          { label: 'Total Records',    value: records.length,                                  color: '#0B1538' },
+          { label: 'Total Records',    value: records.length,                                  color: 'var(--text-primary)' },
           { label: 'Employees Tracked',value: new Set(records.map((r) => r.employeeId)).size, color: '#0369A1' },
           { label: 'Avg Current Gross',
             value: uniqueEmployees.length
@@ -433,8 +433,8 @@ export function AdminSalaryHistoryPage() {
             noFormat: true,
           },
         ].map(({ label, value, color, noFormat }) => (
-          <div key={label} className="bg-white rounded-2xl border border-slate-200 p-4">
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>{label}</p>
+          <div key={label} className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
             <p className={`font-bold ${noFormat ? 'text-2xl' : 'text-3xl'}`} style={{ color }}>{value}</p>
           </div>
         ))}
@@ -442,51 +442,51 @@ export function AdminSalaryHistoryPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <select className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#0B1538]"
+        <select className="text-xs px-3 py-1.5 border border-(--shell-border) rounded-lg bg-(--glass-panel-bg) outline-none focus:ring-2 focus:ring-[#0B1538]"
           value={empFilter} onChange={(e) => setEmpFilter(e.target.value)}>
           <option value="">All employees</option>
           {uniqueEmployees.map((e) => <option key={e.uid} value={e.uid}>{e.displayName}</option>)}
         </select>
         <div className="relative">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#8B8B85' }} />
-          <input className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#0B1538]"
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
+          <input className="pl-8 pr-3 py-1.5 text-xs border border-(--shell-border) rounded-lg bg-(--glass-panel-bg) outline-none focus:ring-2 focus:ring-[#0B1538]"
             placeholder="Search employee…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-sm" style={{ color: '#8B8B85' }}>Loading…</div>
+          <div className="p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</div>
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center">
             <TrendingUp size={32} className="mx-auto mb-3 opacity-20" />
-            <p className="text-sm font-medium" style={{ color: '#8B8B85' }}>No salary records yet</p>
-            <p className="text-xs mt-1" style={{ color: '#8B8B85' }}>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>No salary records yet</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
               Record the joining CTC for each employee, then log increments as they happen.
             </p>
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-100" style={{ backgroundColor: '#F8F9FC' }}>
+              <tr className="border-b border-(--shell-border)" style={{ backgroundColor: '#F8F9FC' }}>
                 {['Employee', 'Effective Date', 'Gross / Month', 'Increment', 'Reason', 'Notes', ''].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider"
-                    style={{ color: '#8B8B85' }}>{h}</th>
+                    style={{ color: 'var(--text-muted)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filtered.map((r) => (
-                <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-3 font-medium" style={{ color: '#0A0A0A' }}>{r.employeeName}</td>
-                  <td className="px-4 py-3 text-xs" style={{ color: '#2A2A2A' }}>
+                <tr key={r.id} className="hover:bg-(--glass-panel-bg) transition-colors">
+                  <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{r.employeeName}</td>
+                  <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-primary)' }}>
                     {format(new Date(r.effectiveDate), 'd MMM yyyy')}
                   </td>
-                  <td className="px-4 py-3 font-semibold text-sm" style={{ color: '#0B1538' }}>
+                  <td className="px-4 py-3 font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
                     {fmtINR(r.grossSalary)}
                     {r.basicSalary != null && (
-                      <p className="text-[10px] font-normal" style={{ color: '#8B8B85' }}>
+                      <p className="text-[10px] font-normal" style={{ color: 'var(--text-muted)' }}>
                         Basic {fmtINR(r.basicSalary)}
                       </p>
                     )}
@@ -500,7 +500,7 @@ export function AdminSalaryHistoryPage() {
                     ) : '—'}
                   </td>
                   <td className="px-4 py-3"><ReasonPill reason={r.reason} /></td>
-                  <td className="px-4 py-3 text-xs max-w-[180px]" style={{ color: '#8B8B85' }}>
+                  <td className="px-4 py-3 text-xs max-w-[180px]" style={{ color: 'var(--text-muted)' }}>
                     <span className="line-clamp-2">{r.notes ?? '—'}</span>
                   </td>
                   <td className="px-4 py-3">
@@ -509,7 +509,7 @@ export function AdminSalaryHistoryPage() {
                         loadEmployees();
                         setTimelineEmp({ uid: r.employeeId, displayName: r.employeeName });
                       }}
-                      className="text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
+                      className="text-xs font-medium px-3 py-1.5 rounded-lg border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors">
                       Timeline
                     </button>
                   </td>

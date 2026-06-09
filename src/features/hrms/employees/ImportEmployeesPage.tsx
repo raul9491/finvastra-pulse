@@ -152,11 +152,11 @@ function Step({ n, label, done, active }: { n: number; label: string; done: bool
       <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
         style={{
           backgroundColor: done ? '#D1FAE5' : active ? '#0B1538' : '#F1F5F9',
-          color: done ? '#065F46' : active ? '#C9A961' : '#8B8B85',
+          color: done ? '#065F46' : active ? '#C9A961' : 'var(--text-muted)',
         }}>
         {done ? '✓' : n}
       </div>
-      <span className="text-sm font-medium" style={{ color: active ? '#0A0A0A' : done ? '#065F46' : '#8B8B85' }}>
+      <span className="text-sm font-medium" style={{ color: active ? 'var(--text-primary)' : done ? '#065F46' : 'var(--text-muted)' }}>
         {label}
       </span>
     </div>
@@ -177,7 +177,7 @@ function FieldCount({ emp }: { emp: ParsedEmployee }) {
   if (emp.department)       n++;
   if (emp.designation)      n++;
   if (emp.reportingManager) n++;
-  return <span className="text-xs" style={{ color: '#8B8B85' }}>{n} fields</span>;
+  return <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{n} fields</span>;
 }
 
 // ─── ImportEmployeesPage ──────────────────────────────────────────────────────
@@ -310,7 +310,7 @@ export function ImportEmployeesPage() {
   const newOnes  = employees.filter((e) => !e.existsInFirestore).length;
 
   if (!isAdmin) {
-    return <p className="text-sm text-center mt-20" style={{ color: '#8B8B85' }}>Admin access required.</p>;
+    return <p className="text-sm text-center mt-20" style={{ color: 'var(--text-muted)' }}>Admin access required.</p>;
   }
 
   return (
@@ -319,35 +319,35 @@ export function ImportEmployeesPage() {
       {/* Header */}
       <div className="flex items-center gap-4">
         <button onClick={() => navigate('/hrms/employees')}
-          className="p-2 rounded-lg hover:bg-slate-100 transition-colors shrink-0"
-          style={{ color: '#8B8B85' }}>
+          className="p-2 rounded-lg hover:bg-(--glass-panel-bg) transition-colors shrink-0"
+          style={{ color: 'var(--text-muted)' }}>
           <ArrowLeft size={18} />
         </button>
         <div>
           <h2 className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
             Sync from Google Sheet
           </h2>
-          <p className="text-sm" style={{ color: '#8B8B85' }}>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
             Paste the Employee Master sheet link. Personal details, addresses, and salary sync to all employee profiles.
           </p>
         </div>
       </div>
 
       {/* Step indicators */}
-      <div className="flex items-center gap-3 bg-white rounded-2xl border border-slate-200 px-6 py-4">
+      <div className="flex items-center gap-3 bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) px-6 py-4">
         <Step n={1} label="Paste sheet URL" done={step > 1} active={step === 1} />
-        <ChevronRight size={14} style={{ color: '#CBD5E1' }} />
+        <ChevronRight size={14} style={{ color: 'var(--text-muted)' }} />
         <Step n={2} label="Review employees" done={step > 2} active={step === 2} />
-        <ChevronRight size={14} style={{ color: '#CBD5E1' }} />
+        <ChevronRight size={14} style={{ color: 'var(--text-muted)' }} />
         <Step n={3} label="Sync complete" done={step === 3} active={step === 3} />
       </div>
 
       {/* How this works */}
       {step === 1 && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3">
-          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>How this works</p>
-          <div className="space-y-2 text-sm" style={{ color: '#2A2A2A' }}>
+        <div className="rounded-2xl border border-(--shell-border) bg-(--glass-panel-bg) p-5 space-y-3">
+          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>How this works</p>
+          <div className="space-y-2 text-sm" style={{ color: 'var(--text-primary)' }}>
             <div className="flex items-start gap-2"><span className="text-green-600 font-bold shrink-0">✓</span><span>Reads the <strong>Employee Master</strong> tab from your Google Sheet directly in the browser.</span></div>
             <div className="flex items-start gap-2"><span className="text-green-600 font-bold shrink-0">✓</span><span>Matches employees by their <strong>Emp Code</strong> (FAPL-001, etc.) and updates their Firestore profile.</span></div>
             <div className="flex items-start gap-2"><span className="text-green-600 font-bold shrink-0">✓</span><span>Syncs: date of birth, mobile, official phone, personal email, joining date, addresses, gross salary.</span></div>
@@ -359,18 +359,18 @@ export function ImportEmployeesPage() {
 
       {/* Step 1 — URL input */}
       {step === 1 && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
-          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>Step 1 — Google Sheet URL</p>
+        <div className="rounded-2xl border border-(--shell-border) bg-(--glass-panel-bg) p-6 space-y-4">
+          <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Step 1 — Google Sheet URL</p>
           <div className="flex gap-3">
             <div className="relative flex-1">
-              <Link2 size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#8B8B85' }} />
+              <Link2 size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
               <input
                 type="url"
-                className="w-full text-sm pl-9 pr-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-navy"
+                className="w-full text-sm pl-9 pr-4 py-3 border border-(--shell-border) rounded-xl outline-none focus:ring-2 focus:ring-navy"
                 placeholder="https://docs.google.com/spreadsheets/d/..."
                 value={sheetUrl}
                 onChange={(e) => { setSheetUrl(e.target.value); setError(''); }}
-                style={{ color: '#0A0A0A' }}
+                style={{ color: 'var(--text-primary)' }}
               />
             </div>
             <button
@@ -402,41 +402,41 @@ export function ImportEmployeesPage() {
           {/* Summary counts */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'Total in sheet', value: employees.length, color: '#0A0A0A' },
+              { label: 'Total in sheet', value: employees.length, color: 'var(--text-primary)' },
               { label: 'Active',         value: active,           color: '#065F46' },
-              { label: 'Inactive',       value: inactive,         color: '#475569' },
+              { label: 'Inactive',       value: inactive,         color: 'var(--text-muted)' },
               { label: 'New to Firestore', value: newOnes,        color: '#92400E' },
             ].map(({ label, value, color }) => (
-              <div key={label} className="bg-white rounded-2xl border border-slate-200 p-4 text-center">
+              <div key={label} className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-4 text-center">
                 <p className="text-2xl font-bold" style={{ color }}>{value}</p>
-                <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>{label}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
               </div>
             ))}
           </div>
 
           {/* What will happen callout */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-2">
-            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#8B8B85' }}>What happens when you confirm</p>
-            <div className="flex items-start gap-2 text-sm" style={{ color: '#2A2A2A' }}>
+          <div className="rounded-2xl border border-(--shell-border) bg-(--glass-panel-bg) p-5 space-y-2">
+            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>What happens when you confirm</p>
+            <div className="flex items-start gap-2 text-sm" style={{ color: 'var(--text-primary)' }}>
               <span className="text-blue-600 font-bold shrink-0">→</span>
               <span><strong>{existing} employees</strong> already in Firestore will have their profile <strong>updated</strong> with the sheet data.</span>
             </div>
             {newOnes > 0 && (
-              <div className="flex items-start gap-2 text-sm" style={{ color: '#2A2A2A' }}>
+              <div className="flex items-start gap-2 text-sm" style={{ color: 'var(--text-primary)' }}>
                 <span className="text-amber-600 font-bold shrink-0">→</span>
                 <span><strong>{newOnes} new employees</strong> will get a <strong>Firestore profile created</strong>. Login accounts (Firebase Auth) need to be created separately via Add Employee.</span>
               </div>
             )}
-            <div className="flex items-start gap-2 text-sm" style={{ color: '#8B8B85' }}>
+            <div className="flex items-start gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
               <span className="shrink-0">—</span>
               <span>Aadhaar is skipped. PAN is skipped (needs encryption). Bank accounts are skipped (stored separately).</span>
             </div>
           </div>
 
           {/* Preview table */}
-          <div className="rounded-2xl overflow-hidden bg-white border border-slate-200">
-            <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>Employee preview</p>
+          <div className="rounded-2xl overflow-hidden bg-(--glass-panel-bg) border border-(--shell-border)">
+            <div className="px-5 py-3 border-b border-(--shell-border) flex items-center justify-between">
+              <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Employee preview</p>
               <button
                 onClick={handleSync}
                 disabled={loading}
@@ -449,18 +449,18 @@ export function ImportEmployeesPage() {
             </div>
 
             {loading && (
-              <div className="h-2 bg-slate-100">
+              <div className="h-2 bg-(--glass-panel-bg)">
                 <div className="h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${progress}%`, backgroundColor: '#0B1538' }} />
+                  style={{ width: `${progress}%`, backgroundColor: 'var(--text-primary)' }} />
               </div>
             )}
 
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}>
+                  <tr style={{ borderBottom: '1px solid #E2E8F0', backgroundColor: 'var(--glass-panel-bg)' }}>
                     {['Emp Code', 'Name', 'Status', 'Department', 'Designation', 'In System?', 'Fields'].map((h) => (
-                      <th key={h} className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>{h}</th>
+                      <th key={h} className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -471,18 +471,18 @@ export function ImportEmployeesPage() {
                         borderBottom: idx < employees.length - 1 ? '1px solid #F1F5F9' : 'none',
                         opacity: emp.status === 'inactive' ? 0.55 : 1,
                       }}>
-                      <td className="px-4 py-2.5 font-mono text-xs" style={{ color: '#8B8B85' }}>{emp.empCode}</td>
-                      <td className="px-4 py-2.5 font-medium text-sm" style={{ color: '#0A0A0A' }}>{emp.name}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>{emp.empCode}</td>
+                      <td className="px-4 py-2.5 font-medium text-sm" style={{ color: 'var(--text-primary)' }}>{emp.name}</td>
                       <td className="px-4 py-2.5">
                         <span className="inline-flex text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider"
                           style={emp.status === 'active'
                             ? { backgroundColor: '#D1FAE5', color: '#065F46' }
-                            : { backgroundColor: '#F1F5F9', color: '#475569' }}>
+                            : { backgroundColor: 'var(--glass-panel-bg)', color: 'var(--text-muted)' }}>
                           {emp.status}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 text-xs" style={{ color: '#475569' }}>{emp.department ?? '—'}</td>
-                      <td className="px-4 py-2.5 text-xs" style={{ color: '#475569' }}>{emp.designation ?? '—'}</td>
+                      <td className="px-4 py-2.5 text-xs" style={{ color: 'var(--text-muted)' }}>{emp.department ?? '—'}</td>
+                      <td className="px-4 py-2.5 text-xs" style={{ color: 'var(--text-muted)' }}>{emp.designation ?? '—'}</td>
                       <td className="px-4 py-2.5 text-xs">
                         {emp.existsInFirestore
                           ? <span style={{ color: '#065F46' }}>✓ update</span>
@@ -525,28 +525,28 @@ export function ImportEmployeesPage() {
             </div>
           )}
 
-          <div className="rounded-2xl overflow-hidden bg-white border border-slate-200">
+          <div className="rounded-2xl overflow-hidden bg-(--glass-panel-bg) border border-(--shell-border)">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}>
+                  <tr style={{ borderBottom: '1px solid #E2E8F0', backgroundColor: 'var(--glass-panel-bg)' }}>
                     {['Emp Code', 'Name', 'Result', 'Note'].map((h) => (
-                      <th key={h} className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>{h}</th>
+                      <th key={h} className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {results.map((r, idx) => (
                     <tr key={r.empCode} style={{ borderBottom: idx < results.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
-                      <td className="px-4 py-2.5 font-mono text-xs" style={{ color: '#8B8B85' }}>{r.empCode}</td>
-                      <td className="px-4 py-2.5 text-sm" style={{ color: '#0A0A0A' }}>{r.name}</td>
+                      <td className="px-4 py-2.5 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>{r.empCode}</td>
+                      <td className="px-4 py-2.5 text-sm" style={{ color: 'var(--text-primary)' }}>{r.name}</td>
                       <td className="px-4 py-2.5">
                         <span className="text-xs font-bold"
                           style={{ color: r.action === 'error' ? '#991B1B' : r.action === 'created' ? '#92400E' : '#065F46' }}>
                           {r.action === 'updated' ? '✓ Updated' : r.action === 'created' ? '+ Created' : '✗ Error'}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 text-xs" style={{ color: '#8B8B85' }}>{r.detail ?? '—'}</td>
+                      <td className="px-4 py-2.5 text-xs" style={{ color: 'var(--text-muted)' }}>{r.detail ?? '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -557,8 +557,8 @@ export function ImportEmployeesPage() {
           <div className="flex gap-3">
             <button
               onClick={() => { setStep(1); setSheetUrl(''); setEmployees([]); setResults([]); }}
-              className="text-sm font-medium px-5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
-              style={{ color: '#2A2A2A' }}>
+              className="text-sm font-medium px-5 py-2.5 rounded-xl border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors"
+              style={{ color: 'var(--text-primary)' }}>
               Sync again
             </button>
             <button

@@ -56,7 +56,7 @@ function TrainingCard({ record, renewalMonths }: { record: TrainingRecord & { ef
                        '#F0FDF4';
 
   return (
-    <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor }}>
+    <div className="bg-(--glass-panel-bg) rounded-2xl border overflow-hidden" style={{ borderColor }}>
       {/* Status header */}
       <div className="px-4 py-2.5 flex items-center justify-between" style={{ backgroundColor: headerBg }}>
         <div className="flex items-center gap-2">
@@ -76,32 +76,32 @@ function TrainingCard({ record, renewalMonths }: { record: TrainingRecord & { ef
 
       {/* Content */}
       <div className="p-4">
-        <p className="font-semibold text-sm" style={{ color: '#0A0A0A' }}>{record.programName}</p>
+        <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{record.programName}</p>
 
         {record.notes && (
-          <p className="text-xs mt-1" style={{ color: '#8B8B85' }}>{record.notes}</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{record.notes}</p>
         )}
 
         <div className="flex flex-wrap gap-x-6 gap-y-1 mt-3">
           {record.enrolledAt && (
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#8B8B85' }}>Enrolled</p>
-              <p className="text-xs font-medium mt-0.5" style={{ color: '#2A2A2A' }}>
+              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Enrolled</p>
+              <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--text-primary)' }}>
                 {format(record.enrolledAt.toDate(), 'd MMM yyyy')}
               </p>
             </div>
           )}
           {record.completedAt && (
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#8B8B85' }}>Completed</p>
-              <p className="text-xs font-medium mt-0.5" style={{ color: '#2A2A2A' }}>
+              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Completed</p>
+              <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--text-primary)' }}>
                 {format(record.completedAt.toDate(), 'd MMM yyyy')}
               </p>
             </div>
           )}
           {record.expiresAt && (
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#8B8B85' }}>
+              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                 {s === 'expired' ? 'Expired on' : 'Valid until'}
               </p>
               <p className="text-xs font-medium mt-0.5"
@@ -112,8 +112,8 @@ function TrainingCard({ record, renewalMonths }: { record: TrainingRecord & { ef
           )}
           {renewalMonths && !record.expiresAt && (
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#8B8B85' }}>Renewal</p>
-              <p className="text-xs font-medium mt-0.5" style={{ color: '#2A2A2A' }}>Every {renewalMonths} months</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Renewal</p>
+              <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--text-primary)' }}>Every {renewalMonths} months</p>
             </div>
           )}
         </div>
@@ -127,7 +127,7 @@ function TrainingCard({ record, renewalMonths }: { record: TrainingRecord & { ef
         )}
 
         {(s === 'enrolled') && (
-          <p className="mt-3 text-xs" style={{ color: '#8B8B85' }}>
+          <p className="mt-3 text-xs" style={{ color: 'var(--text-muted)' }}>
             Contact HR to update your completion status once you've completed this training.
           </p>
         )}
@@ -171,24 +171,24 @@ export function TrainingPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ backgroundColor: '#0B1538' }}>
+          style={{ backgroundColor: 'var(--text-primary)' }}>
           <BookOpen size={20} style={{ color: '#C9A961' }} />
         </div>
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#0A0A0A', fontFamily: 'Fraunces, serif' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Fraunces, serif' }}>
             My Training
           </h1>
-          <p className="text-sm" style={{ color: '#8B8B85' }}>Track your training and certification status</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Track your training and certification status</p>
         </div>
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-sm" style={{ color: '#8B8B85' }}>Loading…</div>
+        <div className="text-center py-16 text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</div>
       ) : records.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-16 text-center">
+        <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-16 text-center">
           <BookOpen size={40} className="mx-auto mb-4 opacity-20" />
-          <p className="font-semibold" style={{ color: '#2A2A2A' }}>No training records yet</p>
-          <p className="text-sm mt-1" style={{ color: '#8B8B85' }}>
+          <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>No training records yet</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
             HR will assign training programs when they become relevant to your role.
           </p>
         </div>

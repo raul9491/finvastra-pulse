@@ -119,13 +119,13 @@ function ProgramModal({
   };
 
   const inp = (f?: string) =>
-    `w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-white transition-colors ${
+    `w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-(--glass-panel-bg) transition-colors ${
       f && errors[f] ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30'
-                      : 'border-slate-200 focus:ring-[#0B1538]'}`;
+                      : 'border-(--shell-border) focus:ring-[#0B1538]'}`;
 
   const lbl = (text: string, f?: string, req = false) => (
     <label className="block text-xs font-semibold uppercase tracking-wider mb-1"
-      style={{ color: f && errors[f] ? '#DC2626' : '#8B8B85' }}>
+      style={{ color: f && errors[f] ? '#DC2626' : 'var(--text-muted)' }}>
       {text}{req && <span className="text-red-500 ml-0.5">*</span>}
       {f && errors[f] && <span className="ml-2 text-red-500 font-medium normal-case tracking-normal">— {errors[f]}</span>}
     </label>
@@ -133,12 +133,12 @@ function ProgramModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h2 className="text-base font-semibold" style={{ color: '#0A0A0A' }}>
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-(--shell-border)">
+          <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
             {existing ? 'Edit Program' : 'New Training Program'}
           </h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-(--text-muted) hover:text-slate-600"><X size={18} /></button>
         </div>
         <div className="p-6 space-y-4">
           <div>
@@ -172,28 +172,28 @@ function ProgramModal({
               <input className={inp()} type="number" min="1" value={form.renewalPeriodMonths}
                 onChange={(e) => set('renewalPeriodMonths', e.target.value)}
                 placeholder="Leave blank if one-time" />
-              <p className="text-[10px] mt-1" style={{ color: '#8B8B85' }}>Blank = no renewal needed</p>
+              <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Blank = no renewal needed</p>
             </div>
             <div className="flex items-center gap-3 pt-5">
               <button
                 type="button"
                 onClick={() => set('isMandatory', !form.isMandatory)}
                 className="flex items-center gap-2 text-sm font-medium transition-colors"
-                style={{ color: form.isMandatory ? '#B45309' : '#94A3B8' }}
+                style={{ color: form.isMandatory ? '#B45309' : 'var(--text-muted)' }}
               >
                 {form.isMandatory
                   ? <ToggleRight size={22} style={{ color: '#B45309' }} />
-                  : <ToggleLeft  size={22} style={{ color: '#94A3B8' }} />}
+                  : <ToggleLeft  size={22} style={{ color: 'var(--text-muted)' }} />}
                 Mandatory
               </button>
             </div>
           </div>
         </div>
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100">
-          <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Cancel</button>
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-(--shell-border)">
+          <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-(--shell-border) hover:bg-(--glass-panel-bg)">Cancel</button>
           <button onClick={handleSave} disabled={saving}
             className="px-5 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-50"
-            style={{ backgroundColor: '#0B1538' }}>
+            style={{ backgroundColor: 'var(--text-primary)' }}>
             {saving ? 'Saving…' : (existing ? 'Update' : 'Create')}
           </button>
         </div>
@@ -246,13 +246,13 @@ function EnrollModal({
   };
 
   const inp = (f?: string) =>
-    `w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-white transition-colors ${
+    `w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-(--glass-panel-bg) transition-colors ${
       f && errors[f] ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30'
-                      : 'border-slate-200 focus:ring-[#0B1538]'}`;
+                      : 'border-(--shell-border) focus:ring-[#0B1538]'}`;
 
   const lbl = (text: string, f?: string, req = false) => (
     <label className="block text-xs font-semibold uppercase tracking-wider mb-1"
-      style={{ color: f && errors[f] ? '#DC2626' : '#8B8B85' }}>
+      style={{ color: f && errors[f] ? '#DC2626' : 'var(--text-muted)' }}>
       {text}{req && <span className="text-red-500 ml-0.5">*</span>}
       {f && errors[f] && <span className="ml-2 text-red-500 font-medium normal-case tracking-normal">— {errors[f]}</span>}
     </label>
@@ -260,10 +260,10 @@ function EnrollModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-(--shell-border)">
           <h2 className="text-base font-semibold">Enroll Employee</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-(--text-muted) hover:text-slate-600"><X size={18} /></button>
         </div>
         <div className="p-6 space-y-4">
           <div>
@@ -278,7 +278,7 @@ function EnrollModal({
           </div>
           <div>
             {lbl('Employee', 'employeeId', true)}
-            <input className="w-full text-sm px-3.5 py-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#0B1538] mb-1"
+            <input className="w-full text-sm px-3.5 py-2 border border-(--shell-border) rounded-lg outline-none focus:ring-2 focus:ring-[#0B1538] mb-1"
               placeholder="Search employee…" value={empSearch} onChange={(e) => setEmpSearch(e.target.value)} />
             <select className={inp('employeeId')} value={form.employeeId}
               onChange={(e) => set('employeeId', e.target.value)} size={4}>
@@ -294,11 +294,11 @@ function EnrollModal({
               placeholder="Any context, exam date, etc." />
           </div>
         </div>
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100">
-          <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Cancel</button>
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-(--shell-border)">
+          <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-(--shell-border) hover:bg-(--glass-panel-bg)">Cancel</button>
           <button onClick={handleEnroll} disabled={saving}
             className="px-5 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-50"
-            style={{ backgroundColor: '#0B1538' }}>
+            style={{ backgroundColor: 'var(--text-primary)' }}>
             {saving ? 'Enrolling…' : 'Enroll'}
           </button>
         </div>
@@ -330,22 +330,22 @@ function CompleteModal({
     catch { setSaving(false); }
   };
 
-  const inp = 'w-full text-sm px-3.5 py-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#0B1538] bg-white';
+  const inp = 'w-full text-sm px-3.5 py-2.5 border border-(--shell-border) rounded-lg outline-none focus:ring-2 focus:ring-[#0B1538] bg-(--glass-panel-bg)';
   const lbl = (text: string) => (
-    <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>{text}</label>
+    <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>{text}</label>
   );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-(--shell-border)">
           <h2 className="text-base font-semibold">Mark as Completed</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-(--text-muted) hover:text-slate-600"><X size={18} /></button>
         </div>
         <div className="p-6 space-y-4">
           <div className="p-3 rounded-xl" style={{ backgroundColor: '#F0F9FF' }}>
-            <p className="text-sm font-medium" style={{ color: '#0A0A0A' }}>{record.programName}</p>
-            <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>{record.employeeName}</p>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{record.programName}</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{record.employeeName}</p>
             {program?.renewalPeriodMonths && (
               <p className="text-xs mt-1 font-medium" style={{ color: '#0369A1' }}>
                 Certificate valid for {program.renewalPeriodMonths} months from today
@@ -363,8 +363,8 @@ function CompleteModal({
               onChange={(e) => setNotes(e.target.value)} placeholder="Exam score, certificate number, etc." />
           </div>
         </div>
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100">
-          <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Cancel</button>
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-(--shell-border)">
+          <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-(--shell-border) hover:bg-(--glass-panel-bg)">Cancel</button>
           <button onClick={handleDone} disabled={saving}
             className="px-5 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-50"
             style={{ backgroundColor: '#059669' }}>
@@ -485,14 +485,14 @@ export function AdminTrainingPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ backgroundColor: '#0B1538' }}>
+            style={{ backgroundColor: 'var(--text-primary)' }}>
             <BookOpen size={20} style={{ color: '#C9A961' }} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold" style={{ color: '#0A0A0A', fontFamily: 'Fraunces, serif' }}>
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Fraunces, serif' }}>
               Training &amp; Development
             </h1>
-            <p className="text-sm" style={{ color: '#8B8B85' }}>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               Manage training programs and track employee completion
             </p>
           </div>
@@ -500,14 +500,14 @@ export function AdminTrainingPage() {
         {tab === 'programs' && (
           <button onClick={() => setShowAddProgram(true)}
             className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl text-white"
-            style={{ backgroundColor: '#0B1538' }}>
+            style={{ backgroundColor: 'var(--text-primary)' }}>
             <Plus size={15} />New Program
           </button>
         )}
         {tab === 'records' && (
           <button onClick={() => { loadEmployees(); setShowEnroll(true); }}
             className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl text-white"
-            style={{ backgroundColor: '#0B1538' }}>
+            style={{ backgroundColor: 'var(--text-primary)' }}>
             <Plus size={15} />Enroll Employee
           </button>
         )}
@@ -516,25 +516,25 @@ export function AdminTrainingPage() {
       {/* Stats strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Active Programs',   value: activePrograms,    color: '#0B1538', sub: `${mandatoryPrograms} mandatory` },
+          { label: 'Active Programs',   value: activePrograms,    color: 'var(--text-primary)', sub: `${mandatoryPrograms} mandatory` },
           { label: 'Pending Completion',value: enrolledCount,     color: '#D97706', sub: 'enrolled, not completed' },
           { label: 'Completed',         value: completedCount,    color: '#059669', sub: 'all time'                },
           { label: 'Expired',           value: expiredCount,      color: '#DC2626', sub: 'need renewal'            },
         ].map(({ label, value, color, sub }) => (
-          <div key={label} className="bg-white rounded-2xl border border-slate-200 p-4">
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>{label}</p>
+          <div key={label} className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
             <p className="text-3xl font-bold" style={{ color }}>{value}</p>
-            <p className="text-[10px] mt-1" style={{ color: '#8B8B85' }}>{sub}</p>
+            <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>{sub}</p>
           </div>
         ))}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+      <div className="flex gap-1 bg-(--glass-panel-bg) p-1 rounded-xl w-fit">
         {(['programs', 'records'] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-5 py-1.5 text-sm font-semibold rounded-lg transition-all capitalize ${
-              tab === t ? 'bg-white shadow-sm text-[#0A0A0A]' : 'text-slate-500 hover:text-slate-700'}`}>
+              tab === t ? 'bg-(--glass-panel-bg) shadow-sm text-[#0A0A0A]' : 'text-slate-500 hover:text-slate-700'}`}>
             {t}
           </button>
         ))}
@@ -542,43 +542,43 @@ export function AdminTrainingPage() {
 
       {/* ── Programs Tab ── */}
       {tab === 'programs' && (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
           {progLoading ? (
-            <div className="p-8 text-center text-sm" style={{ color: '#8B8B85' }}>Loading…</div>
+            <div className="p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</div>
           ) : programs.length === 0 ? (
             <div className="p-12 text-center">
               <BookOpen size={32} className="mx-auto mb-3 opacity-20" />
-              <p className="text-sm font-medium" style={{ color: '#8B8B85' }}>No programs yet</p>
-              <p className="text-xs mt-1" style={{ color: '#8B8B85' }}>Create your first training program — e.g. AMFI, IRDA, POSH.</p>
+              <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>No programs yet</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Create your first training program — e.g. AMFI, IRDA, POSH.</p>
             </div>
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100" style={{ backgroundColor: '#F8F9FC' }}>
+                <tr className="border-b border-(--shell-border)" style={{ backgroundColor: '#F8F9FC' }}>
                   {['Program', 'Category', 'Duration', 'Renewal', 'Mandatory', 'Status', ''].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider"
-                      style={{ color: '#8B8B85' }}>{h}</th>
+                      style={{ color: 'var(--text-muted)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {programs.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={p.id} className="hover:bg-(--glass-panel-bg) transition-colors">
                     <td className="px-4 py-3">
-                      <p className="font-medium" style={{ color: '#0A0A0A' }}>{p.name}</p>
-                      {p.description && <p className="text-xs mt-0.5 line-clamp-1" style={{ color: '#8B8B85' }}>{p.description}</p>}
+                      <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{p.name}</p>
+                      {p.description && <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-muted)' }}>{p.description}</p>}
                     </td>
                     <td className="px-4 py-3"><CategoryPill cat={p.category} /></td>
-                    <td className="px-4 py-3 text-xs" style={{ color: '#2A2A2A' }}>
+                    <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-primary)' }}>
                       {p.durationHours != null ? `${p.durationHours}h` : '—'}
                     </td>
-                    <td className="px-4 py-3 text-xs" style={{ color: '#2A2A2A' }}>
+                    <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-primary)' }}>
                       {p.renewalPeriodMonths != null ? `Every ${p.renewalPeriodMonths}m` : 'One-time'}
                     </td>
                     <td className="px-4 py-3">
                       {p.isMandatory
                         ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: '#B45309', backgroundColor: '#FEF3C7' }}>Required</span>
-                        : <span className="text-[10px]" style={{ color: '#8B8B85' }}>Optional</span>}
+                        : <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Optional</span>}
                     </td>
                     <td className="px-4 py-3">
                       <button onClick={() => updateTrainingProgram(p.id, { isActive: !p.isActive })}
@@ -590,7 +590,7 @@ export function AdminTrainingPage() {
                     </td>
                     <td className="px-4 py-3">
                       <button onClick={() => setEditingProgram(p)}
-                        className="text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
+                        className="text-xs font-medium px-3 py-1.5 rounded-lg border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors">
                         Edit
                       </button>
                     </td>
@@ -612,7 +612,7 @@ export function AdminTrainingPage() {
               {(['all', 'enrolled', 'completed', 'expired'] as const).map((s) => (
                 <button key={s} onClick={() => setRecStatusFilter(s)}
                   className={`px-3 py-1.5 text-xs font-semibold rounded-lg capitalize transition-colors ${
-                    recStatusFilter === s ? 'text-white' : 'bg-white border border-slate-200 hover:bg-slate-50'}`}
+                    recStatusFilter === s ? 'text-white' : 'bg-(--glass-panel-bg) border border-(--shell-border) hover:bg-(--glass-panel-bg)'}`}
                   style={recStatusFilter === s ? {
                     backgroundColor: s === 'enrolled' ? '#D97706' : s === 'completed' ? '#059669' : s === 'expired' ? '#DC2626' : '#0B1538',
                   } : {}}>
@@ -621,54 +621,54 @@ export function AdminTrainingPage() {
               ))}
             </div>
             {/* Program filter */}
-            <select className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#0B1538]"
+            <select className="text-xs px-3 py-1.5 border border-(--shell-border) rounded-lg bg-(--glass-panel-bg) outline-none focus:ring-2 focus:ring-[#0B1538]"
               value={recProgramId} onChange={(e) => setRecProgramId(e.target.value)}>
               <option value="">All programs</option>
               {programs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
             {/* Employee search */}
             <div className="relative">
-              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#8B8B85' }} />
-              <input className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#0B1538]"
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
+              <input className="pl-8 pr-3 py-1.5 text-xs border border-(--shell-border) rounded-lg bg-(--glass-panel-bg) outline-none focus:ring-2 focus:ring-[#0B1538]"
                 placeholder="Search employee…" value={recSearch} onChange={(e) => setRecSearch(e.target.value)} />
             </div>
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
             {recLoading ? (
-              <div className="p-8 text-center text-sm" style={{ color: '#8B8B85' }}>Loading…</div>
+              <div className="p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</div>
             ) : filteredRecords.length === 0 ? (
               <div className="p-12 text-center">
                 <CheckCircle2 size={32} className="mx-auto mb-3 opacity-20" />
-                <p className="text-sm font-medium" style={{ color: '#8B8B85' }}>No records match the filters</p>
+                <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>No records match the filters</p>
               </div>
             ) : (
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100" style={{ backgroundColor: '#F8F9FC' }}>
+                  <tr className="border-b border-(--shell-border)" style={{ backgroundColor: '#F8F9FC' }}>
                     {['Employee', 'Program', 'Status', 'Enrolled', 'Completed', 'Expires', ''].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider"
-                        style={{ color: '#8B8B85' }}>{h}</th>
+                        style={{ color: 'var(--text-muted)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {filteredRecords.map((r) => (
-                    <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3 font-medium" style={{ color: '#0A0A0A' }}>{r.employeeName}</td>
+                    <tr key={r.id} className="hover:bg-(--glass-panel-bg) transition-colors">
+                      <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{r.employeeName}</td>
                       <td className="px-4 py-3">
-                        <p className="font-medium" style={{ color: '#2A2A2A' }}>{r.programName}</p>
+                        <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{r.programName}</p>
                         <CategoryPill cat={r.programCategory} />
                       </td>
                       <td className="px-4 py-3"><StatusPill status={r.status} /></td>
-                      <td className="px-4 py-3 text-xs" style={{ color: '#8B8B85' }}>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
                         {r.enrolledAt ? format(r.enrolledAt.toDate(), 'd MMM yy') : '—'}
                       </td>
-                      <td className="px-4 py-3 text-xs" style={{ color: '#8B8B85' }}>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
                         {r.completedAt ? format(r.completedAt.toDate(), 'd MMM yy') : '—'}
                       </td>
-                      <td className="px-4 py-3 text-xs" style={{ color: r.expiresAt && r.expiresAt.toDate() < now ? '#DC2626' : '#8B8B85' }}>
+                      <td className="px-4 py-3 text-xs" style={{ color: r.expiresAt && r.expiresAt.toDate() < now ? '#DC2626' : 'var(--text-muted)' }}>
                         {r.expiresAt ? format(r.expiresAt.toDate(), 'd MMM yy') : '—'}
                       </td>
                       <td className="px-4 py-3">
@@ -682,7 +682,7 @@ export function AdminTrainingPage() {
                           )}
                           {r.certificateUrl && (
                             <a href={r.certificateUrl} target="_blank" rel="noopener noreferrer"
-                              className="text-xs font-medium px-2 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 flex items-center gap-1 transition-colors"
+                              className="text-xs font-medium px-2 py-1.5 rounded-lg border border-(--shell-border) hover:bg-(--glass-panel-bg) flex items-center gap-1 transition-colors"
                               style={{ color: '#0369A1' }}>
                               <ExternalLink size={11} />Cert
                             </a>

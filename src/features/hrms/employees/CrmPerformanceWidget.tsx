@@ -24,16 +24,16 @@ interface CrmStats {
 }
 
 function SkeletonCard() {
-  return <div className="h-16 rounded-xl bg-slate-100 animate-pulse" />;
+  return <div className="h-16 rounded-xl bg-(--glass-panel-bg) animate-pulse" />;
 }
 
 function StatCard({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex-1 min-w-0 rounded-xl border border-slate-200 bg-white p-4 text-center">
-      <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>
+    <div className="flex-1 min-w-0 rounded-xl border border-(--shell-border) bg-(--glass-panel-bg) p-4 text-center">
+      <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
         {label}
       </p>
-      <p className="text-2xl font-bold" style={{ color: '#0B1538' }}>{value}</p>
+      <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
     </div>
   );
 }
@@ -144,10 +144,10 @@ export function CrmPerformanceWidget({ employeeUid, employeeName: _employeeName 
     `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-6">
+    <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-6">
       {/* Heading */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+        <h3 className="text-sm font-semibold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
           CRM Performance — {monthLabel}
         </h3>
         <Link
@@ -166,7 +166,7 @@ export function CrmPerformanceWidget({ employeeUid, employeeName: _employeeName 
           <SkeletonCard />
         </div>
       ) : !hasActivity ? (
-        <p className="text-sm text-center py-4" style={{ color: '#8B8B85' }}>
+        <p className="text-sm text-center py-4" style={{ color: 'var(--text-muted)' }}>
           No CRM activity this month
         </p>
       ) : (
@@ -183,9 +183,9 @@ export function CrmPerformanceWidget({ employeeUid, employeeName: _employeeName 
             />
             <StatCard label="Open Opportunities"  value={stats!.openOpportunities} />
           </div>
-          <p className="text-xs mt-3" style={{ color: '#8B8B85' }}>
+          <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
             Conversion rate:{' '}
-            <span className="font-semibold" style={{ color: '#0A0A0A' }}>
+            <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
               {conversionRate}%
             </span>
             {' '}({stats!.wonOpportunities} won of {stats!.totalLeads} leads)

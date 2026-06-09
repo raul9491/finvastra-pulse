@@ -36,7 +36,7 @@ const CATEGORY_META: Record<ChecklistItemCategory, { label: string; icon: typeof
   induction:          { label: 'Induction',          icon: BookOpen,  color: '#10B981' },
   knowledge_transfer: { label: 'Knowledge Transfer', icon: BookOpen,  color: '#0EA5E9' },
   crm:                { label: 'CRM',                icon: Zap,       color: '#DC2626' },
-  other:              { label: 'Other',              icon: Circle,    color: '#8B8B85' },
+  other:              { label: 'Other',              icon: Circle,    color: 'var(--text-muted)' },
 };
 
 function statusBadge(status: ChecklistStatus) {
@@ -56,7 +56,7 @@ function progressBar(items: ChecklistItem[]) {
   const pct = total === 0 ? 0 : Math.round((done / total) * 100);
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+      <div className="flex-1 bg-(--glass-panel-bg) rounded-full h-1.5 overflow-hidden">
         <div className="h-full rounded-full transition-all"
           style={{ width: `${pct}%`, background: pct === 100 ? '#16a34a' : '#C9A961' }} />
       </div>
@@ -118,18 +118,18 @@ function TickItemModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
-        <h3 className="text-base font-semibold text-ink">{item.task}</h3>
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+        <h3 className="text-base font-semibold text-(--text-primary)">{item.task}</h3>
         <div>
           <label className="block text-xs font-medium text-muted mb-1">Notes (optional)</label>
           <textarea
-            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none outline-none focus:ring-2 focus:ring-gold/30"
+            className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm resize-none outline-none focus:ring-2 focus:ring-gold/30"
             rows={3} value={notes} onChange={e => setNotes(e.target.value)}
             placeholder="Add a note…" />
         </div>
         <div className="flex gap-3 pt-1">
           <button onClick={onClose} disabled={saving}
-            className="flex-1 border border-slate-200 rounded-xl py-2 text-sm font-medium text-muted hover:bg-slate-50 transition-colors">
+            className="flex-1 border border-(--shell-border) rounded-xl py-2 text-sm font-medium text-muted hover:bg-(--glass-panel-bg) transition-colors">
             Cancel
           </button>
           {item.completed && (
@@ -182,12 +182,12 @@ function ChecklistDetail({
       {/* Header */}
       <div className="flex items-start gap-4">
         <button onClick={onBack}
-          className="mt-0.5 p-2 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors">
+          className="mt-0.5 p-2 rounded-xl border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors">
           <ChevronLeft size={16} />
         </button>
         <div className="flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="text-xl font-semibold text-ink">{checklist.employeeName}</h2>
+            <h2 className="text-xl font-semibold text-(--text-primary)">{checklist.employeeName}</h2>
             {statusBadge(checklist.status)}
           </div>
           {checklist.joiningDate && (
@@ -199,14 +199,14 @@ function ChecklistDetail({
       </div>
 
       {/* Progress card */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+      <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl p-5 shadow-sm">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium text-ink">Overall Progress</span>
+          <span className="text-sm font-medium text-(--text-primary)">Overall Progress</span>
           <span className="text-2xl font-bold" style={{ color: pct === 100 ? '#16a34a' : '#C9A961' }}>
             {pct}%
           </span>
         </div>
-        <div className="bg-slate-100 rounded-full h-2.5 overflow-hidden">
+        <div className="bg-(--glass-panel-bg) rounded-full h-2.5 overflow-hidden">
           <div className="h-full rounded-full transition-all"
             style={{ width: `${pct}%`, background: pct === 100 ? '#16a34a' : '#C9A961' }} />
         </div>
@@ -218,17 +218,17 @@ function ChecklistDetail({
         const meta = CATEGORY_META[cat] ?? CATEGORY_META.other;
         const catDone = items.filter(i => i.completed).length;
         return (
-          <div key={cat} className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-100"
+          <div key={cat} className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl shadow-sm overflow-hidden">
+            <div className="flex items-center gap-2 px-5 py-3 border-b border-(--shell-border)"
               style={{ background: `${meta.color}10` }}>
               <meta.icon size={15} style={{ color: meta.color }} />
               <span className="text-sm font-semibold" style={{ color: meta.color }}>{meta.label}</span>
               <span className="ml-auto text-xs text-muted">{catDone}/{items.length}</span>
             </div>
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-(--shell-border)">
               {items.map(item => (
                 <li key={item.id}
-                  className="flex items-start gap-3 px-5 py-3 hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="flex items-start gap-3 px-5 py-3 hover:bg-(--glass-panel-bg) transition-colors cursor-pointer"
                   onClick={() => setTickingItem(item)}>
                   <div className="mt-0.5 shrink-0">
                     {item.completed
@@ -236,7 +236,7 @@ function ChecklistDetail({
                       : <div className="w-4.5 h-4.5 rounded-full border-2 border-slate-300" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm ${item.completed ? 'line-through text-muted' : 'text-ink'}`}>
+                    <p className={`text-sm ${item.completed ? 'line-through text-muted' : 'text-(--text-primary)'}`}>
                       {item.task}
                     </p>
                     {item.notes && (
@@ -407,7 +407,7 @@ export function OnboardingPage() {
             <UserPlus size={20} style={{ color: '#1D4ED8' }} />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-ink">Onboarding</h1>
+            <h1 className="text-xl font-semibold text-(--text-primary)">Onboarding</h1>
             <p className="text-sm text-muted">{checklists.length} checklist{checklists.length !== 1 ? 's' : ''}</p>
           </div>
         </div>
@@ -426,7 +426,7 @@ export function OnboardingPage() {
               generateResult.startsWith('Error')
                 ? 'bg-red-50 text-red-600'
                 : generateResult.includes('already')
-                ? 'bg-slate-100 text-muted'
+                ? 'bg-(--glass-panel-bg) text-muted'
                 : 'bg-green-50 text-green-700'
             }`}>
               {generateResult}
@@ -464,7 +464,7 @@ export function OnboardingPage() {
         placeholder="Search by employee name…"
         value={search}
         onChange={e => setSearch(e.target.value)}
-        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gold/30"
+        className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gold/30"
       />
 
       {/* List */}
@@ -482,11 +482,11 @@ export function OnboardingPage() {
 
             return (
               <button key={c.id} onClick={() => setSelected(c)}
-                className="w-full bg-white border border-slate-200 rounded-2xl p-5 shadow-sm text-left hover:border-gold/60 hover:shadow-md transition-all">
+                className="w-full bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl p-5 shadow-sm text-left hover:border-gold/60 hover:shadow-md transition-all">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-ink">{c.employeeName}</span>
+                      <span className="font-semibold text-(--text-primary)">{c.employeeName}</span>
                       {statusBadge(c.status)}
                     </div>
                     {c.joiningDate && (

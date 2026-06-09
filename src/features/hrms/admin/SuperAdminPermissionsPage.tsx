@@ -305,7 +305,7 @@ function PermRow({
           />
           <div className="w-9 h-5 bg-white/20 peer-checked:bg-gold rounded-full peer-focus:ring-2
             peer-focus:ring-gold/30 transition-colors after:content-[''] after:absolute after:top-0.5
-            after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-transform
+            after:left-0.5 after:w-4 after:h-4 after:bg-(--glass-panel-bg) after:rounded-full after:transition-transform
             peer-checked:after:translate-x-4" />
         </label>
         {/* Command Centre grant — admins always have it; a grantee also needs CRM access to enter the module */}
@@ -842,14 +842,14 @@ export function SuperAdminPermissionsPage() {
                 {dirtyUids.length} change{dirtyUids.length === 1 ? '' : 's'}
               </span>
 
-              <span className="text-xs flex-1" style={{ color: '#94A3B8' }}>
+              <span className="text-xs flex-1" style={{ color: 'var(--text-muted)' }}>
                 Not yet saved
               </span>
 
               <button
                 onClick={handleDiscard}
                 className="flex items-center gap-1.5 text-xs transition-colors hover:text-slate-200"
-                style={{ color: '#94A3B8' }}
+                style={{ color: 'var(--text-muted)' }}
               >
                 <RotateCcw size={13} />
                 Discard

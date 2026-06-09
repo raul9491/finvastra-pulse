@@ -55,7 +55,7 @@ function EmployeeCard({
   }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
+    <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
       {/* Avatar + name */}
       <div className="flex items-center gap-3">
         {emp.photoURL ? (
@@ -67,15 +67,15 @@ function EmployeeCard({
         ) : (
           <div
             className="w-12 h-12 rounded-full flex items-center justify-center text-base font-bold shrink-0"
-            style={{ backgroundColor: '#0B153815', color: '#0B1538' }}
+            style={{ backgroundColor: '#0B153815', color: 'var(--text-primary)' }}
           >
             {ini}
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-ink truncate">{emp.displayName}</p>
+          <p className="text-sm font-semibold text-(--text-primary) truncate">{emp.displayName}</p>
           {emp.designation && (
-            <p className="text-xs text-mute truncate">{emp.designation}</p>
+            <p className="text-xs text-(--text-muted) truncate">{emp.designation}</p>
           )}
         </div>
       </div>
@@ -84,12 +84,12 @@ function EmployeeCard({
       <div className="flex flex-wrap gap-1.5">
         {emp.department && (
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-            style={{ backgroundColor: '#0B153812', color: '#0B1538' }}>
+            style={{ backgroundColor: '#0B153812', color: 'var(--text-primary)' }}>
             {emp.department}
           </span>
         )}
         {emp.employeeId && (
-          <span className="text-[10px] text-mute px-1">{emp.employeeId}</span>
+          <span className="text-[10px] text-(--text-muted) px-1">{emp.employeeId}</span>
         )}
       </div>
 
@@ -98,20 +98,20 @@ function EmployeeCard({
         <a
           href={`mailto:${emp.email}`}
           className="flex items-center gap-2 text-xs hover:opacity-70 transition-opacity truncate"
-          style={{ color: '#0B1538' }}
+          style={{ color: 'var(--text-primary)' }}
           onClick={(e) => e.stopPropagation()}
         >
           <Mail size={12} className="shrink-0" />
           <span className="truncate">{emp.email}</span>
         </a>
         {emp.location && (
-          <div className="flex items-center gap-2 text-xs text-mute">
+          <div className="flex items-center gap-2 text-xs text-(--text-muted)">
             <MapPin size={12} className="shrink-0" />
             <span className="truncate">{emp.location}</span>
           </div>
         )}
         {showJoiningDate && emp.joiningDate && (
-          <p className="text-[10px] text-mute pl-0.5">
+          <p className="text-[10px] text-(--text-muted) pl-0.5">
             {formatJoiningDate(emp.joiningDate)}
           </p>
         )}
@@ -168,16 +168,16 @@ export function EmployeeDirectoryPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
             Employee Directory
           </h2>
-          <p className="text-sm text-mute">
+          <p className="text-sm text-(--text-muted)">
             {loading ? 'Loading…' : `${activeEmployees.length} active team member${activeEmployees.length !== 1 ? 's' : ''}`}
           </p>
         </div>
         <Link to="/hrms/org-chart"
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors hover:bg-slate-100 shrink-0"
-          style={{ color: '#8B8B85', border: '1px solid #E2E8F0' }}>
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors hover:bg-(--glass-panel-bg) shrink-0"
+          style={{ color: 'var(--text-muted)', border: '1px solid #E2E8F0' }}>
           Org Chart →
         </Link>
       </div>
@@ -186,13 +186,13 @@ export function EmployeeDirectoryPage() {
       <div className="flex flex-col sm:flex-row gap-3">
         {/* Search input */}
         <div className="relative flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-mute" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted)" />
           <input
             type="text"
             placeholder="Search by name, designation, department…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-navy/10 focus:border-navy bg-white"
+            className="w-full pl-9 pr-4 py-2.5 text-sm border border-(--shell-border) rounded-xl outline-none focus:ring-2 focus:ring-navy/10 focus:border-navy bg-(--glass-panel-bg)"
           />
         </div>
       </div>
@@ -200,11 +200,11 @@ export function EmployeeDirectoryPage() {
       {/* Department filter chips */}
       {departments.length > 1 && (
         <div className="flex items-center gap-2 flex-wrap">
-          <Filter size={13} style={{ color: '#8B8B85' }} />
+          <Filter size={13} style={{ color: 'var(--text-muted)' }} />
           <button
             onClick={() => setDeptFilter('')}
             className="px-3 py-1 rounded-full text-xs font-semibold transition-colors"
-            style={deptFilter === '' ? { backgroundColor: '#0B1538', color: '#FFFFFF' } : { backgroundColor: '#F2EFE7', color: '#2A2A2A' }}
+            style={deptFilter === '' ? { backgroundColor: 'var(--text-primary)', color: '#FFFFFF' } : { backgroundColor: '#F2EFE7', color: 'var(--text-primary)' }}
           >
             All ({activeEmployees.length})
           </button>
@@ -215,7 +215,7 @@ export function EmployeeDirectoryPage() {
                 key={dept}
                 onClick={() => setDeptFilter(dept === deptFilter ? '' : dept)}
                 className="px-3 py-1 rounded-full text-xs font-semibold transition-colors"
-                style={deptFilter === dept ? { backgroundColor: '#0B1538', color: '#FFFFFF' } : { backgroundColor: '#F2EFE7', color: '#2A2A2A' }}
+                style={deptFilter === dept ? { backgroundColor: 'var(--text-primary)', color: '#FFFFFF' } : { backgroundColor: '#F2EFE7', color: 'var(--text-primary)' }}
               >
                 {dept} ({count})
               </button>
@@ -228,30 +228,30 @@ export function EmployeeDirectoryPage() {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3 animate-pulse">
+            <div key={i} className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl p-5 space-y-3 animate-pulse">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-slate-100 shrink-0" />
+                <div className="w-12 h-12 rounded-full bg-(--glass-panel-bg) shrink-0" />
                 <div className="flex-1 space-y-1.5">
-                  <div className="h-4 bg-slate-100 rounded w-3/4" />
-                  <div className="h-3 bg-slate-100 rounded w-1/2" />
+                  <div className="h-4 bg-(--glass-panel-bg) rounded w-3/4" />
+                  <div className="h-3 bg-(--glass-panel-bg) rounded w-1/2" />
                 </div>
               </div>
-              <div className="h-3 bg-slate-100 rounded w-1/3" />
-              <div className="h-3 bg-slate-100 rounded w-2/3" />
+              <div className="h-3 bg-(--glass-panel-bg) rounded w-1/3" />
+              <div className="h-3 bg-(--glass-panel-bg) rounded w-2/3" />
             </div>
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white border border-slate-200 rounded-2xl py-16 text-center">
+        <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl py-16 text-center">
           <Users size={40} className="mx-auto mb-3 text-slate-200" />
-          <p className="text-sm text-mute">
+          <p className="text-sm text-(--text-muted)">
             {search || deptFilter ? 'No employees match your search.' : 'No active employees found.'}
           </p>
           {(search || deptFilter) && (
             <button
               onClick={() => { setSearch(''); setDeptFilter(''); }}
               className="mt-3 text-xs font-medium hover:opacity-70 transition-opacity"
-              style={{ color: '#0B1538' }}
+              style={{ color: 'var(--text-primary)' }}
             >
               Clear filters
             </button>
@@ -281,7 +281,7 @@ export function EmployeeDirectoryPage() {
 
       {/* Result count when filtered */}
       {!loading && (search || deptFilter) && filtered.length > 0 && (
-        <p className="text-xs text-mute text-center">
+        <p className="text-xs text-(--text-muted) text-center">
           Showing {filtered.length} of {activeEmployees.length} employees
         </p>
       )}

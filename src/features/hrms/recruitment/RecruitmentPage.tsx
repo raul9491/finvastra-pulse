@@ -17,7 +17,7 @@ import type { JobOpening, JobOpeningStatus, Candidate, CandidateStage, Candidate
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STAGES: { value: CandidateStage; label: string; color: string; bg: string }[] = [
-  { value: 'applied',     label: 'Applied',     color: '#64748B', bg: '#F1F5F9' },
+  { value: 'applied',     label: 'Applied',     color: 'var(--text-muted)', bg: '#F1F5F9' },
   { value: 'shortlisted', label: 'Shortlisted', color: '#1D4ED8', bg: '#DBEAFE' },
   { value: 'interview_1', label: 'Interview I',  color: '#7C3AED', bg: '#EDE9FE' },
   { value: 'interview_2', label: 'Interview II', color: '#9333EA', bg: '#F3E8FF' },
@@ -61,7 +61,7 @@ function StagePill({ stage }: { stage: CandidateStage }) {
   );
 }
 
-const inp  = 'w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-slate-400';
+const inp  = 'w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border border-(--shell-border) rounded-lg outline-none focus:border-slate-400';
 const sel  = `${inp} cursor-pointer`;
 const lbl  = 'block text-xs font-semibold uppercase tracking-wider text-muted mb-1.5';
 
@@ -205,8 +205,8 @@ function AddOpeningModal({ uid, onClose }: { uid: string; onClose: () => void })
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4">
-        <h3 className="text-base font-semibold text-ink">New Job Opening</h3>
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4">
+        <h3 className="text-base font-semibold text-(--text-primary)">New Job Opening</h3>
         {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
@@ -237,7 +237,7 @@ function AddOpeningModal({ uid, onClose }: { uid: string; onClose: () => void })
           </div>
         </div>
         <div className="flex gap-3 pt-1">
-          <button onClick={onClose} className="flex-1 border border-slate-200 rounded-xl py-2 text-sm font-medium text-muted hover:bg-slate-50">Cancel</button>
+          <button onClick={onClose} className="flex-1 border border-(--shell-border) rounded-xl py-2 text-sm font-medium text-muted hover:bg-(--glass-panel-bg)">Cancel</button>
           <button onClick={handleSave} disabled={saving} className="flex-1 bg-navy text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-navy-soft disabled:opacity-50 flex items-center justify-center gap-1.5">
             <Check size={14} />{saving ? 'Saving…' : 'Create Opening'}
           </button>
@@ -299,8 +299,8 @@ function AddCandidateModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg my-4 p-6 space-y-4">
-        <h3 className="text-base font-semibold text-ink">Add Candidate</h3>
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-lg my-4 p-6 space-y-4">
+        <h3 className="text-base font-semibold text-(--text-primary)">Add Candidate</h3>
         {error && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
@@ -348,7 +348,7 @@ function AddCandidateModal({
           </div>
         </div>
         <div className="flex gap-3 pt-1">
-          <button onClick={onClose} className="flex-1 border border-slate-200 rounded-xl py-2 text-sm font-medium text-muted hover:bg-slate-50">Cancel</button>
+          <button onClick={onClose} className="flex-1 border border-(--shell-border) rounded-xl py-2 text-sm font-medium text-muted hover:bg-(--glass-panel-bg)">Cancel</button>
           <button onClick={handleSave} disabled={saving} className="flex-1 bg-navy text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-navy-soft disabled:opacity-50 flex items-center justify-center gap-1.5">
             <Check size={14} />{saving ? 'Saving…' : 'Add Candidate'}
           </button>
@@ -389,8 +389,8 @@ function AdvanceStageModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-        <h3 className="text-base font-semibold text-ink">Advance Stage</h3>
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+        <h3 className="text-base font-semibold text-(--text-primary)">Advance Stage</h3>
         <p className="text-sm text-muted">{candidate.name}</p>
         <div className="flex items-center gap-3">
           <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ color: from.color, backgroundColor: from.bg }}>{from.label}</span>
@@ -402,7 +402,7 @@ function AdvanceStageModal({
           <textarea className={`${inp} resize-none`} rows={3} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Interview feedback, observations…" />
         </div>
         <div className="flex gap-3 pt-1">
-          <button onClick={onClose} className="flex-1 border border-slate-200 rounded-xl py-2 text-sm font-medium text-muted hover:bg-slate-50">Cancel</button>
+          <button onClick={onClose} className="flex-1 border border-(--shell-border) rounded-xl py-2 text-sm font-medium text-muted hover:bg-(--glass-panel-bg)">Cancel</button>
           <button onClick={handleAdvance} disabled={saving} className="flex-1 bg-navy text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-navy-soft disabled:opacity-50 flex items-center justify-center gap-1.5">
             <UserCheck size={14} />{saving ? 'Saving…' : 'Advance'}
           </button>
@@ -434,15 +434,15 @@ function RejectModal({ candidate, uid, onClose }: { candidate: Candidate; uid: s
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-        <h3 className="text-base font-semibold text-ink">Reject Candidate</h3>
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+        <h3 className="text-base font-semibold text-(--text-primary)">Reject Candidate</h3>
         <p className="text-sm text-muted">{candidate.name}</p>
         <div>
           <label className={lbl}>Reason (optional)</label>
           <textarea className={`${inp} resize-none`} rows={3} value={reason} onChange={e => setReason(e.target.value)} placeholder="Feedback or reason for rejection…" />
         </div>
         <div className="flex gap-3 pt-1">
-          <button onClick={onClose} className="flex-1 border border-slate-200 rounded-xl py-2 text-sm font-medium text-muted hover:bg-slate-50">Cancel</button>
+          <button onClick={onClose} className="flex-1 border border-(--shell-border) rounded-xl py-2 text-sm font-medium text-muted hover:bg-(--glass-panel-bg)">Cancel</button>
           <button onClick={handleReject} disabled={saving} className="flex-1 bg-red-600 text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-1.5">
             <UserX size={14} />{saving ? 'Saving…' : 'Mark Rejected'}
           </button>
@@ -480,8 +480,8 @@ function OfferLetterModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-        <h3 className="text-base font-semibold text-ink">Generate Offer Letter</h3>
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+        <h3 className="text-base font-semibold text-(--text-primary)">Generate Offer Letter</h3>
         <p className="text-sm text-muted">{candidate.name} — {candidate.openingTitle}</p>
         <div>
           <label className={lbl}>Offered Gross CTC (₹/month) *</label>
@@ -492,7 +492,7 @@ function OfferLetterModal({
           <input type="date" className={inp} value={joiningDate} onChange={e => setJoiningDate(e.target.value)} />
         </div>
         <div className="flex gap-3 pt-1">
-          <button onClick={onClose} className="flex-1 border border-slate-200 rounded-xl py-2 text-sm font-medium text-muted hover:bg-slate-50">Cancel</button>
+          <button onClick={onClose} className="flex-1 border border-(--shell-border) rounded-xl py-2 text-sm font-medium text-muted hover:bg-(--glass-panel-bg)">Cancel</button>
           <button onClick={handleDownload} disabled={!offeredCTC || saving} className="flex-1 bg-navy text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-navy-soft disabled:opacity-50 flex items-center justify-center gap-1.5">
             <Download size={14} />{saving ? 'Generating…' : 'Download Letter'}
           </button>
@@ -573,7 +573,7 @@ export function RecruitmentPage() {
           <Briefcase size={20} style={{ color: '#3730A3' }} />
         </div>
         <div>
-          <h1 className="text-xl font-semibold text-ink">Recruitment</h1>
+          <h1 className="text-xl font-semibold text-(--text-primary)">Recruitment</h1>
           <p className="text-sm text-muted">{openings.length} opening{openings.length !== 1 ? 's' : ''} · {candidates.length} candidate{candidates.length !== 1 ? 's' : ''}</p>
         </div>
       </div>
@@ -594,11 +594,11 @@ export function RecruitmentPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-(--glass-panel-bg) rounded-xl p-1 w-fit">
         {(['openings', 'candidates'] as const).map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             className="px-4 py-1.5 rounded-lg text-sm font-medium transition-all capitalize"
-            style={{ background: activeTab === tab ? '#FFFFFF' : 'transparent', color: activeTab === tab ? '#0A0A0A' : '#8B8B85', boxShadow: activeTab === tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}>
+            style={{ background: activeTab === tab ? '#FFFFFF' : 'transparent', color: activeTab === tab ? 'var(--text-primary)' : 'var(--text-muted)', boxShadow: activeTab === tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}>
             {tab === 'openings' ? `Openings (${openings.length})` : `Candidates (${candidates.length})`}
           </button>
         ))}
@@ -610,7 +610,7 @@ export function RecruitmentPage() {
           <div className="flex justify-end">
             <button onClick={() => setAddingOpening(true)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80"
-              style={{ backgroundColor: '#0B1538', color: '#FFFFFF' }}>
+              style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF' }}>
               <Plus size={14} />New Opening
             </button>
           </div>
@@ -620,21 +620,21 @@ export function RecruitmentPage() {
           ) : openings.length === 0 ? (
             <div className="text-center py-16 text-muted text-sm">No job openings yet. Create one to get started.</div>
           ) : (
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100">
+                  <tr className="border-b border-(--shell-border)">
                     {['Position', 'Department', 'Status', 'Target Date', 'Candidates', ''].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-(--shell-border)">
                   {openings.map(op => {
                     const sm = OPENING_STATUS_META[op.status];
                     return (
-                      <tr key={op.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-4 py-3 font-medium text-ink">{op.title}</td>
+                      <tr key={op.id} className="hover:bg-(--glass-panel-bg) transition-colors">
+                        <td className="px-4 py-3 font-medium text-(--text-primary)">{op.title}</td>
                         <td className="px-4 py-3 text-muted">{op.department}</td>
                         <td className="px-4 py-3">
                           <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ color: sm.color, backgroundColor: sm.bg }}>{sm.label}</span>
@@ -664,17 +664,17 @@ export function RecruitmentPage() {
         <div className="space-y-4">
           {/* Filters row */}
           <div className="flex flex-wrap gap-3 items-center">
-            <select className="px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none bg-white"
+            <select className="px-3 py-2 text-sm border border-(--shell-border) rounded-xl outline-none bg-(--glass-panel-bg)"
               value={filterOpeningId} onChange={e => setFilterOpeningId(e.target.value)}>
               <option value="">All Openings</option>
               {openings.map(o => <option key={o.id} value={o.id}>{o.title} — {o.department}</option>)}
             </select>
             <input type="search" placeholder="Search by name…" value={search} onChange={e => setSearch(e.target.value)}
-              className="px-3 py-2 text-sm border border-slate-200 rounded-xl outline-none bg-white w-48" />
+              className="px-3 py-2 text-sm border border-(--shell-border) rounded-xl outline-none bg-(--glass-panel-bg) w-48" />
             <div className="flex gap-1 flex-wrap">
               <button onClick={() => setStageFilter('all')}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                style={{ background: stageFilter === 'all' ? '#0B1538' : '#F1F5F9', color: stageFilter === 'all' ? '#FFFFFF' : '#64748B' }}>
+                style={{ background: stageFilter === 'all' ? '#0B1538' : '#F1F5F9', color: stageFilter === 'all' ? '#FFFFFF' : 'var(--text-muted)' }}>
                 All
               </button>
               {STAGES.map(s => (
@@ -688,7 +688,7 @@ export function RecruitmentPage() {
             <div className="ml-auto">
               <button onClick={() => setAddingCandidate(true)}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80"
-                style={{ backgroundColor: '#0B1538', color: '#FFFFFF' }}>
+                style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF' }}>
                 <Plus size={14} />Add Candidate
               </button>
             </div>
@@ -697,23 +697,23 @@ export function RecruitmentPage() {
           {filteredCandidates.length === 0 ? (
             <div className="text-center py-16 text-muted text-sm">No candidates match the current filters.</div>
           ) : (
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100">
+                  <tr className="border-b border-(--shell-border)">
                     {['Candidate', 'Position', 'Stage', 'Source', 'Phone', 'Applied', 'Actions'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-(--shell-border)">
                   {filteredCandidates.map(c => {
                     const addedDate = (c.addedAt as any)?.toDate?.();
                     const nextSt = NEXT_STAGE[c.stage];
                     return (
-                      <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                      <tr key={c.id} className="hover:bg-(--glass-panel-bg) transition-colors">
                         <td className="px-4 py-3">
-                          <p className="font-medium text-ink">{c.name}</p>
+                          <p className="font-medium text-(--text-primary)">{c.name}</p>
                           {c.currentCompany && <p className="text-xs text-muted">{c.currentCompany}</p>}
                         </td>
                         <td className="px-4 py-3 text-muted text-xs">{c.openingTitle}</td>
@@ -725,7 +725,7 @@ export function RecruitmentPage() {
                           <div className="flex items-center gap-1.5">
                             {c.resumeLink && (
                               <a href={c.resumeLink} target="_blank" rel="noopener noreferrer"
-                                className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors" title="View Resume"
+                                className="p-1.5 rounded-lg hover:bg-(--glass-panel-bg) transition-colors" title="View Resume"
                                 style={{ color: '#1D4ED8' }}>
                                 <ExternalLink size={13} />
                               </a>

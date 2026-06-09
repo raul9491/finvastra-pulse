@@ -157,7 +157,7 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110 disabled:opacity-50"
               style={{
                 background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
-                color:      '#0B1538',
+                color:      'var(--text-primary)',
                 border:     '1px solid rgba(201,169,97,0.40)',
               }}>
               {submitting ? 'Submitting…' : 'Submit Claim'}
@@ -251,7 +251,7 @@ export function ClaimsPage() {
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
           style={{
             background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
-            color:      '#0B1538',
+            color:      'var(--text-primary)',
             border:     '1px solid rgba(201,169,97,0.40)',
           }}
         >

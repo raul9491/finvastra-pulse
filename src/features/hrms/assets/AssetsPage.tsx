@@ -56,7 +56,7 @@ function statusStyle(s: AssetStatus): { bg: string; text: string } {
     case 'available':    return { bg: '#D1FAE5', text: '#065F46' };
     case 'assigned':     return { bg: '#DBEAFE', text: '#1E40AF' };
     case 'under_repair': return { bg: '#FEF3C7', text: '#92400E' };
-    case 'retired':      return { bg: '#F1F5F9', text: '#475569' };
+    case 'retired':      return { bg: '#F1F5F9', text: 'var(--text-muted)' };
   }
 }
 
@@ -68,8 +68,8 @@ function conditionStyle(c: AssetCondition): { text: string } {
   }
 }
 
-const inp = 'w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:border-slate-400';
-const sel = 'w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none';
+const inp = 'w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border border-(--shell-border) rounded-lg outline-none focus:border-slate-400';
+const sel = 'w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border border-(--shell-border) rounded-lg outline-none';
 
 // ─── Add/Edit Asset modal ─────────────────────────────────────────────────────
 
@@ -165,7 +165,7 @@ function AddEditAssetModal({ asset, adminUid, onClose }: {
     <Modal isOpen onClose={onClose} title={asset ? 'Edit Asset' : 'Add Asset'} size="sm"
       footer={
         <>
-          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-slate-200 rounded-xl" style={{ color: '#2A2A2A' }}>Cancel</button>
+          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-(--shell-border) rounded-xl" style={{ color: 'var(--text-primary)' }}>Cancel</button>
           <button onClick={handleSave} disabled={busy}
             className="px-7 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-50"
             style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
@@ -175,63 +175,63 @@ function AddEditAssetModal({ asset, adminUid, onClose }: {
       }>
       <div className="space-y-3.5">
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Asset Type</label>
-          <select value={form.assetType} onChange={(e) => set('assetType', e.target.value as AssetType)} className={sel} style={{ color: '#0A0A0A' }}>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Asset Type</label>
+          <select value={form.assetType} onChange={(e) => set('assetType', e.target.value as AssetType)} className={sel} style={{ color: 'var(--text-primary)' }}>
             {(Object.entries(ASSET_TYPE_LABELS) as [AssetType, string][]).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Asset Name *</label>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Asset Name *</label>
           <input value={form.assetName} onChange={(e) => set('assetName', e.target.value)}
-            placeholder="e.g. Dell Latitude 5520" className={inp} style={{ color: '#0A0A0A' }} />
+            placeholder="e.g. Dell Latitude 5520" className={inp} style={{ color: 'var(--text-primary)' }} />
         </div>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Serial Number</label>
-          <input value={form.serialNumber} onChange={(e) => set('serialNumber', e.target.value)} className={inp} style={{ color: '#0A0A0A' }} />
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Serial Number</label>
+          <input value={form.serialNumber} onChange={(e) => set('serialNumber', e.target.value)} className={inp} style={{ color: 'var(--text-primary)' }} />
         </div>
         {form.assetType === 'mobile_phone' && (
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>IMEI</label>
-            <input value={form.imei} onChange={(e) => set('imei', e.target.value)} className={inp} style={{ color: '#0A0A0A' }} />
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>IMEI</label>
+            <input value={form.imei} onChange={(e) => set('imei', e.target.value)} className={inp} style={{ color: 'var(--text-primary)' }} />
           </div>
         )}
         {form.assetType === 'sim_card' && (
           <>
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>SIM Number</label>
-              <input value={form.simNumber} onChange={(e) => set('simNumber', e.target.value)} className={inp} style={{ color: '#0A0A0A' }} />
+              <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>SIM Number</label>
+              <input value={form.simNumber} onChange={(e) => set('simNumber', e.target.value)} className={inp} style={{ color: 'var(--text-primary)' }} />
             </div>
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Phone Number</label>
-              <input value={form.phoneNumber} onChange={(e) => set('phoneNumber', e.target.value)} className={inp} style={{ color: '#0A0A0A' }} />
+              <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Phone Number</label>
+              <input value={form.phoneNumber} onChange={(e) => set('phoneNumber', e.target.value)} className={inp} style={{ color: 'var(--text-primary)' }} />
             </div>
           </>
         )}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Purchase Date</label>
-            <input type="date" value={form.purchaseDate} onChange={(e) => set('purchaseDate', e.target.value)} className={inp} style={{ color: '#0A0A0A' }} />
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Purchase Date</label>
+            <input type="date" value={form.purchaseDate} onChange={(e) => set('purchaseDate', e.target.value)} className={inp} style={{ color: 'var(--text-primary)' }} />
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Purchase Value (₹)</label>
-            <input type="number" value={form.purchaseValue} onChange={(e) => set('purchaseValue', e.target.value)} className={inp} style={{ color: '#0A0A0A' }} />
+            <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Purchase Value (₹)</label>
+            <input type="number" value={form.purchaseValue} onChange={(e) => set('purchaseValue', e.target.value)} className={inp} style={{ color: 'var(--text-primary)' }} />
           </div>
         </div>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Condition</label>
-          <select value={form.condition} onChange={(e) => set('condition', e.target.value as AssetCondition)} className={sel} style={{ color: '#0A0A0A' }}>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Condition</label>
+          <select value={form.condition} onChange={(e) => set('condition', e.target.value as AssetCondition)} className={sel} style={{ color: 'var(--text-primary)' }}>
             {(Object.entries(CONDITION_LABELS) as [AssetCondition, string][]).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Notes</label>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Notes</label>
           <textarea value={form.notes} onChange={(e) => set('notes', e.target.value)} rows={2}
-            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none"
-            style={{ color: '#0A0A0A' }} />
+            className="w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border border-(--shell-border) rounded-lg outline-none resize-none"
+            style={{ color: 'var(--text-primary)' }} />
         </div>
         {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
@@ -288,7 +288,7 @@ function AssignAssetModal({ asset, onClose }: { asset: Asset; onClose: () => voi
     <Modal isOpen onClose={onClose} title={`Assign: ${asset.assetName}`} size="sm"
       footer={
         <>
-          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-slate-200 rounded-xl" style={{ color: '#2A2A2A' }}>Cancel</button>
+          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-(--shell-border) rounded-xl" style={{ color: 'var(--text-primary)' }}>Cancel</button>
           <button onClick={handleAssign} disabled={busy || !assignedTo}
             className="px-7 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-50"
             style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
@@ -298,7 +298,7 @@ function AssignAssetModal({ asset, onClose }: { asset: Asset; onClose: () => voi
       }>
       <div className="space-y-3.5">
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Employee *</label>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Employee *</label>
           <SearchableSelect
             options={employeeOptions}
             value={assignedTo}
@@ -307,22 +307,22 @@ function AssignAssetModal({ asset, onClose }: { asset: Asset; onClose: () => voi
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Assignment Date</label>
-          <input type="date" value={assignDate} onChange={(e) => setAssignDate(e.target.value)} className={inp} style={{ color: '#0A0A0A' }} />
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Assignment Date</label>
+          <input type="date" value={assignDate} onChange={(e) => setAssignDate(e.target.value)} className={inp} style={{ color: 'var(--text-primary)' }} />
         </div>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Condition at Assignment</label>
-          <select value={condition} onChange={(e) => setCondition(e.target.value as AssetCondition)} className={sel} style={{ color: '#0A0A0A' }}>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Condition at Assignment</label>
+          <select value={condition} onChange={(e) => setCondition(e.target.value as AssetCondition)} className={sel} style={{ color: 'var(--text-primary)' }}>
             {(Object.entries(CONDITION_LABELS) as [AssetCondition, string][]).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Notes</label>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Notes</label>
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none"
-            style={{ color: '#0A0A0A' }} />
+            className="w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border border-(--shell-border) rounded-lg outline-none resize-none"
+            style={{ color: 'var(--text-primary)' }} />
         </div>
         {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
@@ -363,7 +363,7 @@ function ReturnAssetModal({ asset, onClose }: { asset: Asset; onClose: () => voi
     <Modal isOpen onClose={onClose} title={`Return: ${asset.assetName}`} size="sm"
       footer={
         <>
-          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-slate-200 rounded-xl" style={{ color: '#2A2A2A' }}>Cancel</button>
+          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-(--shell-border) rounded-xl" style={{ color: 'var(--text-primary)' }}>Cancel</button>
           <button onClick={handleReturn} disabled={busy}
             className="px-7 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-50"
             style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
@@ -372,26 +372,26 @@ function ReturnAssetModal({ asset, onClose }: { asset: Asset; onClose: () => voi
         </>
       }>
       <div className="space-y-3.5">
-        <p className="text-sm" style={{ color: '#2A2A2A' }}>
+        <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
           Returning from <strong>{asset.assignedToName}</strong>.
         </p>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Return Date</label>
-          <input type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} className={inp} style={{ color: '#0A0A0A' }} />
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Return Date</label>
+          <input type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} className={inp} style={{ color: 'var(--text-primary)' }} />
         </div>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Condition on Return</label>
-          <select value={condition} onChange={(e) => setCondition(e.target.value as AssetCondition)} className={sel} style={{ color: '#0A0A0A' }}>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Condition on Return</label>
+          <select value={condition} onChange={(e) => setCondition(e.target.value as AssetCondition)} className={sel} style={{ color: 'var(--text-primary)' }}>
             {(Object.entries(CONDITION_LABELS) as [AssetCondition, string][]).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Notes / Damage Report</label>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Notes / Damage Report</label>
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none"
-            style={{ color: '#0A0A0A' }} />
+            className="w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border border-(--shell-border) rounded-lg outline-none resize-none"
+            style={{ color: 'var(--text-primary)' }} />
         </div>
         {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
@@ -460,10 +460,10 @@ export function AssetsPage() {
       <div className="flex items-start justify-between mb-6">
         <div>
           <h2 className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
             Asset Inventory
           </h2>
-          <p className="text-sm" style={{ color: '#8B8B85' }}>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
             Track company assets — laptops, SIM cards, phones, and access cards
           </p>
         </div>
@@ -480,14 +480,14 @@ export function AssetsPage() {
       {/* Summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { label: 'Total',        value: counts.total,        color: '#0B1538' },
+          { label: 'Total',        value: counts.total,        color: 'var(--text-primary)' },
           { label: 'Assigned',     value: counts.assigned,     color: '#1E40AF' },
           { label: 'Available',    value: counts.available,    color: '#065F46' },
           { label: 'Under Repair', value: counts.under_repair, color: '#92400E' },
         ].map(({ label, value, color }) => (
-          <div key={label} className="bg-white rounded-2xl border border-slate-200 p-4">
+          <div key={label} className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-4">
             <p className="text-2xl font-bold" style={{ color }}>{value}</p>
-            <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>{label}</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
           </div>
         ))}
       </div>
@@ -495,21 +495,21 @@ export function AssetsPage() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted)" />
           <input value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, serial, assignee…"
-            className="text-sm border border-slate-200 rounded-lg pl-9 pr-4 py-2 bg-white focus:outline-none w-56"
-            style={{ color: '#0A0A0A' }} />
+            className="text-sm border border-(--shell-border) rounded-lg pl-9 pr-4 py-2 bg-(--glass-panel-bg) focus:outline-none w-56"
+            style={{ color: 'var(--text-primary)' }} />
         </div>
         <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as AssetType | 'all')}
-          className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white outline-none" style={{ color: '#0A0A0A' }}>
+          className="text-sm border border-(--shell-border) rounded-lg px-3 py-2 bg-(--glass-panel-bg) outline-none" style={{ color: 'var(--text-primary)' }}>
           <option value="all">All Types</option>
           {(Object.entries(ASSET_TYPE_LABELS) as [AssetType, string][]).map(([k, v]) => (
             <option key={k} value={k}>{v}</option>
           ))}
         </select>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as AssetStatus | 'all')}
-          className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white outline-none" style={{ color: '#0A0A0A' }}>
+          className="text-sm border border-(--shell-border) rounded-lg px-3 py-2 bg-(--glass-panel-bg) outline-none" style={{ color: 'var(--text-primary)' }}>
           <option value="all">All Statuses</option>
           {(Object.entries(ASSET_STATUS_LABELS) as [AssetStatus, string][]).map(([k, v]) => (
             <option key={k} value={k}>{v}</option>
@@ -520,27 +520,27 @@ export function AssetsPage() {
       {/* Table */}
       {loading ? (
         <div className="animate-pulse space-y-2">
-          {[...Array(5)].map((_, i) => <div key={i} className="h-14 bg-slate-100 rounded-xl" />)}
+          {[...Array(5)].map((_, i) => <div key={i} className="h-14 bg-(--glass-panel-bg) rounded-xl" />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 rounded-2xl border border-slate-200 bg-white">
-          <Package size={32} className="mx-auto mb-3" style={{ color: '#CBD5E1' }} />
-          <p className="text-sm font-medium" style={{ color: '#2A2A2A' }}>No assets found</p>
-          <p className="text-xs mt-1" style={{ color: '#8B8B85' }}>Add your first asset with the button above.</p>
+        <div className="text-center py-16 rounded-2xl border border-(--shell-border) bg-(--glass-panel-bg)">
+          <Package size={32} className="mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
+          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>No assets found</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Add your first asset with the button above.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ backgroundColor: '#FAFAF7', borderBottom: '1px solid #E2E8F0' }}>
-                  <th className={thCls} style={{ color: '#8B8B85' }}>Asset</th>
-                  <th className={thCls} style={{ color: '#8B8B85' }}>Type</th>
-                  <th className={thCls} style={{ color: '#8B8B85' }}>Serial / IMEI</th>
-                  <th className={thCls} style={{ color: '#8B8B85' }}>Status</th>
-                  <th className={thCls} style={{ color: '#8B8B85' }}>Assigned To</th>
-                  <th className={thCls} style={{ color: '#8B8B85' }}>Condition</th>
-                  <th className={thCls} style={{ color: '#8B8B85' }}>Actions</th>
+                <tr style={{ backgroundColor: 'var(--glass-panel-bg)', borderBottom: '1px solid #E2E8F0' }}>
+                  <th className={thCls} style={{ color: 'var(--text-muted)' }}>Asset</th>
+                  <th className={thCls} style={{ color: 'var(--text-muted)' }}>Type</th>
+                  <th className={thCls} style={{ color: 'var(--text-muted)' }}>Serial / IMEI</th>
+                  <th className={thCls} style={{ color: 'var(--text-muted)' }}>Status</th>
+                  <th className={thCls} style={{ color: 'var(--text-muted)' }}>Assigned To</th>
+                  <th className={thCls} style={{ color: 'var(--text-muted)' }}>Condition</th>
+                  <th className={thCls} style={{ color: 'var(--text-muted)' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -551,16 +551,16 @@ export function AssetsPage() {
                     <tr key={asset.id} style={{ borderBottom: idx < filtered.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <span style={{ color: '#0B1538' }}>
+                          <span style={{ color: 'var(--text-primary)' }}>
                             <AssetIcon type={asset.assetType} size={15} />
                           </span>
-                          <span className="font-medium" style={{ color: '#0A0A0A' }}>{asset.assetName}</span>
+                          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{asset.assetName}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3" style={{ color: '#475569' }}>
+                      <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>
                         {ASSET_TYPE_LABELS[asset.assetType]}
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs" style={{ color: '#475569' }}>
+                      <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
                         {asset.imei ?? asset.simNumber ?? asset.serialNumber ?? '—'}
                       </td>
                       <td className="px-4 py-3">
@@ -569,10 +569,10 @@ export function AssetsPage() {
                           {ASSET_STATUS_LABELS[asset.currentStatus]}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm" style={{ color: '#2A2A2A' }}>
+                      <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-primary)' }}>
                         {asset.assignedToName ?? '—'}
                         {asset.assignedDate && (
-                          <span className="block text-xs" style={{ color: '#8B8B85' }}>since {asset.assignedDate}</span>
+                          <span className="block text-xs" style={{ color: 'var(--text-muted)' }}>since {asset.assignedDate}</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-xs font-medium" style={{ color: cStyle.text }}>
@@ -595,7 +595,7 @@ export function AssetsPage() {
                             </button>
                           )}
                           <button onClick={() => setAddEditAsset(asset)}
-                            className="p-1.5 text-slate-400 hover:text-slate-700 transition-colors">
+                            className="p-1.5 text-(--text-muted) hover:text-slate-700 transition-colors">
                             <Edit2 size={13} />
                           </button>
                         </div>

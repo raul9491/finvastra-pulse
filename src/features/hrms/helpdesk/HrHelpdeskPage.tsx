@@ -121,13 +121,13 @@ function NewTicketModal({
   };
 
   const inp = (f?: string) =>
-    `w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-white transition-colors ${
+    `w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-(--glass-panel-bg) transition-colors ${
       f && errors[f] ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30'
-                      : 'border-slate-200 focus:ring-[#0B1538]'}`;
+                      : 'border-(--shell-border) focus:ring-[#0B1538]'}`;
 
   const lbl = (text: string, f?: string, req = false) => (
     <label className="block text-xs font-semibold uppercase tracking-wider mb-1"
-      style={{ color: f && errors[f] ? '#DC2626' : '#8B8B85' }}>
+      style={{ color: f && errors[f] ? '#DC2626' : 'var(--text-muted)' }}>
       {text}{req && <span className="text-red-500 ml-0.5">*</span>}
       {f && errors[f] && <span className="ml-2 text-red-500 font-medium normal-case tracking-normal">— {errors[f]}</span>}
     </label>
@@ -135,15 +135,15 @@ function NewTicketModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-(--shell-border)">
           <h2 className="text-base font-semibold">Raise HR Ticket</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-(--text-muted) hover:text-slate-600"><X size={18} /></button>
         </div>
 
         <div className="p-6 space-y-4">
           {/* Anonymous toggle — show first for POSH category */}
-          <div className="p-3 rounded-xl border border-slate-200 flex items-start gap-3">
+          <div className="p-3 rounded-xl border border-(--shell-border) flex items-start gap-3">
             <button
               type="button"
               onClick={() => set('isAnonymous', !form.isAnonymous)}
@@ -151,13 +151,13 @@ function NewTicketModal({
             >
               {form.isAnonymous
                 ? <EyeOff size={18} style={{ color: '#9F1239' }} />
-                : <Eye    size={18} style={{ color: '#8B8B85' }} />}
+                : <Eye    size={18} style={{ color: 'var(--text-muted)' }} />}
             </button>
             <div>
-              <p className="text-sm font-medium" style={{ color: '#0A0A0A' }}>
+              <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                 {form.isAnonymous ? 'Anonymous — your identity is hidden' : 'Submit as yourself'}
               </p>
-              <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                 {form.isAnonymous
                   ? 'HR will not know who submitted this ticket. Recommended for POSH / sensitive complaints.'
                   : 'Your name will be visible to HR. Tap the icon to submit anonymously.'}
@@ -217,11 +217,11 @@ function NewTicketModal({
           )}
         </div>
 
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100">
-          <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Cancel</button>
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-(--shell-border)">
+          <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-(--shell-border) hover:bg-(--glass-panel-bg)">Cancel</button>
           <button onClick={handleSubmit} disabled={saving}
             className="px-5 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-50"
-            style={{ backgroundColor: '#0B1538' }}>
+            style={{ backgroundColor: 'var(--text-primary)' }}>
             {saving ? 'Submitting…' : 'Submit Ticket'}
           </button>
         </div>
@@ -235,33 +235,33 @@ function NewTicketModal({
 function TicketDetailPanel({ ticket, onClose }: { ticket: HrTicket; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-(--shell-border)">
           <div className="flex items-center gap-2">
             <StatusPill status={ticket.status} />
             <CategoryPill cat={ticket.category} />
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-(--text-muted) hover:text-slate-600"><X size={18} /></button>
         </div>
         <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>Subject</p>
-            <p className="font-semibold" style={{ color: '#0A0A0A' }}>{ticket.subject}</p>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Subject</p>
+            <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{ticket.subject}</p>
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>Description</p>
-            <p className="text-sm whitespace-pre-wrap" style={{ color: '#2A2A2A' }}>{ticket.description}</p>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Description</p>
+            <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>{ticket.description}</p>
           </div>
-          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-(--shell-border)">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>Priority</p>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Priority</p>
               <p className="text-sm font-semibold" style={{ color: PRIORITY_META[ticket.priority].color }}>
                 {PRIORITY_META[ticket.priority].label}
               </p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>Raised on</p>
-              <p className="text-sm" style={{ color: '#2A2A2A' }}>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Raised on</p>
+              <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
                 {ticket.createdAt ? format(ticket.createdAt.toDate(), 'd MMM yyyy') : '—'}
               </p>
             </div>
@@ -271,14 +271,14 @@ function TicketDetailPanel({ ticket, onClose }: { ticket: HrTicket; onClose: () 
               <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#059669' }}>HR Response</p>
               <p className="text-sm whitespace-pre-wrap" style={{ color: '#1A3A2A' }}>{ticket.resolutionNotes}</p>
               {ticket.resolvedAt && (
-                <p className="text-xs mt-2" style={{ color: '#8B8B85' }}>
+                <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
                   Resolved on {format(ticket.resolvedAt.toDate(), 'd MMM yyyy')}
                 </p>
               )}
             </div>
           )}
           {(ticket.status === 'open' || ticket.status === 'in_review') && !ticket.resolutionNotes && (
-            <p className="text-xs italic" style={{ color: '#8B8B85' }}>
+            <p className="text-xs italic" style={{ color: 'var(--text-muted)' }}>
               Your ticket is with HR. They'll respond as soon as possible.
             </p>
           )}
@@ -306,31 +306,31 @@ export function HrHelpdeskPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ backgroundColor: '#0B1538' }}>
+            style={{ backgroundColor: 'var(--text-primary)' }}>
             <LifeBuoy size={20} style={{ color: '#C9A961' }} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold" style={{ color: '#0A0A0A', fontFamily: 'Fraunces, serif' }}>
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Fraunces, serif' }}>
               HR Helpdesk
             </h1>
-            <p className="text-sm" style={{ color: '#8B8B85' }}>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               Raise HR queries, payroll issues, or workplace concerns
             </p>
           </div>
         </div>
         <button onClick={() => setShowNew(true)}
           className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl text-white"
-          style={{ backgroundColor: '#0B1538' }}>
+          style={{ backgroundColor: 'var(--text-primary)' }}>
           <Plus size={15} />Raise Ticket
         </button>
       </div>
 
       {/* Info strip for POSH */}
-      <div className="p-4 rounded-xl flex items-start gap-3 border border-slate-200 bg-white">
+      <div className="p-4 rounded-xl flex items-start gap-3 border border-(--shell-border) bg-(--glass-panel-bg)">
         <ShieldAlert size={18} style={{ color: '#9F1239' }} className="mt-0.5 shrink-0" />
         <div>
-          <p className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>POSH Act Protection</p>
-          <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>
+          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>POSH Act Protection</p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
             Under the Prevention of Sexual Harassment Act 2013, you have the right to report workplace harassment confidentially.
             Select "POSH Complaint" to auto-anonymise your submission. Your identity will be protected.
           </p>
@@ -338,12 +338,12 @@ export function HrHelpdeskPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-sm" style={{ color: '#8B8B85' }}>Loading…</div>
+        <div className="text-center py-16 text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</div>
       ) : tickets.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-16 text-center">
+        <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-16 text-center">
           <LifeBuoy size={40} className="mx-auto mb-4 opacity-20" />
-          <p className="font-semibold" style={{ color: '#2A2A2A' }}>No tickets yet</p>
-          <p className="text-sm mt-1" style={{ color: '#8B8B85' }}>
+          <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>No tickets yet</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
             Use "Raise Ticket" for payroll queries, leave issues, HR policy questions, or workplace concerns.
           </p>
         </div>
@@ -357,17 +357,17 @@ export function HrHelpdeskPage() {
               <div className="space-y-3">
                 {open.map((t) => (
                   <button key={t.id} onClick={() => setDetailTicket(t)}
-                    className="w-full text-left bg-white rounded-2xl border border-slate-200 p-4 hover:border-slate-300 transition-colors flex items-center gap-4">
+                    className="w-full text-left bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-4 hover:border-slate-300 transition-colors flex items-center gap-4">
                     <AlertCircle size={18} style={{ color: PRIORITY_META[t.priority].color }} className="shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-sm" style={{ color: '#0A0A0A' }}>{t.subject}</span>
+                        <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{t.subject}</span>
                         <StatusPill status={t.status} />
                         <CategoryPill cat={t.category} />
                       </div>
-                      <p className="text-xs mt-0.5 line-clamp-1" style={{ color: '#8B8B85' }}>{t.description}</p>
+                      <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-muted)' }}>{t.description}</p>
                     </div>
-                    <ChevronRight size={16} style={{ color: '#8B8B85' }} className="shrink-0" />
+                    <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} className="shrink-0" />
                   </button>
                 ))}
               </div>
@@ -382,21 +382,21 @@ export function HrHelpdeskPage() {
               <div className="space-y-3">
                 {resolved.map((t) => (
                   <button key={t.id} onClick={() => setDetailTicket(t)}
-                    className="w-full text-left bg-white rounded-2xl border border-slate-100 p-4 hover:border-slate-200 transition-colors opacity-70 flex items-center gap-4">
+                    className="w-full text-left bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-4 hover:border-(--shell-border) transition-colors opacity-70 flex items-center gap-4">
                     <CheckCircle2 size={18} style={{ color: '#059669' }} className="shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm" style={{ color: '#2A2A2A' }}>{t.subject}</span>
+                        <span className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>{t.subject}</span>
                         <StatusPill status={t.status} />
                         <CategoryPill cat={t.category} />
                       </div>
                       {t.resolvedAt && (
-                        <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
                           Resolved {format(t.resolvedAt.toDate(), 'd MMM yyyy')}
                         </p>
                       )}
                     </div>
-                    <ChevronRight size={16} style={{ color: '#8B8B85' }} className="shrink-0" />
+                    <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} className="shrink-0" />
                   </button>
                 ))}
               </div>

@@ -12,7 +12,7 @@ type HolidayType = Holiday['type'];
 const TYPE_STYLES: Record<HolidayType, { label: string; bg: string; text: string }> = {
   national: { label: 'National',  bg: '#DBEAFE', text: '#1D4ED8' },
   regional: { label: 'Regional',  bg: '#FEF3C7', text: '#92400E' },
-  optional: { label: 'Optional',  bg: '#F1F5F9', text: '#475569' },
+  optional: { label: 'Optional',  bg: '#F1F5F9', text: 'var(--text-muted)' },
 };
 
 const YEAR_OPTIONS = [2025, 2026, 2027];
@@ -115,12 +115,12 @@ export function HolidaysPage() {
               fontFamily: '"Fraunces", Georgia, serif',
               fontStyle: 'italic',
               fontWeight: 300,
-              color: '#0A0A0A',
+              color: 'var(--text-primary)',
             }}
           >
             Holidays
           </h2>
-          <p className="text-sm" style={{ color: '#8B8B85' }}>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
             Company and national holiday calendar
           </p>
         </div>
@@ -132,9 +132,9 @@ export function HolidaysPage() {
             onChange={(e) => setSelectedYear(Number(e.target.value))}
             className="text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2"
             style={{
-              borderColor: '#E2E8F0',
-              color: '#0A0A0A',
-              backgroundColor: '#FFFFFF',
+              borderColor: 'var(--shell-border)',
+              color: 'var(--text-primary)',
+              backgroundColor: 'var(--glass-panel-bg)',
             }}
           >
             {YEAR_OPTIONS.map((y) => (
@@ -146,7 +146,7 @@ export function HolidaysPage() {
             <button
               onClick={() => setShowAddForm((v) => !v)}
               className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
-              style={{ backgroundColor: '#0B1538', color: '#FFFFFF' }}
+              style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF' }}
             >
               <Plus size={14} />
               Add Holiday
@@ -159,26 +159,26 @@ export function HolidaysPage() {
       {isAdmin && showAddForm && (
         <div
           className="rounded-2xl p-5"
-          style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0' }}
+          style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid #E2E8F0' }}
         >
-          <h3 className="text-sm font-semibold mb-4" style={{ color: '#0A0A0A' }}>
+          <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
             New Holiday — {selectedYear}
           </h3>
           <form onSubmit={handleAddHoliday} className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium" style={{ color: '#475569' }}>Date</label>
+              <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Date</label>
               <input
                 type="date"
                 required
                 value={newDate}
                 onChange={(e) => setNewDate(e.target.value)}
                 className="text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2"
-                style={{ borderColor: '#E2E8F0', color: '#0A0A0A' }}
+                style={{ borderColor: 'var(--shell-border)', color: 'var(--text-primary)' }}
               />
             </div>
 
             <div className="flex flex-col gap-1 flex-1 min-w-45">
-              <label className="text-xs font-medium" style={{ color: '#475569' }}>Name</label>
+              <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Name</label>
               <input
                 type="text"
                 required
@@ -186,17 +186,17 @@ export function HolidaysPage() {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 className="text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2"
-                style={{ borderColor: '#E2E8F0', color: '#0A0A0A' }}
+                style={{ borderColor: 'var(--shell-border)', color: 'var(--text-primary)' }}
               />
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium" style={{ color: '#475569' }}>Type</label>
+              <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Type</label>
               <select
                 value={newType}
                 onChange={(e) => setNewType(e.target.value as HolidayType)}
                 className="text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2"
-                style={{ borderColor: '#E2E8F0', color: '#0A0A0A', backgroundColor: '#FFFFFF' }}
+                style={{ borderColor: 'var(--shell-border)', color: 'var(--text-primary)', backgroundColor: 'var(--glass-panel-bg)' }}
               >
                 <option value="national">National</option>
                 <option value="regional">Regional</option>
@@ -216,8 +216,8 @@ export function HolidaysPage() {
               <button
                 type="button"
                 onClick={() => setShowAddForm(false)}
-                className="text-sm px-4 py-1.5 rounded-lg transition-colors hover:bg-slate-100"
-                style={{ color: '#8B8B85' }}
+                className="text-sm px-4 py-1.5 rounded-lg transition-colors hover:bg-(--glass-panel-bg)"
+                style={{ color: 'var(--text-muted)' }}
               >
                 Cancel
               </button>
@@ -229,28 +229,28 @@ export function HolidaysPage() {
       {/* Holiday table */}
       <div
         className="rounded-2xl overflow-hidden"
-        style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0' }}
+        style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid #E2E8F0' }}
       >
         {loading ? (
-          <div className="p-10 text-center text-sm" style={{ color: '#8B8B85' }}>
+          <div className="p-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
             Loading holidays…
           </div>
         ) : holidays.length === 0 ? (
-          <div className="p-10 text-center text-sm" style={{ color: '#8B8B85' }}>
+          <div className="p-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
             No holidays found for {selectedYear}.
             {isAdmin && ' Click "Add Holiday" to get started.'}
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ borderBottom: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}>
-                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: '#475569' }}>
+              <tr style={{ borderBottom: '1px solid #E2E8F0', backgroundColor: 'var(--glass-panel-bg)' }}>
+                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                   Date
                 </th>
-                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: '#475569' }}>
+                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                   Holiday
                 </th>
-                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: '#475569' }}>
+                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                   Type
                 </th>
                 {isAdmin && (
@@ -270,10 +270,10 @@ export function HolidaysPage() {
                       borderBottom: idx < holidays.length - 1 ? '1px solid #F1F5F9' : 'none',
                     }}
                   >
-                    <td className="px-5 py-3 font-medium tabular-nums" style={{ color: '#0A0A0A' }}>
+                    <td className="px-5 py-3 font-medium tabular-nums" style={{ color: 'var(--text-primary)' }}>
                       {format(parseISO(h.date), 'dd MMM yyyy')}
                     </td>
-                    <td className="px-5 py-3" style={{ color: '#2A2A2A' }}>
+                    <td className="px-5 py-3" style={{ color: 'var(--text-primary)' }}>
                       {h.name}
                     </td>
                     <td className="px-5 py-3">
@@ -289,7 +289,7 @@ export function HolidaysPage() {
                         <button
                           onClick={() => deleteHoliday(h.id)}
                           className="transition-opacity hover:opacity-70"
-                          style={{ color: '#8B8B85' }}
+                          style={{ color: 'var(--text-muted)' }}
                           title="Delete holiday"
                         >
                           <Trash2 size={14} />
@@ -322,8 +322,8 @@ export function HolidaysPage() {
             <button
               onClick={handleCopyToNextYear}
               disabled={copying}
-              className="text-sm font-medium px-4 py-2 rounded-lg border transition-colors hover:bg-slate-50 disabled:opacity-50"
-              style={{ borderColor: '#E2E8F0', color: '#2A2A2A' }}
+              className="text-sm font-medium px-4 py-2 rounded-lg border transition-colors hover:bg-(--glass-panel-bg) disabled:opacity-50"
+              style={{ borderColor: 'var(--shell-border)', color: 'var(--text-primary)' }}
             >
               {copying ? 'Copying…' : `Copy all to ${selectedYear + 1}`}
             </button>

@@ -31,7 +31,7 @@ const SECTIONS: Section[] = [
     id: 'attendance',
     icon: <Clock size={18} />,
     title: 'Attendance & Clock In/Out',
-    color: '#0B1538',
+    color: 'var(--text-primary)',
     items: [
       {
         q: 'How do I clock in?',
@@ -290,13 +290,13 @@ const SECTIONS: Section[] = [
         a: (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="text-ink font-medium">HR Team</span>
-              <span className="text-mute">—</span>
+              <span className="text-(--text-primary) font-medium">HR Team</span>
+              <span className="text-(--text-muted)">—</span>
               <a href="mailto:support@finvastra.com" className="text-blue-600 hover:underline">support@finvastra.com</a>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-ink font-medium">Tech Support</span>
-              <span className="text-mute">—</span>
+              <span className="text-(--text-primary) font-medium">Tech Support</span>
+              <span className="text-(--text-muted)">—</span>
               <a href="mailto:rahulv@finvastra.com" className="text-blue-600 hover:underline">rahulv@finvastra.com</a>
             </div>
           </div>
@@ -308,7 +308,7 @@ const SECTIONS: Section[] = [
     id: 'security',
     icon: <Shield size={18} />,
     title: 'Security & Your Account',
-    color: '#64748B',
+    color: 'var(--text-muted)',
     items: [
       {
         q: 'How do I change my password?',
@@ -348,42 +348,42 @@ function AccordionSection({ section }: { section: Section }) {
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+    <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl overflow-hidden">
       {/* Section header */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between p-5 hover:bg-slate-50/60 transition-colors">
+        className="w-full flex items-center justify-between p-5 hover:bg-(--glass-panel-bg)/60 transition-colors">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center"
             style={{ backgroundColor: section.color + '15', color: section.color }}>
             {section.icon}
           </div>
-          <span className="text-sm font-semibold text-ink">{section.title}</span>
-          <span className="text-xs text-mute">{section.items.length} topic{section.items.length !== 1 ? 's' : ''}</span>
+          <span className="text-sm font-semibold text-(--text-primary)">{section.title}</span>
+          <span className="text-xs text-(--text-muted)">{section.items.length} topic{section.items.length !== 1 ? 's' : ''}</span>
         </div>
         {open
-          ? <ChevronDown size={16} className="text-mute" />
-          : <ChevronRight size={16} className="text-mute" />
+          ? <ChevronDown size={16} className="text-(--text-muted)" />
+          : <ChevronRight size={16} className="text-(--text-muted)" />
         }
       </button>
 
       {/* Items */}
       {open && (
-        <div className="border-t border-slate-100 divide-y divide-slate-50">
+        <div className="border-t border-(--shell-border) divide-y divide-slate-50">
           {section.items.map((item, i) => (
             <div key={i} className="px-5">
               <button
                 onClick={() => toggle(i)}
                 className="w-full flex items-center justify-between py-3.5 text-left gap-3">
-                <span className="text-sm text-ink-soft font-medium flex-1">{item.q}</span>
+                <span className="text-sm text-(--text-primary) font-medium flex-1">{item.q}</span>
                 {openItems.has(i)
-                  ? <ChevronDown size={14} className="text-mute shrink-0" />
-                  : <ChevronRight size={14} className="text-mute shrink-0" />
+                  ? <ChevronDown size={14} className="text-(--text-muted) shrink-0" />
+                  : <ChevronRight size={14} className="text-(--text-muted) shrink-0" />
                 }
               </button>
               {openItems.has(i) && (
                 <div className="pb-4 space-y-3">
-                  <div className="text-sm text-ink-soft leading-relaxed">{item.a}</div>
+                  <div className="text-sm text-(--text-primary) leading-relaxed">{item.a}</div>
                   {item.link && (
                     <button
                       onClick={() => navigate(item.link!)}
@@ -439,11 +439,11 @@ export function PulseGuidePage() {
 
       {/* Header */}
       <div>
-        <h2 className="text-3xl mb-1 text-ink"
+        <h2 className="text-3xl mb-1 text-(--text-primary)"
           style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300 }}>
           Pulse Guide
         </h2>
-        <p className="text-sm text-mute">
+        <p className="text-sm text-(--text-muted)">
           Everything you need to know about using Finvastra Pulse.
           {profile?.displayName && ` Hi, ${profile.displayName.split(' ')[0]}!`}
         </p>
@@ -453,7 +453,7 @@ export function PulseGuidePage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {(
           [
-            { label: 'Clock In / Out',   href: '/hrms/attendance',  color: '#0B1538' },
+            { label: 'Clock In / Out',   href: '/hrms/attendance',  color: 'var(--text-primary)' },
             { label: 'Apply Leave',       href: '/hrms/leave/apply', color: '#C9A961' },
             { label: 'Submit Claim',      href: '/hrms/claims',      color: '#7C3AED' },
             { label: 'Raise HR Ticket',   href: '/hrms/hr-helpdesk', color: '#BE185D' },
@@ -470,14 +470,14 @@ export function PulseGuidePage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={'Search topics… (e.g. "leave balance", "payslip", "claim")'}
-          className="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 bg-white"
+          className="w-full px-4 py-3 text-sm border border-(--shell-border) rounded-xl outline-none focus:ring-2 bg-(--glass-panel-bg)"
         />
       </div>
 
       {/* Sections */}
       <div className="space-y-3">
         {filtered.length === 0 ? (
-          <p className="text-sm text-mute text-center py-8">No topics match "{search}". Try a different keyword.</p>
+          <p className="text-sm text-(--text-muted) text-center py-8">No topics match "{search}". Try a different keyword.</p>
         ) : (
           filtered.map((section) => (
             <AccordionSection key={section.id} section={section} />
@@ -487,7 +487,7 @@ export function PulseGuidePage() {
 
       {/* Footer note */}
       <div className="text-center py-4">
-        <p className="text-xs text-mute">
+        <p className="text-xs text-(--text-muted)">
           Couldn't find your answer? Raise an{' '}
           <a href="/hrms/hr-helpdesk" className="underline">HR Helpdesk ticket</a>
           {' '}or email{' '}

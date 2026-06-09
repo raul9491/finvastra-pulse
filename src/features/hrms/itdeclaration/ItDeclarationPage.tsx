@@ -19,8 +19,8 @@ const numInput = (e: React.ChangeEvent<HTMLInputElement>) =>
 
 // ─── Shared input style ───────────────────────────────────────────────────────
 
-const INP = 'w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white outline-none focus:ring-2 focus:ring-blue-100 transition-colors disabled:bg-slate-50 disabled:text-slate-400';
-const LBL = 'block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-mute';
+const INP = 'w-full text-sm border border-(--shell-border) rounded-lg px-3 py-2 bg-(--glass-panel-bg) outline-none focus:ring-2 focus:ring-blue-100 transition-colors disabled:bg-(--glass-panel-bg) disabled:text-(--text-muted)';
+const LBL = 'block text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-(--text-muted)';
 
 // ─── Accordion section wrapper ────────────────────────────────────────────────
 
@@ -32,22 +32,22 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+    <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
       <button
         type="button"
         onClick={() => onToggle(id)}
-        className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 transition-colors"
+        className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-(--glass-panel-bg) transition-colors"
       >
         <div>
-          <p className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>{title}</p>
-          {subtitle && <p className="text-xs mt-0.5 text-mute">{subtitle}</p>}
+          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</p>
+          {subtitle && <p className="text-xs mt-0.5 text-(--text-muted)">{subtitle}</p>}
         </div>
         {open
-          ? <ChevronDown size={16} className="text-mute shrink-0" />
-          : <ChevronRight size={16} className="text-mute shrink-0" />}
+          ? <ChevronDown size={16} className="text-(--text-muted) shrink-0" />
+          : <ChevronRight size={16} className="text-(--text-muted) shrink-0" />}
       </button>
       {open && (
-        <div className="px-6 pb-6 pt-2 border-t border-slate-100 space-y-4">
+        <div className="px-6 pb-6 pt-2 border-t border-(--shell-border) space-y-4">
           {children}
         </div>
       )}
@@ -68,7 +68,7 @@ function AmtRow({
     <div>
       <label className={LBL}>{label}</label>
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-mute">₹</span>
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-(--text-muted)">₹</span>
         <input
           type="number" min={0} step={100}
           value={value || ''}
@@ -78,7 +78,7 @@ function AmtRow({
           disabled={disabled}
         />
       </div>
-      {hint && <p className="text-xs mt-1 text-mute">{hint}</p>}
+      {hint && <p className="text-xs mt-1 text-(--text-muted)">{hint}</p>}
     </div>
   );
 }
@@ -93,12 +93,12 @@ function C80Progress({ raw, capped }: { raw: number; capped: number }) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-xs">
-        <span className="font-semibold" style={{ color: over ? '#DC2626' : '#0A0A0A' }}>
+        <span className="font-semibold" style={{ color: over ? '#DC2626' : 'var(--text-primary)' }}>
           80C total: {inr(raw)} / {inr(MAX_80C)}
         </span>
-        <span className="text-mute">Deduction: {inr(capped)}</span>
+        <span className="text-(--text-muted)">Deduction: {inr(capped)}</span>
       </div>
-      <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+      <div className="h-2 rounded-full bg-(--glass-panel-bg) overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-300"
           style={{ width: `${pct}%`, backgroundColor: barColor }}
@@ -124,9 +124,9 @@ function SummaryCard({
   total: number; taxSaving: number;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+    <div className="rounded-2xl border border-(--shell-border) bg-(--glass-panel-bg) overflow-hidden">
       <div className="px-5 py-3 flex items-center gap-2"
-        style={{ backgroundColor: '#0B1538', borderBottom: '1px solid #1B2A4E' }}>
+        style={{ backgroundColor: 'var(--text-primary)', borderBottom: '1px solid #1B2A4E' }}>
         <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#C9A961' }}>
           Live Summary
         </p>
@@ -138,10 +138,10 @@ function SummaryCard({
         <Row label="Home Loan Interest (Sec 24b)" value={`${inr(homeLoanDed)} of ${inr(MAX_HOME_LOAN_INT)}`} dim={homeLoanDed === 0} />
         <Row label="Education Loan (80E)" value={inr(eduLoan)} dim={eduLoan === 0} />
         <Row label="LTA" value={inr(lta)} dim={lta === 0} />
-        <div className="border-t border-slate-100 pt-2 mt-2">
+        <div className="border-t border-(--shell-border) pt-2 mt-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-bold" style={{ color: '#0A0A0A' }}>Total Deductions</span>
-            <span className="text-sm font-bold" style={{ color: '#0B1538' }}>{inr(total)}</span>
+            <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Total Deductions</span>
+            <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{inr(total)}</span>
           </div>
         </div>
         <div className="rounded-xl px-4 py-3" style={{ backgroundColor: '#FFFBEB', border: '1px solid #FDE68A' }}>
@@ -160,8 +160,8 @@ function SummaryCard({
 function Row({ label, value, dim }: { label: string; value: string; dim?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <span className="text-xs text-mute shrink-0">{label}</span>
-      <span className="text-xs font-medium text-right" style={{ color: dim ? '#8B8B85' : '#2A2A2A' }}>
+      <span className="text-xs text-(--text-muted) shrink-0">{label}</span>
+      <span className="text-xs font-medium text-right" style={{ color: dim ? 'var(--text-muted)' : 'var(--text-primary)' }}>
         {value}
       </span>
     </div>
@@ -174,12 +174,12 @@ function ConfirmSubmitModal({ onConfirm, onCancel }: { onConfirm: () => void; on
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
         <div className="flex items-start gap-3">
           <AlertTriangle size={20} className="shrink-0 mt-0.5" style={{ color: '#D97706' }} />
           <div>
-            <p className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>Submit to HR?</p>
-            <p className="text-sm mt-1 text-mute leading-relaxed">
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Submit to HR?</p>
+            <p className="text-sm mt-1 text-(--text-muted) leading-relaxed">
               Once submitted, you cannot edit this declaration without HR approval.
               Make sure all values are correct before continuing.
             </p>
@@ -192,7 +192,7 @@ function ConfirmSubmitModal({ onConfirm, onCancel }: { onConfirm: () => void; on
             Yes, Submit
           </button>
           <button onClick={onCancel}
-            className="flex-1 py-2.5 rounded-xl text-sm border border-slate-200 hover:bg-slate-50">
+            className="flex-1 py-2.5 rounded-xl text-sm border border-(--shell-border) hover:bg-(--glass-panel-bg)">
             Cancel
           </button>
         </div>
@@ -328,10 +328,10 @@ export function ItDeclarationPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
             IT Declaration
           </h2>
-          <p className="text-sm text-mute">Declare your investments and exemptions for TDS computation.</p>
+          <p className="text-sm text-(--text-muted)">Declare your investments and exemptions for TDS computation.</p>
         </div>
 
         {/* FY selector */}
@@ -341,8 +341,8 @@ export function ItDeclarationPage() {
             formYearRef.current = -1;
             setSelectedYear(Number(e.target.value));
           }}
-          className="text-sm border border-slate-200 rounded-xl px-4 py-2 bg-white outline-none focus:ring-2 focus:ring-blue-100 font-semibold shrink-0"
-          style={{ color: '#0B1538' }}
+          className="text-sm border border-(--shell-border) rounded-xl px-4 py-2 bg-(--glass-panel-bg) outline-none focus:ring-2 focus:ring-blue-100 font-semibold shrink-0"
+          style={{ color: 'var(--text-primary)' }}
         >
           {fyOptions.map((y) => (
             <option key={y} value={y}>{fyLabel(y)}</option>
@@ -377,7 +377,7 @@ export function ItDeclarationPage() {
 
       {!loading && !declaration && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
-          style={{ backgroundColor: '#FAFAF7', border: '1px solid #E2E8F0', color: '#8B8B85' }}>
+          style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid #E2E8F0', color: 'var(--text-muted)' }}>
           <Info size={15} className="shrink-0" />
           No declaration on file for {fyLabel(selectedYear)}. Fill the form and save as draft to start.
         </div>
@@ -386,7 +386,7 @@ export function ItDeclarationPage() {
       {loading && (
         <div className="space-y-3">
           {[1,2,3].map((i) => (
-            <div key={i} className="h-14 bg-white rounded-2xl border border-slate-200 animate-pulse" />
+            <div key={i} className="h-14 bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) animate-pulse" />
           ))}
         </div>
       )}
@@ -440,7 +440,7 @@ export function ItDeclarationPage() {
                     disabled={isReadOnly}
                     className="rounded"
                   />
-                  <span className="text-sm" style={{ color: '#2A2A2A' }}>
+                  <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
                     Parents are senior citizens (60+)
                   </span>
                 </label>
@@ -475,7 +475,7 @@ export function ItDeclarationPage() {
                 disabled={isReadOnly}
                 className="rounded"
               />
-              <span className="text-sm font-medium" style={{ color: '#2A2A2A' }}>
+              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                 I am claiming HRA exemption
               </span>
             </label>
@@ -544,7 +544,7 @@ export function ItDeclarationPage() {
                       maxLength={10}
                       className={INP}
                     />
-                    <p className="text-[10px] mt-1 text-mute">Required if annual rent exceeds ₹1,00,000</p>
+                    <p className="text-[10px] mt-1 text-(--text-muted)">Required if annual rent exceeds ₹1,00,000</p>
                   </div>
                 </div>
               </div>
@@ -567,7 +567,7 @@ export function ItDeclarationPage() {
                 disabled={isReadOnly}
                 className="rounded"
               />
-              <span className="text-sm font-medium" style={{ color: '#2A2A2A' }}>I have a home loan</span>
+              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>I have a home loan</span>
             </label>
 
             {form.homeLoan.claimingHomeLoan && (
@@ -630,7 +630,7 @@ export function ItDeclarationPage() {
                 disabled={isReadOnly}
                 className="rounded"
               />
-              <span className="text-sm font-medium" style={{ color: '#2A2A2A' }}>I am claiming LTA</span>
+              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>I am claiming LTA</span>
             </label>
 
             {form.lta.claimingLta && (
@@ -672,7 +672,7 @@ export function ItDeclarationPage() {
                 disabled={isReadOnly}
                 className="rounded"
               />
-              <span className="text-sm font-medium" style={{ color: '#2A2A2A' }}>I have an education loan</span>
+              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>I have an education loan</span>
             </label>
 
             {form.section80E.claimingEducationLoan && (
@@ -683,7 +683,7 @@ export function ItDeclarationPage() {
                   onChange={(v) => setForm((f) => ({ ...f, section80E: { ...f.section80E, annualInterest: v } }))}
                   disabled={isReadOnly}
                 />
-                <p className="text-xs text-mute">
+                <p className="text-xs text-(--text-muted)">
                   No upper limit — the entire interest amount qualifies for deduction under Section 80E.
                 </p>
               </div>
@@ -727,8 +727,8 @@ export function ItDeclarationPage() {
               ) : (
                 <button
                   onClick={handleReopen}
-                  className="text-sm px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
-                  style={{ color: '#2A2A2A' }}
+                  className="text-sm px-4 py-2.5 rounded-xl border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors"
+                  style={{ color: 'var(--text-primary)' }}
                 >
                   Request HR to reopen
                 </button>
@@ -739,8 +739,8 @@ export function ItDeclarationPage() {
               <button
                 onClick={() => doSave('draft')}
                 disabled={saving}
-                className="flex items-center gap-2 text-sm px-5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-50 font-medium"
-                style={{ color: '#2A2A2A' }}
+                className="flex items-center gap-2 text-sm px-5 py-2.5 rounded-xl border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors disabled:opacity-50 font-medium"
+                style={{ color: 'var(--text-primary)' }}
               >
                 {saving ? <Loader2 size={14} className="animate-spin" /> : null}
                 {saving ? 'Saving…' : saveSuccess ? '✓ Saved' : 'Save as Draft'}

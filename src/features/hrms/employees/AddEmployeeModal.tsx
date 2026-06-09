@@ -277,16 +277,16 @@ export function AddEmployeeModal({
     }
   };
 
-  const baseInp = 'w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-white transition-colors';
+  const baseInp = 'w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-(--glass-panel-bg) transition-colors';
   const inp = (field?: string) =>
     `${baseInp} ${field && fieldErrors[field]
       ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30'
-      : 'border-slate-200 focus:ring-navy'}`;
+      : 'border-(--shell-border) focus:ring-navy'}`;
   const sel = (field?: string) => `${inp(field)}`;
 
   const fLabel = (text: string, field?: string, required = false) => (
     <label className="block text-xs font-semibold uppercase tracking-wider mb-1"
-      style={{ color: field && fieldErrors[field] ? '#DC2626' : '#8B8B85' }}>
+      style={{ color: field && fieldErrors[field] ? '#DC2626' : 'var(--text-muted)' }}>
       {text}{required && <span className="text-red-500 ml-0.5">*</span>}
       {field && fieldErrors[field] && (
         <span className="ml-2 text-red-500 font-medium normal-case tracking-normal">
@@ -296,8 +296,8 @@ export function AddEmployeeModal({
     </label>
   );
   const sectionHead = (title: string) => (
-    <div className="pt-3 pb-1 border-t border-slate-100 first:border-0 first:pt-0">
-      <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#475569' }}>{title}</p>
+    <div className="pt-3 pb-1 border-t border-(--shell-border) first:border-0 first:pt-0">
+      <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{title}</p>
     </div>
   );
 
@@ -313,11 +313,11 @@ export function AddEmployeeModal({
           {result.tempPassword ? (
             <div className="rounded-xl p-4 space-y-2" style={{ backgroundColor: '#FEF3C7', border: '1px solid #FDE68A' }}>
               <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#92400E' }}>Temporary password — share with employee</p>
-              <p className="font-mono text-lg font-bold tracking-widest" style={{ color: '#0A0A0A' }}>{result.tempPassword}</p>
+              <p className="font-mono text-lg font-bold tracking-widest" style={{ color: 'var(--text-primary)' }}>{result.tempPassword}</p>
               <p className="text-xs" style={{ color: '#78350F' }}>Employee must change this on first login.</p>
             </div>
           ) : (
-            <p className="text-sm" style={{ color: '#8B8B85' }}>No official email — profile-only record created (no login account).</p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No official email — profile-only record created (no login account).</p>
           )}
         </div>
       </Modal>
@@ -328,7 +328,7 @@ export function AddEmployeeModal({
     <Modal isOpen onClose={onClose} title="Add Employee" size="lg"
       footer={
         <>
-          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-slate-200 rounded-xl" style={{ color: '#2A2A2A' }}>Cancel</button>
+          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-(--shell-border) rounded-xl" style={{ color: 'var(--text-primary)' }}>Cancel</button>
           <button onClick={handleSubmit} disabled={saving}
             className="px-7 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-60 flex items-center gap-2"
             style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
@@ -365,14 +365,14 @@ export function AddEmployeeModal({
               <select className={`${sel()} flex-none`} style={{ width: 200 }} value={empPrefix} onChange={(e) => setEmpPrefix(e.target.value as EmpPrefix)}>
                 {EMP_PREFIXES.map((p) => <option key={p} value={p}>{EMP_PREFIX_LABELS[p]}</option>)}
               </select>
-              <span className="text-slate-400 font-mono text-sm">—</span>
+              <span className="text-(--text-muted) font-mono text-sm">—</span>
               <input type="number" min={1} className={`${inp()} flex-none`} style={{ width: 90 }}
                 value={empNumber} onChange={(e) => setEmpNumber(e.target.value)} placeholder={nextForPrefix} />
               <span className="text-sm font-mono font-semibold px-3 py-2 rounded-lg flex-none"
-                style={{ backgroundColor: '#F1F5F9', color: '#0A0A0A' }}>
+                style={{ backgroundColor: 'var(--glass-panel-bg)', color: 'var(--text-primary)' }}>
                 {computedEmpId || `${empPrefix}-${nextForPrefix}`}
               </span>
-              <span className="text-xs ml-1" style={{ color: '#8B8B85' }}>(next available)</span>
+              <span className="text-xs ml-1" style={{ color: 'var(--text-muted)' }}>(next available)</span>
             </div>
           </div>
           <div>
@@ -503,12 +503,12 @@ export function AddEmployeeModal({
           <div>
             {fLabel('Gross (auto-computed)')}
             <div className="w-full text-sm px-3.5 py-2.5 rounded-lg font-semibold"
-              style={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', color: computedGross > 0 ? '#065F46' : '#8B8B85' }}>
+              style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid #E2E8F0', color: computedGross > 0 ? '#065F46' : 'var(--text-muted)' }}>
               {computedGross > 0 ? `₹${computedGross.toLocaleString('en-IN')}` : '—'}
             </div>
           </div>
         </div>
-        <p className="text-xs" style={{ color: '#8B8B85' }}>
+        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
           These components pre-fill payslip generation each month. The CA adjusts for LOP deductions as needed.
         </p>
 
@@ -521,7 +521,7 @@ export function AddEmployeeModal({
               onChange={(e) => { set('presentAddress', e.target.value); if (sameAddress) set('permanentAddress', e.target.value); }}
               placeholder="Current residential address" />
           </div>
-          <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: '#2A2A2A' }}>
+          <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-primary)' }}>
             <input type="checkbox" checked={sameAddress} onChange={(e) => handleSameAddress(e.target.checked)} className="w-4 h-4 rounded" />
             <span>Permanent address same as present</span>
           </label>
@@ -541,14 +541,14 @@ export function AddEmployeeModal({
           Stored in a restricted collection — readable only by admin and the employee themselves.
         </div>
         <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#8B8B85' }}>Personal Account</p>
+          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Personal Account</p>
           <div className="grid grid-cols-2 gap-3">
             <div>{fLabel('Bank Name')}<input className={inp()} value={form.personalBankName} onChange={(e) => set('personalBankName', e.target.value)} placeholder="e.g. HDFC Bank" /></div>
             <div>{fLabel('Branch')}<input className={inp()} value={form.personalBankBranch} onChange={(e) => set('personalBankBranch', e.target.value)} placeholder="e.g. Somajiguda" /></div>
             <div>{fLabel('Account Number')}<input className={inp()} value={form.personalBankAcct} onChange={(e) => set('personalBankAcct', e.target.value)} placeholder="Account number" /></div>
             <div>{fLabel('IFSC Code')}<input className={`${inp()} uppercase`} value={form.personalBankIfsc} onChange={(e) => set('personalBankIfsc', e.target.value.toUpperCase())} placeholder="e.g. HDFC0000512" /></div>
           </div>
-          <p className="text-xs font-semibold uppercase tracking-wider pt-1" style={{ color: '#8B8B85' }}>Official / Salary Account</p>
+          <p className="text-xs font-semibold uppercase tracking-wider pt-1" style={{ color: 'var(--text-muted)' }}>Official / Salary Account</p>
           <div className="grid grid-cols-2 gap-3">
             <div>{fLabel('Bank Name')}<input className={inp()} value={form.officialBankName} onChange={(e) => set('officialBankName', e.target.value)} placeholder="e.g. Indian Overseas Bank" /></div>
             <div>{fLabel('Branch')}<input className={inp()} value={form.officialBankBranch} onChange={(e) => set('officialBankBranch', e.target.value)} placeholder="e.g. Koti" /></div>
@@ -557,7 +557,7 @@ export function AddEmployeeModal({
           </div>
         </div>
 
-        <div className="rounded-lg px-3.5 py-2.5 text-xs" style={{ backgroundColor: '#F1F5F9', color: '#475569' }}>
+        <div className="rounded-lg px-3.5 py-2.5 text-xs" style={{ backgroundColor: 'var(--glass-panel-bg)', color: 'var(--text-muted)' }}>
           <strong>Not collected here:</strong> Aadhaar (UIDAI prohibition) · PAN (encryption required — add later) · UAN / PF Account (statutory payroll, out of scope)
         </div>
 

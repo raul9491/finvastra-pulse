@@ -25,7 +25,7 @@ const TYPE_META: Record<ComplianceType, { icon: ElementType; title: string; icon
 };
 
 const STATUS_META: Record<ComplianceStatus, { label: string; bg: string; text: string }> = {
-  upcoming: { label: 'Upcoming', bg: '#F1F5F9', text: '#475569' },
+  upcoming: { label: 'Upcoming', bg: '#F1F5F9', text: 'var(--text-muted)' },
   due_soon: { label: 'Due Soon', bg: '#FEF3C7', text: '#92400E' },
   overdue:  { label: 'Overdue',  bg: '#FEE2E2', text: '#991B1B' },
   filed:    { label: 'Filed',    bg: '#D1FAE5', text: '#065F46' },
@@ -129,23 +129,23 @@ function MarkFiledModal({ record, actorUid, onClose, onSaved }: MarkFiledModalPr
     }
   }
 
-  const inp = 'w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white outline-none focus:ring-2 focus:ring-navy/10';
+  const inp = 'w-full text-sm border border-(--shell-border) rounded-lg px-3 py-2 bg-(--glass-panel-bg) outline-none focus:ring-2 focus:ring-navy/10';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
-      <div className="rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl" style={{ backgroundColor: '#FFFFFF' }}>
+      <div className="rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl" style={{ backgroundColor: 'var(--glass-panel-bg)' }}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-lg font-semibold" style={{ color: '#0A0A0A' }}>Mark as Filed</h3>
-          <button onClick={onClose}><X size={18} style={{ color: '#8B8B85' }} /></button>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Mark as Filed</h3>
+          <button onClick={onClose}><X size={18} style={{ color: 'var(--text-muted)' }} /></button>
         </div>
-        <p className="text-sm mb-4" style={{ color: '#475569' }}>
-          <span className="font-medium" style={{ color: '#0A0A0A' }}>{meta.title}</span>
+        <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{meta.title}</span>
           {' — '}Due {format(parseISO(record.dueDate), 'd MMM yyyy')}
         </p>
 
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-semibold uppercase tracking-widest block mb-1.5" style={{ color: '#8B8B85' }}>
+            <label className="text-xs font-semibold uppercase tracking-widest block mb-1.5" style={{ color: 'var(--text-muted)' }}>
               Challan / Reference No. <span style={{ color: '#DC2626' }}>*</span>
             </label>
             <input className={inp} value={refNum}
@@ -153,7 +153,7 @@ function MarkFiledModal({ record, actorUid, onClose, onSaved }: MarkFiledModalPr
               placeholder="e.g. 0123456789" />
           </div>
           <div>
-            <label className="text-xs font-semibold uppercase tracking-widest block mb-1.5" style={{ color: '#8B8B85' }}>
+            <label className="text-xs font-semibold uppercase tracking-widest block mb-1.5" style={{ color: 'var(--text-muted)' }}>
               Amount Deposited (₹, optional)
             </label>
             <input className={inp} type="number" min={0} value={amount}
@@ -161,7 +161,7 @@ function MarkFiledModal({ record, actorUid, onClose, onSaved }: MarkFiledModalPr
               placeholder="e.g. 45000" />
           </div>
           <div>
-            <label className="text-xs font-semibold uppercase tracking-widest block mb-1.5" style={{ color: '#8B8B85' }}>
+            <label className="text-xs font-semibold uppercase tracking-widest block mb-1.5" style={{ color: 'var(--text-muted)' }}>
               Notes (optional)
             </label>
             <textarea className={`${inp} h-20 resize-none`} value={notes}
@@ -173,8 +173,8 @@ function MarkFiledModal({ record, actorUid, onClose, onSaved }: MarkFiledModalPr
 
         <div className="flex gap-3 justify-end mt-6">
           <button onClick={onClose}
-            className="text-sm px-4 py-2 rounded-lg border border-slate-200"
-            style={{ color: '#2A2A2A' }}>Cancel</button>
+            className="text-sm px-4 py-2 rounded-lg border border-(--shell-border)"
+            style={{ color: 'var(--text-primary)' }}>Cancel</button>
           <button onClick={handleSave} disabled={saving}
             className="text-sm px-5 py-2 rounded-lg font-semibold disabled:opacity-50"
             style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
@@ -200,51 +200,51 @@ function ViewDetailsModal({ record, onClose, onEdit }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
-      <div className="rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl" style={{ backgroundColor: '#FFFFFF' }}>
+      <div className="rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl" style={{ backgroundColor: 'var(--glass-panel-bg)' }}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-lg font-semibold" style={{ color: '#0A0A0A' }}>Filing Details</h3>
-          <button onClick={onClose}><X size={18} style={{ color: '#8B8B85' }} /></button>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Filing Details</h3>
+          <button onClick={onClose}><X size={18} style={{ color: 'var(--text-muted)' }} /></button>
         </div>
 
-        <div className="space-y-3 text-sm" style={{ color: '#2A2A2A' }}>
+        <div className="space-y-3 text-sm" style={{ color: 'var(--text-primary)' }}>
           <div className="flex justify-between">
-            <span style={{ color: '#8B8B85' }}>Type</span>
+            <span style={{ color: 'var(--text-muted)' }}>Type</span>
             <span className="font-medium">{meta.title}</span>
           </div>
           <div className="flex justify-between">
-            <span style={{ color: '#8B8B85' }}>Due Date</span>
+            <span style={{ color: 'var(--text-muted)' }}>Due Date</span>
             <span>{format(parseISO(record.dueDate), 'd MMM yyyy')}</span>
           </div>
           {record.referenceNumber && (
             <div className="flex justify-between">
-              <span style={{ color: '#8B8B85' }}>Reference No.</span>
+              <span style={{ color: 'var(--text-muted)' }}>Reference No.</span>
               <span className="font-mono">{record.referenceNumber}</span>
             </div>
           )}
           {record.amount != null && (
             <div className="flex justify-between">
-              <span style={{ color: '#8B8B85' }}>Amount</span>
+              <span style={{ color: 'var(--text-muted)' }}>Amount</span>
               <span>₹{record.amount.toLocaleString('en-IN')}</span>
             </div>
           )}
           {filedDate && (
             <div className="flex justify-between">
-              <span style={{ color: '#8B8B85' }}>Filed On</span>
+              <span style={{ color: 'var(--text-muted)' }}>Filed On</span>
               <span>{filedDate}</span>
             </div>
           )}
           {record.notes && (
             <div>
-              <span style={{ color: '#8B8B85' }}>Notes</span>
-              <p className="mt-1 p-3 rounded-lg text-xs" style={{ backgroundColor: '#F8FAFC' }}>{record.notes}</p>
+              <span style={{ color: 'var(--text-muted)' }}>Notes</span>
+              <p className="mt-1 p-3 rounded-lg text-xs" style={{ backgroundColor: 'var(--glass-panel-bg)' }}>{record.notes}</p>
             </div>
           )}
         </div>
 
         <div className="flex gap-3 justify-end mt-6">
           <button onClick={onEdit}
-            className="text-sm px-4 py-2 rounded-lg border border-slate-200"
-            style={{ color: '#2A2A2A' }}>Edit</button>
+            className="text-sm px-4 py-2 rounded-lg border border-(--shell-border)"
+            style={{ color: 'var(--text-primary)' }}>Edit</button>
           <button onClick={onClose}
             className="text-sm px-5 py-2 rounded-lg font-semibold"
             style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>Close</button>
@@ -272,7 +272,7 @@ function ComplianceCard({ record, onMarkFiled, onView }: {
     : null;
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col gap-4 hover:shadow-sm transition-shadow">
+    <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-5 flex flex-col gap-4 hover:shadow-sm transition-shadow">
       {/* Top row: icon + title + status pill */}
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
@@ -280,8 +280,8 @@ function ComplianceCard({ record, onMarkFiled, onView }: {
           <Icon size={18} style={{ color: meta.iconColor }} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm" style={{ color: '#0A0A0A' }}>{meta.title}</p>
-          <p className="text-xs mt-0.5 truncate" style={{ color: '#8B8B85' }}>{record.description}</p>
+          <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{meta.title}</p>
+          <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>{record.description}</p>
         </div>
         <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full shrink-0"
           style={{ backgroundColor: sm.bg, color: sm.text }}>
@@ -290,7 +290,7 @@ function ComplianceCard({ record, onMarkFiled, onView }: {
       </div>
 
       {/* Due date */}
-      <div className="flex items-center gap-1.5 text-xs" style={{ color: '#475569' }}>
+      <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
         <Clock size={12} />
         <span>Due {dueFmt}</span>
       </div>
@@ -299,15 +299,15 @@ function ComplianceCard({ record, onMarkFiled, onView }: {
       {status === 'filed' && (
         <div className="rounded-lg p-3 text-xs space-y-1" style={{ backgroundColor: '#F0FDF4' }}>
           {record.referenceNumber && (
-            <p><span style={{ color: '#8B8B85' }}>Ref: </span>
+            <p><span style={{ color: 'var(--text-muted)' }}>Ref: </span>
               <span className="font-mono font-medium" style={{ color: '#065F46' }}>{record.referenceNumber}</span></p>
           )}
           {record.amount != null && (
-            <p><span style={{ color: '#8B8B85' }}>Amount: </span>
+            <p><span style={{ color: 'var(--text-muted)' }}>Amount: </span>
               <span style={{ color: '#065F46' }}>₹{record.amount.toLocaleString('en-IN')}</span></p>
           )}
           {filedDate && (
-            <p><span style={{ color: '#8B8B85' }}>Filed: </span>
+            <p><span style={{ color: 'var(--text-muted)' }}>Filed: </span>
               <span style={{ color: '#065F46' }}>{filedDate}</span></p>
           )}
         </div>
@@ -324,14 +324,14 @@ function ComplianceCard({ record, onMarkFiled, onView }: {
         ) : (
           <button onClick={onView}
             className="flex-1 text-xs font-semibold py-2 rounded-lg border transition-colors"
-            style={{ border: '1px solid #E2E8F0', color: '#475569' }}>
+            style={{ border: '1px solid #E2E8F0', color: 'var(--text-muted)' }}>
             View Details
           </button>
         )}
         {status === 'filed' && (
           <button onClick={onMarkFiled}
             className="text-xs font-medium px-3 py-2 rounded-lg border"
-            style={{ border: '1px solid #E2E8F0', color: '#8B8B85' }}>
+            style={{ border: '1px solid #E2E8F0', color: 'var(--text-muted)' }}>
             Edit
           </button>
         )}
@@ -465,11 +465,11 @@ export function ComplianceCalendarPage() {
       <div className="mb-6">
         <h2 className="text-3xl mb-1" style={{
           fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic',
-          fontWeight: 300, color: '#0A0A0A',
+          fontWeight: 300, color: 'var(--text-primary)',
         }}>
           Compliance Calendar
         </h2>
-        <p className="text-sm" style={{ color: '#8B8B85' }}>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Track statutory filing deadlines — TDS, PF, PT, ESIC
         </p>
       </div>
@@ -478,17 +478,17 @@ export function ComplianceCalendarPage() {
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => setCurrentDate((d) => subMonths(d, 1))}
-          className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
-          style={{ color: '#8B8B85' }}>
+          className="p-2 rounded-lg hover:bg-(--glass-panel-bg) transition-colors"
+          style={{ color: 'var(--text-muted)' }}>
           <ChevronLeft size={18} />
         </button>
-        <span className="text-base font-semibold w-36 text-center" style={{ color: '#0A0A0A' }}>
+        <span className="text-base font-semibold w-36 text-center" style={{ color: 'var(--text-primary)' }}>
           {monthLabel}
         </span>
         <button
           onClick={() => setCurrentDate((d) => addMonths(d, 1))}
-          className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
-          style={{ color: '#8B8B85' }}>
+          className="p-2 rounded-lg hover:bg-(--glass-panel-bg) transition-colors"
+          style={{ color: 'var(--text-muted)' }}>
           <ChevronRight size={18} />
         </button>
       </div>
@@ -499,7 +499,7 @@ export function ComplianceCalendarPage() {
           { key: 'overdue',  label: 'Overdue',  bg: '#FEE2E2', text: '#991B1B', icon: AlertCircle  },
           { key: 'due_soon', label: 'Due Soon', bg: '#FEF3C7', text: '#92400E', icon: Clock         },
           { key: 'filed',    label: 'Filed',    bg: '#D1FAE5', text: '#065F46', icon: CheckCircle2  },
-          { key: 'upcoming', label: 'Upcoming', bg: '#F1F5F9', text: '#475569', icon: Clock         },
+          { key: 'upcoming', label: 'Upcoming', bg: '#F1F5F9', text: 'var(--text-muted)', icon: Clock         },
         ] as Array<{ key: ComplianceStatus; label: string; bg: string; text: string; icon: ElementType }>).map(
           ({ key, label, bg, text, icon: Icon }) => (
             <div key={key} className="rounded-2xl p-4 flex items-center gap-3"
@@ -518,7 +518,7 @@ export function ComplianceCalendarPage() {
 
       {/* Loading */}
       {(loading || seeding) && (
-        <div className="text-sm text-center py-16" style={{ color: '#8B8B85' }}>
+        <div className="text-sm text-center py-16" style={{ color: 'var(--text-muted)' }}>
           {seeding ? 'Setting up compliance items for this month…' : 'Loading…'}
         </div>
       )}
@@ -535,7 +535,7 @@ export function ComplianceCalendarPage() {
             />
           ))}
           {sorted.length === 0 && (
-            <p className="col-span-3 text-center py-16 text-sm" style={{ color: '#8B8B85' }}>
+            <p className="col-span-3 text-center py-16 text-sm" style={{ color: 'var(--text-muted)' }}>
               No compliance items for this month.
             </p>
           )}

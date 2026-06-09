@@ -52,7 +52,7 @@ function LeaveChip({
   name: string;
   type: LeaveType;
 }) {
-  const meta = TYPE_META[type] ?? { abbr: '?', bg: '#F2EFE7', text: '#2A2A2A' };
+  const meta = TYPE_META[type] ?? { abbr: '?', bg: '#F2EFE7', text: 'var(--text-primary)' };
   const firstName = name.split(' ')[0];
   const initial = name[0].toUpperCase();
 
@@ -95,17 +95,17 @@ function DayCell({
 
   return (
     <div
-      className={`min-h-[90px] p-1.5 border-r border-b border-slate-100 flex flex-col gap-1 ${
-        !isCurrent ? 'bg-slate-50/50' : isSunday ? 'bg-slate-50' : 'bg-white'
+      className={`min-h-[90px] p-1.5 border-r border-b border-(--shell-border) flex flex-col gap-1 ${
+        !isCurrent ? 'bg-(--glass-panel-bg)/50' : isSunday ? 'bg-(--glass-panel-bg)' : 'bg-(--glass-panel-bg)'
       } ${isToday ? 'ring-2 ring-inset ring-navy/20' : ''}`}
     >
       {/* Date number */}
       <div className="flex items-center justify-between">
         <span
           className={`text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full ${
-            isToday ? 'text-white' : isCurrent && !isSunday ? 'text-ink' : 'text-mute'
+            isToday ? 'text-white' : isCurrent && !isSunday ? 'text-(--text-primary)' : 'text-(--text-muted)'
           }`}
-          style={isToday ? { backgroundColor: '#0B1538' } : undefined}
+          style={isToday ? { backgroundColor: 'var(--text-primary)' } : undefined}
         >
           {isCurrent ? format(date, 'd') : ''}
         </span>
@@ -126,7 +126,7 @@ function DayCell({
           {!expanded && overflow > 0 && (
             <button
               onClick={() => setExpanded(true)}
-              className="text-[10px] text-mute hover:text-ink transition-colors text-left pl-1"
+              className="text-[10px] text-(--text-muted) hover:text-(--text-primary) transition-colors text-left pl-1"
             >
               +{overflow} more
             </button>
@@ -134,7 +134,7 @@ function DayCell({
           {expanded && overflow > 0 && (
             <button
               onClick={() => setExpanded(false)}
-              className="text-[10px] text-mute hover:text-ink transition-colors text-left pl-1"
+              className="text-[10px] text-(--text-muted) hover:text-(--text-primary) transition-colors text-left pl-1"
             >
               show less
             </button>
@@ -276,10 +276,10 @@ export function TeamCalendarPage() {
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
             Team Calendar
           </h2>
-          <p className="text-sm text-mute">
+          <p className="text-sm text-(--text-muted)">
             {canSeeAll ? 'Approved leave across all employees.' : `Approved leave in your team (${profile?.department ?? 'your department'}).`}
           </p>
         </div>
@@ -288,25 +288,25 @@ export function TeamCalendarPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setViewDate((d) => subMonths(d, 1))}
-            className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+            className="p-2 rounded-lg hover:bg-(--glass-panel-bg) transition-colors"
           >
-            <ChevronLeft size={18} style={{ color: '#0B1538' }} />
+            <ChevronLeft size={18} style={{ color: 'var(--text-primary)' }} />
           </button>
           <div className="text-center w-32">
-            <p className="text-sm font-semibold text-ink">{format(viewDate, 'MMMM yyyy')}</p>
+            <p className="text-sm font-semibold text-(--text-primary)">{format(viewDate, 'MMMM yyyy')}</p>
           </div>
           <button
             onClick={() => setViewDate((d) => addMonths(d, 1))}
-            className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+            className="p-2 rounded-lg hover:bg-(--glass-panel-bg) transition-colors"
           >
-            <ChevronRight size={18} style={{ color: '#0B1538' }} />
+            <ChevronRight size={18} style={{ color: 'var(--text-primary)' }} />
           </button>
           {/* Jump to today */}
           {!isSameMonth(viewDate, today) && (
             <button
               onClick={() => setViewDate(new Date())}
-              className="ml-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50"
-              style={{ color: '#0B1538' }}
+              className="ml-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-(--shell-border) hover:bg-(--glass-panel-bg)"
+              style={{ color: 'var(--text-primary)' }}
             >
               Today
             </button>
@@ -319,24 +319,24 @@ export function TeamCalendarPage() {
         {/* Stats */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5 text-sm">
-            <CalendarDays size={14} style={{ color: '#0B1538' }} />
-            <span className="font-semibold text-ink">{uniqueOnLeave}</span>
-            <span className="text-mute">employee{uniqueOnLeave !== 1 ? 's' : ''} on leave</span>
+            <CalendarDays size={14} style={{ color: 'var(--text-primary)' }} />
+            <span className="font-semibold text-(--text-primary)">{uniqueOnLeave}</span>
+            <span className="text-(--text-muted)">employee{uniqueOnLeave !== 1 ? 's' : ''} on leave</span>
           </div>
           <div className="flex items-center gap-1.5 text-sm">
-            <span className="font-semibold text-ink">{statsLeaves}</span>
-            <span className="text-mute">leave day{statsLeaves !== 1 ? 's' : ''} this month</span>
+            <span className="font-semibold text-(--text-primary)">{statsLeaves}</span>
+            <span className="text-(--text-muted)">leave day{statsLeaves !== 1 ? 's' : ''} this month</span>
           </div>
         </div>
 
         {/* Dept filter (admin only) */}
         {canSeeAll && departments.length > 1 && (
           <div className="flex items-center gap-2 flex-wrap">
-            <Filter size={13} style={{ color: '#8B8B85' }} />
+            <Filter size={13} style={{ color: 'var(--text-muted)' }} />
             <button
               onClick={() => setDeptFilter('')}
               className="px-2.5 py-1 rounded-full text-xs font-semibold transition-colors"
-              style={deptFilter === '' ? { backgroundColor: '#0B1538', color: '#FFFFFF' } : { backgroundColor: '#F2EFE7', color: '#2A2A2A' }}
+              style={deptFilter === '' ? { backgroundColor: 'var(--text-primary)', color: '#FFFFFF' } : { backgroundColor: '#F2EFE7', color: 'var(--text-primary)' }}
             >
               All
             </button>
@@ -345,7 +345,7 @@ export function TeamCalendarPage() {
                 key={dept}
                 onClick={() => setDeptFilter(dept === deptFilter ? '' : dept)}
                 className="px-2.5 py-1 rounded-full text-xs font-semibold transition-colors"
-                style={deptFilter === dept ? { backgroundColor: '#0B1538', color: '#FFFFFF' } : { backgroundColor: '#F2EFE7', color: '#2A2A2A' }}
+                style={deptFilter === dept ? { backgroundColor: 'var(--text-primary)', color: '#FFFFFF' } : { backgroundColor: '#F2EFE7', color: 'var(--text-primary)' }}
               >
                 {dept}
               </button>
@@ -362,27 +362,27 @@ export function TeamCalendarPage() {
               style={{ backgroundColor: meta.bg, color: meta.text }}>
               {meta.abbr}
             </span>
-            <span className="text-[10px] text-mute capitalize">{type.replace('_', ' ')}</span>
+            <span className="text-[10px] text-(--text-muted) capitalize">{type.replace('_', ' ')}</span>
           </div>
         ))}
         <div className="flex items-center gap-1">
           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: '#FEF3C7', color: '#92400E' }}>H</span>
-          <span className="text-[10px] text-mute">Holiday</span>
+          <span className="text-[10px] text-(--text-muted)">Holiday</span>
         </div>
       </div>
 
       {/* ── Calendar grid ── */}
       {leavesLoading ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 flex items-center justify-center">
-          <div className="w-6 h-6 border-2 border-slate-200 border-t-navy rounded-full animate-spin" />
+        <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-12 flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-(--shell-border) border-t-navy rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
           {/* Day headers */}
-          <div className="grid grid-cols-7 border-b border-slate-100">
+          <div className="grid grid-cols-7 border-b border-(--shell-border)">
             {DAY_HEADERS.map((d) => (
               <div key={d}
-                className={`py-2 text-center text-[11px] font-bold uppercase tracking-widest ${d === 'Sun' ? 'text-slate-300' : 'text-mute'}`}>
+                className={`py-2 text-center text-[11px] font-bold uppercase tracking-widest ${d === 'Sun' ? 'text-slate-300' : 'text-(--text-muted)'}`}>
                 {d}
               </div>
             ))}
@@ -396,7 +396,7 @@ export function TeamCalendarPage() {
                 const isSunCol = idx % 7 === 6;
                 return (
                   <div key={`pad-${idx}`}
-                    className={`min-h-[90px] border-r border-b border-slate-100 ${isSunCol ? 'bg-slate-50' : 'bg-slate-50/30'}`}
+                    className={`min-h-[90px] border-r border-b border-(--shell-border) ${isSunCol ? 'bg-(--glass-panel-bg)' : 'bg-(--glass-panel-bg)/30'}`}
                   />
                 );
               }
@@ -425,7 +425,7 @@ export function TeamCalendarPage() {
       {/* ── Empty state ── */}
       {!leavesLoading && relevantLeaves.length === 0 && (
         <div className="text-center py-3">
-          <p className="text-sm text-mute">No approved leaves {deptFilter ? `in ${deptFilter}` : ''} for {format(viewDate, 'MMMM yyyy')}.</p>
+          <p className="text-sm text-(--text-muted)">No approved leaves {deptFilter ? `in ${deptFilter}` : ''} for {format(viewDate, 'MMMM yyyy')}.</p>
         </div>
       )}
     </div>

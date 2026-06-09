@@ -96,19 +96,19 @@ function RespondModal({
     }
   };
 
-  const inp = 'w-full text-sm px-3.5 py-2.5 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-[#0B1538] bg-white';
+  const inp = 'w-full text-sm px-3.5 py-2.5 border border-(--shell-border) rounded-lg outline-none focus:ring-2 focus:ring-[#0B1538] bg-(--glass-panel-bg)';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-(--shell-border)">
           <h2 className="text-base font-semibold">Respond to Ticket</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-(--text-muted) hover:text-slate-600"><X size={18} /></button>
         </div>
 
         <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           {/* Ticket summary */}
-          <div className="p-4 rounded-xl border border-slate-200 space-y-2">
+          <div className="p-4 rounded-xl border border-(--shell-border) space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
               <StatusPill status={ticket.status} />
               <CategoryPill cat={ticket.category} />
@@ -116,21 +116,21 @@ function RespondModal({
                 {PRIORITY_META[ticket.priority].label}
               </span>
             </div>
-            <p className="font-semibold text-sm" style={{ color: '#0A0A0A' }}>{ticket.subject}</p>
+            <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{ticket.subject}</p>
             {!ticket.isAnonymous && (
-              <p className="text-xs" style={{ color: '#8B8B85' }}>From: {ticket.employeeName}</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>From: {ticket.employeeName}</p>
             )}
             {ticket.isAnonymous && (
               <p className="text-xs font-medium" style={{ color: '#9F1239' }}>Anonymous submission</p>
             )}
-            <p className="text-sm whitespace-pre-wrap pt-1 border-t border-slate-100" style={{ color: '#2A2A2A' }}>
+            <p className="text-sm whitespace-pre-wrap pt-1 border-t border-(--shell-border)" style={{ color: 'var(--text-primary)' }}>
               {ticket.description}
             </p>
           </div>
 
           {/* Status update */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
               Update Status
             </label>
             <select className={inp} value={status} onChange={(e) => setStatus(e.target.value as HrTicketStatus)}>
@@ -143,7 +143,7 @@ function RespondModal({
 
           {/* Response visible to employee */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
               <MessageSquare size={11} className="inline mr-1" />
               Response to Employee (visible to them)
             </label>
@@ -154,7 +154,7 @@ function RespondModal({
 
           {/* Internal admin notes */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
               <StickyNote size={11} className="inline mr-1" />
               Internal Notes (HR only — not shown to employee)
             </label>
@@ -164,11 +164,11 @@ function RespondModal({
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100">
-          <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-slate-200 hover:bg-slate-50">Cancel</button>
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-(--shell-border)">
+          <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-(--shell-border) hover:bg-(--glass-panel-bg)">Cancel</button>
           <button onClick={handleSave} disabled={saving}
             className="px-5 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-50"
-            style={{ backgroundColor: '#0B1538' }}>
+            style={{ backgroundColor: 'var(--text-primary)' }}>
             {saving ? 'Saving…' : 'Save Changes'}
           </button>
         </div>
@@ -212,14 +212,14 @@ export function AdminHelpdeskPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ backgroundColor: '#0B1538' }}>
+          style={{ backgroundColor: 'var(--text-primary)' }}>
           <LifeBuoy size={20} style={{ color: '#C9A961' }} />
         </div>
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#0A0A0A', fontFamily: 'Fraunces, serif' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Fraunces, serif' }}>
             HR Helpdesk
           </h1>
-          <p className="text-sm" style={{ color: '#8B8B85' }}>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
             Manage employee HR tickets and POSH complaints
           </p>
         </div>
@@ -228,13 +228,13 @@ export function AdminHelpdeskPage() {
       {/* Stats strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Total Tickets',   value: tickets.length,                   color: '#0B1538' },
+          { label: 'Total Tickets',   value: tickets.length,                   color: 'var(--text-primary)' },
           { label: 'Open / In Review',value: openCount,                         color: '#D97706' },
           { label: 'Urgent',          value: urgentCount,                       color: '#DC2626' },
           { label: 'POSH Tickets',    value: tickets.filter((t) => t.category === 'posh').length, color: '#9F1239' },
         ].map(({ label, value, color }) => (
-          <div key={label} className="bg-white rounded-2xl border border-slate-200 p-4">
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: '#8B8B85' }}>{label}</p>
+          <div key={label} className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
             <p className="text-3xl font-bold" style={{ color }}>{value}</p>
           </div>
         ))}
@@ -247,16 +247,16 @@ export function AdminHelpdeskPage() {
           {(['all', 'open', 'in_review', 'resolved', 'closed'] as const).map((s) => (
             <button key={s} onClick={() => setStatusFilter(s)}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors capitalize ${
-                statusFilter === s ? 'text-white' : 'bg-white border border-slate-200 hover:bg-slate-50'}`}
+                statusFilter === s ? 'text-white' : 'bg-(--glass-panel-bg) border border-(--shell-border) hover:bg-(--glass-panel-bg)'}`}
               style={statusFilter === s && s !== 'all' ? {
                 backgroundColor: STATUS_META[s].color,
-              } : statusFilter === s ? { backgroundColor: '#0B1538' } : {}}>
+              } : statusFilter === s ? { backgroundColor: 'var(--text-primary)' } : {}}>
               {s === 'in_review' ? 'In Review' : s}
             </button>
           ))}
         </div>
         {/* Category filter */}
-        <select className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#0B1538]"
+        <select className="text-xs px-3 py-1.5 border border-(--shell-border) rounded-lg bg-(--glass-panel-bg) outline-none focus:ring-2 focus:ring-[#0B1538]"
           value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value as '' | HrTicketCategory)}>
           <option value="">All categories</option>
           {(Object.keys(CATEGORY_META) as HrTicketCategory[]).map((c) => (
@@ -265,37 +265,37 @@ export function AdminHelpdeskPage() {
         </select>
         {/* Search */}
         <div className="relative">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#8B8B85' }} />
-          <input className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#0B1538]"
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
+          <input className="pl-8 pr-3 py-1.5 text-xs border border-(--shell-border) rounded-lg bg-(--glass-panel-bg) outline-none focus:ring-2 focus:ring-[#0B1538]"
             placeholder="Search tickets…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-sm" style={{ color: '#8B8B85' }}>Loading…</div>
+          <div className="p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</div>
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center">
             <LifeBuoy size={32} className="mx-auto mb-3 opacity-20" />
-            <p className="text-sm font-medium" style={{ color: '#8B8B85' }}>No tickets match filters</p>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>No tickets match filters</p>
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-100" style={{ backgroundColor: '#F8F9FC' }}>
+              <tr className="border-b border-(--shell-border)" style={{ backgroundColor: '#F8F9FC' }}>
                 {['Ticket', 'From', 'Category', 'Priority', 'Status', 'Raised', ''].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider"
-                    style={{ color: '#8B8B85' }}>{h}</th>
+                    style={{ color: 'var(--text-muted)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filtered.map((t) => (
-                <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                <tr key={t.id} className="hover:bg-(--glass-panel-bg) transition-colors">
                   <td className="px-4 py-3 max-w-xs">
-                    <p className="font-medium" style={{ color: '#0A0A0A' }}>{t.subject}</p>
-                    <p className="text-xs mt-0.5 line-clamp-1" style={{ color: '#8B8B85' }}>{t.description}</p>
+                    <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{t.subject}</p>
+                    <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-muted)' }}>{t.description}</p>
                     {t.adminNotes && (
                       <p className="text-[10px] mt-1 flex items-center gap-1" style={{ color: '#B45309' }}>
                         <StickyNote size={9} />Note
@@ -307,7 +307,7 @@ export function AdminHelpdeskPage() {
                       ? <span className="flex items-center gap-1 font-medium" style={{ color: '#9F1239' }}>
                           <ShieldAlert size={11} />Anonymous
                         </span>
-                      : <span style={{ color: '#2A2A2A' }}>{t.employeeName}</span>}
+                      : <span style={{ color: 'var(--text-primary)' }}>{t.employeeName}</span>}
                   </td>
                   <td className="px-4 py-3"><CategoryPill cat={t.category} /></td>
                   <td className="px-4 py-3 text-xs font-semibold"
@@ -315,12 +315,12 @@ export function AdminHelpdeskPage() {
                     {PRIORITY_META[t.priority].label}
                   </td>
                   <td className="px-4 py-3"><StatusPill status={t.status} /></td>
-                  <td className="px-4 py-3 text-xs" style={{ color: '#8B8B85' }}>
+                  <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
                     {t.createdAt ? format(t.createdAt.toDate(), 'd MMM yy') : '—'}
                   </td>
                   <td className="px-4 py-3">
                     <button onClick={() => setRespondTicket(t)}
-                      className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
+                      className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors">
                       Respond
                     </button>
                   </td>

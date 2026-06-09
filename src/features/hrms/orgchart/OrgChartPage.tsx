@@ -160,7 +160,7 @@ const DEPT_COLORS: Record<string, string> = {
 };
 
 function deptColor(dept?: string): string {
-  return dept ? (DEPT_COLORS[dept] ?? '#8B8B85') : '#8B8B85';
+  return dept ? (DEPT_COLORS[dept] ?? 'var(--text-muted)') : 'var(--text-muted)';
 }
 
 function avatarInitial(name: string): string {
@@ -186,13 +186,13 @@ function OrgRow({ node, collapsed, onToggle }: OrgRowProps) {
   return (
     <div>
       {/* Row */}
-      <div className="flex items-center gap-2.5 py-1.5 pl-1 pr-2 rounded-lg transition-colors hover:bg-slate-50">
+      <div className="flex items-center gap-2.5 py-1.5 pl-1 pr-2 rounded-lg transition-colors hover:bg-(--glass-panel-bg)">
         {/* Chevron / spacer (keeps avatars aligned whether or not there are reports) */}
         {hasKids ? (
           <button
             onClick={() => onToggle(node.userId)}
             className="w-5 h-5 flex items-center justify-center rounded shrink-0 transition-colors hover:bg-slate-200"
-            style={{ color: '#64748B' }}
+            style={{ color: 'var(--text-muted)' }}
             title={isCollapsed ? `Show ${node.children.length} report${node.children.length !== 1 ? 's' : ''}` : 'Collapse'}
           >
             {isCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
@@ -214,13 +214,13 @@ function OrgRow({ node, collapsed, onToggle }: OrgRowProps) {
         {/* Name + meta */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold truncate" style={{ color: '#0A0A0A' }}>
+            <span className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
               {node.displayName}
             </span>
             {node.employeeId && (
               <span
                 className="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
-                style={{ backgroundColor: '#F1F5F9', color: '#64748B' }}
+                style={{ backgroundColor: 'var(--glass-panel-bg)', color: 'var(--text-muted)' }}
               >
                 {node.employeeId}
               </span>
@@ -235,13 +235,13 @@ function OrgRow({ node, collapsed, onToggle }: OrgRowProps) {
             )}
           </div>
           {node.designation && (
-            <p className="text-xs truncate" style={{ color: '#8B8B85' }}>{node.designation}</p>
+            <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{node.designation}</p>
           )}
         </div>
 
         {/* Report count */}
         {hasKids && (
-          <span className="text-[11px] shrink-0 whitespace-nowrap" style={{ color: '#8B8B85' }}>
+          <span className="text-[11px] shrink-0 whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
             {node.children.length} report{node.children.length !== 1 ? 's' : ''}
           </span>
         )}
@@ -249,7 +249,7 @@ function OrgRow({ node, collapsed, onToggle }: OrgRowProps) {
 
       {/* Children — indented with a guide line */}
       {hasKids && !isCollapsed && (
-        <div className="ml-4 pl-3 border-l" style={{ borderColor: '#E2E8F0' }}>
+        <div className="ml-4 pl-3 border-l" style={{ borderColor: 'var(--shell-border)' }}>
           {node.children.map((child) => (
             <OrgRow key={child.userId} node={child} collapsed={collapsed} onToggle={onToggle} />
           ))}
@@ -320,12 +320,12 @@ export function OrgChartPage() {
             fontStyle: 'italic',
             fontVariationSettings: '"SOFT" 30',
             fontWeight: 300,
-            color: '#0A0A0A',
+            color: 'var(--text-primary)',
           }}
         >
           Organisation Chart
         </h2>
-        <p className="text-sm" style={{ color: '#8B8B85' }}>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Reporting structure across Finvastra
         </p>
       </div>
@@ -336,8 +336,8 @@ export function OrgChartPage() {
         <select
           value={deptFilter}
           onChange={(e) => setDeptFilter(e.target.value)}
-          className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-gold"
-          style={{ color: '#0A0A0A', minWidth: 200 }}
+          className="border border-(--shell-border) rounded-xl px-3 py-2 text-sm bg-(--glass-panel-bg) outline-none focus:ring-2 focus:ring-gold"
+          style={{ color: 'var(--text-primary)', minWidth: 200 }}
         >
           <option value="">All Departments</option>
           {DEPARTMENTS.map((d) => (
@@ -346,20 +346,20 @@ export function OrgChartPage() {
         </select>
 
         <div className="flex items-center gap-2 ml-auto">
-          <span className="text-xs" style={{ color: '#8B8B85' }}>
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
             {visibleCount} {deptFilter ? `in ${deptFilter.split(' ')[0]}` : 'employees'}
           </span>
           <button
             onClick={expandAll}
-            className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
-            style={{ color: '#0A0A0A' }}
+            className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors"
+            style={{ color: 'var(--text-primary)' }}
           >
             Expand All
           </button>
           <button
             onClick={collapseAll}
-            className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
-            style={{ color: '#0A0A0A' }}
+            className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors"
+            style={{ color: 'var(--text-primary)' }}
           >
             Collapse All
           </button>
@@ -368,18 +368,18 @@ export function OrgChartPage() {
 
       {/* Chart canvas — indented tree, vertical growth only */}
       <div
-        className="bg-white rounded-2xl border border-slate-200 overflow-hidden"
+        className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden"
         style={{ minHeight: 300 }}
       >
         {loading ? (
           <div className="flex items-center justify-center h-64 gap-2">
             <div className="w-5 h-5 rounded-full border-2 border-gold border-t-transparent animate-spin" />
-            <span className="text-sm" style={{ color: '#8B8B85' }}>Loading…</span>
+            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</span>
           </div>
         ) : !filteredTree ? (
           <div className="flex flex-col items-center justify-center h-64 gap-2">
             <Users size={36} className="text-slate-200" />
-            <p className="text-sm" style={{ color: '#8B8B85' }}>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               No employees in <strong>{deptFilter}</strong>.
             </p>
             <button

@@ -127,13 +127,13 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
     } catch (e) { setError(e instanceof Error ? e.message : 'Failed to save.'); setSaving(false); }
   };
 
-  const sel = 'w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2';
+  const sel = 'w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border border-(--shell-border) rounded-lg outline-none focus:ring-2';
 
   return (
     <Modal isOpen onClose={onClose} title={`Edit: ${employee.displayName}`} size="sm"
       footer={
         <>
-          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-slate-200 rounded-xl" style={{ color: '#2A2A2A' }}>Cancel</button>
+          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-(--shell-border) rounded-xl" style={{ color: 'var(--text-primary)' }}>Cancel</button>
           <button onClick={handleSave} disabled={saving}
             className="px-7 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-50"
             style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
@@ -142,27 +142,27 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
         </>
       }>
       <div className="space-y-4">
-        <div className="text-sm" style={{ color: '#8B8B85' }}>
+        <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
           {employee.email} · HRMS role: <strong>{employee.role}</strong>
         </div>
 
         {/* Profile */}
-        <div className="pt-1 border-t border-slate-100">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#8B8B85' }}>Profile</p>
+        <div className="pt-1 border-t border-(--shell-border)">
+          <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Profile</p>
           <div className="space-y-3">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Department</label>
+              <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Department</label>
               <select value={department} onChange={(e) => setDepartment(e.target.value)} className={sel}>
                 <option value="">— Select —</option>
                 {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Designation</label>
+              <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Designation</label>
               <DesignationSelect value={designation} onChange={setDesignation} className={sel} />
             </div>
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Reporting Manager</label>
+              <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Reporting Manager</label>
               <SearchableSelect
                 options={managerOptions}
                 value={reportingMgrUid}
@@ -175,8 +175,8 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
         </div>
 
         {/* CRM */}
-        <div className="pt-1 border-t border-slate-100">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#8B8B85' }}>CRM Role</p>
+        <div className="pt-1 border-t border-(--shell-border)">
+          <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>CRM Role</p>
           <select value={crmRole ?? ''} onChange={(e) => { setCrmRole((e.target.value || null) as CrmRole); if (e.target.value !== 'lead_convertor') setConvertorVerticals([]); }} className={sel}>
             <option value="">No CRM role</option>
             {(Object.keys(CRM_ROLE_LABELS) as NonNullable<CrmRole>[]).map((r) => (
@@ -186,7 +186,7 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
           {crmRole === 'lead_convertor' && (
             <div className="mt-2">
               <label className="block text-xs font-semibold uppercase tracking-widest mb-1"
-                style={{ color: convertorVerticals.length ? '#8B8B85' : '#D97706' }}>
+                style={{ color: convertorVerticals.length ? 'var(--text-muted)' : '#D97706' }}>
                 Specialist Verticals *{convertorVerticals.length === 0 && ' — pick at least one'}
               </label>
               <div className="flex flex-wrap gap-1.5">
@@ -199,7 +199,7 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
                       style={{
                         backgroundColor: on ? 'rgba(201,169,97,0.15)' : '#fff',
                         borderColor:     on ? '#C9A961' : '#E2E8F0',
-                        color:           on ? '#7A6030' : '#64748B',
+                        color:           on ? '#7A6030' : 'var(--text-muted)',
                       }}>
                       {on ? '✓ ' : ''}{CONVERTOR_VERTICAL_LABELS[v]}
                     </button>
@@ -209,7 +209,7 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
             </div>
           )}
           {crmRole && crmRole !== 'viewer' && (
-            <label className="flex items-center gap-2.5 text-sm cursor-pointer mt-2" style={{ color: '#2A2A2A' }}>
+            <label className="flex items-center gap-2.5 text-sm cursor-pointer mt-2" style={{ color: 'var(--text-primary)' }}>
               <input type="checkbox" checked={crmCanImport} onChange={(e) => setCrmCanImport(e.target.checked)} className="w-4 h-4 rounded" />
               <span>Can trigger Bulk Import</span>
             </label>
@@ -217,18 +217,18 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
         </div>
 
         {/* HRMS */}
-        <div className="pt-1 border-t border-slate-100">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#8B8B85' }}>HRMS Permissions</p>
-          <label className="flex items-center gap-2.5 text-sm cursor-pointer" style={{ color: '#2A2A2A' }}>
+        <div className="pt-1 border-t border-(--shell-border)">
+          <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>HRMS Permissions</p>
+          <label className="flex items-center gap-2.5 text-sm cursor-pointer" style={{ color: 'var(--text-primary)' }}>
             <input type="checkbox" checked={isHrmsManager} onChange={(e) => setIsHrmsManager(e.target.checked)} className="w-4 h-4 rounded" />
             <span>HRMS Manager</span>
-            <span className="text-xs" style={{ color: '#8B8B85' }}>(can approve leave, override attendance)</span>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>(can approve leave, override attendance)</span>
           </label>
         </div>
 
         {/* MIS */}
-        <div className="pt-1 border-t border-slate-100">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#8B8B85' }}>MIS Access</p>
+        <div className="pt-1 border-t border-(--shell-border)">
+          <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>MIS Access</p>
           <select value={misAccess ?? ''} onChange={(e) => setMisAccess((e.target.value || null) as MisAccess | null)} className={sel}>
             <option value="">No MIS access</option>
             <option value="viewer">Viewer (read-only)</option>
@@ -277,7 +277,7 @@ function DeactivateModal({ employee, onClose, onDone }: {
     <Modal isOpen onClose={onClose} title={`Mark ${employee.displayName} as Exited`} size="sm"
       footer={
         <>
-          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-slate-200 rounded-xl" style={{ color: '#2A2A2A' }}>Cancel</button>
+          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-(--shell-border) rounded-xl" style={{ color: 'var(--text-primary)' }}>Cancel</button>
           <button onClick={handleConfirm} disabled={busy || !lwd}
             className="px-7 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-50"
             style={{ backgroundColor: '#DC2626', color: '#FFFFFF' }}>
@@ -292,24 +292,24 @@ function DeactivateModal({ employee, onClose, onDone }: {
           <span>This will immediately disable <strong>{employee.displayName}</strong>'s login access.</span>
         </div>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>Last Working Date *</label>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>Last Working Date *</label>
           <input type="date" value={lwd} onChange={(e) => setLwd(e.target.value)}
-            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none" style={{ color: '#0A0A0A' }} />
+            className="w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border border-(--shell-border) rounded-lg outline-none" style={{ color: 'var(--text-primary)' }} />
         </div>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>Exit Reason *</label>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>Exit Reason *</label>
           <select value={exitReason} onChange={(e) => setExitReason(e.target.value as ExitReason)}
-            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none" style={{ color: '#0A0A0A' }}>
+            className="w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border border-(--shell-border) rounded-lg outline-none" style={{ color: 'var(--text-primary)' }}>
             {(Object.entries(EXIT_REASON_LABELS) as [ExitReason, string][]).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>Notes (optional)</label>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>Notes (optional)</label>
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
             placeholder="Any additional notes…"
-            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none" style={{ color: '#0A0A0A' }} />
+            className="w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border border-(--shell-border) rounded-lg outline-none resize-none" style={{ color: 'var(--text-primary)' }} />
         </div>
         {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
@@ -352,7 +352,7 @@ function ReactivateModal({ employee, onClose, onDone }: {
     <Modal isOpen onClose={onClose} title={`Reactivate ${employee.displayName}`} size="sm"
       footer={
         <>
-          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-slate-200 rounded-xl" style={{ color: '#2A2A2A' }}>Cancel</button>
+          <button onClick={onClose} className="px-5 py-2.5 text-sm border border-(--shell-border) rounded-xl" style={{ color: 'var(--text-primary)' }}>Cancel</button>
           <button onClick={handleConfirm} disabled={busy}
             className="px-7 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-50"
             style={{ backgroundColor: '#065F46', color: '#FFFFFF' }}>
@@ -361,19 +361,19 @@ function ReactivateModal({ employee, onClose, onDone }: {
         </>
       }>
       <div className="space-y-4">
-        <p className="text-sm" style={{ color: '#2A2A2A' }}>
+        <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
           This will re-enable <strong>{employee.displayName}</strong>'s login access and create a new onboarding checklist.
         </p>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>New Joining Date (optional)</label>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>New Joining Date (optional)</label>
           <input type="date" value={newJoiningDate} onChange={(e) => setNewJoiningDate(e.target.value)}
-            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none" style={{ color: '#0A0A0A' }} />
+            className="w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border border-(--shell-border) rounded-lg outline-none" style={{ color: 'var(--text-primary)' }} />
         </div>
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: '#8B8B85' }}>Notes (optional)</label>
+          <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>Notes (optional)</label>
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
             placeholder="Reason for reactivation…"
-            className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none resize-none" style={{ color: '#0A0A0A' }} />
+            className="w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border border-(--shell-border) rounded-lg outline-none resize-none" style={{ color: 'var(--text-primary)' }} />
         </div>
         {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
@@ -394,7 +394,7 @@ function BulkEditConfirmModal({ count, newDept, newDesig, onConfirm, onCancel, b
     <Modal isOpen onClose={onCancel} title={`Update ${count} employees?`} size="sm"
       footer={
         <>
-          <button onClick={onCancel} disabled={busy} className="px-5 py-2.5 text-sm border border-slate-200 rounded-xl" style={{ color: '#2A2A2A' }}>Cancel</button>
+          <button onClick={onCancel} disabled={busy} className="px-5 py-2.5 text-sm border border-(--shell-border) rounded-xl" style={{ color: 'var(--text-primary)' }}>Cancel</button>
           <button onClick={onConfirm} disabled={busy}
             className="px-7 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-50"
             style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
@@ -402,11 +402,11 @@ function BulkEditConfirmModal({ count, newDept, newDesig, onConfirm, onCancel, b
           </button>
         </>
       }>
-      <div className="space-y-3 text-sm" style={{ color: '#2A2A2A' }}>
+      <div className="space-y-3 text-sm" style={{ color: 'var(--text-primary)' }}>
         <p>This will overwrite the current values for <strong>{count} employees</strong>:</p>
-        <div className="rounded-lg px-4 py-3 space-y-1" style={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
-          <p><span className="text-mute font-medium">Department:</span> {newDept || <span className="text-mute italic">unchanged</span>}</p>
-          <p><span className="text-mute font-medium">Designation:</span> {newDesig || <span className="text-mute italic">unchanged</span>}</p>
+        <div className="rounded-lg px-4 py-3 space-y-1" style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid #E2E8F0' }}>
+          <p><span className="text-(--text-muted) font-medium">Department:</span> {newDept || <span className="text-(--text-muted) italic">unchanged</span>}</p>
+          <p><span className="text-(--text-muted) font-medium">Designation:</span> {newDesig || <span className="text-(--text-muted) italic">unchanged</span>}</p>
         </div>
       </div>
     </Modal>
@@ -452,7 +452,7 @@ function BulkEditBar({ selectedIds, onApply, onClear }: {
         onClick={() => { if (canApply) onApply(bulkDept, bulkDesig); }}
         disabled={!canApply}
         className="text-xs px-3.5 py-1.5 rounded-lg font-semibold transition-opacity disabled:opacity-30 shrink-0"
-        style={{ backgroundColor: '#C9A961', color: '#0A0A0A' }}>
+        style={{ backgroundColor: '#C9A961', color: 'var(--text-primary)' }}>
         Apply Changes
       </button>
 
@@ -651,23 +651,23 @@ export function EmployeesPage() {
       <div>
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: '#0A0A0A' }}>
+            <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
               Employees
             </h2>
-            <p className="text-sm" style={{ color: '#8B8B85' }}>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               {loading ? 'Loading…' : `${filtered.length} of ${employees.length} employees`}
             </p>
           </div>
           {isAdmin && (
             <div className="flex items-center gap-2">
               <button onClick={() => navigate('/hrms/admin/permissions')}
-                className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg border transition-colors hover:bg-slate-50"
-                style={{ borderColor: '#E2E8F0', color: '#2A2A2A' }}>
+                className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg border transition-colors hover:bg-(--glass-panel-bg)"
+                style={{ borderColor: 'var(--shell-border)', color: 'var(--text-primary)' }}>
                 <Shield size={14} /> Manage Permissions
               </button>
               <button onClick={handleExport} disabled={employees.length === 0}
-                className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg border transition-colors hover:bg-slate-50 disabled:opacity-40"
-                style={{ borderColor: '#E2E8F0', color: '#2A2A2A' }}>
+                className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg border transition-colors hover:bg-(--glass-panel-bg) disabled:opacity-40"
+                style={{ borderColor: 'var(--shell-border)', color: 'var(--text-primary)' }}>
                 <Download size={14} /> Export CSV
               </button>
               <Button variant="primary" icon={<UserPlus size={14} />} onClick={() => setShowAddModal(true)}>
@@ -680,19 +680,19 @@ export function EmployeesPage() {
         {/* Search + status filter */}
         <div className="flex items-center gap-3 mb-4 flex-wrap">
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-(--text-muted)" />
             <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
               placeholder="Search name or email…"
-              className="text-sm border border-slate-200 rounded-lg pl-9 pr-4 py-2 bg-white focus:outline-none w-56" />
+              className="text-sm border border-(--shell-border) rounded-lg pl-9 pr-4 py-2 bg-(--glass-panel-bg) focus:outline-none w-56" />
           </div>
           {canManage && (
-            <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-0.5">
+            <div className="flex items-center gap-1 rounded-lg border border-(--shell-border) bg-(--glass-panel-bg) p-0.5">
               {(['all', 'active', 'inactive'] as StatusFilter[]).map((f) => (
                 <button key={f} onClick={() => setStatusFilter(f)}
                   className="px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-colors"
                   style={statusFilter === f
-                    ? { backgroundColor: '#0B1538', color: '#FFFFFF' }
-                    : { color: '#8B8B85' }}>
+                    ? { backgroundColor: 'var(--text-primary)', color: '#FFFFFF' }
+                    : { color: 'var(--text-muted)' }}>
                   {f}
                 </button>
               ))}
@@ -701,16 +701,16 @@ export function EmployeesPage() {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
           {loading ? (
-            <div className="animate-pulse divide-y divide-slate-100">
-              {[...Array(6)].map((_, i) => <div key={i} className="h-14 bg-slate-50" />)}
+            <div className="animate-pulse divide-y divide-(--shell-border)">
+              {[...Array(6)].map((_, i) => <div key={i} className="h-14 bg-(--glass-panel-bg)" />)}
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left min-w-160">
                 <thead>
-                  <tr style={{ backgroundColor: '#FAFAF7', borderBottom: '1px solid #E2E8F0' }}>
+                  <tr style={{ backgroundColor: 'var(--glass-panel-bg)', borderBottom: '1px solid #E2E8F0' }}>
                     {/* Select-all checkbox — admin/HR only */}
                     {canManage && (
                       <th className="px-4 py-3 w-10">
@@ -720,9 +720,9 @@ export function EmployeesPage() {
                       </th>
                     )}
                     {['Emp Code', 'Name', 'Department', 'Designation', 'Email', 'Status'].map((h) => (
-                      <th key={h} className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>{h}</th>
+                      <th key={h} className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{h}</th>
                     ))}
-                    {canManage && <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>Login Status</th>}
+                    {canManage && <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Login Status</th>}
                     {canViewProfile && <th className="px-4 py-3" />}
                   </tr>
                 </thead>
@@ -741,7 +741,7 @@ export function EmployeesPage() {
 
                     return (
                       <tr key={emp.userId}
-                        className="border-b border-slate-100 last:border-0 transition-colors"
+                        className="border-b border-(--shell-border) last:border-0 transition-colors"
                         style={{
                           opacity: isInactive ? 0.5 : 1,
                           backgroundColor: isSelected ? 'rgba(201,169,97,0.04)' : undefined,
@@ -757,7 +757,7 @@ export function EmployeesPage() {
                           </td>
                         )}
 
-                        <td className="px-4 py-3 font-mono text-xs" style={{ color: '#8B8B85' }}>
+                        <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
                           {emp.employeeId ?? '—'}
                         </td>
 
@@ -781,9 +781,9 @@ export function EmployeesPage() {
                           </button>
                         </td>
 
-                        <td className="px-4 py-3 text-sm" style={{ color: '#2A2A2A' }}>{emp.department ?? '—'}</td>
-                        <td className="px-4 py-3 text-sm" style={{ color: '#2A2A2A' }}>{emp.designation ?? '—'}</td>
-                        <td className="px-4 py-3 text-xs" style={{ color: '#475569' }}>{emp.email || '—'}</td>
+                        <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-primary)' }}>{emp.department ?? '—'}</td>
+                        <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-primary)' }}>{emp.designation ?? '—'}</td>
+                        <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{emp.email || '—'}</td>
                         <td className="px-4 py-3">
                           <Badge variant={isInactive ? 'red' : 'green'} size="sm" className="capitalize">
                             {emp.employeeStatus ?? 'active'}
@@ -800,12 +800,12 @@ export function EmployeesPage() {
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1">
                               <button onClick={() => navigate(`/hrms/employees/${emp.userId}`)} title="View profile"
-                                className="p-1.5 text-slate-400 hover:text-slate-700 transition-colors">
+                                className="p-1.5 text-(--text-muted) hover:text-slate-700 transition-colors">
                                 <Eye size={14} />
                               </button>
                               {isAdmin && (
                                 <button onClick={() => setEditingEmployee(emp)} title="Edit employee"
-                                  className="p-1.5 text-slate-400 hover:text-slate-700 transition-colors">
+                                  className="p-1.5 text-(--text-muted) hover:text-slate-700 transition-colors">
                                   <Edit2 size={14} />
                                 </button>
                               )}

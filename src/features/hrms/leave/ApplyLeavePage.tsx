@@ -125,8 +125,8 @@ export function ApplyLeavePage() {
       <div className="flex items-center gap-3">
         <Link
           to="/hrms/leave"
-          className="p-1.5 rounded-lg transition-colors hover:bg-slate-100"
-          style={{ color: '#8B8B85' }}
+          className="p-1.5 rounded-lg transition-colors hover:bg-(--glass-panel-bg)"
+          style={{ color: 'var(--text-muted)' }}
         >
           <ArrowLeft size={18} />
         </Link>
@@ -137,7 +137,7 @@ export function ApplyLeavePage() {
             fontStyle: 'italic',
             fontVariationSettings: '"SOFT" 30',
             fontWeight: 300,
-            color: '#0A0A0A',
+            color: 'var(--text-primary)',
           }}
         >
           Apply for Leave
@@ -147,18 +147,18 @@ export function ApplyLeavePage() {
       {/* ── Form ── */}
       <form
         onSubmit={handleSubmit}
-        className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5"
+        className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-6 space-y-5"
       >
         {/* Leave type */}
         <div className="space-y-1.5">
-          <label className="block text-xs font-semibold uppercase tracking-wide" style={{ color: '#8B8B85' }}>
+          <label className="block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
             Leave Type
           </label>
           <select
             value={leaveType}
             onChange={(e) => setLeaveType(e.target.value as LeaveType)}
-            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
-            style={{ color: '#0A0A0A', focusRingColor: '#C9A961' } as React.CSSProperties}
+            className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
+            style={{ color: 'var(--text-primary)', focusRingColor: '#C9A961' } as React.CSSProperties}
           >
             {LEAVE_TYPES.map(({ value, label }) => (
               <option key={value} value={value}>{label}</option>
@@ -169,7 +169,7 @@ export function ApplyLeavePage() {
         {/* Date range */}
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="block text-xs font-semibold uppercase tracking-wide" style={{ color: '#8B8B85' }}>
+            <label className="block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
               From Date
             </label>
             <input
@@ -177,12 +177,12 @@ export function ApplyLeavePage() {
               value={fromDate}
               min={today}
               onChange={(e) => setFromDate(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
-              style={{ color: '#0A0A0A' }}
+              className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              style={{ color: 'var(--text-primary)' }}
             />
           </div>
           <div className="space-y-1.5">
-            <label className="block text-xs font-semibold uppercase tracking-wide" style={{ color: '#8B8B85' }}>
+            <label className="block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
               To Date
             </label>
             <input
@@ -190,8 +190,8 @@ export function ApplyLeavePage() {
               value={toDate}
               min={fromDate || today}
               onChange={(e) => setToDate(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
-              style={{ color: '#0A0A0A' }}
+              className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2"
+              style={{ color: 'var(--text-primary)' }}
             />
           </div>
         </div>
@@ -202,11 +202,11 @@ export function ApplyLeavePage() {
             className="rounded-xl px-4 py-3 text-sm space-y-0.5"
             style={{ backgroundColor: '#F2EFE7' }}
           >
-            <p className="font-semibold" style={{ color: '#0A0A0A' }}>
+            <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
               {workingDays} working day{workingDays !== 1 ? 's' : ''}
             </p>
             {getBalanceLabel() && (
-              <p className="text-xs" style={{ color: '#8B8B85' }}>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                 {getBalanceLabel()}
               </p>
             )}
@@ -215,7 +215,7 @@ export function ApplyLeavePage() {
 
         {/* Reason */}
         <div className="space-y-1.5">
-          <label className="block text-xs font-semibold uppercase tracking-wide" style={{ color: '#8B8B85' }}>
+          <label className="block text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
             Reason <span className="normal-case font-normal">(min 10 characters)</span>
           </label>
           <textarea
@@ -223,10 +223,10 @@ export function ApplyLeavePage() {
             onChange={(e) => setReason(e.target.value)}
             rows={3}
             placeholder="Briefly describe the reason for your leave request…"
-            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
-            style={{ color: '#0A0A0A' }}
+            className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2"
+            style={{ color: 'var(--text-primary)' }}
           />
-          <p className="text-xs" style={{ color: '#8B8B85' }}>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
             {reason.trim().length} / 10 minimum characters
           </p>
         </div>
@@ -252,7 +252,7 @@ export function ApplyLeavePage() {
             disabled={!canSubmit}
             className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity"
             style={{
-              backgroundColor: canSubmit ? '#0B1538' : '#94A3B8',
+              backgroundColor: canSubmit ? '#0B1538' : 'var(--text-muted)',
               color: '#FFFFFF',
               cursor: canSubmit ? 'pointer' : 'not-allowed',
               opacity: submitting ? 0.6 : 1,
@@ -263,7 +263,7 @@ export function ApplyLeavePage() {
           <Link
             to="/hrms/leave"
             className="text-sm transition-opacity hover:opacity-60"
-            style={{ color: '#8B8B85' }}
+            style={{ color: 'var(--text-muted)' }}
           >
             Cancel
           </Link>

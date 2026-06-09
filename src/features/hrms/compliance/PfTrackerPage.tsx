@@ -193,11 +193,11 @@ export function PfTrackerPage() {
       <div className="mb-6">
         <h2 className="text-3xl mb-1" style={{
           fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic',
-          fontWeight: 300, color: '#0A0A0A',
+          fontWeight: 300, color: 'var(--text-primary)',
         }}>
           PF Tracker
         </h2>
-        <p className="text-sm" style={{ color: '#8B8B85' }}>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Employee Provident Fund contributions — auto-calculated from payslips
         </p>
       </div>
@@ -206,24 +206,24 @@ export function PfTrackerPage() {
       <div className="flex items-center gap-4 mb-6">
         <input type="month" value={selectedMonth}
           onChange={(e) => setSelectedMonth(e.target.value)}
-          className="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white outline-none"
-          style={{ color: '#0A0A0A' }} />
-        <span className="text-sm font-medium" style={{ color: '#8B8B85' }}>{monthLabel}</span>
+          className="text-sm border border-(--shell-border) rounded-lg px-3 py-2 bg-(--glass-panel-bg) outline-none"
+          style={{ color: 'var(--text-primary)' }} />
+        <span className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>{monthLabel}</span>
       </div>
 
       {/* Loading */}
       {loading && (
-        <div className="text-sm text-center py-16" style={{ color: '#8B8B85' }}>Loading payslips…</div>
+        <div className="text-sm text-center py-16" style={{ color: 'var(--text-muted)' }}>Loading payslips…</div>
       )}
 
       {/* Empty state */}
       {!loading && rows.length === 0 && (
-        <div className="text-center py-16 rounded-2xl border border-slate-200 bg-white">
-          <FileText size={32} className="mx-auto mb-3" style={{ color: '#CBD5E1' }} />
-          <p className="text-sm font-medium" style={{ color: '#2A2A2A' }}>
+        <div className="text-center py-16 rounded-2xl border border-(--shell-border) bg-(--glass-panel-bg)">
+          <FileText size={32} className="mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
+          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
             No payslips generated for {monthLabel}
           </p>
-          <p className="text-xs mt-1" style={{ color: '#8B8B85' }}>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
             Generate payslips first in HRMS → Admin → Generate Payslips.
           </p>
         </div>
@@ -239,9 +239,9 @@ export function PfTrackerPage() {
               { label: 'Employer Contribution', value: fmt(totals.employerTotal), isNum: false },
               { label: 'Grand Total to Deposit', value: fmt(totals.totalContrib), isNum: false },
             ].map(({ label, value }) => (
-              <div key={label} className="bg-white rounded-2xl border border-slate-200 p-4">
-                <p className="text-xl font-bold" style={{ color: '#0B1538' }}>{value}</p>
-                <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>{label}</p>
+              <div key={label} className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-4">
+                <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
               </div>
             ))}
           </div>
@@ -276,8 +276,8 @@ export function PfTrackerPage() {
                   Export ECR File
                 </button>
                 <button onClick={() => exportSummaryCSV(rows, selectedMonth)}
-                  className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl border border-slate-200"
-                  style={{ color: '#2A2A2A' }}>
+                  className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl border border-(--shell-border)"
+                  style={{ color: 'var(--text-primary)' }}>
                   <Download size={15} />
                   Export Summary CSV
                 </button>
@@ -286,20 +286,20 @@ export function PfTrackerPage() {
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ backgroundColor: '#FAFAF7', borderBottom: '1px solid #E2E8F0' }}>
-                    <th className={thCls} style={{ color: '#8B8B85' }}>Emp Code</th>
-                    <th className={thCls} style={{ color: '#8B8B85' }}>Name</th>
-                    <th className={`${thCls} text-right`} style={{ color: '#8B8B85' }}>Basic Salary</th>
-                    <th className={`${thCls} text-right`} style={{ color: '#8B8B85' }}>PF Wages</th>
-                    <th className={`${thCls} text-right`} style={{ color: '#8B8B85' }}>Employee PF (12%)</th>
-                    <th className={`${thCls} text-right`} style={{ color: '#8B8B85' }}>Employer EPF</th>
-                    <th className={`${thCls} text-right`} style={{ color: '#8B8B85' }}>Employer EPS</th>
-                    <th className={`${thCls} text-right`} style={{ color: '#8B8B85' }}>Total</th>
-                    <th className={thCls} style={{ color: '#8B8B85' }}>UAN</th>
+                  <tr style={{ backgroundColor: 'var(--glass-panel-bg)', borderBottom: '1px solid #E2E8F0' }}>
+                    <th className={thCls} style={{ color: 'var(--text-muted)' }}>Emp Code</th>
+                    <th className={thCls} style={{ color: 'var(--text-muted)' }}>Name</th>
+                    <th className={`${thCls} text-right`} style={{ color: 'var(--text-muted)' }}>Basic Salary</th>
+                    <th className={`${thCls} text-right`} style={{ color: 'var(--text-muted)' }}>PF Wages</th>
+                    <th className={`${thCls} text-right`} style={{ color: 'var(--text-muted)' }}>Employee PF (12%)</th>
+                    <th className={`${thCls} text-right`} style={{ color: 'var(--text-muted)' }}>Employer EPF</th>
+                    <th className={`${thCls} text-right`} style={{ color: 'var(--text-muted)' }}>Employer EPS</th>
+                    <th className={`${thCls} text-right`} style={{ color: 'var(--text-muted)' }}>Total</th>
+                    <th className={thCls} style={{ color: 'var(--text-muted)' }}>UAN</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -307,22 +307,22 @@ export function PfTrackerPage() {
                     <tr key={r.userId} style={{
                       borderBottom: idx < rows.length - 1 ? '1px solid #F1F5F9' : 'none',
                     }}>
-                      <td className="px-4 py-3 font-mono text-xs" style={{ color: '#8B8B85' }}>{r.empCode}</td>
-                      <td className="px-4 py-3 font-medium" style={{ color: '#0A0A0A' }}>{r.name}</td>
-                      <td className="px-4 py-3 text-right tabular-nums" style={{ color: '#0A0A0A' }}>{fmt(r.basicSalary)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums" style={{ color: '#0A0A0A' }}>
+                      <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>{r.empCode}</td>
+                      <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{r.name}</td>
+                      <td className="px-4 py-3 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>{fmt(r.basicSalary)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums" style={{ color: 'var(--text-primary)' }}>
                         {fmt(r.pfWages)}
                         {r.basicSalary > 15000 && (
-                          <span className="block text-[10px]" style={{ color: '#8B8B85' }}>capped</span>
+                          <span className="block text-[10px]" style={{ color: 'var(--text-muted)' }}>capped</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums font-medium" style={{ color: '#0B1538' }}>{fmt(r.empContrib)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums" style={{ color: '#475569' }}>{fmt(r.epfDiff)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums" style={{ color: '#475569' }}>{fmt(r.epsContrib)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums font-medium" style={{ color: 'var(--text-primary)' }}>{fmt(r.empContrib)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums" style={{ color: 'var(--text-muted)' }}>{fmt(r.epfDiff)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums" style={{ color: 'var(--text-muted)' }}>{fmt(r.epsContrib)}</td>
                       <td className="px-4 py-3 text-right tabular-nums font-bold" style={{ color: '#C9A961' }}>{fmt(r.totalContrib)}</td>
                       <td className="px-4 py-3">
                         {r.uan ? (
-                          <span className="font-mono text-xs" style={{ color: '#0A0A0A' }}>{r.uan}</span>
+                          <span className="font-mono text-xs" style={{ color: 'var(--text-primary)' }}>{r.uan}</span>
                         ) : (
                           <span className="flex items-center gap-1 text-xs" style={{ color: '#92400E' }}>
                             <AlertTriangle size={11} />
@@ -335,16 +335,16 @@ export function PfTrackerPage() {
                 </tbody>
                 {/* Totals footer */}
                 <tfoot>
-                  <tr style={{ borderTop: '2px solid #E2E8F0', backgroundColor: '#FAFAF7' }}>
+                  <tr style={{ borderTop: '2px solid #E2E8F0', backgroundColor: 'var(--glass-panel-bg)' }}>
                     <td colSpan={4} className="px-4 py-3 text-xs font-bold uppercase tracking-widest"
-                      style={{ color: '#8B8B85' }}>Totals</td>
-                    <td className="px-4 py-3 text-right font-bold tabular-nums" style={{ color: '#0B1538' }}>
+                      style={{ color: 'var(--text-muted)' }}>Totals</td>
+                    <td className="px-4 py-3 text-right font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>
                       {fmt(totals.empContrib)}
                     </td>
-                    <td className="px-4 py-3 text-right font-bold tabular-nums" style={{ color: '#475569' }}>
+                    <td className="px-4 py-3 text-right font-bold tabular-nums" style={{ color: 'var(--text-muted)' }}>
                       {fmt(rows.reduce((s, r) => s + r.epfDiff, 0))}
                     </td>
-                    <td className="px-4 py-3 text-right font-bold tabular-nums" style={{ color: '#475569' }}>
+                    <td className="px-4 py-3 text-right font-bold tabular-nums" style={{ color: 'var(--text-muted)' }}>
                       {fmt(rows.reduce((s, r) => s + r.epsContrib, 0))}
                     </td>
                     <td className="px-4 py-3 text-right font-bold tabular-nums text-lg" style={{ color: '#C9A961' }}>
@@ -358,7 +358,7 @@ export function PfTrackerPage() {
           </div>
 
           {/* PF Calculation note */}
-          <p className="text-xs mt-3" style={{ color: '#8B8B85' }}>
+          <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
             PF wage ceiling ₹15,000 · Employee 12% · Employer 12% split as EPS min(8.33%, ₹1,250) + EPF diff
           </p>
         </>

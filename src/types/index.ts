@@ -884,6 +884,7 @@ export interface ComplianceRecord {
   id: string;
   type: ComplianceType;
   title?: string;              // specific obligation, e.g. "GSTR-1" — `type` is the category
+  seedVersion?: number;        // schedule version that created this row; drives auto-resync
   month: string;               // YYYY-MM — the month the filing is DUE
   year: number;
   dueDate: string;             // YYYY-MM-DD

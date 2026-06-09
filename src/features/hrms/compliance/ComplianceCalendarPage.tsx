@@ -1,9 +1,12 @@
 import { type ElementType, useState, useEffect, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
-import { format, parseISO, addMonths, subMonths } from 'date-fns';
+import {
+  format, parseISO, addMonths, subMonths,
+  startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isToday,
+} from 'date-fns';
 import {
   Receipt, Building2, Heart, Coins, Percent, Calculator, Briefcase, FileText,
-  ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Clock, X, RefreshCw, Info,
+  ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Clock, X, Info, CalendarDays, List,
 } from 'lucide-react';
 import {
   collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp,
@@ -29,11 +32,11 @@ const TYPE_META: Record<ComplianceType, { icon: ElementType; title: string; icon
 const FALLBACK_META = { icon: FileText, title: 'Compliance', iconColor: '#94A3B8' };
 const metaFor = (t: ComplianceType) => TYPE_META[t] ?? FALLBACK_META;
 
-const STATUS_META: Record<ComplianceStatus, { label: string; bg: string; text: string }> = {
-  upcoming: { label: 'Upcoming', bg: '#F1F5F9', text: 'var(--text-muted)' },
-  due_soon: { label: 'Due Soon', bg: '#FEF3C7', text: '#92400E' },
-  overdue:  { label: 'Overdue',  bg: '#FEE2E2', text: '#991B1B' },
-  filed:    { label: 'Filed',    bg: '#D1FAE5', text: '#065F46' },
+const STATUS_META: Record<ComplianceStatus, { label: string; bg: string; text: string; dot: string }> = {
+  upcoming: { label: 'Upcoming', bg: '#F1F5F9', text: 'var(--text-muted)', dot: '#94A3B8' },
+  due_soon: { label: 'Due Soon', bg: '#FEF3C7', text: '#92400E', dot: '#D97706' },
+  overdue:  { label: 'Overdue',  bg: '#FEE2E2', text: '#991B1B', dot: '#DC2626' },
+  filed:    { label: 'Filed',    bg: '#D1FAE5', text: '#065F46', dot: '#059669' },
 };
 
 // ─── Status computation (deterministic — based on today vs dueDate) ───────────
@@ -54,6 +57,13 @@ function computeStatus(dueDate: string, filedAt: unknown): ComplianceStatus {
 // Convention: a month's view lists every obligation DUE within that month (the
 // same way the CA's table is laid out). The recurring monthly deposits/returns
 // are for the *previous* month's period (e.g. April shows March's TDS/PF/PT/ESI).
+//
+// SEED_VERSION: bump this whenever the schedule below changes. On the next view,
+// a month's UNFILED items seeded by an older version are auto-replaced — the
+// calendar self-heals to the latest CA rules with no manual action. Filed items
+// are always preserved.
+
+const SEED_VERSION = 2;
 
 function pad2(n: number) { return String(n).padStart(2, '0'); }
 
@@ -70,7 +80,7 @@ function generateComplianceItems(year: number, month: number): SeedItem[] {
   const iso = (d: number) => `${year}-${pad2(month)}-${pad2(d)}`;
 
   function make(type: ComplianceType, title: string, description: string, dueDate: string): SeedItem {
-    return { type, title, description, dueDate, month: monthStr, year, status: computeStatus(dueDate, null) };
+    return { type, title, description, dueDate, month: monthStr, year, seedVersion: SEED_VERSION, status: computeStatus(dueDate, null) };
   }
 
   // ── Monthly deposits / returns (for the previous month's period) ──────────
@@ -150,6 +160,19 @@ function generateComplianceItems(year: number, month: number): SeedItem[] {
   return items;
 }
 
+// Build the firestore payload for one seed item.
+function seedPayload(item: SeedItem) {
+  return {
+    ...item,
+    amount:          null,
+    filedAt:         null,
+    filedBy:         null,
+    referenceNumber: null,
+    notes:           null,
+    createdAt:       serverTimestamp(),
+  };
+}
+
 // ─── Mark Filed Modal ─────────────────────────────────────────────────────────
 
 interface MarkFiledModalProps {
@@ -192,7 +215,7 @@ function MarkFiledModal({ record, actorUid, onClose, onSaved }: MarkFiledModalPr
   const inp = 'w-full text-sm border border-(--shell-border) rounded-lg px-3 py-2 bg-(--glass-panel-bg) outline-none focus:ring-2 focus:ring-navy/10';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
       <div className="rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl" style={{ backgroundColor: 'var(--glass-panel-bg)' }}>
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Mark as Filed</h3>
@@ -260,7 +283,7 @@ function ViewDetailsModal({ record, onClose, onEdit }: {
     : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
       <div className="rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl" style={{ backgroundColor: 'var(--glass-panel-bg)' }}>
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>Filing Details</h3>
@@ -278,7 +301,7 @@ function ViewDetailsModal({ record, onClose, onEdit }: {
           </div>
           <div className="flex justify-between">
             <span style={{ color: 'var(--text-muted)' }}>Due Date</span>
-            <span>{format(parseISO(record.dueDate), 'd MMM yyyy')}</span>
+            <span style={{ color: '#DC2626', fontWeight: 600 }}>{format(parseISO(record.dueDate), 'd MMM yyyy')}</span>
           </div>
           {record.referenceNumber && (
             <div className="flex justify-between">
@@ -319,7 +342,7 @@ function ViewDetailsModal({ record, onClose, onEdit }: {
   );
 }
 
-// ─── Compliance Card ──────────────────────────────────────────────────────────
+// ─── Compliance Card (used in List view + Day modal) ──────────────────────────
 
 function ComplianceCard({ record, onMarkFiled, onView }: {
   record: ComplianceRecord;
@@ -357,9 +380,10 @@ function ComplianceCard({ record, onMarkFiled, onView }: {
       </div>
 
       {/* Due date */}
-      <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
-        <Clock size={12} />
-        <span>Due {dueFmt}</span>
+      <div className="flex items-center gap-1.5 text-xs">
+        <Clock size={12} style={{ color: 'var(--text-muted)' }} />
+        <span style={{ color: 'var(--text-muted)' }}>Due </span>
+        <span style={{ color: status === 'filed' ? '#059669' : '#DC2626', fontWeight: 600 }}>{dueFmt}</span>
       </div>
 
       {/* Filed info */}
@@ -407,6 +431,157 @@ function ComplianceCard({ record, onMarkFiled, onView }: {
   );
 }
 
+// ─── Calendar grid ────────────────────────────────────────────────────────────
+
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function CalendarGrid({ year, month, records, onOpenDay }: {
+  year: number;
+  month: number;
+  records: ComplianceRecord[];
+  onOpenDay: (dateKey: string, items: ComplianceRecord[]) => void;
+}) {
+  const monthStart = startOfMonth(new Date(year, month - 1, 1));
+  const days = eachDayOfInterval({
+    start: startOfWeek(monthStart, { weekStartsOn: 1 }),
+    end:   endOfWeek(endOfMonth(monthStart), { weekStartsOn: 1 }),
+  });
+
+  const byDate = new Map<string, ComplianceRecord[]>();
+  records.forEach((r) => {
+    const arr = byDate.get(r.dueDate) ?? [];
+    arr.push(r);
+    byDate.set(r.dueDate, arr);
+  });
+
+  return (
+    <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-3 sm:p-4">
+      {/* Weekday header */}
+      <div className="grid grid-cols-7 mb-2">
+        {WEEKDAYS.map((w) => (
+          <div key={w} className="text-center text-[10px] sm:text-xs font-semibold uppercase tracking-wider py-1"
+            style={{ color: 'var(--text-muted)' }}>
+            {w}
+          </div>
+        ))}
+      </div>
+
+      {/* Day cells */}
+      <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+        {days.map((day) => {
+          const key     = format(day, 'yyyy-MM-dd');
+          const items   = byDate.get(key) ?? [];
+          const inMonth = isSameMonth(day, monthStart);
+          const today   = isToday(day);
+          const hasOverdue = items.some((r) => computeStatus(r.dueDate, r.filedAt) === 'overdue');
+          const allFiled   = items.length > 0 && items.every((r) => computeStatus(r.dueDate, r.filedAt) === 'filed');
+
+          const borderColor = today ? '#C9A961'
+            : hasOverdue ? '#FCA5A5'
+            : allFiled ? '#86EFAC'
+            : 'var(--shell-border)';
+
+          return (
+            <button
+              key={key}
+              onClick={() => items.length && onOpenDay(key, items)}
+              disabled={!items.length}
+              className="text-left rounded-lg border p-1.5 min-h-[78px] sm:min-h-[96px] flex flex-col transition-colors disabled:cursor-default"
+              style={{
+                borderColor,
+                borderWidth: today ? 2 : 1,
+                backgroundColor: inMonth ? 'transparent' : 'transparent',
+                opacity: inMonth ? 1 : 0.4,
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold"
+                  style={{ color: today ? '#C9A961' : 'var(--text-primary)' }}>
+                  {format(day, 'd')}
+                </span>
+                {items.length > 0 && (
+                  <span className="text-[9px] font-bold px-1 rounded-full"
+                    style={{ backgroundColor: hasOverdue ? '#FEE2E2' : allFiled ? '#D1FAE5' : '#F1F5F9',
+                             color: hasOverdue ? '#991B1B' : allFiled ? '#065F46' : 'var(--text-muted)' }}>
+                    {items.length}
+                  </span>
+                )}
+              </div>
+
+              {/* chips */}
+              <div className="mt-1 space-y-0.5 overflow-hidden">
+                {items.slice(0, 3).map((r) => {
+                  const st = computeStatus(r.dueDate, r.filedAt);
+                  return (
+                    <div key={r.id} className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: STATUS_META[st].dot }} />
+                      <span className="text-[9px] sm:text-[10px] truncate leading-tight"
+                        style={{ color: 'var(--text-primary)', textDecoration: st === 'filed' ? 'line-through' : 'none' }}>
+                        {r.title ?? metaFor(r.type).title}
+                      </span>
+                    </div>
+                  );
+                })}
+                {items.length > 3 && (
+                  <div className="text-[9px] font-medium" style={{ color: 'var(--text-muted)' }}>
+                    +{items.length - 3} more
+                  </div>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* legend */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 pt-3 border-t border-(--shell-border) text-[10px]"
+        style={{ color: 'var(--text-muted)' }}>
+        {([['overdue', 'Overdue'], ['due_soon', 'Due soon'], ['upcoming', 'Upcoming'], ['filed', 'Filed']] as Array<[ComplianceStatus, string]>).map(
+          ([s, label]) => (
+            <span key={s} className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: STATUS_META[s].dot }} />
+              {label}
+            </span>
+          ),
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Day Detail Modal — every obligation due on a clicked day ──────────────────
+
+function DayDetailModal({ dateKey, items, onClose, onMarkFiled, onView }: {
+  dateKey: string;
+  items: ComplianceRecord[];
+  onClose: () => void;
+  onMarkFiled: (r: ComplianceRecord) => void;
+  onView: (r: ComplianceRecord) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}>
+      <div className="rounded-2xl w-full max-w-lg shadow-xl flex flex-col max-h-[85vh]" style={{ backgroundColor: 'var(--glass-panel-bg)' }}>
+        <div className="flex items-center justify-between p-5 border-b border-(--shell-border)">
+          <div>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {format(parseISO(dateKey), 'EEEE, d MMMM yyyy')}
+            </h3>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              {items.length} filing{items.length === 1 ? '' : 's'} due
+            </p>
+          </div>
+          <button onClick={onClose}><X size={18} style={{ color: 'var(--text-muted)' }} /></button>
+        </div>
+        <div className="p-5 space-y-3 overflow-y-auto">
+          {items.map((r) => (
+            <ComplianceCard key={r.id} record={r} onMarkFiled={() => onMarkFiled(r)} onView={() => onView(r)} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── useOverdueComplianceCount — exported for HrmsShell badge ─────────────────
 
 export function useOverdueComplianceCount(enabled: boolean): number {
@@ -414,32 +589,21 @@ export function useOverdueComplianceCount(enabled: boolean): number {
 
   useEffect(() => {
     if (!enabled) return;
-    // Query unfiled records; compute overdue in JS (avoids composite index requirement)
-    const q = query(
-      collection(db, 'compliance_records'),
-      where('filedAt', '==', null),
-    );
-    let unsubscribe: (() => void) | undefined;
-    // Use getDocs (not onSnapshot) to avoid needing a composite index for the badge
+    const q = query(collection(db, 'compliance_records'), where('filedAt', '==', null));
     getDocs(q).then((snap) => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const overdue = snap.docs.filter((d) => {
-        const dueDate = parseISO(d.data().dueDate as string);
-        return dueDate < today;
-      });
+      const overdue = snap.docs.filter((d) => parseISO(d.data().dueDate as string) < today);
       setCount(overdue.length);
     }).catch(() => setCount(0));
-
-    return unsubscribe;
   }, [enabled]);
 
   return count;
 }
 
-// ─── Key dates reference (CA, FY 2026-27) ────────────────────────────────────
+// ─── Key dates reference table (CA, FY 2026-27) ───────────────────────────────
 
-const KEY_DATES: string[][] = [
+const KEY_DATES: Array<[string, string]> = [
   ['TDS deposit', '7th of next month (March → 30 Apr)'],
   ['PT — Telangana', 'Deposit + return by 10th; annual Form V by 10 Apr'],
   ['Provident Fund', '15th; annual Form 3A/6A by 30 Apr–31 May'],
@@ -453,23 +617,36 @@ const KEY_DATES: string[][] = [
   ['Salary', 'Paid 1st–7th; processed on the last working day prior'],
 ];
 
-function KeyDatesPanel() {
+function KeyDatesTable() {
   return (
-    <div className="mt-8 bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-5">
-      <h3 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-        <Info size={15} style={{ color: '#C9A961' }} /> Key dates &amp; rules — CA calendar, FY 2026-27
-      </h3>
-      <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-xs">
-        {KEY_DATES.map(([label, rule]) => (
-          <div key={label} className="flex gap-2">
-            <span className="font-semibold shrink-0" style={{ color: 'var(--text-primary)' }}>{label}</span>
-            <span style={{ color: 'var(--text-muted)' }}>— {rule}</span>
-          </div>
-        ))}
+    <div className="mt-8 bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
+      <div className="px-5 py-3 border-b border-(--shell-border) flex items-center gap-2">
+        <Info size={15} style={{ color: '#C9A961' }} />
+        <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+          Key dates &amp; rules — CA calendar, FY 2026-27
+        </h3>
       </div>
-      <p className="text-[11px] mt-4 pt-3 border-t border-(--shell-border)" style={{ color: 'var(--text-muted)' }}>
-        Finvastra Advisors Pvt. Ltd. · Hyderabad, Telangana · Financial Services. Dates per the
-        firm's CA. Items are auto-seeded each month; use <b>Reset to CA calendar</b> after any rule change.
+      <table className="w-full text-xs border-collapse">
+        <thead>
+          <tr>
+            <th className="text-left font-semibold uppercase tracking-wider px-5 py-2 w-44"
+              style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--shell-border)' }}>Obligation</th>
+            <th className="text-left font-semibold uppercase tracking-wider px-5 py-2"
+              style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--shell-border)' }}>Due dates</th>
+          </tr>
+        </thead>
+        <tbody>
+          {KEY_DATES.map(([label, rule], i) => (
+            <tr key={label} style={{ backgroundColor: i % 2 ? 'transparent' : 'rgba(148,163,184,0.06)' }}>
+              <td className="px-5 py-2 font-semibold align-top" style={{ color: 'var(--text-primary)' }}>{label}</td>
+              <td className="px-5 py-2 font-medium" style={{ color: '#DC2626' }}>{rule}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="text-[11px] px-5 py-3 border-t border-(--shell-border)" style={{ color: 'var(--text-muted)' }}>
+        Finvastra Advisors Pvt. Ltd. · Hyderabad, Telangana · Financial Services. Dates per the firm's CA.
+        The calendar auto-updates to the latest schedule each month — no manual action needed.
       </p>
     </div>
   );
@@ -485,47 +662,51 @@ export function ComplianceCalendarPage() {
   const [records,     setRecords]     = useState<ComplianceRecord[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [seeding,     setSeeding]     = useState(false);
-  const [resyncing,   setResyncing]   = useState(false);
+  const [view,        setView]        = useState<'calendar' | 'list'>('calendar');
 
   const [markFiledFor, setMarkFiledFor] = useState<ComplianceRecord | null>(null);
   const [viewFor,      setViewFor]      = useState<ComplianceRecord | null>(null);
+  const [dayModal,     setDayModal]     = useState<{ date: string; items: ComplianceRecord[] } | null>(null);
 
   const year  = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1; // 1-indexed
   const monthStr = `${year}-${pad2(month)}`;
   const monthLabel = format(currentDate, 'MMMM yyyy');
 
-  // ── Load records for the current month ──────────────────────────────────────
+  // ── Load records for the current month (auto-seed + auto-resync stale) ───────
 
   const loadRecords = useCallback(async () => {
     setLoading(true);
     try {
-      const snap = await getDocs(
+      let snap = await getDocs(
         query(collection(db, 'compliance_records'), where('month', '==', monthStr)),
       );
+
+      // Stale unfiled rows = seeded by an older schedule version (or pre-versioning).
+      const staleUnfiled = snap.docs.filter((d) => {
+        const x = d.data();
+        return !x.filedAt && (x.seedVersion ?? 0) < SEED_VERSION;
+      });
+
       if (snap.empty) {
-        // Auto-seed
         setSeeding(true);
-        const items = generateComplianceItems(year, month);
-        for (const item of items) {
-          await addDoc(collection(db, 'compliance_records'), {
-            ...item,
-            amount:          null,
-            filedAt:         null,
-            filedBy:         null,
-            referenceNumber: null,
-            notes:           null,
-            createdAt:       serverTimestamp(),
-          });
+        for (const item of generateComplianceItems(year, month)) {
+          await addDoc(collection(db, 'compliance_records'), seedPayload(item));
         }
         setSeeding(false);
-        const snap2 = await getDocs(
-          query(collection(db, 'compliance_records'), where('month', '==', monthStr)),
-        );
-        setRecords(snap2.docs.map((d) => ({ id: d.id, ...d.data() }) as ComplianceRecord));
-      } else {
-        setRecords(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ComplianceRecord));
+        snap = await getDocs(query(collection(db, 'compliance_records'), where('month', '==', monthStr)));
+      } else if (staleUnfiled.length > 0) {
+        // Self-heal: replace stale unfiled rows with the current schedule; keep filed history.
+        setSeeding(true);
+        await Promise.all(staleUnfiled.map((d) => deleteDoc(doc(db, 'compliance_records', d.id))));
+        for (const item of generateComplianceItems(year, month)) {
+          await addDoc(collection(db, 'compliance_records'), seedPayload(item));
+        }
+        setSeeding(false);
+        snap = await getDocs(query(collection(db, 'compliance_records'), where('month', '==', monthStr)));
       }
+
+      setRecords(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ComplianceRecord));
     } finally {
       setLoading(false);
     }
@@ -533,39 +714,10 @@ export function ComplianceCalendarPage() {
 
   useEffect(() => { loadRecords(); }, [loadRecords]);
 
-  // ── Re-sync this month with the latest CA calendar ──────────────────────────
-  // Deletes unfiled items and re-seeds; FILED items are preserved as history.
-  const handleResync = useCallback(async () => {
-    if (!window.confirm(
-      `Refresh ${monthLabel} with the latest CA calendar?\n\nUnfiled items are replaced; anything already marked Filed is kept.`,
-    )) return;
-    setResyncing(true);
-    try {
-      const snap = await getDocs(
-        query(collection(db, 'compliance_records'), where('month', '==', monthStr)),
-      );
-      await Promise.all(
-        snap.docs
-          .filter((d) => !d.data().filedAt)
-          .map((d) => deleteDoc(doc(db, 'compliance_records', d.id))),
-      );
-      const items = generateComplianceItems(year, month);
-      for (const item of items) {
-        await addDoc(collection(db, 'compliance_records'), {
-          ...item,
-          amount:          null,
-          filedAt:         null,
-          filedBy:         null,
-          referenceNumber: null,
-          notes:           null,
-          createdAt:       serverTimestamp(),
-        });
-      }
-      await loadRecords();
-    } finally {
-      setResyncing(false);
-    }
-  }, [monthStr, monthLabel, year, month, loadRecords]);
+  // Keep an open Day modal in sync after a record changes (e.g. marked filed).
+  useEffect(() => {
+    setDayModal((prev) => prev ? { ...prev, items: records.filter((r) => r.dueDate === prev.date) } : prev);
+  }, [records]);
 
   // ── Auth guard (after all hooks) ─────────────────────────────────────────────
   if (profile && profile.role !== 'admin' && !profile.isHrmsManager) {
@@ -575,15 +727,11 @@ export function ComplianceCalendarPage() {
   // ── Summary counts (computed live from dueDate, not stored status) ───────────
 
   const summary = records.reduce(
-    (acc, r) => {
-      const s = computeStatus(r.dueDate, r.filedAt);
-      acc[s]++;
-      return acc;
-    },
+    (acc, r) => { acc[computeStatus(r.dueDate, r.filedAt)]++; return acc; },
     { overdue: 0, due_soon: 0, filed: 0, upcoming: 0 } as Record<ComplianceStatus, number>,
   );
 
-  // ── Ordered records: overdue first, then due_soon, then upcoming, then filed ─
+  // ── List view ordering: overdue → due_soon → upcoming → filed ───────────────
 
   const sortOrder: Record<ComplianceStatus, number> = { overdue: 0, due_soon: 1, upcoming: 2, filed: 3 };
   const sorted = [...records].sort((a, b) => {
@@ -592,6 +740,8 @@ export function ComplianceCalendarPage() {
     if (sortOrder[sa] !== sortOrder[sb]) return sortOrder[sa] - sortOrder[sb];
     return a.dueDate.localeCompare(b.dueDate);
   });
+
+  const busy = loading || seeding;
 
   return (
     <div className="max-w-5xl">
@@ -609,8 +759,8 @@ export function ComplianceCalendarPage() {
         </p>
       </div>
 
-      {/* Month navigator + re-sync */}
-      <div className="flex items-center gap-3 mb-6">
+      {/* Month navigator + view toggle */}
+      <div className="flex items-center gap-3 mb-6 flex-wrap">
         <button
           onClick={() => setCurrentDate((d) => subMonths(d, 1))}
           className="p-2 rounded-lg hover:bg-(--glass-panel-bg) transition-colors"
@@ -626,16 +776,28 @@ export function ComplianceCalendarPage() {
           style={{ color: 'var(--text-muted)' }}>
           <ChevronRight size={18} />
         </button>
-
         <button
-          onClick={handleResync}
-          disabled={resyncing || loading || seeding}
-          title="Replace this month's unfiled items with the latest CA calendar"
-          className="ml-auto text-xs font-semibold px-3 py-2 rounded-lg border border-(--shell-border) flex items-center gap-1.5 disabled:opacity-50"
+          onClick={() => setCurrentDate(new Date())}
+          className="text-xs font-medium px-3 py-1.5 rounded-lg border border-(--shell-border)"
           style={{ color: 'var(--text-muted)' }}>
-          <RefreshCw size={13} className={resyncing ? 'animate-spin' : ''} />
-          {resyncing ? 'Syncing…' : 'Reset to CA calendar'}
+          Today
         </button>
+
+        {/* Calendar / List segmented toggle */}
+        <div className="ml-auto flex rounded-lg border border-(--shell-border) overflow-hidden">
+          {([['calendar', CalendarDays, 'Calendar'], ['list', List, 'List']] as Array<[typeof view, ElementType, string]>).map(
+            ([v, Icon, label]) => (
+              <button key={v} onClick={() => setView(v)}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 transition-colors"
+                style={{
+                  backgroundColor: view === v ? '#0B1538' : 'transparent',
+                  color: view === v ? '#C9A961' : 'var(--text-muted)',
+                }}>
+                <Icon size={14} /> {label}
+              </button>
+            ),
+          )}
+        </div>
       </div>
 
       {/* Summary strip */}
@@ -647,14 +809,11 @@ export function ComplianceCalendarPage() {
           { key: 'upcoming', label: 'Upcoming', bg: '#F1F5F9', text: 'var(--text-muted)', icon: Clock         },
         ] as Array<{ key: ComplianceStatus; label: string; bg: string; text: string; icon: ElementType }>).map(
           ({ key, label, bg, text, icon: Icon }) => (
-            <div key={key} className="rounded-2xl p-4 flex items-center gap-3"
-              style={{ backgroundColor: bg }}>
+            <div key={key} className="rounded-2xl p-4 flex items-center gap-3" style={{ backgroundColor: bg }}>
               <Icon size={18} style={{ color: text }} />
               <div>
                 <p className="text-xl font-bold" style={{ color: text }}>{summary[key]}</p>
-                <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: text }}>
-                  {label}
-                </p>
+                <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: text }}>{label}</p>
               </div>
             </div>
           ),
@@ -662,22 +821,26 @@ export function ComplianceCalendarPage() {
       </div>
 
       {/* Loading */}
-      {(loading || seeding) && (
+      {busy && (
         <div className="text-sm text-center py-16" style={{ color: 'var(--text-muted)' }}>
-          {seeding ? 'Setting up compliance items for this month…' : 'Loading…'}
+          {seeding ? 'Updating to the latest CA calendar…' : 'Loading…'}
         </div>
       )}
 
-      {/* Cards grid */}
-      {!loading && !seeding && (
+      {/* Calendar view */}
+      {!busy && view === 'calendar' && (
+        records.length === 0
+          ? <p className="text-center py-16 text-sm" style={{ color: 'var(--text-muted)' }}>No compliance items for this month.</p>
+          : <CalendarGrid year={year} month={month} records={records}
+              onOpenDay={(date, items) => setDayModal({ date, items })} />
+      )}
+
+      {/* List view */}
+      {!busy && view === 'list' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {sorted.map((record) => (
-            <ComplianceCard
-              key={record.id}
-              record={record}
-              onMarkFiled={() => setMarkFiledFor(record)}
-              onView={() => setViewFor(record)}
-            />
+            <ComplianceCard key={record.id} record={record}
+              onMarkFiled={() => setMarkFiledFor(record)} onView={() => setViewFor(record)} />
           ))}
           {sorted.length === 0 && (
             <p className="col-span-3 text-center py-16 text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -688,9 +851,20 @@ export function ComplianceCalendarPage() {
       )}
 
       {/* Key dates reference */}
-      {!loading && !seeding && <KeyDatesPanel />}
+      {!busy && <KeyDatesTable />}
 
-      {/* Modals */}
+      {/* Day detail modal */}
+      {dayModal && (
+        <DayDetailModal
+          dateKey={dayModal.date}
+          items={dayModal.items}
+          onClose={() => setDayModal(null)}
+          onMarkFiled={(r) => setMarkFiledFor(r)}
+          onView={(r) => setViewFor(r)}
+        />
+      )}
+
+      {/* Mark filed / view modals (render last → stack on top of day modal) */}
       {markFiledFor && (
         <MarkFiledModal
           record={markFiledFor}

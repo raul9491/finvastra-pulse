@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { PlusCircle, ReceiptText, Car, Smartphone, Heart, Fuel, Users, HelpCircle, X, Paperclip, FileText } from 'lucide-react';
+import { PlusCircle, ReceiptText, Car, Smartphone, Heart, Fuel, Users, HelpCircle, X, Paperclip, FileText, CreditCard, Laptop, Package } from 'lucide-react';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { storage } from '../../../lib/firebase';
 import { compressImage, formatBytes } from '../../../lib/imageCompression';
@@ -16,8 +16,14 @@ const CLAIM_TYPE_META: Record<ClaimType, { label: string; icon: typeof Car; colo
   medical:              { label: 'Medical',              icon: Heart,       color: '#f87171' },
   petrol:               { label: 'Petrol',               icon: Fuel,        color: '#fbbf24' },
   client_entertainment: { label: 'Client Entertainment', icon: Users,       color: '#34d399' },
+  cibil:                { label: 'CIBIL',                icon: CreditCard,  color: '#22d3ee' },
+  software:             { label: 'Software',             icon: Laptop,      color: '#818cf8' },
+  office_supplies:      { label: 'Office Supplies',      icon: Package,     color: '#fb923c' },
   other:                { label: 'Other',                icon: HelpCircle,  color: 'rgba(240,236,224,0.40)' },
 };
+
+// Categories offered when creating a NEW claim — 'mobile' retired (kept in META for old claims).
+const NEW_CLAIM_TYPES: ClaimType[] = ['travel', 'medical', 'petrol', 'client_entertainment', 'cibil', 'software', 'office_supplies', 'other'];
 
 const STATUS_STYLES: Record<ClaimStatus, { label: string; bg: string; color: string }> = {
   pending:  { label: 'Pending',  bg: 'rgba(251,191,36,0.15)',  color: '#fbbf24' },
@@ -47,6 +53,8 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
   const [error, setError] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
+  const [expenseDate, setExpenseDate] = useState('');
+  const [dragOver, setDragOver] = useState(false);
 
   const isTravel = claimType === 'travel';
 
@@ -100,6 +108,7 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
         description: description.trim(),
         ...(travel ? { travelDetails: travel } : {}),
         receiptUrl,
+        expenseDate: expenseDate ? new Date(expenseDate).toISOString() : null,
       });
       onClose();
     } catch {
@@ -124,8 +133,8 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
               Claim Type
             </label>
             <select className="glass-inp w-full text-sm" value={claimType} onChange={(e) => setClaimType(e.target.value as ClaimType)}>
-              {Object.entries(CLAIM_TYPE_META).map(([k, v]) => (
-                <option key={k} value={k}>{v.label}</option>
+              {NEW_CLAIM_TYPES.map((k) => (
+                <option key={k} value={k}>{CLAIM_TYPE_META[k].label}</option>
               ))}
             </select>
           </div>
@@ -172,15 +181,34 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
             </div>
           )}
 
-          {/* Attach bill / receipt — image is compressed in-browser before upload */}
+          {/* Bill date & time — for spend analysis */}
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
+              Bill Date &amp; Time <span className="normal-case tracking-normal opacity-70">(when the expense occurred)</span>
+            </label>
+            <input type="datetime-local" className="glass-inp w-full text-sm" value={expenseDate}
+              max={new Date().toISOString().slice(0, 16)}
+              onChange={(e) => setExpenseDate(e.target.value)} />
+          </div>
+
+          {/* Attach bill / receipt — drag & drop or browse; images compressed in-browser */}
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
               Attach Bill <span className="normal-case tracking-normal opacity-70">(photo or PDF — optional)</span>
             </label>
             {!file ? (
-              <label className="flex items-center justify-center gap-2 py-3 rounded-xl cursor-pointer text-sm transition-colors hover:bg-white/5"
-                style={{ border: '1px dashed var(--shell-border)', color: 'var(--text-muted)' }}>
-                <Paperclip size={15} /> Choose a photo or PDF…
+              <label
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => { e.preventDefault(); setDragOver(false); onPickFile(e.dataTransfer.files?.[0] ?? null); }}
+                className="flex flex-col items-center justify-center gap-1.5 py-6 rounded-xl cursor-pointer text-sm text-center transition-colors"
+                style={{
+                  border: `1.5px dashed ${dragOver ? '#C9A961' : 'var(--shell-border)'}`,
+                  backgroundColor: dragOver ? 'rgba(201,169,97,0.10)' : 'transparent',
+                  color: 'var(--text-muted)',
+                }}>
+                <Paperclip size={18} />
+                <span>Drag &amp; drop a photo or PDF here,<br />or <span style={{ color: '#C9A961', fontWeight: 600 }}>browse</span></span>
                 <input type="file" accept="image/*,application/pdf" className="hidden"
                   onChange={(e) => onPickFile(e.target.files?.[0] ?? null)} />
               </label>
@@ -245,7 +273,9 @@ function ClaimRow({ claim, onCancel }: { claim: Claim; onCancel: () => void }) {
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{claim.description}</p>
         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-          {meta.label} · {submittedDate ? format(submittedDate, 'dd MMM yyyy') : '—'}
+          {meta.label}{claim.expenseDate
+            ? ` · ${format(new Date(claim.expenseDate), 'dd MMM yyyy, h:mm a')}`
+            : (submittedDate ? ` · ${format(submittedDate, 'dd MMM yyyy')}` : '')}
         </p>
       </div>
       <p className="text-sm font-semibold shrink-0" style={{ color: 'var(--text-primary)' }}>₹{claim.amount.toLocaleString('en-IN')}</p>

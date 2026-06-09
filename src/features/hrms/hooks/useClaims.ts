@@ -62,11 +62,13 @@ export async function submitClaim(params: {
   description: string;
   travelDetails?: ClaimTravelDetails;
   receiptUrl?: string | null;
+  expenseDate?: string | null;
 }) {
   const month = new Date().toISOString().slice(0, 7); // YYYY-MM
   await addDoc(collection(db, 'claims'), {
     ...params,
     receiptUrl: params.receiptUrl ?? null,
+    expenseDate: params.expenseDate ?? null,
     submittedAt: serverTimestamp(),
     status: 'pending',
     approvedBy: null,

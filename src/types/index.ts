@@ -786,7 +786,7 @@ export interface Announcement {
 
 // ─── Claims & Reimbursements ──────────────────────────────────────────────────
 
-export type ClaimType = 'travel' | 'mobile' | 'medical' | 'petrol' | 'client_entertainment' | 'other';
+export type ClaimType = 'travel' | 'mobile' | 'medical' | 'petrol' | 'client_entertainment' | 'cibil' | 'software' | 'office_supplies' | 'other';
 export type ClaimStatus = 'pending' | 'approved' | 'rejected' | 'paid';
 
 export interface ClaimTravelDetails {
@@ -812,7 +812,8 @@ export interface Claim {
   rejectionReason: string | null;
   paidAt: import('firebase/firestore').Timestamp | null;
   paymentReference: string | null;
-  month: string;   // YYYY-MM for easy filtering
+  month: string;   // YYYY-MM submission month for filtering
+  expenseDate?: string | null;   // ISO datetime the expense/bill actually occurred (spend analysis)
 }
 
 // ─── Company Document Library ─────────────────────────────────────────────────

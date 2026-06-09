@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Car, Smartphone, Heart, Fuel, Users, HelpCircle, Download, Check, X, Paperclip } from 'lucide-react';
+import { Car, Smartphone, Heart, Fuel, Users, HelpCircle, Download, Check, X, Paperclip, CreditCard, Laptop, Package, FileText } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllClaims, approveClaim, rejectClaim, markClaimsPaid, exportClaimsCSV } from '../hooks/useClaims';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
@@ -16,6 +16,9 @@ const CLAIM_TYPE_META: Record<ClaimType, { label: string; icon: typeof Car; colo
   medical:              { label: 'Medical',              icon: Heart,      color: '#EF4444' },
   petrol:               { label: 'Petrol',               icon: Fuel,       color: '#F59E0B' },
   client_entertainment: { label: 'Client Entertainment', icon: Users,      color: '#10B981' },
+  cibil:                { label: 'CIBIL',                icon: CreditCard, color: '#06B6D4' },
+  software:             { label: 'Software',             icon: Laptop,     color: '#6366F1' },
+  office_supplies:      { label: 'Office Supplies',      icon: Package,    color: '#F97316' },
   other:                { label: 'Other',                icon: HelpCircle, color: 'var(--text-muted)' },
 };
 
@@ -37,56 +40,121 @@ const MONTHS = Array.from({ length: 12 }, (_, i) => {
   return d.toISOString().slice(0, 7);
 });
 
-// ─── Reject Modal ─────────────────────────────────────────────────────────────
+// ─── Claim Detail Modal (view bill + approve / reject) ────────────────────────
 
-function RejectModal({ claim, onClose }: { claim: Claim; onClose: () => void }) {
+function DRow({ label, value, danger }: { label: string; value: string; danger?: boolean }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <span className="text-(--text-muted) shrink-0">{label}</span>
+      <span className="text-right" style={{ color: danger ? '#f87171' : 'var(--text-primary)' }}>{value}</span>
+    </div>
+  );
+}
+
+function ClaimDetailModal({ claim, onApprove, onReject, onClose }: {
+  claim: Claim;
+  onApprove: (claim: Claim) => Promise<void>;
+  onReject:  (claim: Claim, reason: string) => Promise<void>;
+  onClose:   () => void;
+}) {
+  const meta = CLAIM_TYPE_META[claim.claimType] ?? CLAIM_TYPE_META.other;
+  const sty  = STATUS_STYLES[claim.status];
+  const Icon = meta.icon;
+  const submitted = toTs(claim.submittedAt);
+  const isPdf = !!claim.receiptUrl && claim.receiptUrl.toLowerCase().includes('.pdf');
+  const [busy, setBusy] = useState<'' | 'approve' | 'reject'>('');
+  const [showReject, setShowReject] = useState(false);
   const [reason, setReason] = useState('');
-  const [saving, setSaving] = useState(false);
 
-  const handleReject = async () => {
-    if (!reason.trim()) return;
-    setSaving(true);
-    await rejectClaim(claim.id, reason.trim());
-    writeNotification(claim.employeeId, {
-      type:  'claim_rejected',
-      title: 'Claim Rejected',
-      body:  `Your ₹${claim.amount.toLocaleString('en-IN')} ${claim.claimType} claim was rejected. Reason: ${reason.trim()}`,
-      link:  '/hrms/claims',
-    }).catch(() => {});
-    sendHrEmailNotification({
-      employeeId: claim.employeeId,
-      subject: 'Claim Update — Finvastra Pulse',
-      htmlBody: buildHrEmailHtml({
-        title: 'Your claim was not approved',
-        lines: [
-          { label: 'Claim Type', value: claim.claimType },
-          { label: 'Amount',     value: `₹${claim.amount.toLocaleString('en-IN')}` },
-        ],
-        note:     reason.trim(),
-        ctaLabel: 'View Claims',
-        ctaLink:  'https://pulse.finvastra.com/hrms/claims',
-      }),
-    }).catch(() => {});
-    onClose();
-  };
+  const doApprove = async () => { setBusy('approve'); try { await onApprove(claim); onClose(); } catch { setBusy(''); } };
+  const doReject  = async () => { if (!reason.trim()) return; setBusy('reject'); try { await onReject(claim, reason.trim()); onClose(); } catch { setBusy(''); } };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-        <h3 className="text-base font-semibold text-(--text-primary)">Reject Claim</h3>
-        <textarea
-          className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm resize-none outline-none focus:ring-2 focus:ring-red-200"
-          rows={3} value={reason} onChange={(e) => setReason(e.target.value)}
-          placeholder="Reason for rejection (required)…" />
-        <div className="flex gap-3">
-          <button onClick={handleReject} disabled={!reason.trim() || saving}
-            className="flex-1 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40"
-            style={{ backgroundColor: '#DC2626', color: '#FFFFFF' }}>
-            {saving ? 'Rejecting…' : 'Reject'}
-          </button>
-          <button onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm border border-(--shell-border) hover:bg-(--glass-panel-bg)">
-            Cancel
-          </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay">
+      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto glass-modal-panel">
+        <div className="flex items-center justify-between p-5 glass-modal-header">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: meta.color + '22', color: meta.color }}>
+              <Icon size={16} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-base font-semibold truncate text-(--text-primary)">{claim.employeeName}</h3>
+              <p className="text-xs text-(--text-muted)">{meta.label} claim</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg nav-item-hover"><X size={16} style={{ color: 'var(--text-muted)' }} /></button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-2xl font-bold text-(--text-primary)">₹{claim.amount.toLocaleString('en-IN')}</p>
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide" style={{ backgroundColor: sty.bg, color: sty.color }}>{sty.label}</span>
+          </div>
+
+          <div className="space-y-2 text-sm">
+            <DRow label="Description" value={claim.description} />
+            <DRow label="Bill date & time" value={claim.expenseDate ? format(new Date(claim.expenseDate), 'dd MMM yyyy, h:mm a') : '—'} />
+            <DRow label="Spend month"      value={claim.expenseDate ? format(new Date(claim.expenseDate), 'MMMM yyyy') : claim.month} />
+            <DRow label="Submitted"        value={submitted ? format(submitted, 'dd MMM yyyy, h:mm a') : '—'} />
+            {claim.travelDetails && (
+              <DRow label="Route" value={`${claim.travelDetails.fromLocation} → ${claim.travelDetails.toLocation} · ${claim.travelDetails.distanceKm} km · ${claim.travelDetails.modeOfTransport}`} />
+            )}
+            {claim.status === 'rejected' && claim.rejectionReason && <DRow label="Rejection reason" value={claim.rejectionReason} danger />}
+            {claim.status === 'paid' && claim.paymentReference && <DRow label="Payment ref" value={claim.paymentReference} />}
+          </div>
+
+          {/* Bill preview */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2 text-(--text-muted)">Attached Bill</p>
+            {!claim.receiptUrl ? (
+              <p className="text-sm text-(--text-muted) py-6 text-center rounded-xl" style={{ border: '1px dashed var(--shell-border)' }}>No bill attached</p>
+            ) : isPdf ? (
+              <a href={claim.receiptUrl} target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 py-6 rounded-xl text-sm font-semibold"
+                style={{ border: '1px solid var(--shell-border)', color: '#C9A961' }}>
+                <FileText size={16} /> Open PDF bill
+              </a>
+            ) : (
+              <a href={claim.receiptUrl} target="_blank" rel="noopener noreferrer" className="block rounded-xl overflow-hidden" title="Open full size"
+                style={{ border: '1px solid var(--shell-border)' }}>
+                <img src={claim.receiptUrl} alt="Bill" className="w-full max-h-80 object-contain" style={{ backgroundColor: 'var(--glass-panel-bg)' }} />
+              </a>
+            )}
+          </div>
+
+          {/* Actions */}
+          {claim.status === 'pending' && (
+            !showReject ? (
+              <div className="flex gap-3 pt-1">
+                <button onClick={doApprove} disabled={busy !== ''}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50"
+                  style={{ backgroundColor: '#10B981', color: '#06281d' }}>
+                  <Check size={15} /> {busy === 'approve' ? 'Approving…' : 'Approve'}
+                </button>
+                <button onClick={() => setShowReject(true)} disabled={busy !== ''}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50"
+                  style={{ backgroundColor: 'rgba(220,38,38,0.15)', color: '#f87171', border: '1px solid rgba(220,38,38,0.4)' }}>
+                  <X size={15} /> Reject
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2 pt-1">
+                <textarea autoFocus rows={3} value={reason} onChange={(e) => setReason(e.target.value)}
+                  placeholder="Reason for rejection (sent to the employee)…" className="w-full glass-inp text-sm resize-none" />
+                <div className="flex gap-3">
+                  <button onClick={doReject} disabled={!reason.trim() || busy !== ''}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40"
+                    style={{ backgroundColor: '#DC2626', color: '#fff' }}>
+                    {busy === 'reject' ? 'Rejecting…' : 'Confirm Reject'}
+                  </button>
+                  <button onClick={() => { setShowReject(false); setReason(''); }}
+                    className="px-4 py-2.5 rounded-xl text-sm" style={{ border: '1px solid var(--shell-border)', color: 'var(--text-muted)' }}>
+                    Back
+                  </button>
+                </div>
+              </div>
+            )
+          )}
         </div>
       </div>
     </div>
@@ -165,7 +233,7 @@ export function AdminClaimsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [empFilter, setEmpFilter] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [rejectingClaim, setRejectingClaim] = useState<Claim | null>(null);
+  const [detailClaim, setDetailClaim] = useState<Claim | null>(null);
   const [showMarkPaid, setShowMarkPaid] = useState(false);
 
   const { claims, loading } = useAllClaims(month, statusFilter || undefined, empFilter || undefined);
@@ -196,6 +264,30 @@ export function AdminClaimsPage() {
           { label: 'Claim Type', value: claim.claimType },
           { label: 'Amount',     value: `₹${claim.amount.toLocaleString('en-IN')}` },
         ],
+        ctaLabel: 'View Claims',
+        ctaLink:  'https://pulse.finvastra.com/hrms/claims',
+      }),
+    }).catch(() => {});
+  };
+
+  const handleReject = async (claim: Claim, reason: string) => {
+    await rejectClaim(claim.id, reason);
+    writeNotification(claim.employeeId, {
+      type:  'claim_rejected',
+      title: 'Claim Rejected',
+      body:  `Your ₹${claim.amount.toLocaleString('en-IN')} ${claim.claimType} claim was rejected. Reason: ${reason}`,
+      link:  '/hrms/claims',
+    }).catch(() => {});
+    sendHrEmailNotification({
+      employeeId: claim.employeeId,
+      subject: 'Claim Update — Finvastra Pulse',
+      htmlBody: buildHrEmailHtml({
+        title: 'Your claim was not approved',
+        lines: [
+          { label: 'Claim Type', value: claim.claimType },
+          { label: 'Amount',     value: `₹${claim.amount.toLocaleString('en-IN')}` },
+        ],
+        note:     reason,
         ctaLabel: 'View Claims',
         ctaLink:  'https://pulse.finvastra.com/hrms/claims',
       }),
@@ -297,8 +389,9 @@ export function AdminClaimsPage() {
                 const submittedDate = toTs(c.submittedAt);
                 const isApproved = c.status === 'approved';
                 return (
-                  <tr key={c.id} className="border-b border-slate-50 hover:bg-(--glass-panel-bg)/50 transition-colors">
-                    <td className="p-4">
+                  <tr key={c.id} onClick={() => setDetailClaim(c)}
+                    className="border-b border-slate-50 hover:bg-(--glass-panel-bg)/50 transition-colors cursor-pointer">
+                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
                       {isApproved && (
                         <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)}
                           className="rounded" />
@@ -319,7 +412,7 @@ export function AdminClaimsPage() {
                     <td className="p-4 max-w-xs">
                       <p className="text-(--text-muted) truncate">{c.description}</p>
                       {c.receiptUrl && (
-                        <a href={c.receiptUrl} target="_blank" rel="noopener noreferrer"
+                        <a href={c.receiptUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
                           className="inline-flex items-center gap-1 text-xs mt-0.5 transition-colors hover:opacity-70"
                           style={{ color: '#C9A961' }} title="View attached bill">
                           <Paperclip size={12} /> View bill
@@ -335,19 +428,10 @@ export function AdminClaimsPage() {
                         {sty.label}
                       </span>
                     </td>
-                    <td className="p-4">
-                      {c.status === 'pending' && (
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => handleApprove(c)}
-                            className="p-1.5 rounded-lg hover:bg-green-50 transition-colors" title="Approve">
-                            <Check size={16} style={{ color: '#166534' }} />
-                          </button>
-                          <button onClick={() => setRejectingClaim(c)}
-                            className="p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Reject">
-                            <X size={16} style={{ color: '#DC2626' }} />
-                          </button>
-                        </div>
-                      )}
+                    <td className="p-4 text-right whitespace-nowrap">
+                      <span className="text-xs font-semibold" style={{ color: c.status === 'pending' ? '#C9A961' : 'var(--text-muted)' }}>
+                        {c.status === 'pending' ? 'Review →' : 'View →'}
+                      </span>
                     </td>
                   </tr>
                 );
@@ -357,7 +441,9 @@ export function AdminClaimsPage() {
         )}
       </div>
 
-      {rejectingClaim && <RejectModal claim={rejectingClaim} onClose={() => setRejectingClaim(null)} />}
+      {detailClaim && (
+        <ClaimDetailModal claim={detailClaim} onApprove={handleApprove} onReject={handleReject} onClose={() => setDetailClaim(null)} />
+      )}
       {showMarkPaid && (
         <MarkPaidModal
           claims={approvedSelected}

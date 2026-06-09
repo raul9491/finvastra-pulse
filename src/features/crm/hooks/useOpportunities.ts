@@ -275,15 +275,16 @@ export async function transferOpportunity(
   // Validate target user has the correct convertor role + vertical
   const targetSnap = await getDoc(doc(db, 'users', newConvertorId));
   if (!targetSnap.exists()) throw new Error('Target user not found.');
-  const target = targetSnap.data() as { crmRole?: CrmRole; convertorVertical?: ConvertorVertical; displayName?: string };
+  const target = targetSnap.data() as { crmRole?: CrmRole; convertorVertical?: ConvertorVertical; convertorVerticals?: ('loan' | 'wealth' | 'insurance')[]; displayName?: string };
   if (target.crmRole !== 'lead_convertor') throw new Error('Target user is not a lead convertor.');
 
   const oppSnap = await getDoc(doc(db, 'leads', leadId, 'opportunities', oppId));
   if (!oppSnap.exists()) throw new Error('Opportunity not found.');
   const opp = oppSnap.data() as Opportunity;
 
-  if (target.convertorVertical !== opp.opportunityType) {
-    throw new Error(`Target convertor specialises in ${target.convertorVertical}, not ${opp.opportunityType}.`);
+  const targetVerticals = target.convertorVerticals ?? (target.convertorVertical ? [target.convertorVertical] : []);
+  if (!targetVerticals.includes(opp.opportunityType as 'loan' | 'wealth' | 'insurance')) {
+    throw new Error(`That convertor does not handle ${opp.opportunityType} deals.`);
   }
 
   const now = serverTimestamp();

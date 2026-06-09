@@ -29,6 +29,7 @@ const VERTICAL_DISPLAY: Record<NonNullable<ConvertorVertical>, string> = {
   wealth:    'Wealth',
   insurance: 'Insurance',
 };
+const VERTICALS = ['loan', 'wealth', 'insurance'] as const;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,7 +39,7 @@ type PermDraft = {
   isHrmsManager:     boolean;
   crmAccess:         boolean;
   crmRole:           CrmRole;
-  convertorVertical: ConvertorVertical;
+  convertorVerticals: ('loan' | 'wealth' | 'insurance')[];
   misAccess:         MisAccess | null;
   commandCentreAccess: boolean;
 };
@@ -52,7 +53,7 @@ function toDraft(e: UserProfile): PermDraft {
     isHrmsManager:     e.isHrmsManager === true,
     crmAccess:         e.crmAccess === true,
     crmRole:           e.crmRole ?? null,
-    convertorVertical: e.convertorVertical ?? null,
+    convertorVerticals: e.convertorVerticals ?? (e.convertorVertical ? [e.convertorVertical] : []),
     misAccess:         e.misAccess ?? null,
     commandCentreAccess: e.commandCentreAccess === true,
   };
@@ -64,7 +65,7 @@ function isDirty(a: PermDraft, b: PermDraft): boolean {
       || a.isHrmsManager !== b.isHrmsManager
       || a.crmAccess !== b.crmAccess
       || a.crmRole !== b.crmRole
-      || a.convertorVertical !== b.convertorVertical
+      || [...a.convertorVerticals].sort().join(',') !== [...b.convertorVerticals].sort().join(',')
       || a.misAccess !== b.misAccess
       || a.commandCentreAccess !== b.commandCentreAccess;
 }
@@ -108,9 +109,8 @@ function SuperAdminRow({ employee }: { employee: UserProfile }) {
   const crmRoleDisplay = employee.crmRole
     ? (CRM_ROLE_DISPLAY[employee.crmRole] ?? employee.crmRole)
     : '—';
-  const verticalDisplay = employee.convertorVertical
-    ? VERTICAL_DISPLAY[employee.convertorVertical]
-    : null;
+  const _verticals = employee.convertorVerticals ?? (employee.convertorVertical ? [employee.convertorVertical] : []);
+  const verticalDisplay = _verticals.length ? _verticals.map((v) => VERTICAL_DISPLAY[v]).join(', ') : null;
 
   return (
     <tr
@@ -246,21 +246,27 @@ function PermRow({
         </div>
       </td>
 
-      {/* Role */}
+      {/* Role — segmented Employee | Admin */}
       <td className="px-3 py-3">
-        <select
-          value={draft.role}
-          onChange={(e) => onChange({ role: e.target.value as 'admin' | 'employee' })}
-          className={SEL}
-          style={{
-            borderColor: draft.role === 'admin' ? '#C9A961' : '#E2E8F0',
-            color:       draft.role === 'admin' ? '#7A6030' : '#475569',
-            fontWeight:  draft.role === 'admin' ? 600 : 400,
-          }}
-        >
-          <option value="employee">Employee</option>
-          <option value="admin">Admin</option>
-        </select>
+        <div className="inline-flex rounded-lg overflow-hidden border" style={{ borderColor: '#E2E8F0' }}>
+          {(['employee', 'admin'] as const).map((r) => {
+            const active = draft.role === r;
+            return (
+              <button
+                key={r}
+                type="button"
+                onClick={() => onChange({ role: r })}
+                className="text-xs font-semibold px-2.5 py-1.5 transition-colors"
+                style={{
+                  backgroundColor: active ? (r === 'admin' ? '#C9A961' : '#0B1538') : '#fff',
+                  color:           active ? '#FAFAF7' : '#64748B',
+                }}
+              >
+                {r === 'admin' ? 'Admin' : 'Employee'}
+              </button>
+            );
+          })}
+        </div>
       </td>
 
       {/* HRMS Access */}
@@ -322,9 +328,8 @@ function PermRow({
           disabled={!draft.crmAccess}
           onChange={(e) => {
             const role = (e.target.value || null) as CrmRole;
-            // Clear vertical when moving away from Convertor
-            const vertical = role === 'lead_convertor' ? draft.convertorVertical : null;
-            onChange({ crmRole: role, convertorVertical: vertical });
+            // Clear verticals when moving away from Convertor
+            onChange({ crmRole: role, convertorVerticals: role === 'lead_convertor' ? draft.convertorVerticals : [] });
           }}
           className={SEL}
         >
@@ -335,29 +340,38 @@ function PermRow({
           <option value="admin">Admin</option>
         </select>
 
-        {/* Convertor Vertical — only shown when role is Convertor */}
+        {/* Convertor verticals — multi-select ticks (one convertor can cover several) */}
         {isConvertor && (
-          <div className="mt-1.5">
-            <select
-              value={draft.convertorVertical ?? ''}
-              onChange={(e) =>
-                onChange({ convertorVertical: (e.target.value || null) as ConvertorVertical })
-              }
-              className={`${SEL} w-full ${!draft.convertorVertical
-                ? 'border-amber-400 bg-amber-50/40'
-                : ''}`}
-            >
-              <option value="">Select vertical…</option>
-              <option value="loan">Loan</option>
-              <option value="wealth">Wealth</option>
-              <option value="insurance">Insurance</option>
-            </select>
-            {!draft.convertorVertical && (
-              <p className="text-[10px] mt-0.5 font-semibold flex items-center gap-0.5"
-                style={{ color: '#D97706' }}>
-                ⚠ Vertical required
-              </p>
-            )}
+          <div className="mt-2">
+            <p className="text-[9px] font-bold uppercase tracking-wider mb-1"
+              style={{ color: draft.convertorVerticals.length ? '#8B8B85' : '#D97706' }}>
+              Verticals {draft.convertorVerticals.length === 0 && '· ⚠ pick at least one'}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {VERTICALS.map((v) => {
+                const on = draft.convertorVerticals.includes(v);
+                return (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => {
+                      const next = on
+                        ? draft.convertorVerticals.filter((x) => x !== v)
+                        : [...draft.convertorVerticals, v];
+                      onChange({ convertorVerticals: next });
+                    }}
+                    className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg border transition-colors"
+                    style={{
+                      backgroundColor: on ? 'rgba(201,169,97,0.15)' : '#fff',
+                      borderColor:     on ? '#C9A961' : '#E2E8F0',
+                      color:           on ? '#7A6030' : '#64748B',
+                    }}
+                  >
+                    <span style={{ width: 9, display: 'inline-block' }}>{on ? '✓' : ''}</span>{VERTICAL_DISPLAY[v]}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
       </td>
@@ -482,8 +496,8 @@ export function SuperAdminPermissionsPage() {
       const updated = { ...curr, ...changes };
       // Auto-clear role + vertical when CRM access is revoked
       if (changes.crmAccess === false) {
-        updated.crmRole           = null;
-        updated.convertorVertical = null;
+        updated.crmRole            = null;
+        updated.convertorVerticals = [];
       }
       return { ...prev, [uid]: updated };
     });
@@ -505,10 +519,11 @@ export function SuperAdminPermissionsPage() {
           hrmsAccess:        draft.hrmsAccess,
           isHrmsManager:     draft.isHrmsManager,
           crmAccess:         draft.crmAccess,
-          crmRole:           draft.crmAccess ? draft.crmRole : null,
-          // Only save vertical when role is Convertor; clear it otherwise
-          convertorVertical: draft.crmRole === 'lead_convertor' ? draft.convertorVertical : null,
-          misAccess:         draft.misAccess,
+          crmRole:            draft.crmAccess ? draft.crmRole : null,
+          // Multi-vertical for Convertors; null for everyone else (legacy single deprecated → cleared)
+          convertorVerticals: draft.crmRole === 'lead_convertor' ? draft.convertorVerticals : null,
+          convertorVertical:  null,
+          misAccess:          draft.misAccess,
           commandCentreAccess: draft.commandCentreAccess,
         };
         await updateDoc(doc(db, 'users', uid), patch);

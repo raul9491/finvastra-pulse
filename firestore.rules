@@ -123,9 +123,13 @@ service cloud.firestore {
 
     // crmRole=lead_convertor requires convertorVertical; all other roles require it to be null.
     function validCrmRolePair(data) {
-      return !data.keys().hasAny(['crmRole', 'convertorVertical']) ||
-             (data.get('crmRole', null) == 'lead_convertor' && data.keys().hasAny(['convertorVertical']) && data.get('convertorVertical', null) != null) ||
-             (data.get('crmRole', null) != 'lead_convertor' && data.get('convertorVertical', null) == null);
+      return !data.keys().hasAny(['crmRole', 'convertorVertical', 'convertorVerticals']) ||
+             (data.get('crmRole', null) == 'lead_convertor' &&
+                ((data.get('convertorVerticals', null) is list && data.convertorVerticals.size() > 0)
+                 || data.get('convertorVertical', null) != null)) ||
+             (data.get('crmRole', null) != 'lead_convertor' &&
+                data.get('convertorVertical', null) == null &&
+                data.get('convertorVerticals', null) == null);
     }
 
     function isValidCommissionSlab(data) {

@@ -33,7 +33,7 @@ export function TransferModal({ isOpen, onClose, leadId, opportunityId, opportun
   const specialists = employees.filter(
     (e) =>
       e.crmRole === 'lead_convertor' &&
-      e.convertorVertical === opportunityType &&
+      ((e.convertorVerticals?.includes(opportunityType) ?? false) || e.convertorVertical === opportunityType) &&
       e.crmAccess === true,
   );
 

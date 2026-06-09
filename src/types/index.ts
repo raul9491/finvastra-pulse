@@ -78,7 +78,8 @@ export interface UserProfile {
   // CRM role determines lead routing and access patterns
   crmRole?: CrmRole;
   // Only set when crmRole === 'lead_convertor'; drives handoff matching
-  convertorVertical?: ConvertorVertical;
+  convertorVertical?: ConvertorVertical;                       // legacy single (kept for back-compat reads)
+  convertorVerticals?: ('loan' | 'wealth' | 'insurance')[];    // multi — a convertor can cover several business lines
   needsEmailSetup?: boolean;   // true = no @finvastra.com email yet; cannot log in
   mustResetPassword?: boolean; // true = forced reset on first login
   isHrmsManager?: boolean;    // grants leave approval + admin attendance override

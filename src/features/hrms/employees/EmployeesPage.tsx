@@ -63,7 +63,9 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
   adminUserId: string;
 }) {
   const [crmRole,           setCrmRole]           = useState<CrmRole>(employee.crmRole ?? null);
-  const [convertorVertical, setConvertorVertical] = useState<ConvertorVertical>(employee.convertorVertical ?? null);
+  const [convertorVerticals, setConvertorVerticals] = useState<('loan' | 'wealth' | 'insurance')[]>(
+    employee.convertorVerticals ?? (employee.convertorVertical ? [employee.convertorVertical] : []),
+  );
   const [crmCanImport,      setCrmCanImport]      = useState<boolean>(employee.crmCanImport ?? false);
   const [isHrmsManager,     setIsHrmsManager]     = useState<boolean>(employee.isHrmsManager ?? false);
   const [misAccess,         setMisAccess]         = useState<MisAccess | null>(employee.misAccess ?? null);
@@ -93,18 +95,19 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
   );
 
   const handleSave = async () => {
-    if (crmRole === 'lead_convertor' && !convertorVertical) {
-      setError('A Specialist Vertical is required for Lead Convertor role.');
+    if (crmRole === 'lead_convertor' && convertorVerticals.length === 0) {
+      setError('Select at least one specialist vertical for the Lead Convertor role.');
       return;
     }
-    const finalVertical: ConvertorVertical = crmRole === 'lead_convertor' ? convertorVertical : null;
+    const finalVerticals = crmRole === 'lead_convertor' ? convertorVerticals : null;
     setSaving(true); setError('');
     try {
       const resolvedMgrName = allEmployees.find((e) => e.userId === reportingMgrUid)?.displayName ?? null;
 
       const patch: Record<string, unknown> = {
         crmRole:            crmRole ?? null,
-        convertorVertical:  finalVertical,
+        convertorVerticals: finalVerticals,
+        convertorVertical:  null,
         crmCanImport,
         isHrmsManager,
         misAccess:          misAccess ?? null,
@@ -174,7 +177,7 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
         {/* CRM */}
         <div className="pt-1 border-t border-slate-100">
           <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#8B8B85' }}>CRM Role</p>
-          <select value={crmRole ?? ''} onChange={(e) => { setCrmRole((e.target.value || null) as CrmRole); if (e.target.value !== 'lead_convertor') setConvertorVertical(null); }} className={sel}>
+          <select value={crmRole ?? ''} onChange={(e) => { setCrmRole((e.target.value || null) as CrmRole); if (e.target.value !== 'lead_convertor') setConvertorVerticals([]); }} className={sel}>
             <option value="">No CRM role</option>
             {(Object.keys(CRM_ROLE_LABELS) as NonNullable<CrmRole>[]).map((r) => (
               <option key={r} value={r}>{CRM_ROLE_LABELS[r]}</option>
@@ -182,13 +185,27 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
           </select>
           {crmRole === 'lead_convertor' && (
             <div className="mt-2">
-              <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#8B8B85' }}>Specialist Vertical *</label>
-              <select value={convertorVertical ?? ''} onChange={(e) => setConvertorVertical((e.target.value || null) as ConvertorVertical)} className={sel}>
-                <option value="">Select vertical…</option>
-                {(Object.keys(CONVERTOR_VERTICAL_LABELS) as NonNullable<ConvertorVertical>[]).map((v) => (
-                  <option key={v} value={v}>{CONVERTOR_VERTICAL_LABELS[v]}</option>
-                ))}
-              </select>
+              <label className="block text-xs font-semibold uppercase tracking-widest mb-1"
+                style={{ color: convertorVerticals.length ? '#8B8B85' : '#D97706' }}>
+                Specialist Verticals *{convertorVerticals.length === 0 && ' — pick at least one'}
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {(Object.keys(CONVERTOR_VERTICAL_LABELS) as NonNullable<ConvertorVertical>[]).map((v) => {
+                  const on = convertorVerticals.includes(v);
+                  return (
+                    <button key={v} type="button"
+                      onClick={() => setConvertorVerticals((prev) => on ? prev.filter((x) => x !== v) : [...prev, v])}
+                      className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors"
+                      style={{
+                        backgroundColor: on ? 'rgba(201,169,97,0.15)' : '#fff',
+                        borderColor:     on ? '#C9A961' : '#E2E8F0',
+                        color:           on ? '#7A6030' : '#64748B',
+                      }}>
+                      {on ? '✓ ' : ''}{CONVERTOR_VERTICAL_LABELS[v]}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
           {crmRole && crmRole !== 'viewer' && (

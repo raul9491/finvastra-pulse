@@ -431,7 +431,7 @@ Admin marks clawed_back → status: clawed_back, clawbackReason recorded
 | Role | Function |
 |---|---|
 | `lead_generator` | Sources leads (offline bulk, walk-ins, referrals). `primaryOwnerId` on the lead. Works opportunities at early stages. |
-| `lead_convertor` | Closes deals. `ownerId` on the opportunity (set when transferred). Vertical-specific: **`convertorVertical` is required** — must be `loan`, `wealth`, or `insurance`. Set alongside crmRole in Permission Manager. |
+| `lead_convertor` | Closes deals. `ownerId` on the opportunity (set when transferred). Vertical-specific: **`convertorVerticals` is required (≥1)** — a multi-select of `loan` / `wealth` / `insurance` (one convertor can cover several lines, e.g. loan + insurance). Set as tick-pills alongside crmRole in Permission Manager (or the Employees edit modal). Legacy single `convertorVertical` is still read as a fallback and cleared on next save. Handoff matching (`TransferModal`, `transferOpportunity`) checks `convertorVerticals.includes(opportunityType)`. |
 | `manager` | Can trigger bulk imports; sees all leads and opportunities for their team. |
 | `admin` | Full access everywhere. |
 
@@ -527,7 +527,7 @@ Three accounts have permanent, elevated protection. They cannot be deactivated, 
 **Enforcement points**:
 - **`server.ts`** — `SUPER_ADMIN_UIDS_LIST` parsed from `process.env.SUPER_ADMIN_UIDS`. Deactivate endpoint returns 403 for super admin targets. Sync-claims endpoint requires caller to also be a super admin to modify a super admin.
 - **`firestore.rules`** — `isSuperAdminUid()` (is caller protected?) and `isSuperAdminTarget(userId)` (is target protected?) with UIDs hardcoded. `/users/{uid}` update rule: admin cannot modify a super admin doc unless the caller is also a super admin.
-- **`SuperAdminPermissionsPage.tsx`** (`/hrms/admin/permissions`, super admin only) — Single permission interface for all 25 employees. Super admin rows shown read-only at top with gold `SUPER ADMIN` badge + lock icon. All dropdowns/toggles locked on SA rows. "Fix Ajay's Permissions" button auto-shown when his permissions mismatch canonical values (disappears once Firestore updates via onSnapshot). Convertor Vertical sub-dropdown appears when CRM Role = Convertor (required, shows amber warning if blank). "Super Admins" filter chip isolates SA rows. Column header tooltips on hover.
+- **`SuperAdminPermissionsPage.tsx`** (`/hrms/admin/permissions`, super admin only) — Single permission interface for all 25 employees. Super admin rows shown read-only at top with gold `SUPER ADMIN` badge + lock icon. All dropdowns/toggles locked on SA rows. "Fix Ajay's Permissions" button auto-shown when his permissions mismatch canonical values (disappears once Firestore updates via onSnapshot). **Role is a segmented Employee | Admin control; Convertor verticals are multi-select tick-pills** (Loan/Wealth/Insurance — pick ≥1, amber warning if none) appearing when CRM Role = Convertor (redesigned 2026-06-09 for tick-based ease). "Super Admins" filter chip isolates SA rows. Column header tooltips on hover.
 - **`EmployeesPage.tsx`** — Super admin rows show "★ Super Admin" badge. "Mark as Exited" button is hidden. Rows are excluded from bulk edit selection.
 
 **Cloud Run env var**: `SUPER_ADMIN_UIDS=3zdX5QBnTbQAcTdLzUjfXxefP8r2,ZmZaciATPDYBb1O2blYWBjjbzMv1,5lAbJ4CZ5uM0LbU4gUYItNRAlEn2`

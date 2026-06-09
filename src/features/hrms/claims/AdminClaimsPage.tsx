@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Car, Smartphone, Heart, Fuel, Users, HelpCircle, Download, Check, X, Paperclip, CreditCard, Laptop, Package, FileText } from 'lucide-react';
+import { Car, Smartphone, Heart, Fuel, Users, HelpCircle, Download, Check, X, Paperclip, CreditCard, Laptop, Package, FileText, IndianRupee } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllClaims, approveClaim, rejectClaim, markClaimsPaid, exportClaimsCSV } from '../hooks/useClaims';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
@@ -51,23 +51,27 @@ function DRow({ label, value, danger }: { label: string; value: string; danger?:
   );
 }
 
-function ClaimDetailModal({ claim, onApprove, onReject, onClose }: {
+function ClaimDetailModal({ claim, onApprove, onReject, onMarkPaid, onClose }: {
   claim: Claim;
-  onApprove: (claim: Claim) => Promise<void>;
-  onReject:  (claim: Claim, reason: string) => Promise<void>;
-  onClose:   () => void;
+  onApprove:  (claim: Claim) => Promise<void>;
+  onReject:   (claim: Claim, reason: string) => Promise<void>;
+  onMarkPaid: (claim: Claim, reference: string) => Promise<void>;
+  onClose:    () => void;
 }) {
   const meta = CLAIM_TYPE_META[claim.claimType] ?? CLAIM_TYPE_META.other;
   const sty  = STATUS_STYLES[claim.status];
   const Icon = meta.icon;
   const submitted = toTs(claim.submittedAt);
   const isPdf = !!claim.receiptUrl && claim.receiptUrl.toLowerCase().includes('.pdf');
-  const [busy, setBusy] = useState<'' | 'approve' | 'reject'>('');
+  const [busy, setBusy] = useState<'' | 'approve' | 'reject' | 'pay'>('');
   const [showReject, setShowReject] = useState(false);
   const [reason, setReason] = useState('');
+  const [showPay, setShowPay] = useState(false);
+  const [payRef, setPayRef] = useState('');
 
-  const doApprove = async () => { setBusy('approve'); try { await onApprove(claim); onClose(); } catch { setBusy(''); } };
-  const doReject  = async () => { if (!reason.trim()) return; setBusy('reject'); try { await onReject(claim, reason.trim()); onClose(); } catch { setBusy(''); } };
+  const doApprove  = async () => { setBusy('approve'); try { await onApprove(claim); onClose(); } catch { setBusy(''); } };
+  const doReject   = async () => { if (!reason.trim()) return; setBusy('reject'); try { await onReject(claim, reason.trim()); onClose(); } catch { setBusy(''); } };
+  const doMarkPaid = async () => { if (!payRef.trim()) return; setBusy('pay'); try { await onMarkPaid(claim, payRef.trim()); onClose(); } catch { setBusy(''); } };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay">
@@ -148,6 +152,33 @@ function ClaimDetailModal({ claim, onApprove, onReject, onClose }: {
                     {busy === 'reject' ? 'Rejecting…' : 'Confirm Reject'}
                   </button>
                   <button onClick={() => { setShowReject(false); setReason(''); }}
+                    className="px-4 py-2.5 rounded-xl text-sm" style={{ border: '1px solid var(--shell-border)', color: 'var(--text-muted)' }}>
+                    Back
+                  </button>
+                </div>
+              </div>
+            )
+          )}
+
+          {/* Approved → mark paid right here (single claim; bulk flow still available on the table) */}
+          {claim.status === 'approved' && (
+            !showPay ? (
+              <button onClick={() => setShowPay(true)} disabled={busy !== ''}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50"
+                style={{ backgroundColor: '#10B981', color: '#06281d' }}>
+                <IndianRupee size={15} /> Mark as Paid
+              </button>
+            ) : (
+              <div className="space-y-2 pt-1">
+                <textarea autoFocus rows={2} value={payRef} onChange={(e) => setPayRef(e.target.value)}
+                  placeholder="Payment reference / note — e.g. NEFT 123456, paid from HDFC…" className="w-full glass-inp text-sm resize-none" />
+                <div className="flex gap-3">
+                  <button onClick={doMarkPaid} disabled={!payRef.trim() || busy !== ''}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40"
+                    style={{ backgroundColor: '#10B981', color: '#06281d' }}>
+                    {busy === 'pay' ? 'Saving…' : 'Confirm Paid'}
+                  </button>
+                  <button onClick={() => { setShowPay(false); setPayRef(''); }}
                     className="px-4 py-2.5 rounded-xl text-sm" style={{ border: '1px solid var(--shell-border)', color: 'var(--text-muted)' }}>
                     Back
                   </button>
@@ -288,6 +319,30 @@ export function AdminClaimsPage() {
           { label: 'Amount',     value: `₹${claim.amount.toLocaleString('en-IN')}` },
         ],
         note:     reason,
+        ctaLabel: 'View Claims',
+        ctaLink:  'https://pulse.finvastra.com/hrms/claims',
+      }),
+    }).catch(() => {});
+  };
+
+  const handleMarkPaid = async (claim: Claim, reference: string) => {
+    await markClaimsPaid([claim.id], reference);
+    writeNotification(claim.employeeId, {
+      type:  'claim_paid',
+      title: 'Claim Paid',
+      body:  `Your ₹${claim.amount.toLocaleString('en-IN')} ${claim.claimType} claim has been paid. Ref: ${reference}`,
+      link:  '/hrms/claims',
+    }).catch(() => {});
+    sendHrEmailNotification({
+      employeeId: claim.employeeId,
+      subject: 'Claim Paid — Finvastra Pulse',
+      htmlBody: buildHrEmailHtml({
+        title: 'Your claim has been paid',
+        lines: [
+          { label: 'Claim Type',        value: claim.claimType },
+          { label: 'Amount',            value: `₹${claim.amount.toLocaleString('en-IN')}` },
+          { label: 'Payment Reference', value: reference },
+        ],
         ctaLabel: 'View Claims',
         ctaLink:  'https://pulse.finvastra.com/hrms/claims',
       }),
@@ -442,7 +497,7 @@ export function AdminClaimsPage() {
       </div>
 
       {detailClaim && (
-        <ClaimDetailModal claim={detailClaim} onApprove={handleApprove} onReject={handleReject} onClose={() => setDetailClaim(null)} />
+        <ClaimDetailModal claim={detailClaim} onApprove={handleApprove} onReject={handleReject} onMarkPaid={handleMarkPaid} onClose={() => setDetailClaim(null)} />
       )}
       {showMarkPaid && (
         <MarkPaidModal

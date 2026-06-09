@@ -695,31 +695,34 @@ function EditMyDetailsModal({ userId, empName, details, onSave, onClose }: EditM
   const handleSave = async () => {
     setSaving(true);
     setError('');
+    // Write plain trimmed strings (never `undefined` — Firestore rejects it).
     const updated: Record<string, unknown> = {
-      phone:                        phone.trim() || undefined,
-      personalEmail:                email.trim() || undefined,
-      presentAddress:               address.trim() || undefined,
-      bloodGroup:                   bloodGroup.trim() || undefined,
-      emergencyContactName:         ecName.trim() || undefined,
-      emergencyContactPhone:        ecPhone.trim() || undefined,
-      emergencyContactRelationship: ecRel.trim() || undefined,
+      phone:                        phone.trim(),
+      personalEmail:                email.trim(),
+      presentAddress:               address.trim(),
+      bloodGroup:                   bloodGroup.trim(),
+      emergencyContactName:         ecName.trim(),
+      emergencyContactPhone:        ecPhone.trim(),
+      emergencyContactRelationship: ecRel.trim(),
       updatedAt:                    serverTimestamp(),
     };
     try {
       const ref = doc(db, 'user_details', userId);
       const snap = await getDoc(ref);
       if (snap.exists()) {
-        await updateDoc(ref, updated as Record<string, unknown>);
+        await updateDoc(ref, updated);
       } else {
         await setDoc(ref, updated);
       }
-      // Audit log
-      await addDoc(collection(db, 'profile_update_logs'), {
-        employeeId:  userId,
-        employeeName: empName,
-        updatedAt:   serverTimestamp(),
-        fields:      Object.keys(updated).filter((k) => k !== 'updatedAt'),
-      });
+      // Audit log — best-effort; never block the save if logging is denied.
+      try {
+        await addDoc(collection(db, 'profile_update_logs'), {
+          employeeId:  userId,
+          employeeName: empName,
+          updatedAt:   serverTimestamp(),
+          fields:      Object.keys(updated).filter((k) => k !== 'updatedAt'),
+        });
+      } catch { /* non-fatal */ }
       onSave(updated as Partial<UserDetails>);
       onClose();
     } catch (e) {
@@ -742,10 +745,6 @@ function EditMyDetailsModal({ userId, empName, details, onSave, onClose }: EditM
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
-          {error && (
-            <div className="p-3 rounded-xl text-sm bg-red-50 border border-red-200" style={{ color: '#DC2626' }}>{error}</div>
-          )}
-
           <div>
             <p className="text-[9px] font-bold uppercase tracking-[0.3em] mb-3" style={{ color: '#C9A961' }}>
               Contact Information
@@ -797,15 +796,23 @@ function EditMyDetailsModal({ userId, empName, details, onSave, onClose }: EditM
             </div>
           </div>
         </div>
-        <div className="flex justify-end gap-3 p-5" style={{ borderTop: '1px solid var(--shell-border)' }}>
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium nav-item-hover transition-colors" style={{ border: '1px solid var(--shell-border)' }}>
-            Cancel
-          </button>
-          <button onClick={handleSave} disabled={saving}
-            className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-opacity"
-            style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
-            {saving ? 'Saving…' : <><Check size={14} /> Save Changes</>}
-          </button>
+        <div className="p-5 space-y-3" style={{ borderTop: '1px solid var(--shell-border)' }}>
+          {error && (
+            <div className="p-3 rounded-xl text-sm"
+              style={{ backgroundColor: 'rgba(220,38,38,0.12)', border: '1px solid rgba(220,38,38,0.4)', color: '#f87171' }}>
+              {error}
+            </div>
+          )}
+          <div className="flex justify-end gap-3">
+            <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium nav-item-hover transition-colors" style={{ border: '1px solid var(--shell-border)' }}>
+              Cancel
+            </button>
+            <button onClick={handleSave} disabled={saving}
+              className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-opacity"
+              style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+              {saving ? 'Saving…' : <><Check size={14} /> Save Changes</>}
+            </button>
+          </div>
         </div>
       </div>
     </div>

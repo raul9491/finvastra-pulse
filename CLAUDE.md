@@ -82,7 +82,7 @@ src/
 │   └── tokens.css                   brand CSS custom properties (navy, gold, paper, ink)
 │
 ├── lib/                             — DO NOT TOUCH any file in lib/
-│   ├── firebase.ts                  client SDK init (emulator-aware)
+│   ├── firebase.ts                  client SDK init (emulator-aware); `ignoreUndefinedProperties: true` — Firestore strips `undefined` fields instead of throwing (forms commonly build patches with `value || undefined`)
 │   ├── notifications.ts             writeNotification() + sendHrEmailNotification()
 │   ├── encryption.ts                AES-256-GCM PAN encrypt/decrypt
 │   ├── cn.ts                        Tailwind class merge

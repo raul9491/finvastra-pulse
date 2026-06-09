@@ -37,10 +37,15 @@ export const storage = getStorage(app);
 // and writes are queued and replayed on reconnect.
 const useEmulator = import.meta.env['VITE_USE_EMULATOR'] === 'true';
 export const db = useEmulator
-  ? getFirestore(app)
+  ? initializeFirestore(app, { ignoreUndefinedProperties: true })
   : initializeFirestore(
       app,
-      { localCache: persistentLocalCache({ cacheSizeBytes: CACHE_SIZE_UNLIMITED, tabManager: persistentMultipleTabManager() }) },
+      {
+        // Strip `undefined` field values instead of throwing — many forms build
+        // patch objects with `value || undefined` for optional fields.
+        ignoreUndefinedProperties: true,
+        localCache: persistentLocalCache({ cacheSizeBytes: CACHE_SIZE_UNLIMITED, tabManager: persistentMultipleTabManager() }),
+      },
       firebaseConfig.firestoreDatabaseId,
     );
 

@@ -2453,10 +2453,15 @@ External partners who **source loan / insurance / wealth cases**. NOT employees 
 | Part | Where | Files |
 |---|---|---|
 | **Registry** (add/edit/soft-delete) | HRMS `/hrms/admin/connectors` (admin/HR) | `src/features/hrms/connectors/ConnectorsPage.tsx`, `src/features/hrms/hooks/useConnectors.ts` |
-| **CRM picker** ("Sourced by Connector" on add-case) | CRM `AddOpportunityPage` Step 3 | `src/features/crm/opportunities/AddOpportunityPage.tsx`, `createOpportunity` in `hooks/useOpportunities.ts` |
+| **Customer (lead) picker** ("Sourced by Connector" on **New Customer**) | CRM `NewLeadPage` | `NewLeadPage.tsx`, `createLead` in `hooks/useLeads.ts` — stores `connectorId/Code/Name` on the **lead** |
+| **CRM picker** ("Sourced by Connector" on add-case) | CRM `AddOpportunityPage` Step 3 | `AddOpportunityPage.tsx`, `createOpportunity` — stores on the **opportunity** (per-case override) |
+| **Lead display** | `LeadDetailPage` header meta (`· Connector: Name (FAC-###)`) | `LeadDetailPage.tsx` |
 | **Opportunity display** | CRM `OpportunityDetailPage` header meta | `OpportunityDetailPage.tsx` |
+| **→ MIS flow** | `setPrimarySubmission` stamps `connectorId/Code/Name` on the **commission_record** (from `opportunity.connector ?? lead.connector`); shown in MIS Overview → **Disbursals** tab (Connector column) | `useBankSubmissions.ts`, `MisOverviewPage.tsx` |
 | **Payouts** (what's owed per case) | Connector detail modal | `useConnectors.ts` (`useConnectorPayouts`, `addConnectorPayout`, `markConnectorPayoutPaid`) |
 | **Nav + route** | HrmsShell People group + router | `HrmsShell.tsx`, `router.tsx` |
+
+> **Connector now flows end-to-end (2026-06-10):** selected on the **New Customer** form (lead-level) → carried onto the **commission_record** when a bank submission is marked primary/disbursed (`setPrimarySubmission` reads `opportunity.connector` else falls back to `lead.connector`) → visible in **MIS → Disbursals** (Connector column), so each commission is traceable to its channel partner through to payout. `Lead` and `CommissionRecord` types gained `connectorId/connectorCode/connectorName`. The commission_records create rule has no `hasOnly`, so the extra fields write cleanly.
 
 ### Code scheme
 `FAC-###` (FAC-001, auto-incremented from the max existing via `nextConnectorCode`). Editable in the form.

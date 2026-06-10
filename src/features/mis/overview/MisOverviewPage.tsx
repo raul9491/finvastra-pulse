@@ -205,6 +205,7 @@ export function MisOverviewPage() {
                     <th className="px-4 py-3 text-right font-semibold" style={{ color: 'var(--text-muted)' }}>Amount</th>
                     <th className="px-4 py-3 text-right font-semibold" style={{ color: 'var(--text-muted)' }}>Commission</th>
                     <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>DSA Code</th>
+                    <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Connector</th>
                     <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Status</th>
                     <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>CRM</th>
                   </tr>
@@ -237,6 +238,11 @@ export function MisOverviewPage() {
                       </td>
                       <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>
                         {rec.dsaCode ?? '—'}
+                      </td>
+                      <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>
+                        {rec.connectorName
+                          ? <span>{rec.connectorName}{rec.connectorCode ? <span style={{ color: 'var(--text-muted)' }}> · {rec.connectorCode}</span> : null}</span>
+                          : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                       </td>
                       <td className="px-4 py-3">
                         <span className={

@@ -48,7 +48,11 @@ export function useLead(leadId: string | null) {
 }
 
 // ─── Mutations ────────────────────────────────────────────────────────────────
-export async function createLead(values: LeadFormValues, userId: string): Promise<string> {
+export async function createLead(
+  values: LeadFormValues,
+  userId: string,
+  connector?: { id: string; code: string; name: string } | null,
+): Promise<string> {
   const now = serverTimestamp();
   const ref = await addDoc(collection(db, 'leads'), {
     displayName:     values.displayName,
@@ -57,6 +61,7 @@ export async function createLead(values: LeadFormValues, userId: string): Promis
     ...(values.panRaw ? { panRaw: values.panRaw } : {}),
     source:           values.source,
     ...(values.referrerName ? { referrerName: values.referrerName } : {}),
+    ...(connector ? { connectorId: connector.id, connectorCode: connector.code, connectorName: connector.name } : {}),
     tags:             [],
     primaryOwnerId:   values.primaryOwnerId,
     consentGiven:     true,

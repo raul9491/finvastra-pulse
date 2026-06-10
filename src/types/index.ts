@@ -409,6 +409,11 @@ export interface Lead {
   monthlyIncome?: number;      // ₹ per month — used for FOIR calculation
   existingEmis?: number;       // ₹ per month total of all existing EMIs
   primaryOwnerId: string;
+  // Connector (channel partner / DSA) who sourced this customer. Selected on the
+  // New Customer form; flows to the commission record → MIS. See Connector type.
+  connectorId?: string;
+  connectorCode?: string;   // FAC-### — denormalised for display
+  connectorName?: string;
   // Compliance — mandatory per DPDP Act 2023
   consentGiven: true;
   consentTimestamp: any;
@@ -569,6 +574,11 @@ export interface CommissionRecord {
   submissionId: string;       // FK chain for full traceability
   providerId: string;
   rmOwnerId: string;          // RM who owns the opportunity (for per-RM reports)
+  // Connector who sourced the case (from the opportunity, else the lead) — lets MIS
+  // track which channel partner each commission belongs to, through to payout.
+  connectorId?: string;
+  connectorCode?: string;
+  connectorName?: string;
   slabId: string | null;      // null when NO_SLAB_MATCH
   basisAmount: number;        // disbursedAmount or sanctionedAmount used
   calculatedCommission: number;

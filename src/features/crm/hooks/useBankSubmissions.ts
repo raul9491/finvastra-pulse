@@ -112,6 +112,7 @@ export async function setPrimarySubmission(
 ): Promise<void> {
   const subRef = doc(db, 'leads', leadId, 'opportunities', oppId, 'bank_submissions', subId);
   const oppRef = doc(db, 'leads', leadId, 'opportunities', oppId);
+  const leadRef = doc(db, 'leads', leadId);
   const todayStr = new Date().toISOString().slice(0, 10);
   const histEntry = {
     from: 'disbursed' as BankSubmissionStatus,
@@ -136,12 +137,19 @@ export async function setPrimarySubmission(
   const { sub, opp, commissionDisplay } = await runTransaction(db, async (t) => {
     const subSnap = await t.get(subRef);
     const oppSnap = await t.get(oppRef);
+    const leadSnap = await t.get(leadRef);
 
     if (!subSnap.exists()) throw new Error('Submission not found.');
     if (!oppSnap.exists()) throw new Error('Parent opportunity not found.');
 
     const subData = subSnap.data()!;
     const oppData = oppSnap.data()!;
+    const leadData = leadSnap.exists() ? leadSnap.data()! : {};
+
+    // Connector who sourced this case: opportunity's own, else the customer's (lead).
+    const connectorId   = oppData.connectorId   ?? leadData.connectorId   ?? null;
+    const connectorCode = oppData.connectorCode ?? leadData.connectorCode ?? null;
+    const connectorName = oppData.connectorName ?? leadData.connectorName ?? null;
 
     if (subData.status !== 'disbursed') {
       throw new Error('Only a disbursed submission can be marked as primary.');
@@ -187,6 +195,7 @@ export async function setPrimarySubmission(
       status:            'pending',
       expectedPayoutDate: payoutDate.toISOString().slice(0, 10),
       notes:             noSlabMatch ? 'NO_SLAB_MATCH — admin review required' : null,
+      ...(connectorId ? { connectorId, connectorCode, connectorName } : {}),
       createdAt:         serverTimestamp(),
     });
 

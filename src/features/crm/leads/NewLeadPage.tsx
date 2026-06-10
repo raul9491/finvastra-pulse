@@ -6,6 +6,7 @@ import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { createLead } from '../hooks/useLeads';
+import { useConnectors } from '../../hrms/hooks/useConnectors';
 import { leadSchema, type LeadFormValues } from './leadSchema';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { checkForDuplicates } from './duplicateDetection';
@@ -32,11 +33,17 @@ export function NewLeadPage() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { employees } = useAllEmployees();
+  const { connectors } = useConnectors();
   const [submitError, setSubmitError] = useState('');
+  const [connectorId, setConnectorId] = useState('');
 
   const rmOptions = useMemo(
     () => employees.filter((e) => e.crmAccess === true || e.role === 'admin'),
     [employees],
+  );
+  const activeConnectors = useMemo(
+    () => connectors.filter((c) => c.status === 'active'),
+    [connectors],
   );
 
   const { register, control, handleSubmit, watch, formState: { errors, isSubmitting } } =
@@ -70,7 +77,9 @@ export function NewLeadPage() {
     }
 
     try {
-      const newId = await createLead(values, user.uid);
+      const conn = connectorId ? activeConnectors.find((c) => c.id === connectorId) : null;
+      const newId = await createLead(values, user.uid,
+        conn ? { id: conn.id, code: conn.connectorCode, name: conn.displayName } : null);
       navigate(`/crm/leads/${newId}`, { state: { justCreated: true } });
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Failed to create customer. Please try again.');
@@ -160,6 +169,23 @@ export function NewLeadPage() {
               />
             </Field>
           )}
+
+          <Field label="Sourced by Connector" hint="Channel partner who brought this customer (manage in HRMS → Connectors). Carries through to the commission record &amp; MIS.">
+            <SearchableSelect
+              options={[
+                { value: '', label: 'Direct / no connector' },
+                ...activeConnectors.map((c) => ({
+                  value: c.id,
+                  label: `${c.displayName} · ${c.connectorCode}`,
+                  description: c.firmName ?? undefined,
+                  searchKeywords: [c.connectorCode, c.mobile],
+                })),
+              ]}
+              value={connectorId}
+              onChange={setConnectorId}
+              placeholder="Direct / no connector"
+            />
+          </Field>
         </div>
 
         {/* Consent */}

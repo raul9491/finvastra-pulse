@@ -948,6 +948,55 @@ async function startServer() {
     }
   });
 
+  // POST /api/admin/sync-all-claims
+  // Bulk re-stamp custom claims for EVERY user from their Firestore profile.
+  // Run once after the 2026-06-10 claims-first rules change so every token carries
+  // claims (then the rules skip the per-request /users read for that user).
+  app.post("/api/admin/sync-all-claims", async (req, res) => {
+    try {
+      const callerUid = await verifyFirebaseToken(req);
+      if (!callerUid) return res.status(401).json({ error: "Unauthorized" });
+      const callerSnap = await db.collection("users").doc(callerUid).get();
+      if (callerSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+      const callerIsSuper = isSuperAdmin(callerUid);
+
+      const usersSnap = await db.collection("users").get();
+      let synced = 0, skipped = 0, noAuth = 0;
+      for (const docu of usersSnap.docs) {
+        const uid = docu.id;
+        // Only a super admin may modify a super admin's claims.
+        if (isSuperAdmin(uid) && !callerIsSuper) { skipped++; continue; }
+        const p = docu.data();
+        try {
+          await admin.auth().setCustomUserClaims(uid, {
+            role:          p.role          ?? "employee",
+            hrmsAccess:    p.hrmsAccess    ?? true,
+            crmAccess:     p.crmAccess     ?? false,
+            crmRole:       p.crmRole       ?? null,
+            isHrmsManager: p.isHrmsManager ?? false,
+            misAccess:     p.misAccess     ?? null,
+          });
+          synced++;
+        } catch {
+          // No Firebase Auth account yet (e.g. needsEmailSetup) — nothing to stamp.
+          noAuth++;
+        }
+      }
+
+      await db.collection("audit_logs").add({
+        actor:      callerUid,
+        action:     "sync_all_custom_claims",
+        targetPath: "/users",
+        at:         admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return res.json({ ok: true, synced, skipped, noAuth, total: usersSnap.size });
+    } catch (e) {
+      console.error("sync-all-claims error:", e);
+      return res.status(500).json({ error: e instanceof Error ? e.message : "Internal error" });
+    }
+  });
+
   // ─── PAN Decryption API ──────────────────────────────────────────────────────
   // POST /api/leads/:leadId/pan — decrypt PAN and log the access.
   // Auth: admin OR the lead's primaryOwnerId OR any opportunity owner on the lead.

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
 import {
-  Search, Save, RotateCcw, CheckCircle2, Lock, AlertCircle,
+  Search, Save, RotateCcw, CheckCircle2, Lock, AlertCircle, RefreshCw,
 } from 'lucide-react';
 import { updateDoc, doc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { getIdToken } from 'firebase/auth';
@@ -84,6 +84,19 @@ async function syncClaims(targetUid: string): Promise<void> {
   } catch (e) {
     console.warn('[sync-claims] non-fatal:', e);
   }
+}
+
+// Bulk re-stamp custom claims for every user (server iterates /users).
+async function syncAllClaims(): Promise<{ synced: number; skipped: number; noAuth: number; total: number }> {
+  const currentUser = auth.currentUser;
+  if (!currentUser) throw new Error('Not signed in');
+  const token = await getIdToken(currentUser);
+  const res = await fetch('/api/admin/sync-all-claims', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Sync failed');
+  return res.json();
 }
 
 // ─── Styled helpers ───────────────────────────────────────────────────────────
@@ -409,6 +422,8 @@ export function SuperAdminPermissionsPage() {
   const [drafts,     setDrafts]     = useState<Record<string, PermDraft>>({});
   const [saving,     setSaving]     = useState(false);
   const [syncingSA,  setSyncingSA]  = useState(false);
+  const [syncingAll, setSyncingAll] = useState(false);
+  const [syncAllMsg, setSyncAllMsg] = useState('');
   const [showSaved,  setShowSaved]  = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [search,     setSearch]     = useState('');
@@ -615,12 +630,43 @@ export function SuperAdminPermissionsPage() {
           </p>
         </div>
 
-        {/* Super Admin badge */}
-        <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full mt-1"
-          style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961' }}>
-          ★ Super Admin Only
-        </span>
+        <div className="flex flex-col items-end gap-2">
+          {/* Super Admin badge */}
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full mt-1"
+            style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961' }}>
+            ★ Super Admin Only
+          </span>
+          {/* Re-sync all custom claims — restamps every user's token claims from their profile */}
+          <button
+            onClick={async () => {
+              if (!window.confirm('Re-stamp Firebase custom claims for every user from their current profile? This lowers Firestore read usage (rules read claims first). Safe to run anytime.')) return;
+              setSyncingAll(true); setSyncAllMsg('');
+              try {
+                const r = await syncAllClaims();
+                setSyncAllMsg(`✓ Synced ${r.synced} of ${r.total}${r.noAuth ? ` · ${r.noAuth} have no login yet` : ''}${r.skipped ? ` · ${r.skipped} skipped` : ''}. Users get the new claims on their next sign-in / token refresh.`);
+              } catch (e) {
+                setSyncAllMsg(`✗ ${e instanceof Error ? e.message : 'Sync failed'}`);
+              } finally {
+                setSyncingAll(false);
+              }
+            }}
+            disabled={syncingAll}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-(--shell-border) disabled:opacity-50"
+            style={{ color: 'var(--text-muted)' }}>
+            <RefreshCw size={13} className={syncingAll ? 'animate-spin' : ''} />
+            {syncingAll ? 'Syncing…' : 'Re-sync all claims'}
+          </button>
+        </div>
       </div>
+
+      {syncAllMsg && (
+        <div className="mb-5 px-4 py-3 rounded-xl text-sm"
+          style={{ backgroundColor: syncAllMsg.startsWith('✓') ? 'rgba(16,185,129,0.12)' : 'rgba(220,38,38,0.10)',
+                   color: syncAllMsg.startsWith('✓') ? '#10B981' : '#DC2626',
+                   border: `1px solid ${syncAllMsg.startsWith('✓') ? 'rgba(16,185,129,0.35)' : 'rgba(220,38,38,0.3)'}` }}>
+          {syncAllMsg}
+        </div>
+      )}
 
       {/* ── Saved confirmation banner ─────────────────────────────────────── */}
       {showSaved && (

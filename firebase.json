@@ -11,7 +11,7 @@
   },
   "firestore": [
     {
-      "database": "ai-studio-27afcadd-87fc-4f68-8a88-587e904a31bf",
+      "database": "pulse",
       "rules": "firestore.rules",
       "indexes": "firestore.indexes.json"
     }

@@ -14,7 +14,7 @@ const keyPath = (() => {
 })();
 
 admin.initializeApp({ credential: admin.credential.cert(JSON.parse(readFileSync(keyPath, "utf-8"))) });
-const db = getFirestore(admin.app(), "ai-studio-27afcadd-87fc-4f68-8a88-587e904a31bf");
+const db = getFirestore(admin.app(), "pulse");
 
 async function main() {
   const targets = [

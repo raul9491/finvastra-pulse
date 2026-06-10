@@ -20,7 +20,7 @@
 |---|---|---|
 | Frontend | React 19 + Vite 6 + TypeScript + Tailwind v4 | Strict TS, functional components, hooks |
 | Backend | Express + Firebase Admin SDK | Same `server.ts` handles dev (Vite middleware) and prod (static) |
-| Database | Firestore | Project `gen-lang-client-0643641184`, DB `ai-studio-27afcadd-87fc-4f68-8a88-587e904a31bf` |
+| Database | Firestore | Project `gen-lang-client-0643641184`, **DB `pulse`** (named, Standard edition, uncapped). _Migrated 2026-06-10 from the original AI-Studio DB `ai-studio-27afcadd-…`, which had an **unliftable 50k-reads/day free-tier cap** that took the app down — see "Firestore DB Migration" below. DB id lives in `firebase-applet-config.json` (`firestoreDatabaseId`), `firebase.json` (`firestore[].database`), `server.ts` (`FIRESTORE_DB_ID`), and `scripts/**`._ |
 | Auth | Firebase Auth + Google OAuth | 5 senior users via Workspace; 20 employees via email/password |
 | Hosting | Firebase Hosting + Cloud Run for Express | Or fully Cloud Run with Express serving static |
 | PDF | jsPDF + jspdf-autotable | Payslip generation only |
@@ -892,7 +892,7 @@ Items that **must be resolved before any production traffic hits the app**. Each
 |---|------|----------|-------|-----------------|
 | 1 | ✅ **DONE — `setPrimarySubmission` now transactional** — wrapped in `runTransaction` (reads + commission_record writes atomic); verified at `useBankSubmissions.ts:136` | ✅ Resolved | 2.8 | `src/features/crm/hooks/useBankSubmissions.ts` |
 | 2 | ✅ **DONE — Seed/migration buttons gated by `import.meta.env.DEV`** — absent from prod build (CrmDashboardPage + MisOverviewPage); re-verify after any bundler config change | ✅ Resolved | 2.8 | `src/features/crm/dashboard/CrmDashboardPage.tsx` |
-| 3 | **Role checks read Firestore on every request** — `isAdmin()` and `hasCrmAccess()` each do a `get()` call; migrate to custom claims via Cloud Function | 🟡 Performance | 6 | `firestore.rules` |
+| 3 | ✅ **DONE (2026-06-10) — Role checks read custom claims first** — all role helpers in `firestore.rules` check `request.auth.token.<claim>` first (stamped by sync-claims) with `get()` only as `||` fallback; eliminates the per-request `/users` read for tokens carrying claims. See "Firestore DB Migration + Read-Reduction". | ✅ Resolved | 6 | `firestore.rules` |
 | 4 | **Attendance timestamps are strings** — `checkIn`/`checkOut` stored as ISO strings, not `serverTimestamp()`; Firestore rules can only validate format, not prevent backdating | 🟡 Security | Phase 3 rebuild | `src/lib/hooks/useAttendance.ts` |
 | 5 | **Cross-tenant profile read** (Dirty Dozen Payload 12) — all signed-in users can `get` any user profile; required by directory but exposes private fields | 🟡 Privacy | 6 | `firestore.rules` |
 | 6 | **Import batch processing in Express** — background `processImportBatch()` runs in the same process as the HTTP server; large imports risk Cloud Run timeout | 🟠 Reliability | 6 | `server.ts` → migrate to Cloud Function |
@@ -2485,3 +2485,27 @@ The **main `/connectors/{id}` doc is readable by CRM users** (so the add-case pi
 
 ### Payouts flow
 On a connector's detail modal: pending/paid summary chips, **Add payout** (business line + case reference + amount + notes), each pending payout has **Mark as paid** (reveals a payment-reference field). The connectors list shows each connector's **pending ₹** total (live from a `connector_payouts` subscription). Manual entry for v1 — not auto-created from disbursals.
+
+---
+
+## Firestore DB Migration + Read-Reduction (2026-06-10) — INCIDENT FIX
+
+**Incident:** the entire app appeared broken — launcher showed only HRMS, profile greeted "there", attendance stuck on "Loading…", in incognito too. **Root cause:** the original database `ai-studio-27afcadd-…` was an **AI-Studio-provisioned Firestore database with a hard 50,000 reads/day free-tier cap that CANNOT be lifted even with billing enabled** (billing *was* enabled / Blaze — confirmed). The daily read quota was exhausted, so every read returned **HTTP 429 RESOURCE_EXHAUSTED**. The client's `AuthContext` catches the failed `/users` read → `profile = null` → only-HRMS launcher + missing clock-in buttons (both key off the loaded profile). Diagnosed via an unauthenticated REST probe returning the 429 quota error.
+
+### Fix 1 — Migrated to a new uncapped database `pulse`
+A standard-edition database created with `gcloud firestore databases create` in the same (Blaze) project has **`freeTier: false`** — normal quotas, no cap. Steps performed:
+1. `gcloud firestore export gs://<proj>-fs-backup/… --database=ai-studio-…` (full backup; managed export is **not** blocked by the read cap). Backup retained.
+2. `gcloud firestore databases create --database=pulse --location=asia-southeast1 --type=firestore-native` (Standard; `freeTier:false`).
+3. `gcloud firestore import <export-prefix> --database=pulse` (Enterprise→Standard import works — both `FIRESTORE_NATIVE`). Verified data via IAM REST read (users/connectors/leads/payslips all present).
+4. Repointed: `firebase-applet-config.json` `firestoreDatabaseId` → `pulse`, `firebase.json` `firestore[].database` → `pulse`, `server.ts` `FIRESTORE_DB_ID` → `pulse`, and all `scripts/**` DB ids.
+5. `firebase deploy --only firestore` (rules + indexes to `pulse`) → `npm run deploy` (client) → `gcloud run deploy pulse-api` (server).
+6. `gcloud firestore databases update --database=pulse --delete-protection` (production safety).
+- **The old DB `ai-studio-27afcadd-…` is kept intact as rollback** (still capped, harmless). To roll back: revert the 4 DB-id references + redeploy client & server. Delete the old DB only once fully confident.
+- **Index cleanup:** the new DB strictly rejects **single-field indexes** ("not necessary, configure using single field index controls"). Removed 5 single-field entries from `firestore.indexes.json` (`leads/importHash`, `activities/at`, `commission_leakage_reports/runAt`, `commission_statements/importedAt`, `bank_submissions/slaBreached`) — Firestore auto-indexes single fields, so those queries still work. **Rule for the future: `firestore.indexes.json` must contain only composite (multi-field) indexes.**
+
+### Fix 2 — Rules role checks now read custom claims first (cuts read volume)
+The dominant read multiplier was `firestore.rules`: `isAdmin()`/`hasCrmAccess()`/`isHrmsManager()`/`isManager()`/`hasMisAccess()`/`isMisAdmin()`/`hasHrmsAccess()` each did a `get(/users/{uid})` — an **extra user-doc read on every gated request**. All now check `request.auth.token.<claim>` **first** (stamped by `POST /api/admin/users/:uid/sync-claims`) with the `get()` only as an `||` fallback, so a present claim short-circuits the read. **No lockout risk** (fallback authorises tokens lacking the claim); tradeoff is access changes propagate on next token refresh (≤1h). This resolves **pre-launch checklist item #3** ("Role checks read Firestore on every request"). To maximise the benefit, re-sync every active user's claims once (so all tokens carry them).
+
+### Prevention / follow-ups
+- **Never use an AI-Studio free-tier database for production** — it ignores billing and hard-caps. Always a `gcloud`-created standard DB (`freeTier:false`).
+- Further read cuts available if needed: add `limit()` to dashboard queries; convert broad collection-wide `onSnapshot` listeners (Command Centre, CRM dashboards, connectors) to one-time `getDocs` where live updates aren't essential.

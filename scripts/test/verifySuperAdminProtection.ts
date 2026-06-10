@@ -37,7 +37,7 @@ admin.initializeApp({
 
 const db = getFirestore(
   admin.app(),
-  "ai-studio-27afcadd-87fc-4f68-8a88-587e904a31bf"
+  "pulse"
 );
 
 const WEB_API_KEY  = "AIzaSyCuBO87GMVEDWOsYLlARkfo8BKRPtwJyzw";

@@ -14,24 +14,34 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-    // TODO Phase 5: migrate to custom claims (request.auth.token.role == 'admin')
-    // via a Cloud Function trigger for performance and token caching.
+    // ─── Role checks — CUSTOM CLAIM FIRST, Firestore get() as fallback ───────────
+    // Each role helper checks request.auth.token.* first (stamped by
+    // POST /api/admin/users/:uid/sync-claims). When the claim is present the get()
+    // is short-circuited away — eliminating a /users document read on EVERY gated
+    // request, which was the dominant driver of the free-tier 50k-reads/day cap.
+    // The `|| get(...)` fallback means a user whose token lacks the claim (not yet
+    // re-synced / token not refreshed) is still authorised via Firestore — so this
+    // change can never lock anyone out. Tradeoff: a claim change (e.g. access
+    // revoked) propagates on the next token refresh (≤1h) — acceptable and standard.
     function isAdmin() {
-      return isSignedIn() &&
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'employee') == 'admin';
+      return isSignedIn() && (
+             request.auth.token.get('role', '') == 'admin' ||
+             (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'employee') == 'admin'));
     }
     function hasCrmAccess() {
-      return isSignedIn() &&
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('crmAccess', false) == true;
+      return isSignedIn() && (
+             request.auth.token.get('crmAccess', false) == true ||
+             (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('crmAccess', false) == true));
     }
     // Any employee with HRMS self-service access (hrmsAccess absent = true by default).
     // Used to allow HRMS-only employees to submit employee_referral leads.
     function hasHrmsAccess() {
-      return isSignedIn() &&
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('hrmsAccess', true) == true;
+      return isSignedIn() && (
+             request.auth.token.get('hrmsAccess', false) == true ||
+             (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('hrmsAccess', true) == true));
     }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
@@ -659,16 +669,19 @@ service cloud.firestore {
     }
 
     // ─── HRMS: Helpers ───────────────────────────────────────────────────────────
+    // Claim-first (see role-check note near the top) — get() only as fallback.
     function isHrmsManager() {
-      return isSignedIn() &&
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isHrmsManager', false) == true;
+      return isSignedIn() && (
+             request.auth.token.get('isHrmsManager', false) == true ||
+             (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isHrmsManager', false) == true));
     }
     // CRM manager (crmRole === 'manager') — used by Targets + reports.
     function isManager() {
-      return isSignedIn() &&
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('crmRole', null) == 'manager';
+      return isSignedIn() && (
+             request.auth.token.get('crmRole', '') == 'manager' ||
+             (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('crmRole', null) == 'manager'));
     }
     // True when the caller is a CRM manager AND the given user reports to them
     // (HRMS reporting line). Lets a director view/edit their team's leads.
@@ -745,15 +758,18 @@ service cloud.firestore {
     }
 
     // ─── MIS: Helpers ─────────────────────────────────────────────────────────────
+    // Claim-first (see role-check note near the top) — get() only as fallback.
     function hasMisAccess() {
-      return isSignedIn() &&
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('misAccess', null) != null;
+      return isSignedIn() && (
+             request.auth.token.get('misAccess', '') != '' ||
+             (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('misAccess', null) != null));
     }
     function isMisAdmin() {
-      return isSignedIn() &&
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('misAccess', '') == 'admin';
+      return isSignedIn() && (
+             request.auth.token.get('misAccess', '') == 'admin' ||
+             (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('misAccess', '') == 'admin'));
     }
 
     // ─── MIS: Commission Statements ───────────────────────────────────────────────

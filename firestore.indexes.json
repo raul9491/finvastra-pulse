@@ -12,13 +12,6 @@
       "collectionGroup": "leads",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "importHash", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "leads",
-      "queryScope": "COLLECTION",
-      "fields": [
         { "fieldPath": "importBatchId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
@@ -75,13 +68,6 @@
     },
     {
       "collectionGroup": "activities",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "at", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "activities",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
         { "fieldPath": "by", "order": "ASCENDING"  },
@@ -118,20 +104,6 @@
       "fields": [
         { "fieldPath": "targetId",    "order": "ASCENDING" },
         { "fieldPath": "accessedAt",  "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "commission_leakage_reports",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "runAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "bank_submissions",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "slaBreached", "order": "ASCENDING" }
       ]
     },
     {
@@ -180,13 +152,6 @@
       "fields": [
         { "fieldPath": "year", "order": "ASCENDING" },
         { "fieldPath": "date", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "commission_statements",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "importedAt", "order": "DESCENDING" }
       ]
     },
     {

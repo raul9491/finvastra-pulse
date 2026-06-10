@@ -25,7 +25,9 @@ if (!admin.apps.length) {
 
 // Named Firestore database — must match firestoreDatabaseId in firebase-applet-config.json.
 // The emulator uses the default database; production uses the named one.
-const FIRESTORE_DB_ID = "ai-studio-27afcadd-87fc-4f68-8a88-587e904a31bf";
+// Migrated 2026-06-10 from the AI-Studio free-tier DB (ai-studio-27afcadd-…), which
+// had an unliftable 50k-reads/day cap, to a standard uncapped database.
+const FIRESTORE_DB_ID = "pulse";
 const useEmulator = process.env.VITE_USE_EMULATOR === "true";
 const db = useEmulator
   ? admin.firestore()

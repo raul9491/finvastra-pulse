@@ -382,7 +382,7 @@ export function TeamCalendarPage() {
           <div className="grid grid-cols-7 border-b border-(--shell-border)">
             {DAY_HEADERS.map((d) => (
               <div key={d}
-                className={`py-2 text-center text-[11px] font-bold uppercase tracking-widest ${d === 'Sun' ? 'text-slate-300' : 'text-(--text-muted)'}`}>
+                className={`py-2 text-center text-[11px] font-bold uppercase tracking-widest ${d === 'Sun' ? 'text-(--text-muted)' : 'text-(--text-muted)'}`}>
                 {d}
               </div>
             ))}

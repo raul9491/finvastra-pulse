@@ -27,11 +27,11 @@ const CATEGORY_META: Record<HrTicketCategory, { label: string; color: string; bg
   workplace_concern: { label: 'Workplace',          color: '#D97706', bg: '#FEF9C3' },
   posh:              { label: 'POSH',               color: '#9F1239', bg: '#FFE4E6' },
   it_access:         { label: 'IT / Access',        color: '#374151', bg: '#F3F4F6' },
-  other:             { label: 'Other',              color: '#6B7280', bg: '#F9FAFB'  },
+  other:             { label: 'Other',              color: 'var(--text-muted)', bg: '#F9FAFB'  },
 };
 
 const PRIORITY_META: Record<HrTicketPriority, { label: string; color: string }> = {
-  low:    { label: 'Low',    color: '#6B7280' },
+  low:    { label: 'Low',    color: 'var(--text-muted)' },
   medium: { label: 'Medium', color: '#D97706' },
   high:   { label: 'High',   color: '#EA580C' },
   urgent: { label: 'Urgent', color: '#DC2626' },
@@ -41,7 +41,7 @@ const STATUS_META: Record<HrTicketStatus, { label: string; color: string; icon: 
   open:      { label: 'Open',       color: '#D97706', icon: Clock        },
   in_review: { label: 'In Review',  color: '#0369A1', icon: Eye          },
   resolved:  { label: 'Resolved',   color: '#059669', icon: CheckCircle2 },
-  closed:    { label: 'Closed',     color: '#6B7280', icon: CheckCircle2 },
+  closed:    { label: 'Closed',     color: 'var(--text-muted)', icon: CheckCircle2 },
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ function RespondModal({
       <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-(--shell-border)">
           <h2 className="text-base font-semibold">Respond to Ticket</h2>
-          <button onClick={onClose} className="text-(--text-muted) hover:text-slate-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-(--text-muted) hover:text-(--text-muted)"><X size={18} /></button>
         </div>
 
         <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
@@ -290,7 +290,7 @@ export function AdminHelpdeskPage() {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-(--shell-border)">
               {filtered.map((t) => (
                 <tr key={t.id} className="hover:bg-(--glass-panel-bg) transition-colors">
                   <td className="px-4 py-3 max-w-xs">

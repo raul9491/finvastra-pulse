@@ -31,9 +31,9 @@ export function BankSubmissionsSection({ leadId, oppId, oppOwnerId, opportunityP
 
   return (
     <>
-      <div className="bg-white rounded-2xl border border-slate-200 p-6">
+      <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border-mid) p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+          <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
             Bank Submissions ({submissions.length})
           </h3>
           {canAdd && (
@@ -49,11 +49,11 @@ export function BankSubmissionsSection({ leadId, oppId, oppOwnerId, opportunityP
 
         {loading ? (
           <div className="space-y-3 animate-pulse">
-            {[1, 2].map((i) => <div key={i} className="h-20 bg-slate-100 rounded-xl" />)}
+            {[1, 2].map((i) => <div key={i} className="h-20 bg-(--shell-hover-hard) rounded-xl" />)}
           </div>
         ) : submissions.length === 0 ? (
-          <div className="py-8 text-center border border-dashed border-slate-200 rounded-xl">
-            <p className="text-sm" style={{ color: '#8B8B85' }}>No bank submissions yet.</p>
+          <div className="py-8 text-center border border-dashed border-(--shell-border-mid) rounded-xl">
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No bank submissions yet.</p>
             {canAdd && (
               <button onClick={() => setModalOpen(true)}
                 className="mt-2 text-sm font-semibold underline" style={{ color: '#0B1538' }}>

@@ -187,8 +187,8 @@ export function RightToBeForgottenPage() {
               {searchResults.map((lead) => (
                 <div
                   key={lead.id}
-                  className="flex items-center justify-between p-4 rounded-xl hover:bg-white/5 transition-colors"
-                  style={{ border: '1px solid rgba(255,255,255,0.10)' }}
+                  className="flex items-center justify-between p-4 rounded-xl hover:bg-(--shell-hover-soft) transition-colors"
+                  style={{ border: '1px solid var(--shell-border-mid)' }}
                 >
                   <div className="space-y-0.5">
                     <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{lead.displayName}</p>
@@ -347,8 +347,8 @@ export function RightToBeForgottenPage() {
           <button
             onClick={resetToSearch}
             disabled={processing}
-            className="flex-1 sm:flex-none sm:px-6 py-3 rounded-xl font-medium text-sm disabled:opacity-50 transition-colors hover:bg-white/5"
-            style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
+            className="flex-1 sm:flex-none sm:px-6 py-3 rounded-xl font-medium text-sm disabled:opacity-50 transition-colors hover:bg-(--shell-hover-soft)"
+            style={{ border: '1px solid var(--shell-border-mid)', color: 'var(--text-primary)' }}
           >
             Cancel
           </button>
@@ -374,12 +374,12 @@ export function RightToBeForgottenPage() {
         </h1>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Customer data has been permanently anonymised. An event has been recorded in{' '}
-          <code className="text-xs px-1 rounded" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>/rtbf_log</code> for compliance
+          <code className="text-xs px-1 rounded" style={{ backgroundColor: 'var(--shell-hover-hard)' }}>/rtbf_log</code> for compliance
           auditing.
         </p>
         <div
           className="text-sm rounded-xl px-6 py-4 text-left space-y-1"
-          style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+          style={{ backgroundColor: 'var(--shell-hover-soft)', border: '1px solid var(--shell-border)' }}
         >
           <p><span style={{ color: 'var(--text-muted)' }}>Lead ID:</span> <span style={{ color: 'var(--text-primary)' }}>…{result.leadId.slice(-6).toUpperCase()}</span></p>
           <p>
@@ -393,7 +393,7 @@ export function RightToBeForgottenPage() {
         </div>
         <button
           onClick={resetToSearch}
-          className="mt-2 text-sm font-medium px-5 py-2 rounded-lg transition-colors hover:bg-white/5"
+          className="mt-2 text-sm font-medium px-5 py-2 rounded-lg transition-colors hover:bg-(--shell-hover-soft)"
           style={{ color: '#C9A961', border: '1px solid rgba(201,169,97,0.30)' }}
         >
           Process another request

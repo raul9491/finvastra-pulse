@@ -155,8 +155,8 @@ export function CompetitorIntelligencePage() {
 
       {loading ? (
         <div className="animate-pulse space-y-3">
-          <div className="h-24 rounded-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-          <div className="h-64 rounded-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+          <div className="h-24 rounded-2xl" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
+          <div className="h-64 rounded-2xl" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
         </div>
       ) : (
         <>
@@ -245,7 +245,7 @@ export function CompetitorIntelligencePage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
                     {['Date', 'Product', 'Deal Size', 'Reason', 'Competitor', 'Rate (%)', 'RM'].map(
                       (h) => (
                         <th
@@ -270,7 +270,7 @@ export function CompetitorIntelligencePage() {
                     filtered.map((o) => {
                       const capturedAt = parseCapturedAt(o.lostDetails?.capturedAt);
                       return (
-                        <tr key={`${o.leadId}-${o.id}`} className="hover:bg-white/5 transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <tr key={`${o.leadId}-${o.id}`} className="hover:bg-(--shell-hover-soft) transition-colors" style={{ borderBottom: '1px solid var(--shell-border)' }}>
                           <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                             {capturedAt ? format(capturedAt, 'dd MMM yyyy') : '—'}
                           </td>

@@ -70,7 +70,7 @@ function ProfileBanner({ profile }: { profile: UserProfile }) {
         className="h-28 rounded-2xl"
         style={{
           background: 'linear-gradient(135deg, rgba(11,21,56,0.80) 0%, rgba(27,42,78,0.70) 100%)',
-          border: '1px solid rgba(255,255,255,0.10)',
+          border: '1px solid var(--shell-border-mid)',
         }}
       />
       {/* Avatar overlapping banner bottom by 52px */}
@@ -106,9 +106,9 @@ function ProfileMeta({ profile }: { profile: UserProfile }) {
       </h2>
       <div className="flex flex-wrap items-center gap-2 mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
         {profile.designation && <span>{profile.designation}</span>}
-        {profile.designation && profile.department && <span style={{ color: 'rgba(255,255,255,0.20)' }}>·</span>}
+        {profile.designation && profile.department && <span style={{ color: 'var(--text-dim)' }}>·</span>}
         {profile.department && <span>{profile.department}</span>}
-        {(profile.designation || profile.department) && <span style={{ color: 'rgba(255,255,255,0.20)' }}>·</span>}
+        {(profile.designation || profile.department) && <span style={{ color: 'var(--text-dim)' }}>·</span>}
         <span className="font-mono">
           {profile.employeeId ?? profile.userId.slice(-8).toUpperCase()}
         </span>
@@ -173,16 +173,7 @@ function RegularizeModal({
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.60)', backdropFilter: 'blur(4px)' }}
     >
-      <div
-        className="w-full max-w-sm p-6 space-y-4 rounded-2xl"
-        style={{
-          backgroundColor:  'rgba(11,21,56,0.92)',
-          border:           '1px solid rgba(255,255,255,0.12)',
-          backdropFilter:   'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          boxShadow:        '0 24px 64px rgba(0,0,0,0.50)',
-        }}
-      >
+      <div className="glass-modal-panel w-full max-w-sm p-6 space-y-4">
         <div className="flex items-start justify-between">
           <div>
             <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
@@ -192,7 +183,7 @@ function RegularizeModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg transition-colors hover:bg-white/10"
+            className="p-1 rounded-lg transition-colors hover:bg-(--shell-hover-mid)"
             style={{ color: 'var(--text-muted)' }}
           >
             <X size={16} />
@@ -283,7 +274,7 @@ function RegularizeModal({
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 transition-all hover:brightness-110"
                 style={{
                   background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
-                  color: 'var(--text-primary)',
+                  color: '#0B1538',
                   border: '1px solid rgba(201,169,97,0.40)',
                 }}
               >
@@ -291,8 +282,8 @@ function RegularizeModal({
               </button>
               <button
                 onClick={onClose}
-                className="px-4 py-2.5 rounded-xl text-sm transition-colors hover:bg-white/10"
-                style={{ color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.12)' }}
+                className="px-4 py-2.5 rounded-xl text-sm transition-colors hover:bg-(--shell-hover-mid)"
+                style={{ color: 'var(--text-muted)', border: '1px solid var(--shell-border-mid)' }}
               >
                 Cancel
               </button>
@@ -423,11 +414,11 @@ export function AttendancePage() {
       {/* ── Today Card — mobile-first large clock-in ───────────────────── */}
       <div className="glass-panel overflow-hidden mb-6">
         {/* Dark header strip with live time */}
-        <div className="px-6 pt-5 pb-4" style={{ background: 'linear-gradient(135deg, rgba(11,21,56,0.90) 0%, rgba(27,42,78,0.80) 100%)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="px-6 pt-5 pb-4" style={{ background: 'linear-gradient(135deg, rgba(11,21,56,0.90) 0%, rgba(27,42,78,0.80) 100%)', borderBottom: '1px solid var(--shell-border)' }}>
           <p className="text-[10px] font-bold uppercase tracking-[0.3em] mb-2" style={{ color: '#C9A961' }}>
             Today — {format(today, 'EEEE, dd MMM yyyy')}
           </p>
-          <p className="text-3xl font-mono font-semibold" style={{ color: 'var(--text-primary)', letterSpacing: '0.05em' }}>
+          <p className="text-3xl font-mono font-semibold" style={{ color: '#f0ece0', letterSpacing: '0.05em' }}>
             {format(today, 'HH:mm')}
           </p>
         </div>
@@ -440,7 +431,7 @@ export function AttendancePage() {
           )}
 
           {todayLoading && (
-            <div className="h-14 rounded-2xl animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }} />
+            <div className="h-14 rounded-2xl animate-pulse" style={{ backgroundColor: 'var(--glass-panel-bg)' }} />
           )}
 
           {/* Not yet clocked in — big full-width button */}
@@ -451,7 +442,7 @@ export function AttendancePage() {
               className="w-full py-4 rounded-2xl font-bold transition-all hover:brightness-110 disabled:opacity-50 flex items-center justify-center gap-3"
               style={{
                 background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
-                color: 'var(--text-primary)',
+                color: '#0B1538',
                 border: '1px solid rgba(201,169,97,0.40)',
                 fontSize: '1.1rem',
               }}
@@ -479,9 +470,9 @@ export function AttendancePage() {
                 disabled={checkingOut}
                 className="w-full py-3.5 rounded-2xl font-bold transition-all hover:brightness-110 disabled:opacity-50"
                 style={{
-                  background: 'rgba(255,255,255,0.06)',
+                  background: 'var(--glass-panel-bg)',
                   color: 'var(--text-primary)',
-                  border: '1px solid rgba(255,255,255,0.15)',
+                  border: '1px solid var(--shell-border-mid)',
                   fontSize: '1rem',
                 }}
               >
@@ -512,7 +503,7 @@ export function AttendancePage() {
         <div className="flex items-center justify-between mb-5">
           <button
             onClick={goPrev}
-            className="p-1.5 rounded-lg transition-colors hover:bg-white/10"
+            className="p-1.5 rounded-lg transition-colors hover:bg-(--shell-hover-mid)"
             aria-label="Previous month"
           >
             <ChevronLeft size={18} style={{ color: 'var(--text-primary)' }} />
@@ -522,7 +513,7 @@ export function AttendancePage() {
           </span>
           <button
             onClick={goNext}
-            className="p-1.5 rounded-lg transition-colors hover:bg-white/10"
+            className="p-1.5 rounded-lg transition-colors hover:bg-(--shell-hover-mid)"
             aria-label="Next month"
             disabled={isSameDay(endOfMonth(viewDate), endOfMonth(today)) || viewDate > today}
           >
@@ -572,7 +563,7 @@ export function AttendancePage() {
               const isLeaveOrHoliday = rec?.status === 'leave' || rec?.status === 'holiday';
               const canRegularize = needsCorrection && !isLeaveOrHoliday;
 
-              let bgColor = 'rgba(255,255,255,0.03)';
+              let bgColor = 'var(--shell-hover-soft)';
               let dotColor: string | null = null;
 
               if (rec) {
@@ -580,7 +571,7 @@ export function AttendancePage() {
                 bgColor = st.bg;
                 dotColor = st.dot;
               } else if (isWknd) {
-                bgColor = 'rgba(255,255,255,0.015)';
+                bgColor = 'var(--shell-hover-soft)';
               }
 
               // Pending reg request turns the cell amber-tinted
@@ -634,7 +625,7 @@ export function AttendancePage() {
         )}
 
         {/* ── Summary row ────────────────────────────────────────────────── */}
-        <div className="mt-5 pt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-muted)' }}>
+        <div className="mt-5 pt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs" style={{ borderTop: '1px solid var(--shell-border)', color: 'var(--text-muted)' }}>
           {(
             [
               ['present',  'Present'],

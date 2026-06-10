@@ -198,7 +198,7 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
                       className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors"
                       style={{
                         backgroundColor: on ? 'rgba(201,169,97,0.15)' : '#fff',
-                        borderColor:     on ? '#C9A961' : '#E2E8F0',
+                        borderColor:     on ? '#C9A961' : 'var(--shell-border-mid)',
                         color:           on ? '#7A6030' : 'var(--text-muted)',
                       }}>
                       {on ? '✓ ' : ''}{CONVERTOR_VERTICAL_LABELS[v]}
@@ -404,7 +404,7 @@ function BulkEditConfirmModal({ count, newDept, newDesig, onConfirm, onCancel, b
       }>
       <div className="space-y-3 text-sm" style={{ color: 'var(--text-primary)' }}>
         <p>This will overwrite the current values for <strong>{count} employees</strong>:</p>
-        <div className="rounded-lg px-4 py-3 space-y-1" style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid #E2E8F0' }}>
+        <div className="rounded-lg px-4 py-3 space-y-1" style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid var(--shell-border)' }}>
           <p><span className="text-(--text-muted) font-medium">Department:</span> {newDept || <span className="text-(--text-muted) italic">unchanged</span>}</p>
           <p><span className="text-(--text-muted) font-medium">Designation:</span> {newDesig || <span className="text-(--text-muted) italic">unchanged</span>}</p>
         </div>
@@ -710,7 +710,7 @@ export function EmployeesPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left min-w-160">
                 <thead>
-                  <tr style={{ backgroundColor: 'var(--glass-panel-bg)', borderBottom: '1px solid #E2E8F0' }}>
+                  <tr style={{ backgroundColor: 'var(--glass-panel-bg)', borderBottom: '1px solid var(--shell-border)' }}>
                     {/* Select-all checkbox — admin/HR only */}
                     {canManage && (
                       <th className="px-4 py-3 w-10">
@@ -800,12 +800,12 @@ export function EmployeesPage() {
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1">
                               <button onClick={() => navigate(`/hrms/employees/${emp.userId}`)} title="View profile"
-                                className="p-1.5 text-(--text-muted) hover:text-slate-700 transition-colors">
+                                className="p-1.5 text-(--text-muted) hover:text-(--text-primary) transition-colors">
                                 <Eye size={14} />
                               </button>
                               {isAdmin && (
                                 <button onClick={() => setEditingEmployee(emp)} title="Edit employee"
-                                  className="p-1.5 text-(--text-muted) hover:text-slate-700 transition-colors">
+                                  className="p-1.5 text-(--text-muted) hover:text-(--text-primary) transition-colors">
                                   <Edit2 size={14} />
                                 </button>
                               )}

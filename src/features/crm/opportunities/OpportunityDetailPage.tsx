@@ -131,7 +131,7 @@ function ContactedForm({ value, onChange, errors }: {
               className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-all text-sm"
               style={{
                 border: value.contactType === key
-                  ? '1.5px solid #C9A961' : '1px solid rgba(255,255,255,0.10)',
+                  ? '1.5px solid #C9A961' : '1px solid var(--shell-border-mid)',
                 backgroundColor: value.contactType === key
                   ? 'rgba(201,169,97,0.12)' : 'transparent',
                 color: 'var(--text-primary)',
@@ -219,12 +219,12 @@ function DocumentsCollectedForm({ value, onChange, product }: {
         {docs.map((d, i) => (
           <div key={i}
             className="flex items-center gap-2 rounded-xl px-3 py-2 transition-colors"
-            style={{ backgroundColor: d.collected ? 'rgba(52,211,153,0.06)' : 'rgba(255,255,255,0.03)' }}>
+            style={{ backgroundColor: d.collected ? 'rgba(52,211,153,0.06)' : 'var(--shell-hover-soft)' }}>
             <button type="button" onClick={() => setDoc(i, { collected: !d.collected })}
               className="shrink-0 transition-colors">
               {d.collected
                 ? <CheckCircle2 size={18} style={{ color: '#34d399' }} />
-                : <Circle size={18} style={{ color: 'rgba(255,255,255,0.25)' }} />}
+                : <Circle size={18} style={{ color: 'var(--text-dim)' }} />}
             </button>
             <span className="flex-1 text-sm" style={{ color: d.collected ? 'var(--text-primary)' : 'var(--text-muted)' }}>
               {d.name}
@@ -233,7 +233,7 @@ function DocumentsCollectedForm({ value, onChange, product }: {
               <select value={d.receivedVia}
                 onChange={e => setDoc(i, { receivedVia: e.target.value as DocItem['receivedVia'] })}
                 className="text-xs px-2 py-1 rounded-lg outline-none cursor-pointer"
-                style={{ backgroundColor: 'rgba(255,255,255,0.08)', color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                style={{ backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-muted)', border: '1px solid var(--shell-border-mid)' }}>
                 <option value="">via…</option>
                 <option value="whatsapp">WhatsApp</option>
                 <option value="email">Email</option>
@@ -492,7 +492,7 @@ function DisbursedForm({ value, onChange, errors }: {
 }) {
   return (
     <div className="space-y-4">
-      <p className="text-xs pb-3" style={{ color: 'var(--text-muted)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <p className="text-xs pb-3" style={{ color: 'var(--text-muted)', borderBottom: '1px solid var(--shell-border)' }}>
         Fill in the disbursal details. Fields pre-filled from the submission record where available.
       </p>
       <div className="grid grid-cols-2 gap-3">
@@ -759,10 +759,10 @@ function StageAdvanceModal({ targetStage, opportunityType, product, existingStag
         </div>
 
         {/* Footer */}
-        <div className="flex gap-3 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="flex gap-3 pt-4" style={{ borderTop: '1px solid var(--shell-border)' }}>
           <button onClick={onCancel} type="button"
-            className="flex-1 px-4 py-2.5 text-sm border rounded-xl hover:bg-white/5 transition-colors"
-            style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>
+            className="flex-1 px-4 py-2.5 text-sm border rounded-xl hover:bg-(--shell-hover-soft) transition-colors"
+            style={{ color: 'var(--text-muted)', borderColor: 'var(--shell-border-mid)' }}>
             Cancel
           </button>
           <button onClick={handleConfirm} disabled={saving} type="button"
@@ -826,16 +826,16 @@ function StageDataHistory({ stages, stageData }: {
           <div className="space-y-1 max-h-48 overflow-y-auto">
             {docs.map((doc, i) => (
               <div key={i} className="flex items-center gap-2 text-xs py-1"
-                style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                style={{ borderBottom: '1px solid var(--shell-border)' }}>
                 {doc.collected
                   ? <CheckCircle2 size={13} style={{ color: '#34d399' }} />
-                  : <Circle size={13} style={{ color: 'rgba(255,255,255,0.25)' }} />}
+                  : <Circle size={13} style={{ color: 'var(--text-dim)' }} />}
                 <span className="flex-1" style={{ color: doc.collected ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                   {doc.name}
                 </span>
                 {doc.collected && doc.receivedVia && (
                   <span className="px-1.5 py-0.5 rounded text-[10px]"
-                    style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)' }}>
+                    style={{ backgroundColor: 'var(--glass-panel-bg)', color: 'var(--text-muted)' }}>
                     {viaLabel[doc.receivedVia] ?? doc.receivedVia}
                   </span>
                 )}
@@ -861,7 +861,7 @@ function StageDataHistory({ stages, stageData }: {
           </div>
           {(d.smName || d.smEmail || d.smPhone) && (
             <div className="rounded-lg px-3 py-2 text-xs space-y-0.5"
-              style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              style={{ backgroundColor: 'var(--shell-hover-soft)', border: '1px solid var(--shell-border)' }}>
               <p className="font-bold uppercase tracking-widest mb-1" style={{ color: '#C9A961' }}>SM</p>
               {d.smName && <p style={{ color: 'var(--text-primary)' }}>{d.smName}</p>}
               {d.smEmail && <p style={{ color: 'var(--text-muted)' }}>{d.smEmail}</p>}
@@ -870,7 +870,7 @@ function StageDataHistory({ stages, stageData }: {
           )}
           {(d.asmName || d.asmEmail || d.asmPhone) && (
             <div className="rounded-lg px-3 py-2 text-xs space-y-0.5"
-              style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              style={{ backgroundColor: 'var(--shell-hover-soft)', border: '1px solid var(--shell-border)' }}>
               <p className="font-bold uppercase tracking-widest mb-1" style={{ color: '#C9A961' }}>ASM</p>
               {d.asmName && <p style={{ color: 'var(--text-primary)' }}>{d.asmName}</p>}
               {d.asmEmail && <p style={{ color: 'var(--text-muted)' }}>{d.asmEmail}</p>}
@@ -954,7 +954,7 @@ function StageDataHistory({ stages, stageData }: {
             </div>
           ))}
           {d.notes && (
-            <div className="px-4 py-2.5" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="px-4 py-2.5" style={{ borderTop: '1px solid var(--shell-border)' }}>
               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{d.notes}</p>
             </div>
           )}
@@ -977,10 +977,10 @@ function StageDataHistory({ stages, stageData }: {
           const isOpen = expanded === stage;
           return (
             <div key={stage} className="rounded-xl overflow-hidden"
-              style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+              style={{ border: '1px solid var(--shell-border)' }}>
               <button
                 onClick={() => toggle(stage)}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/3 transition-colors"
+                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-(--shell-hover-soft) transition-colors"
               >
                 <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{stage}</span>
                 {isOpen
@@ -988,7 +988,7 @@ function StageDataHistory({ stages, stageData }: {
                   : <ChevronDown size={15} style={{ color: 'var(--text-muted)' }} />}
               </button>
               {isOpen && (
-                <div className="px-4 pb-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="px-4 pb-4" style={{ borderTop: '1px solid var(--shell-border)' }}>
                   <div className="pt-3">
                     {renderBody(stage)}
                   </div>
@@ -1076,8 +1076,8 @@ function LostReasonModal({ onConfirm, onCancel, loading }: {
         </div>
         <div className="flex gap-3 pt-1">
           <button onClick={onCancel}
-            className="flex-1 px-4 py-2.5 text-sm border rounded-xl hover:bg-white/5 transition-colors"
-            style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>
+            className="flex-1 px-4 py-2.5 text-sm border rounded-xl hover:bg-(--shell-hover-soft) transition-colors"
+            style={{ color: 'var(--text-muted)', borderColor: 'var(--shell-border-mid)' }}>
             Cancel
           </button>
           <button onClick={handleConfirm} disabled={!reason || loading}
@@ -1105,7 +1105,7 @@ function StageStepper({ stages, current, isLost }: { stages: string[]; current: 
             <div className="flex flex-col items-center min-w-15">
               <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                 style={{
-                  backgroundColor: done ? '#C9A961' : active ? '#C9A961' : 'rgba(255,255,255,0.08)',
+                  backgroundColor: done ? '#C9A961' : active ? '#C9A961' : 'var(--shell-hover-hard)',
                   color: done ? '#0B1538' : active ? '#0B1538' : 'var(--text-dim)',
                 }}>
                 {done ? '✓' : i + 1}
@@ -1117,7 +1117,7 @@ function StageStepper({ stages, current, isLost }: { stages: string[]; current: 
             </div>
             {i < stages.length - 1 && (
               <div className="w-6 h-0.5 mb-5 shrink-0"
-                style={{ backgroundColor: done ? '#C9A961' : 'rgba(255,255,255,0.08)' }} />
+                style={{ backgroundColor: done ? '#C9A961' : 'var(--shell-hover-hard)' }} />
             )}
           </div>
         );
@@ -1233,9 +1233,9 @@ export function OpportunityDetailPage() {
   if (loading || !opportunity) {
     return (
       <div className="max-w-3xl mx-auto animate-pulse space-y-4">
-        <div className="h-5 rounded w-32" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-        <div className="h-8 rounded w-48" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-        <div className="h-40 rounded-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }} />
+        <div className="h-5 rounded w-32" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
+        <div className="h-8 rounded w-48" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
+        <div className="h-40 rounded-2xl" style={{ backgroundColor: 'var(--glass-panel-bg)' }} />
       </div>
     );
   }
@@ -1422,7 +1422,7 @@ export function OpportunityDetailPage() {
             <p className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>No activity yet.</p>
           ) : activities.map((a, idx) => (
             <div key={a.id} className="flex gap-3 py-3"
-              style={{ borderBottom: idx < activities.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+              style={{ borderBottom: idx < activities.length - 1 ? '1px solid var(--shell-border)' : 'none' }}>
               <span className="text-base shrink-0 mt-0.5">{ACTIVITY_ICONS[a.type] ?? '📌'}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{a.content}</p>

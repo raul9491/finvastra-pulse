@@ -151,7 +151,7 @@ function Step({ n, label, done, active }: { n: number; label: string; done: bool
     <div className="flex items-center gap-2">
       <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
         style={{
-          backgroundColor: done ? '#D1FAE5' : active ? '#0B1538' : '#F1F5F9',
+          backgroundColor: done ? '#D1FAE5' : active ? '#0B1538' : 'var(--shell-hover-hard)',
           color: done ? '#065F46' : active ? '#C9A961' : 'var(--text-muted)',
         }}>
         {done ? '✓' : n}
@@ -458,7 +458,7 @@ export function ImportEmployeesPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #E2E8F0', backgroundColor: 'var(--glass-panel-bg)' }}>
+                  <tr style={{ borderBottom: '1px solid var(--shell-border)', backgroundColor: 'var(--glass-panel-bg)' }}>
                     {['Emp Code', 'Name', 'Status', 'Department', 'Designation', 'In System?', 'Fields'].map((h) => (
                       <th key={h} className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{h}</th>
                     ))}
@@ -468,7 +468,7 @@ export function ImportEmployeesPage() {
                   {employees.map((emp, idx) => (
                     <tr key={emp.empCode}
                       style={{
-                        borderBottom: idx < employees.length - 1 ? '1px solid #F1F5F9' : 'none',
+                        borderBottom: idx < employees.length - 1 ? '1px solid var(--shell-border)' : 'none',
                         opacity: emp.status === 'inactive' ? 0.55 : 1,
                       }}>
                       <td className="px-4 py-2.5 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>{emp.empCode}</td>
@@ -529,7 +529,7 @@ export function ImportEmployeesPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #E2E8F0', backgroundColor: 'var(--glass-panel-bg)' }}>
+                  <tr style={{ borderBottom: '1px solid var(--shell-border)', backgroundColor: 'var(--glass-panel-bg)' }}>
                     {['Emp Code', 'Name', 'Result', 'Note'].map((h) => (
                       <th key={h} className="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{h}</th>
                     ))}
@@ -537,7 +537,7 @@ export function ImportEmployeesPage() {
                 </thead>
                 <tbody>
                   {results.map((r, idx) => (
-                    <tr key={r.empCode} style={{ borderBottom: idx < results.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
+                    <tr key={r.empCode} style={{ borderBottom: idx < results.length - 1 ? '1px solid var(--shell-border)' : 'none' }}>
                       <td className="px-4 py-2.5 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>{r.empCode}</td>
                       <td className="px-4 py-2.5 text-sm" style={{ color: 'var(--text-primary)' }}>{r.name}</td>
                       <td className="px-4 py-2.5">

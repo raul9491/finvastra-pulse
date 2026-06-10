@@ -6,7 +6,7 @@ function SkeletonBase({ className }: { className?: string }) {
   return (
     <div
       className={cn('animate-pulse rounded-md', className)}
-      style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
+      style={{ backgroundColor: 'var(--shell-hover-hard)' }}
     />
   );
 }
@@ -24,7 +24,7 @@ function SkeletonText({ lines = 1, className }: { lines?: number; className?: st
             'h-4 animate-pulse rounded',
             i === lines - 1 && lines > 1 ? 'w-3/4' : 'w-full',
           )}
-          style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
+          style={{ backgroundColor: 'var(--shell-hover-hard)' }}
         />
       ))}
     </div>
@@ -37,13 +37,13 @@ function SkeletonCard({ className }: { className?: string }) {
     <div
       className={cn('rounded-2xl p-5 space-y-3', className)}
       style={{
-        backgroundColor: 'rgba(255,255,255,0.04)',
-        border:          '1px solid rgba(255,255,255,0.08)',
+        backgroundColor: 'var(--shell-hover-soft)',
+        border:          '1px solid var(--shell-border)',
       }}
     >
-      <div className="h-3 w-1/3 animate-pulse rounded" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-      <div className="h-8 w-2/3 animate-pulse rounded" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-      <div className="h-3 w-1/2 animate-pulse rounded" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+      <div className="h-3 w-1/3 animate-pulse rounded" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
+      <div className="h-8 w-2/3 animate-pulse rounded" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
+      <div className="h-3 w-1/2 animate-pulse rounded" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
     </div>
   );
 }
@@ -56,7 +56,7 @@ function SkeletonRow({ cols = 6 }: { cols?: number }) {
         <td key={i} className="px-6 py-4">
           <div
             className="h-4 animate-pulse rounded"
-            style={{ width: i === cols - 1 ? 80 : '100%', backgroundColor: 'rgba(255,255,255,0.08)' }}
+            style={{ width: i === cols - 1 ? 80 : '100%', backgroundColor: 'var(--shell-hover-hard)' }}
           />
         </td>
       ))}

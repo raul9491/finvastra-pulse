@@ -60,7 +60,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: 80, scale: 0.95 }}
       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-      className={`flex items-start gap-3 w-80 p-4 rounded-2xl shadow-xl ${cfg.bg} ${cfg.border} border border-slate-100`}
+      className={`flex items-start gap-3 w-80 p-4 rounded-2xl shadow-xl ${cfg.bg} ${cfg.border} border border-(--shell-border)`}
     >
       {cfg.icon}
       <div className="flex-1 min-w-0">
@@ -69,11 +69,11 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
             {toast.title}
           </p>
         )}
-        <p className="text-sm font-medium text-slate-700 leading-snug">{toast.message}</p>
+        <p className="text-sm font-medium text-(--text-primary) leading-snug">{toast.message}</p>
       </div>
       <button
         onClick={() => onDismiss(toast.id)}
-        className="p-1 text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0"
+        className="p-1 text-(--text-muted) hover:text-(--text-muted) transition-colors flex-shrink-0"
       >
         <X className="w-4 h-4" />
       </button>

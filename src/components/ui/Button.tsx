@@ -43,9 +43,9 @@ const variantStyle: Record<Variant, React.CSSProperties> = {
     boxShadow:    '0 2px 12px rgba(201,169,97,0.20)',
   },
   secondary: {
-    background:   'rgba(255,255,255,0.07)',
+    background:   'var(--glass-panel-bg)',
     color:        'var(--text-primary)',
-    border:       '1px solid rgba(255,255,255,0.12)',
+    border:       '1px solid var(--shell-border-mid)',
     backdropFilter: 'blur(8px)',
   },
   danger: {

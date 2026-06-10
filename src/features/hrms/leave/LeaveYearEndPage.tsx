@@ -269,7 +269,7 @@ export function LeaveYearEndPage() {
               </thead>
               <tbody>
                 {displayRows.map((row) => (
-                  <tr key={row.empId} className="border-b border-slate-50 hover:bg-(--glass-panel-bg)/50">
+                  <tr key={row.empId} className="border-b border-(--shell-border) hover:bg-(--glass-panel-bg)/50">
                     <td className="px-4 py-3">
                       <p className="font-medium text-(--text-primary)">{row.name}</p>
                       <p className="text-[11px] text-(--text-muted)">{row.empCode}</p>
@@ -279,7 +279,7 @@ export function LeaveYearEndPage() {
                     <td className="px-4 py-3 text-center text-(--text-muted)">{row.prevElRemain}</td>
                     <td className="px-4 py-3 text-center">
                       <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                        style={{ backgroundColor: row.elCarryForward > 0 ? '#FEF3C7' : '#F1F5F9', color: row.elCarryForward > 0 ? '#92400E' : 'var(--text-muted)' }}>
+                        style={{ backgroundColor: row.elCarryForward > 0 ? '#FEF3C7' : 'var(--shell-hover-hard)', color: row.elCarryForward > 0 ? '#92400E' : 'var(--text-muted)' }}>
                         {row.elCarryForward}
                       </span>
                     </td>

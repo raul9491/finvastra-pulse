@@ -20,7 +20,7 @@ const variantStyles: Record<Variant, string> = {
   red:    'bg-[rgba(248,113,113,0.15)] text-[#f87171]',
   blue:   'bg-[rgba(96,165,250,0.15)]  text-[#60a5fa]',
   navy:   'bg-[rgba(201,169,97,0.15)]  text-[#C9A961]',
-  muted:  'bg-[rgba(255,255,255,0.08)] text-[rgba(240,236,224,0.50)]',
+  muted:  'bg-(--shell-hover-hard) text-(--text-muted)',
 };
 
 const dotColors: Record<Variant, string> = {
@@ -29,7 +29,7 @@ const dotColors: Record<Variant, string> = {
   red:    'bg-[#f87171]',
   blue:   'bg-[#60a5fa]',
   navy:   'bg-[#C9A961]',
-  muted:  'bg-[rgba(240,236,224,0.35)]',
+  muted:  'bg-(--text-dim)',
 };
 
 const sizeStyles: Record<Size, string> = {

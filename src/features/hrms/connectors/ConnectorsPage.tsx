@@ -30,7 +30,7 @@ const VL: Record<ConnectorVertical, { label: string; color: string }> = {
 };
 const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 
-const inp = 'w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border rounded-lg outline-none focus:border-slate-400';
+const inp = 'w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border rounded-lg outline-none focus:border-(--shell-border-mid)';
 const inpCls = (err?: string) => `${inp} ${err ? 'border-red-400' : 'border-(--shell-border)'}`;
 const labelCls = 'block text-xs font-semibold uppercase tracking-widest mb-1';
 const rupee = (n: number) => `₹${n.toLocaleString('en-IN')}`;
@@ -354,7 +354,7 @@ function ConnectorDetailModal({ connector, uid, onEdit, onClose }: {
               style={{ backgroundColor: `${VL[v].color}1A`, color: VL[v].color }}>{VL[v].label}</span>
           ))}
           <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full"
-            style={{ backgroundColor: connector.status === 'active' ? '#D1FAE5' : '#F1F5F9', color: connector.status === 'active' ? '#065F46' : '#64748B' }}>
+            style={{ backgroundColor: connector.status === 'active' ? '#D1FAE5' : 'var(--shell-hover-hard)', color: connector.status === 'active' ? '#065F46' : '#64748B' }}>
             {connector.status}
           </span>
         </div>
@@ -596,7 +596,7 @@ export function ConnectorsPage() {
                 const pending = pendingByConnector.get(c.id) ?? 0;
                 return (
                   <tr key={c.id} onClick={() => setDetailFor(c)}
-                    className="cursor-pointer hover:bg-white/5 transition-colors"
+                    className="cursor-pointer hover:bg-(--shell-hover-soft) transition-colors"
                     style={{ borderBottom: '1px solid var(--shell-border)', opacity: c.status === 'inactive' ? 0.55 : 1 }}>
                     <td className="px-4 py-3 text-sm font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{c.connectorCode}</td>
                     <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-primary)' }}>
@@ -613,12 +613,12 @@ export function ConnectorsPage() {
                     <td className="px-4 py-3 text-sm font-semibold" style={{ color: pending > 0 ? '#92400E' : 'var(--text-muted)' }}>{pending > 0 ? rupee(pending) : '—'}</td>
                     <td className="px-4 py-3">
                       <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
-                        style={{ backgroundColor: c.status === 'active' ? '#D1FAE5' : '#F1F5F9', color: c.status === 'active' ? '#065F46' : '#64748B' }}>{c.status}</span>
+                        style={{ backgroundColor: c.status === 'active' ? '#D1FAE5' : 'var(--shell-hover-hard)', color: c.status === 'active' ? '#065F46' : '#64748B' }}>{c.status}</span>
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                      <button onClick={() => setFormFor(c)} className="p-1.5 rounded-lg hover:bg-white/10" title="Edit" style={{ color: 'var(--text-muted)' }}><Edit2 size={14} /></button>
+                      <button onClick={() => setFormFor(c)} className="p-1.5 rounded-lg hover:bg-(--shell-hover-mid)" title="Edit" style={{ color: 'var(--text-muted)' }}><Edit2 size={14} /></button>
                       <button onClick={() => { if (window.confirm(`Remove ${c.displayName}? Their payout history is kept.`)) deleteConnector(c.id); }}
-                        className="p-1.5 rounded-lg hover:bg-white/10" title="Remove" style={{ color: '#DC2626' }}><Trash2 size={14} /></button>
+                        className="p-1.5 rounded-lg hover:bg-(--shell-hover-mid)" title="Remove" style={{ color: '#DC2626' }}><Trash2 size={14} /></button>
                     </td>
                   </tr>
                 );

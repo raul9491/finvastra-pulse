@@ -17,10 +17,10 @@ export function NavItem({ icon, label, active, expanded, onClick, badge }: NavIt
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative ${
         active
           ? 'bg-navy text-gold shadow-[0_2px_8px_rgba(11,21,56,0.2)]'
-          : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+          : 'text-(--text-muted) hover:bg-(--shell-hover-mid) hover:text-(--text-primary)'
       }`}
     >
-      <div className={`shrink-0 ${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`}>
+      <div className={`shrink-0 ${active ? 'text-white' : 'text-(--text-muted) group-hover:text-(--text-muted)'}`}>
         {icon}
       </div>
 

@@ -56,7 +56,7 @@ export function AddBankSubmissionModal({ isOpen, onClose, leadId, oppId, existin
     }
   };
 
-  const inputClass = "w-full px-3.5 py-3 text-sm bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:bg-white transition-colors";
+  const inputClass = "w-full px-3.5 py-3 text-sm bg-(--shell-hover-soft) border border-(--shell-border-mid) rounded-lg outline-none focus:ring-2 focus:bg-(--ss-bg) transition-colors";
 
   return (
     <Modal
@@ -67,8 +67,8 @@ export function AddBankSubmissionModal({ isOpen, onClose, leadId, oppId, existin
       footer={
         <>
           <button onClick={handleClose}
-            className="px-5 py-2.5 text-sm border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
-            style={{ color: '#2A2A2A' }}>
+            className="px-5 py-2.5 text-sm border border-(--shell-border-mid) rounded-xl hover:bg-(--shell-hover-soft) transition-colors"
+            style={{ color: 'var(--text-primary)' }}>
             Cancel
           </button>
           <button onClick={handleSubmit} disabled={saving}
@@ -82,7 +82,7 @@ export function AddBankSubmissionModal({ isOpen, onClose, leadId, oppId, existin
       <div className="space-y-4">
         <div>
           <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5"
-            style={{ color: '#8B8B85' }}>Bank *</label>
+            style={{ color: 'var(--text-muted)' }}>Bank *</label>
           {banks.length === 0 ? (
             <div className="text-sm p-3 rounded-lg" style={{ backgroundColor: '#FFF1F2', color: '#9F1239' }}>
               No banks configured for this loan type. Ask your admin to update provider settings.
@@ -106,7 +106,7 @@ export function AddBankSubmissionModal({ isOpen, onClose, leadId, oppId, existin
 
         <div>
           <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5"
-            style={{ color: '#8B8B85' }}>Requested Amount ₹</label>
+            style={{ color: 'var(--text-muted)' }}>Requested Amount ₹</label>
           <input type="number" value={requestedAmount}
             onChange={(e) => setRequestedAmount(e.target.value)}
             placeholder="Optional — e.g. 5000000"
@@ -115,7 +115,7 @@ export function AddBankSubmissionModal({ isOpen, onClose, leadId, oppId, existin
 
         <div>
           <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5"
-            style={{ color: '#8B8B85' }}>Notes</label>
+            style={{ color: 'var(--text-muted)' }}>Notes</label>
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)}
             rows={2} placeholder="Any bank-specific context…"
             className={`${inputClass} resize-none`} />

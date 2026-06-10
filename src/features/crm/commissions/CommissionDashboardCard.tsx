@@ -36,7 +36,7 @@ export function CommissionDashboardCard() {
   return (
     <button
       onClick={() => navigate('/crm/commissions')}
-      className="group w-full text-left glass-panel glass-card p-6 hover:bg-white/5 transition-all"
+      className="group w-full text-left glass-panel glass-card p-6 hover:bg-(--shell-hover-soft) transition-all"
     >
       <div className="flex items-start justify-between mb-4">
         <div>

@@ -56,8 +56,8 @@ function KanbanCard({ row, rmName, onClick }: KanbanCardProps) {
       onClick={onClick}
       className="rounded-xl cursor-pointer transition-all hover:scale-[1.01] hover:shadow-lg"
       style={{
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        border: '1px solid rgba(255,255,255,0.10)',
+        backgroundColor: 'var(--glass-panel-bg)',
+        border: '1px solid var(--shell-border-mid)',
         borderLeft: `3px solid ${tc.border}`,
         padding: '12px 14px',
       }}
@@ -149,8 +149,8 @@ function KanbanColumn({ stage, accentColor, cards, rmMap, onCardClick }: KanbanC
       className="flex flex-col shrink-0 rounded-2xl"
       style={{
         width: 270,
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.07)',
+        backgroundColor: 'var(--shell-hover-soft)',
+        border: '1px solid var(--shell-border)',
       }}
     >
       {/* Column header */}
@@ -158,7 +158,7 @@ function KanbanColumn({ stage, accentColor, cards, rmMap, onCardClick }: KanbanC
         className="px-4 py-3 rounded-t-2xl"
         style={{
           borderBottom: `2px solid ${accentColor}`,
-          backgroundColor: 'rgba(255,255,255,0.04)',
+          backgroundColor: 'var(--shell-hover-soft)',
         }}
       >
         <div className="flex items-center justify-between mb-0.5">
@@ -187,7 +187,7 @@ function KanbanColumn({ stage, accentColor, cards, rmMap, onCardClick }: KanbanC
       >
         {cards.length === 0 ? (
           <div className="flex items-center justify-center h-16">
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.18)' }}>Empty</p>
+            <p className="text-xs" style={{ color: 'var(--text-dim)' }}>Empty</p>
           </div>
         ) : (
           cards.map((row) => (
@@ -280,7 +280,7 @@ export function PipelinePage() {
   }, [filtered]);
 
   const chipBase     = 'text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors cursor-pointer select-none';
-  const chipInactive = 'hover:bg-white/5';
+  const chipInactive = 'hover:bg-(--shell-hover-soft)';
 
   return (
     <div className="flex flex-col h-full" style={{ minHeight: 0 }}>
@@ -305,14 +305,14 @@ export function PipelinePage() {
           {/* Board / Table toggle */}
           <div
             className="flex gap-1 rounded-lg p-1 shrink-0"
-            style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}
+            style={{ backgroundColor: 'var(--glass-panel-bg)' }}
           >
             <button
               onClick={() => setViewMode('board')}
               title="Board view"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
               style={{
-                backgroundColor: viewMode === 'board' ? 'rgba(255,255,255,0.12)' : 'transparent',
+                backgroundColor: viewMode === 'board' ? 'var(--shell-hover-hard)' : 'transparent',
                 color: viewMode === 'board' ? 'var(--text-primary)' : 'var(--text-muted)',
               }}
             >
@@ -323,7 +323,7 @@ export function PipelinePage() {
               title="Table view"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
               style={{
-                backgroundColor: viewMode === 'table' ? 'rgba(255,255,255,0.12)' : 'transparent',
+                backgroundColor: viewMode === 'table' ? 'var(--shell-hover-hard)' : 'transparent',
                 color: viewMode === 'table' ? 'var(--text-primary)' : 'var(--text-muted)',
               }}
             >
@@ -379,7 +379,7 @@ export function PipelinePage() {
                 className={`${chipBase} ${typeFilter === t ? '' : chipInactive}`}
                 style={typeFilter === t
                   ? { backgroundColor: '#C9A961', color: '#0B1538', borderColor: '#C9A961' }
-                  : { backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }
+                  : { backgroundColor: 'var(--glass-panel-bg)', color: 'var(--text-muted)', borderColor: 'var(--shell-border-mid)' }
                 }
               >
                 {t === 'all' ? 'All types' : TYPE_LABELS[t]}
@@ -412,7 +412,7 @@ export function PipelinePage() {
                 <div
                   key={i}
                   className="shrink-0 rounded-2xl animate-pulse"
-                  style={{ width: 270, height: 400, backgroundColor: 'rgba(255,255,255,0.05)' }}
+                  style={{ width: 270, height: 400, backgroundColor: 'var(--glass-panel-bg)' }}
                 />
               ))}
             </div>
@@ -460,7 +460,7 @@ export function PipelinePage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                  <tr style={{ borderBottom: '1px solid var(--shell-border)', backgroundColor: 'var(--shell-hover-soft)' }}>
                     {['Customer', 'Product', 'Type', 'Stage', 'Deal Size', 'RM', 'Expected Close', 'Age'].map((h) => (
                       <th
                         key={h}
@@ -485,8 +485,8 @@ export function PipelinePage() {
                       <tr
                         key={row.oppId}
                         onClick={() => navigate(`/crm/leads/${row.leadId}/opportunities/${row.oppId}`)}
-                        className="cursor-pointer transition-colors hover:bg-white/5"
-                        style={{ borderBottom: idx < filtered.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}
+                        className="cursor-pointer transition-colors hover:bg-(--shell-hover-soft)"
+                        style={{ borderBottom: idx < filtered.length - 1 ? '1px solid var(--shell-border)' : 'none' }}
                       >
                         <td className="px-5 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>
                           {row.leadDisplayName}

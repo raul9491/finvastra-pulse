@@ -165,8 +165,8 @@ function AddSlabModal({ isOpen, onClose, existingSlab, employees, createdBy }: A
         <>
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-semibold rounded-lg hover:bg-white/5 transition-colors"
-            style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
+            className="px-4 py-2 text-sm font-semibold rounded-lg hover:bg-(--shell-hover-soft) transition-colors"
+            style={{ border: '1px solid var(--shell-border-mid)', color: 'var(--text-primary)' }}
           >
             Cancel
           </button>
@@ -369,8 +369,8 @@ export function PayoutSlabsPage() {
             <button
               onClick={handleSeedDefaults}
               disabled={seeding}
-              className="px-4 py-2 text-sm font-semibold rounded-lg hover:bg-white/5 transition-colors disabled:opacity-50"
-              style={{ color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.15)' }}
+              className="px-4 py-2 text-sm font-semibold rounded-lg hover:bg-(--shell-hover-soft) transition-colors disabled:opacity-50"
+              style={{ color: 'var(--text-muted)', border: '1px solid var(--shell-border-mid)' }}
             >
               {seeding ? 'Seeding…' : 'Seed Defaults'}
             </button>
@@ -410,7 +410,7 @@ export function PayoutSlabsPage() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
                 <th className="px-5 py-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Target</th>
                 <th className="px-5 py-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Type</th>
                 <th className="px-5 py-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Business Line</th>
@@ -425,8 +425,8 @@ export function PayoutSlabsPage() {
               {slabs.map((slab) => (
                 <tr
                   key={slab.id}
-                  className="hover:bg-white/5 transition-colors"
-                  style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                  className="hover:bg-(--shell-hover-soft) transition-colors"
+                  style={{ borderBottom: '1px solid var(--shell-border)' }}
                 >
                   <td className="px-5 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>
                     {targetLabel(slab)}
@@ -453,14 +453,14 @@ export function PayoutSlabsPage() {
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => handleToggleActive(slab)}
-                        className="text-xs px-2.5 py-1 rounded-md hover:bg-white/5 transition-colors"
-                        style={{ color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.15)' }}
+                        className="text-xs px-2.5 py-1 rounded-md hover:bg-(--shell-hover-soft) transition-colors"
+                        style={{ color: 'var(--text-muted)', border: '1px solid var(--shell-border-mid)' }}
                       >
                         {slab.active ? 'Deactivate' : 'Activate'}
                       </button>
                       <button
                         onClick={() => { setEditSlab(slab); setShowAddModal(true); }}
-                        className="text-xs px-2.5 py-1 rounded-md hover:bg-white/5 transition-colors"
+                        className="text-xs px-2.5 py-1 rounded-md hover:bg-(--shell-hover-soft) transition-colors"
                         style={{ color: '#C9A961', border: '1px solid rgba(201,169,97,0.30)' }}
                       >
                         Edit

@@ -17,7 +17,7 @@ import type { JobOpening, JobOpeningStatus, Candidate, CandidateStage, Candidate
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STAGES: { value: CandidateStage; label: string; color: string; bg: string }[] = [
-  { value: 'applied',     label: 'Applied',     color: 'var(--text-muted)', bg: '#F1F5F9' },
+  { value: 'applied',     label: 'Applied',     color: 'var(--text-muted)', bg: 'var(--shell-hover-hard)' },
   { value: 'shortlisted', label: 'Shortlisted', color: '#1D4ED8', bg: '#DBEAFE' },
   { value: 'interview_1', label: 'Interview I',  color: '#7C3AED', bg: '#EDE9FE' },
   { value: 'interview_2', label: 'Interview II', color: '#9333EA', bg: '#F3E8FF' },
@@ -61,7 +61,7 @@ function StagePill({ stage }: { stage: CandidateStage }) {
   );
 }
 
-const inp  = 'w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border border-(--shell-border) rounded-lg outline-none focus:border-slate-400';
+const inp  = 'w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border border-(--shell-border) rounded-lg outline-none focus:border-(--shell-border-mid)';
 const sel  = `${inp} cursor-pointer`;
 const lbl  = 'block text-xs font-semibold uppercase tracking-wider text-muted mb-1.5';
 
@@ -674,7 +674,7 @@ export function RecruitmentPage() {
             <div className="flex gap-1 flex-wrap">
               <button onClick={() => setStageFilter('all')}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                style={{ background: stageFilter === 'all' ? '#0B1538' : '#F1F5F9', color: stageFilter === 'all' ? '#FFFFFF' : 'var(--text-muted)' }}>
+                style={{ background: stageFilter === 'all' ? '#0B1538' : 'var(--shell-hover-hard)', color: stageFilter === 'all' ? '#FFFFFF' : 'var(--text-muted)' }}>
                 All
               </button>
               {STAGES.map(s => (

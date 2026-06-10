@@ -48,7 +48,7 @@ function TrainingCard({ record, renewalMonths }: { record: TrainingRecord & { ef
     s === 'expired'  ? '#DC2626' :
     expiringSoon     ? '#D97706' :
     s === 'enrolled' ? '#D97706' :
-                       '#E2E8F0';
+                       'var(--shell-hover-hard)';
 
   const headerBg =
     s === 'expired'  ? '#FFF1F2' :

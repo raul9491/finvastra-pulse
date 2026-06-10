@@ -681,7 +681,7 @@ export function AdminAttendancePage() {
                       <>
                         <tr
                           key={emp.userId}
-                          className="border-b border-slate-50 hover:bg-(--glass-panel-bg) transition-colors"
+                          className="border-b border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors"
                         >
                           {/* Employee name */}
                           <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>

@@ -112,7 +112,7 @@ export function LineMatchModal({ isOpen, onClose, statementId, line, reconciledB
         {/* ── Statement line summary ── */}
         <div
           className="rounded-xl p-4"
-          style={{ border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.04)' }}
+          style={{ border: '1px solid var(--shell-border-mid)', backgroundColor: 'var(--shell-hover-soft)' }}
         >
           <p
             className="text-xs font-semibold uppercase tracking-wide mb-3"
@@ -168,7 +168,7 @@ export function LineMatchModal({ isOpen, onClose, statementId, line, reconciledB
           {!recordsLoading && filtered.length > 0 && (
             <div
               className="max-h-64 overflow-y-auto rounded-lg"
-              style={{ border: '1px solid rgba(255,255,255,0.12)' }}
+              style={{ border: '1px solid var(--shell-border-mid)' }}
             >
               {filtered.map((record) => {
                 const isSelected = selected?.id === record.id;
@@ -180,9 +180,9 @@ export function LineMatchModal({ isOpen, onClose, statementId, line, reconciledB
                     className="w-full text-left px-4 py-3 text-sm transition-colors"
                     style={{
                       backgroundColor: isSelected ? 'rgba(201,169,97,0.10)' : 'transparent',
-                      borderBottom: '1px solid rgba(255,255,255,0.06)',
+                      borderBottom: '1px solid var(--shell-border)',
                     }}
-                    onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
+                    onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--glass-panel-bg)'; }}
                     onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent'; }}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -226,7 +226,7 @@ export function LineMatchModal({ isOpen, onClose, statementId, line, reconciledB
         {confirming && selected !== null && (
           <div
             className="rounded-xl p-4"
-            style={{ border: '1px solid rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.04)' }}
+            style={{ border: '1px solid var(--shell-border-mid)', backgroundColor: 'var(--shell-hover-soft)' }}
           >
             <p
               className="text-xs font-semibold uppercase tracking-wide mb-3"
@@ -288,8 +288,8 @@ export function LineMatchModal({ isOpen, onClose, statementId, line, reconciledB
                 type="button"
                 onClick={() => { setSelected(null); setConfirming(false); }}
                 disabled={saving}
-                className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-white/5"
-                style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
+                className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-(--shell-hover-soft)"
+                style={{ border: '1px solid var(--shell-border-mid)', color: 'var(--text-primary)' }}
               >
                 Cancel
               </button>

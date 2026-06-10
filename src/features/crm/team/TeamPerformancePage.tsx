@@ -134,7 +134,7 @@ export function TeamPerformancePage() {
                       const overdue = new Date(c.callbackAt).getTime() <= Date.now();
                       return (
                         <button key={c.leadId} onClick={() => navigate(`/crm/leads/${c.leadId}`)}
-                          className="w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-white/5 transition-colors"
+                          className="w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-(--shell-hover-soft) transition-colors"
                           style={{ border: `1px solid ${overdue ? 'rgba(248,113,113,0.4)' : 'var(--shell-border)'}` }}>
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
@@ -163,7 +163,7 @@ export function TeamPerformancePage() {
                   <div className="space-y-1.5 max-h-72 overflow-y-auto">
                     {data!.actionNeeded.slaBreaches.slice(0, 25).map((sLead) => (
                       <button key={sLead.leadId} onClick={() => navigate(`/crm/leads/${sLead.leadId}`)}
-                        className="w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-white/5 transition-colors"
+                        className="w-full text-left px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-(--shell-hover-soft) transition-colors"
                         style={{ border: '1px solid rgba(248,113,113,0.4)' }}>
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{sLead.name}</p>

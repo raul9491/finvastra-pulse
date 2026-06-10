@@ -46,7 +46,7 @@ function StageStepper({ currentStatus }: { currentStatus: string }) {
                   style={{
                     backgroundColor: done   ? '#0B1538'
                                    : active ? '#C9A961'
-                                   : '#F1F5F9',
+                                   : 'var(--shell-hover-hard)',
                     color: done   ? '#C9A961'
                          : active ? '#0B1538'
                          : '#94A3B8',
@@ -63,7 +63,7 @@ function StageStepper({ currentStatus }: { currentStatus: string }) {
               {i < PUBLIC_STAGES.length - 1 && (
                 <div
                   className="h-0.5 flex-1 mt-[-20px] mx-1"
-                  style={{ backgroundColor: done ? '#0B1538' : '#E2E8F0' }}
+                  style={{ backgroundColor: done ? '#0B1538' : 'var(--shell-hover-hard)' }}
                 />
               )}
             </div>
@@ -105,7 +105,7 @@ export function CustomerTrackerPage() {
   }, [token]);
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#FAFAF7' }}>
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--glass-panel-bg)' }}>
       {/* Brand bar */}
       <div className="w-full py-3 px-5" style={{ backgroundColor: '#0B1538' }}>
         <span
@@ -125,15 +125,15 @@ export function CustomerTrackerPage() {
       <div className="max-w-[420px] mx-auto px-4 py-8">
         {loading && (
           <div className="animate-pulse space-y-4 mt-8">
-            <div className="h-6 bg-slate-200 rounded w-48" />
-            <div className="h-4 bg-slate-200 rounded w-72" />
-            <div className="h-40 bg-slate-100 rounded-2xl mt-6" />
+            <div className="h-6 bg-(--shell-hover-hard) rounded w-48" />
+            <div className="h-4 bg-(--shell-hover-hard) rounded w-72" />
+            <div className="h-40 bg-(--shell-hover-hard) rounded-2xl mt-6" />
           </div>
         )}
 
         {!loading && error && (
           <div
-            className="mt-10 text-center rounded-2xl p-8 border border-slate-200"
+            className="mt-10 text-center rounded-2xl p-8 border border-(--shell-border-mid)"
             style={{ backgroundColor: '#fff' }}>
             <p
               className="text-2xl mb-2"
@@ -145,8 +145,8 @@ export function CustomerTrackerPage() {
               }}>
               Link Expired
             </p>
-            <p className="text-sm mt-3" style={{ color: '#8B8B85' }}>{error}</p>
-            <p className="text-sm mt-5" style={{ color: '#2A2A2A' }}>
+            <p className="text-sm mt-3" style={{ color: 'var(--text-muted)' }}>{error}</p>
+            <p className="text-sm mt-5" style={{ color: 'var(--text-primary)' }}>
               Please contact your advisor for an updated link.
             </p>
           </div>
@@ -167,14 +167,14 @@ export function CustomerTrackerPage() {
                 }}>
                 Hello {data.applicantFirstName},
               </p>
-              <p className="mt-1 text-sm" style={{ color: '#8B8B85' }}>
+              <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
                 Here is the status of your loan application.
               </p>
             </div>
 
             {/* Application summary card */}
             <div
-              className="rounded-2xl border border-slate-200 p-5 space-y-4"
+              className="rounded-2xl border border-(--shell-border-mid) p-5 space-y-4"
               style={{ backgroundColor: '#fff' }}>
               {/* Bank + loan type */}
               <div className="flex items-start gap-3">
@@ -189,49 +189,49 @@ export function CustomerTrackerPage() {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-base font-semibold" style={{ color: '#0A0A0A' }}>
+                  <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
                     {data.bankName}
                   </p>
-                  <p className="text-sm" style={{ color: '#8B8B85' }}>
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
                     {data.loanType}
                   </p>
                 </div>
               </div>
 
               {/* Figures */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-slate-100 pt-4">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-(--shell-border) pt-4">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
                     Loan Amount
                   </p>
-                  <p className="text-sm font-medium mt-0.5" style={{ color: '#0A0A0A' }}>
+                  <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--text-primary)' }}>
                     ₹{data.ticketSizeL}L
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
                     Reference
                   </p>
-                  <p className="text-sm font-medium mt-0.5 font-mono" style={{ color: '#0A0A0A' }}>
+                  <p className="text-sm font-medium mt-0.5 font-mono" style={{ color: 'var(--text-primary)' }}>
                     {data.referenceId}
                   </p>
                 </div>
                 {data.submittedDate && (
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+                    <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
                       Submitted
                     </p>
-                    <p className="text-sm font-medium mt-0.5" style={{ color: '#0A0A0A' }}>
+                    <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--text-primary)' }}>
                       {data.submittedDate}
                     </p>
                   </div>
                 )}
                 {data.expectedDecisionDate && (
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+                    <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
                       Expected Decision
                     </p>
-                    <p className="text-sm font-medium mt-0.5" style={{ color: '#0A0A0A' }}>
+                    <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--text-primary)' }}>
                       {data.expectedDecisionDate}
                     </p>
                   </div>
@@ -239,8 +239,8 @@ export function CustomerTrackerPage() {
               </div>
 
               {/* Stage progress */}
-              <div className="border-t border-slate-100 pt-4">
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>
+              <div className="border-t border-(--shell-border) pt-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
                   Application Progress
                 </p>
                 <StageStepper currentStatus={data.currentStatus} />
@@ -248,14 +248,14 @@ export function CustomerTrackerPage() {
 
               {/* Last updated */}
               {data.lastUpdated && (
-                <p className="text-xs border-t border-slate-100 pt-3" style={{ color: '#8B8B85' }}>
+                <p className="text-xs border-t border-(--shell-border) pt-3" style={{ color: 'var(--text-muted)' }}>
                   Last updated: {data.lastUpdated}
                 </p>
               )}
             </div>
 
             {/* Footer */}
-            <p className="mt-8 text-xs text-center leading-relaxed" style={{ color: '#8B8B85' }}>
+            <p className="mt-8 text-xs text-center leading-relaxed" style={{ color: 'var(--text-muted)' }}>
               Need help? Your advisor is available.{' '}
               <span style={{ color: '#0B1538', fontWeight: 500 }}>Contact Finvastra.</span>
             </p>

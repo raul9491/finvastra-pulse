@@ -26,7 +26,7 @@ const CATEGORY_META: Record<ClaimType, { label: string; icon: typeof Car; color:
   cibil:                { label: 'CIBIL',                icon: CreditCard, color: '#06B6D4' },
   software:             { label: 'Software',             icon: Laptop,     color: '#6366F1' },
   office_supplies:      { label: 'Office Supplies',      icon: Package,    color: '#F97316' },
-  other:                { label: 'Other',                icon: HelpCircle, color: '#94A3B8' },
+  other:                { label: 'Other',                icon: HelpCircle, color: 'var(--text-muted)' },
 };
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

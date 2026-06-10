@@ -61,14 +61,14 @@ function MiniStageDots({ stages, current, isLost, isWon }: {
                   ? '#C9A961'
                   : isLost
                   ? 'rgba(248,113,113,0.30)'
-                  : 'rgba(255,255,255,0.12)',
+                  : 'var(--shell-hover-hard)',
                 outline: active ? '1.5px solid #C9A961' : 'none',
                 outlineOffset: '1px',
               }}
             />
             {i < stages.length - 1 && (
               <div className="w-2 h-px shrink-0"
-                style={{ backgroundColor: done ? 'rgba(201,169,97,0.40)' : 'rgba(255,255,255,0.08)' }} />
+                style={{ backgroundColor: done ? 'rgba(201,169,97,0.40)' : 'var(--shell-hover-hard)' }} />
             )}
           </div>
         );
@@ -280,9 +280,9 @@ export function LeadDetailPage() {
   if (leadLoading) {
     return (
       <div className="max-w-3xl mx-auto animate-pulse space-y-4">
-        <div className="h-5 rounded w-28" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-        <div className="h-8 rounded w-56" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-        <div className="h-40 rounded-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }} />
+        <div className="h-5 rounded w-28" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
+        <div className="h-8 rounded w-56" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
+        <div className="h-40 rounded-2xl" style={{ backgroundColor: 'var(--glass-panel-bg)' }} />
       </div>
     );
   }
@@ -397,7 +397,7 @@ export function LeadDetailPage() {
             )}
             {lead.leadStatus !== 'callback' && !showCallback && (
               <button onClick={() => setShowCallback(true)}
-                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors hover:bg-white/5"
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors hover:bg-(--shell-hover-soft)"
                 style={{ borderColor: 'rgba(201,169,97,0.4)', color: '#C9A961' }}>
                 📞 Schedule follow-up
               </button>
@@ -443,8 +443,8 @@ export function LeadDetailPage() {
                 </p>
                 {canRevealPan && !revealedPan && (
                   <button onClick={handleRevealPan} disabled={revealingPan}
-                    className="text-xs px-2 py-0.5 rounded border hover:bg-white/5 transition-colors"
-                    style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>
+                    className="text-xs px-2 py-0.5 rounded border hover:bg-(--shell-hover-soft) transition-colors"
+                    style={{ color: 'var(--text-muted)', borderColor: 'var(--shell-border-mid)' }}>
                     {revealingPan ? '…' : 'Reveal'}
                   </button>
                 )}
@@ -466,7 +466,7 @@ export function LeadDetailPage() {
               <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Tags</p>
               <div className="flex flex-wrap gap-1">
                 {lead.tags.map((tag) => (
-                  <span key={tag} className="px-2 py-0.5 rounded text-xs bg-white/8" style={{ color: 'var(--text-muted)' }}>{tag}</span>
+                  <span key={tag} className="px-2 py-0.5 rounded text-xs bg-(--glass-panel-bg)" style={{ color: 'var(--text-muted)' }}>{tag}</span>
                 ))}
               </div>
             </div>
@@ -512,7 +512,7 @@ export function LeadDetailPage() {
 
         {oppsLoading ? (
           <div className="space-y-3">
-            {[1, 2].map((i) => <div key={i} className="h-24 rounded-xl animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }} />)}
+            {[1, 2].map((i) => <div key={i} className="h-24 rounded-xl animate-pulse" style={{ backgroundColor: 'var(--glass-panel-bg)' }} />)}
           </div>
         ) : opportunities.length === 0 ? (
           <div className="glass-panel py-14 text-center" style={{ borderStyle: 'dashed' }}>

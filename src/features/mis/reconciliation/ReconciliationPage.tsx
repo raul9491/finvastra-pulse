@@ -273,7 +273,7 @@ export function ReconciliationPage() {
       {/* ── Statement selector ── */}
       <div className="mb-6 max-w-xl">
         {statementsLoading ? (
-          <div className="h-10 rounded-lg animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+          <div className="h-10 rounded-lg animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
         ) : (
           <SearchableSelect
             options={statementOptions}
@@ -296,7 +296,7 @@ export function ReconciliationPage() {
       {selectedId && linesLoading && (
         <div className="space-y-3 mt-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-14 rounded-xl animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+            <div key={i} className="h-14 rounded-xl animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
           ))}
         </div>
       )}
@@ -321,7 +321,7 @@ export function ReconciliationPage() {
             {/* Tabs */}
             <div
               className="flex gap-1 rounded-lg p-1"
-              style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}
+              style={{ backgroundColor: 'var(--glass-panel-bg)' }}
             >
               {(['all', 'unmatched', 'discrepancy'] as Tab[]).map((tab) => (
                 <button
@@ -329,7 +329,7 @@ export function ReconciliationPage() {
                   onClick={() => setActiveTab(tab)}
                   className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors capitalize"
                   style={{
-                    backgroundColor: activeTab === tab ? 'rgba(255,255,255,0.12)' : 'transparent',
+                    backgroundColor: activeTab === tab ? 'var(--shell-hover-hard)' : 'transparent',
                     color: activeTab === tab ? 'var(--text-primary)' : 'var(--text-muted)',
                   }}
                 >
@@ -362,7 +362,7 @@ export function ReconciliationPage() {
             <div className="glass-panel overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
                     <th className="px-4 py-3 text-left font-semibold w-28" style={{ color: 'var(--text-muted)' }}>Date</th>
                     <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Description</th>
                     <th className="px-4 py-3 text-right font-semibold w-28" style={{ color: 'var(--text-muted)' }}>Amount</th>
@@ -375,8 +375,8 @@ export function ReconciliationPage() {
                   {displayLines.map((line) => (
                     <tr
                       key={line.id}
-                      className="hover:bg-white/5 transition-colors"
-                      style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                      className="hover:bg-(--shell-hover-soft) transition-colors"
+                      style={{ borderBottom: '1px solid var(--shell-border)' }}
                     >
                       <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                         {line.parsedDate}
@@ -442,14 +442,14 @@ export function ReconciliationPage() {
           {isAdmin && statement?.status !== 'closed' && (
             <div
               className="mt-8 pt-6 flex justify-end"
-              style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}
+              style={{ borderTop: '1px solid var(--shell-border)' }}
             >
               <button
                 onClick={() => setCloseModalOpen(true)}
                 disabled={byStatus.unmatched.length > 0}
                 className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
-                  backgroundColor: byStatus.unmatched.length === 0 ? '#C9A961' : 'rgba(255,255,255,0.08)',
+                  backgroundColor: byStatus.unmatched.length === 0 ? '#C9A961' : 'var(--shell-hover-hard)',
                   color: byStatus.unmatched.length === 0 ? '#0B1538' : 'var(--text-muted)',
                 }}
                 title={
@@ -530,8 +530,8 @@ export function ReconciliationPage() {
                   {disbursal.map(({ label, value }, i) => (
                     <div key={label} className="flex items-center justify-between px-3 py-2 text-xs"
                       style={{
-                        backgroundColor: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
-                        borderTop: '1px solid rgba(255,255,255,0.05)',
+                        backgroundColor: i % 2 === 0 ? 'var(--shell-hover-soft)' : 'transparent',
+                        borderTop: '1px solid var(--shell-border)',
                       }}>
                       <span style={{ color: 'var(--text-muted)' }}>{label}</span>
                       <span className="font-medium text-right max-w-40 truncate" style={{ color: 'var(--text-primary)' }}>
@@ -589,8 +589,8 @@ export function ReconciliationPage() {
             <button
               onClick={() => { setExcludingLine(null); setExcludeReason(''); }}
               disabled={excludeSaving}
-              className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-white/5"
-              style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-(--shell-hover-soft)"
+              style={{ border: '1px solid var(--shell-border-mid)', color: 'var(--text-primary)' }}
             >
               Cancel
             </button>
@@ -630,8 +630,8 @@ export function ReconciliationPage() {
             <button
               onClick={() => setCloseModalOpen(false)}
               disabled={closeSaving}
-              className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-white/5"
-              style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-(--shell-hover-soft)"
+              style={{ border: '1px solid var(--shell-border-mid)', color: 'var(--text-primary)' }}
             >
               Cancel
             </button>
@@ -703,8 +703,8 @@ function LineActions({
         {isAdmin && (
           <button
             onClick={onExclude}
-            className={`${btn} hover:bg-white/5`}
-            style={{ border: '1px solid rgba(255,255,255,0.12)', color: 'var(--text-muted)' }}
+            className={`${btn} hover:bg-(--shell-hover-soft)`}
+            style={{ border: '1px solid var(--shell-border-mid)', color: 'var(--text-muted)' }}
           >
             Exclude
           </button>
@@ -718,16 +718,16 @@ function LineActions({
       <div className="flex justify-end gap-1.5">
         <button
           onClick={onView}
-          className={`${btn} hover:bg-white/5`}
-          style={{ border: '1px solid rgba(255,255,255,0.12)', color: 'var(--text-primary)' }}
+          className={`${btn} hover:bg-(--shell-hover-soft)`}
+          style={{ border: '1px solid var(--shell-border-mid)', color: 'var(--text-primary)' }}
         >
           View
         </button>
         {isAdmin && (
           <button
             onClick={onUnmatch}
-            className={`${btn} hover:bg-white/5`}
-            style={{ border: '1px solid rgba(255,255,255,0.12)', color: 'var(--text-muted)' }}
+            className={`${btn} hover:bg-(--shell-hover-soft)`}
+            style={{ border: '1px solid var(--shell-border-mid)', color: 'var(--text-muted)' }}
           >
             Unmatch
           </button>
@@ -751,8 +751,8 @@ function LineActions({
         {isAdmin && (
           <button
             onClick={onUnmatch}
-            className={`${btn} hover:bg-white/5`}
-            style={{ border: '1px solid rgba(255,255,255,0.12)', color: 'var(--text-muted)' }}
+            className={`${btn} hover:bg-(--shell-hover-soft)`}
+            style={{ border: '1px solid var(--shell-border-mid)', color: 'var(--text-muted)' }}
           >
             Unmatch
           </button>
@@ -767,8 +767,8 @@ function LineActions({
         {isAdmin && (
           <button
             onClick={onRestore}
-            className={`${btn} hover:bg-white/5`}
-            style={{ border: '1px solid rgba(255,255,255,0.12)', color: 'var(--text-muted)' }}
+            className={`${btn} hover:bg-(--shell-hover-soft)`}
+            style={{ border: '1px solid var(--shell-border-mid)', color: 'var(--text-muted)' }}
           >
             Restore
           </button>

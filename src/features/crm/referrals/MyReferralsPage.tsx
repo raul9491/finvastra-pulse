@@ -58,8 +58,8 @@ function LeadRow({ lead }: { lead: Lead }) {
   return (
     <>
       <tr
-        className="hover:bg-white/5 cursor-pointer transition-colors"
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        className="hover:bg-(--shell-hover-soft) cursor-pointer transition-colors"
+        style={{ borderBottom: '1px solid var(--shell-border)' }}
         onClick={handleClick}
       >
         {/* Name */}
@@ -122,8 +122,8 @@ function LeadRow({ lead }: { lead: Lead }) {
 
       {/* Expanded detail */}
       {expanded && (
-        <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <td colSpan={6} className="px-5 py-4" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+        <tr style={{ borderBottom: '1px solid var(--shell-border)' }}>
+          <td colSpan={6} className="px-5 py-4" style={{ backgroundColor: 'var(--shell-hover-soft)' }}>
             <div className="space-y-4">
 
               {/* Lead contact info */}
@@ -162,7 +162,7 @@ function LeadRow({ lead }: { lead: Lead }) {
                   <div className="space-y-2">
                     {opps.map((opp) => (
                       <div key={opp.id} className="flex items-center justify-between px-3 py-2 rounded-lg"
-                        style={{ border: '1px solid rgba(255,255,255,0.10)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                        style={{ border: '1px solid var(--shell-border-mid)', backgroundColor: 'var(--shell-hover-soft)' }}>
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{opp.product}</span>
                           <span className="badge-glass-muted">{opp.opportunityType}</span>
@@ -215,8 +215,8 @@ export function MyReferralsPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate('/crm/referrals/import')}
-            className="flex items-center gap-1.5 text-sm px-3.5 py-2 rounded-lg border transition-colors hover:bg-white/5"
-            style={{ borderColor: 'rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
+            className="flex items-center gap-1.5 text-sm px-3.5 py-2 rounded-lg border transition-colors hover:bg-(--shell-hover-soft)"
+            style={{ borderColor: 'var(--shell-border-mid)', color: 'var(--text-primary)' }}
           >
             <Upload size={14} />
             Import CSV
@@ -264,7 +264,7 @@ export function MyReferralsPage() {
         ) : (
           <table className="w-full">
             <thead>
-              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <tr style={{ borderBottom: '1px solid var(--shell-border)' }}>
                 <th className="py-3 pl-5 pr-3 text-left text-xs font-semibold uppercase tracking-wider"
                   style={{ color: 'var(--text-muted)' }}>Name</th>
                 <th className="py-3 px-3 text-left text-xs font-semibold uppercase tracking-wider"

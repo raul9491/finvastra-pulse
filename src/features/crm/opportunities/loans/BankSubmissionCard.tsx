@@ -5,7 +5,7 @@ import type { BankSubmission, BankSubmissionStatus, DocumentStatus, Provider } f
 import { useDocumentExpiry } from '../../hooks/useDocumentExpiry';
 
 const STATUS_STYLES: Record<BankSubmissionStatus, { bg: string; text: string; label: string }> = {
-  preparing:  { bg: '#F1F5F9', text: '#475569', label: 'Preparing'  },
+  preparing:  { bg: 'var(--shell-hover-hard)', text: 'var(--text-muted)', label: 'Preparing'  },
   submitted:  { bg: '#EFF6FF', text: '#1D4ED8', label: 'Submitted'  },
   in_review:  { bg: '#FFFBEB', text: '#92400E', label: 'In Review'  },
   sanctioned: { bg: '#F0FDF4', text: '#166534', label: 'Sanctioned' },
@@ -39,20 +39,20 @@ export function BankSubmissionCard({ submission, provider, leadId, oppId }: Prop
   return (
     <button
       onClick={() => navigate(`/crm/leads/${leadId}/opportunities/${oppId}/submissions/${submission.id}`)}
-      className="w-full text-left bg-white border border-slate-200 rounded-xl p-4 hover:shadow-sm transition-all group"
+      className="w-full text-left bg-(--glass-panel-bg) border border-(--shell-border-mid) rounded-xl p-4 hover:shadow-sm transition-all group"
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold" style={{ color: '#0A0A0A' }}>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {provider?.name ?? submission.providerId.slice(0, 8)}
               </p>
               {submission.isPrimary && (
                 <Star size={12} className="fill-current" style={{ color: '#C9A961' }} />
               )}
             </div>
-            <p className="text-xs mt-0.5" style={{ color: '#8B8B85' }}>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
               {fmtDate(submission.createdAt) ? `Added ${fmtDate(submission.createdAt)}` : ''}
             </p>
           </div>
@@ -62,22 +62,22 @@ export function BankSubmissionCard({ submission, provider, leadId, oppId }: Prop
             style={{ backgroundColor: st.bg, color: st.text }}>
             {st.label}
           </span>
-          <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500 transition-colors" />
+          <ChevronRight size={14} className="text-(--text-muted) group-hover:text-(--text-muted) transition-colors" />
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3 text-left">
         {submission.sanctionedAmount != null && (
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>Sanctioned</p>
-            <p className="text-sm font-medium" style={{ color: '#0A0A0A' }}>
+            <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Sanctioned</p>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
               ₹{submission.sanctionedAmount.toLocaleString('en-IN')}
             </p>
           </div>
         )}
         {submission.disbursedAmount != null && (
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>Disbursed</p>
+            <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Disbursed</p>
             <p className="text-sm font-medium" style={{ color: '#166534' }}>
               ₹{submission.disbursedAmount.toLocaleString('en-IN')}
             </p>
@@ -85,20 +85,20 @@ export function BankSubmissionCard({ submission, provider, leadId, oppId }: Prop
         )}
         {submission.interestRate != null && (
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>Rate</p>
-            <p className="text-sm" style={{ color: '#0A0A0A' }}>{submission.interestRate}%</p>
+            <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Rate</p>
+            <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{submission.interestRate}%</p>
           </div>
         )}
         {submission.submittedAt && (
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>Submitted</p>
-            <p className="text-xs" style={{ color: '#2A2A2A' }}>{fmtDate(submission.submittedAt)}</p>
+            <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Submitted</p>
+            <p className="text-xs" style={{ color: 'var(--text-primary)' }}>{fmtDate(submission.submittedAt)}</p>
           </div>
         )}
         {submission.decisionAt && (
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>Decision</p>
-            <p className="text-xs" style={{ color: '#2A2A2A' }}>{fmtDate(submission.decisionAt)}</p>
+            <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Decision</p>
+            <p className="text-xs" style={{ color: 'var(--text-primary)' }}>{fmtDate(submission.decisionAt)}</p>
           </div>
         )}
       </div>
@@ -117,7 +117,7 @@ export function BankSubmissionCard({ submission, provider, leadId, oppId }: Prop
         const accepted  = statuses.filter((s) => s === 'accepted').length;
         const done      = collected + submitted + accepted;
         return (
-          <p className="mt-2 text-xs" style={{ color: '#8B8B85' }}>
+          <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
             {done} / {total} docs · {collected} collected · {submitted} submitted
             {accepted > 0 ? ` · ${accepted} accepted` : ''}
           </p>

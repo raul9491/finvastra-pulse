@@ -56,7 +56,7 @@ function statusStyle(s: AssetStatus): { bg: string; text: string } {
     case 'available':    return { bg: '#D1FAE5', text: '#065F46' };
     case 'assigned':     return { bg: '#DBEAFE', text: '#1E40AF' };
     case 'under_repair': return { bg: '#FEF3C7', text: '#92400E' };
-    case 'retired':      return { bg: '#F1F5F9', text: 'var(--text-muted)' };
+    case 'retired':      return { bg: 'var(--shell-hover-hard)', text: 'var(--text-muted)' };
   }
 }
 
@@ -68,7 +68,7 @@ function conditionStyle(c: AssetCondition): { text: string } {
   }
 }
 
-const inp = 'w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border border-(--shell-border) rounded-lg outline-none focus:border-slate-400';
+const inp = 'w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border border-(--shell-border) rounded-lg outline-none focus:border-(--shell-border-mid)';
 const sel = 'w-full px-3.5 py-2.5 text-sm bg-(--glass-panel-bg) border border-(--shell-border) rounded-lg outline-none';
 
 // ─── Add/Edit Asset modal ─────────────────────────────────────────────────────
@@ -533,7 +533,7 @@ export function AssetsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ backgroundColor: 'var(--glass-panel-bg)', borderBottom: '1px solid #E2E8F0' }}>
+                <tr style={{ backgroundColor: 'var(--glass-panel-bg)', borderBottom: '1px solid var(--shell-border)' }}>
                   <th className={thCls} style={{ color: 'var(--text-muted)' }}>Asset</th>
                   <th className={thCls} style={{ color: 'var(--text-muted)' }}>Type</th>
                   <th className={thCls} style={{ color: 'var(--text-muted)' }}>Serial / IMEI</th>
@@ -548,7 +548,7 @@ export function AssetsPage() {
                   const sStyle = statusStyle(asset.currentStatus);
                   const cStyle = conditionStyle(asset.condition);
                   return (
-                    <tr key={asset.id} style={{ borderBottom: idx < filtered.length - 1 ? '1px solid #F1F5F9' : 'none' }}>
+                    <tr key={asset.id} style={{ borderBottom: idx < filtered.length - 1 ? '1px solid var(--shell-border)' : 'none' }}>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span style={{ color: 'var(--text-primary)' }}>
@@ -595,7 +595,7 @@ export function AssetsPage() {
                             </button>
                           )}
                           <button onClick={() => setAddEditAsset(asset)}
-                            className="p-1.5 text-(--text-muted) hover:text-slate-700 transition-colors">
+                            className="p-1.5 text-(--text-muted) hover:text-(--text-primary) transition-colors">
                             <Edit2 size={13} />
                           </button>
                         </div>

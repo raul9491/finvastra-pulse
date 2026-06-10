@@ -12,7 +12,7 @@ type HolidayType = Holiday['type'];
 const TYPE_STYLES: Record<HolidayType, { label: string; bg: string; text: string }> = {
   national: { label: 'National',  bg: '#DBEAFE', text: '#1D4ED8' },
   regional: { label: 'Regional',  bg: '#FEF3C7', text: '#92400E' },
-  optional: { label: 'Optional',  bg: '#F1F5F9', text: 'var(--text-muted)' },
+  optional: { label: 'Optional',  bg: 'var(--shell-hover-hard)', text: 'var(--text-muted)' },
 };
 
 const YEAR_OPTIONS = [2025, 2026, 2027];
@@ -159,7 +159,7 @@ export function HolidaysPage() {
       {isAdmin && showAddForm && (
         <div
           className="rounded-2xl p-5"
-          style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid #E2E8F0' }}
+          style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid var(--shell-border)' }}
         >
           <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>
             New Holiday — {selectedYear}
@@ -229,7 +229,7 @@ export function HolidaysPage() {
       {/* Holiday table */}
       <div
         className="rounded-2xl overflow-hidden"
-        style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid #E2E8F0' }}
+        style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid var(--shell-border)' }}
       >
         {loading ? (
           <div className="p-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
@@ -243,7 +243,7 @@ export function HolidaysPage() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ borderBottom: '1px solid #E2E8F0', backgroundColor: 'var(--glass-panel-bg)' }}>
+              <tr style={{ borderBottom: '1px solid var(--shell-border)', backgroundColor: 'var(--glass-panel-bg)' }}>
                 <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                   Date
                 </th>
@@ -267,7 +267,7 @@ export function HolidaysPage() {
                     key={h.id}
                     style={{
                       backgroundColor: isEven ? '#FFFFFF' : '#FAFAF7',
-                      borderBottom: idx < holidays.length - 1 ? '1px solid #F1F5F9' : 'none',
+                      borderBottom: idx < holidays.length - 1 ? '1px solid var(--shell-border)' : 'none',
                     }}
                   >
                     <td className="px-5 py-3 font-medium tabular-nums" style={{ color: 'var(--text-primary)' }}>

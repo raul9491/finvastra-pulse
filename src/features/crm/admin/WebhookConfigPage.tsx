@@ -49,8 +49,8 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   return (
     <button
       onClick={copy}
-      className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors font-medium shrink-0 hover:bg-white/5"
-      style={{ color: copied ? '#34d399' : 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.15)' }}
+      className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors font-medium shrink-0 hover:bg-(--shell-hover-soft)"
+      style={{ color: copied ? '#34d399' : 'var(--text-primary)', borderColor: 'var(--shell-border-mid)' }}
       title={`Copy ${label}`}
     >
       {copied ? <CheckCheck size={12} /> : <Copy size={12} />}
@@ -72,7 +72,7 @@ function LogTable({ logs, source }: { logs: WebhookLog[]; source: 'website' | 's
     <div className="overflow-x-auto">
       <table className="w-full text-xs text-left">
         <thead>
-          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <tr style={{ borderBottom: '1px solid var(--shell-border)' }}>
             {['Time', 'Result', 'Lead ID', 'Notes'].map((h) => (
               <th key={h} className="pb-2 font-bold uppercase tracking-widest whitespace-nowrap pr-4"
                 style={{ color: 'var(--text-muted)' }}>
@@ -87,7 +87,7 @@ function LogTable({ logs, source }: { logs: WebhookLog[]; source: 'website' | 's
               try { return format(new Date(log.receivedAt), 'dd MMM HH:mm'); } catch { return '—'; }
             })() : '—';
             return (
-              <tr key={log.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              <tr key={log.id} style={{ borderBottom: '1px solid var(--shell-border)' }}>
                 <td className="py-2 pr-4 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{dt}</td>
                 <td className="py-2 pr-4">
                   <span className={RESULT_BADGE[log.result]}>{RESULT_LABELS[log.result]}</span>
@@ -159,7 +159,7 @@ export function WebhookConfigPage() {
 
       {/* ── Website Webhook ── */}
       <div className="glass-panel overflow-hidden">
-        <div className="px-6 py-4 flex items-center gap-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="px-6 py-4 flex items-center gap-3" style={{ borderBottom: '1px solid var(--shell-border)' }}>
           <div className="w-8 h-8 rounded-lg flex items-center justify-center"
             style={{ backgroundColor: 'rgba(96,165,250,0.15)' }}>
             <Globe size={16} style={{ color: '#60a5fa' }} />
@@ -180,7 +180,7 @@ export function WebhookConfigPage() {
               Endpoint URL
             </p>
             <div className="flex items-center gap-2 p-3 rounded-xl"
-              style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)' }}>
+              style={{ backgroundColor: 'var(--shell-hover-soft)', border: '1px solid var(--shell-border-mid)' }}>
               <code className="flex-1 text-xs break-all" style={{ color: '#C9A961' }}>
                 {WEBSITE_WEBHOOK_URL}
               </code>
@@ -215,7 +215,7 @@ export function WebhookConfigPage() {
               Expected JSON Payload
             </p>
             <pre className="p-3 rounded-xl text-[11px] overflow-x-auto leading-relaxed"
-              style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', color: 'var(--text-primary)' }}>
+              style={{ backgroundColor: 'var(--shell-hover-soft)', border: '1px solid var(--shell-border-mid)', color: 'var(--text-primary)' }}>
 {`{
   "name":        "string  (required, min 2 chars)",
   "phone":       "string  (required, 10-digit Indian mobile)",
@@ -237,7 +237,7 @@ export function WebhookConfigPage() {
                 Recent Calls (last 5)
               </p>
               <button onClick={fetchLogs}
-                className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg hover:bg-white/5 transition-colors"
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg hover:bg-(--shell-hover-soft) transition-colors"
                 style={{ color: 'var(--text-muted)' }}>
                 <RefreshCw size={11} className={logsLoading ? 'animate-spin' : ''} />
                 Refresh
@@ -246,7 +246,7 @@ export function WebhookConfigPage() {
             {logsLoading ? (
               <div className="space-y-2">
                 {[1,2,3].map((i) => (
-                  <div key={i} className="h-6 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                  <div key={i} className="h-6 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
                 ))}
               </div>
             ) : logsError ? (
@@ -260,7 +260,7 @@ export function WebhookConfigPage() {
 
       {/* ── Meta Lead Ads Webhook ── */}
       <div className="glass-panel overflow-hidden">
-        <div className="px-6 py-4 flex items-center gap-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="px-6 py-4 flex items-center gap-3" style={{ borderBottom: '1px solid var(--shell-border)' }}>
           <div className="w-8 h-8 rounded-lg flex items-center justify-center"
             style={{ backgroundColor: 'rgba(139,92,246,0.15)' }}>
             <Facebook size={16} style={{ color: '#a78bfa' }} />
@@ -281,7 +281,7 @@ export function WebhookConfigPage() {
               Webhook URL
             </p>
             <div className="flex items-center gap-2 p-3 rounded-xl"
-              style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)' }}>
+              style={{ backgroundColor: 'var(--shell-hover-soft)', border: '1px solid var(--shell-border-mid)' }}>
               <code className="flex-1 text-xs break-all" style={{ color: '#C9A961' }}>
                 {META_WEBHOOK_URL}
               </code>
@@ -332,7 +332,7 @@ export function WebhookConfigPage() {
                 Recent Calls (last 5)
               </p>
               <button onClick={fetchLogs}
-                className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg hover:bg-white/5 transition-colors"
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg hover:bg-(--shell-hover-soft) transition-colors"
                 style={{ color: 'var(--text-muted)' }}>
                 <RefreshCw size={11} className={logsLoading ? 'animate-spin' : ''} />
                 Refresh
@@ -341,7 +341,7 @@ export function WebhookConfigPage() {
             {logsLoading ? (
               <div className="space-y-2">
                 {[1,2,3].map((i) => (
-                  <div key={i} className="h-6 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                  <div key={i} className="h-6 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
                 ))}
               </div>
             ) : logsError ? (

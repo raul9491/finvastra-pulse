@@ -149,12 +149,12 @@ export function MisOverviewPage() {
 
       {/* ── Tab strip ── */}
       <div className="flex gap-1 rounded-lg p-1 mb-6 w-fit"
-        style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
+        style={{ backgroundColor: 'var(--glass-panel-bg)' }}>
         {(['overview', 'disbursals'] as MisTab[]).map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             className="px-4 py-1.5 rounded-md text-sm font-medium transition-colors capitalize"
             style={{
-              backgroundColor: activeTab === tab ? 'rgba(255,255,255,0.12)' : 'transparent',
+              backgroundColor: activeTab === tab ? 'var(--shell-hover-hard)' : 'transparent',
               color: activeTab === tab ? 'var(--text-primary)' : 'var(--text-muted)',
             }}>
             {tab === 'disbursals' ? 'Disbursals' : 'Overview'}
@@ -168,7 +168,7 @@ export function MisOverviewPage() {
           {disbursalsLoading ? (
             <div className="space-y-3">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-12 rounded-xl animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                <div key={i} className="h-12 rounded-xl animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
               ))}
             </div>
           ) : filteredDisbursals.length === 0 ? (
@@ -183,7 +183,7 @@ export function MisOverviewPage() {
           ) : (
             <div className="glass-panel overflow-x-auto">
               <div className="px-5 py-4 flex items-center justify-between"
-                style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                style={{ borderBottom: '1px solid var(--shell-border)' }}>
                 <div>
                   <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                     All Cases — {selectedMonth}
@@ -197,7 +197,7 @@ export function MisOverviewPage() {
               </div>
               <table className="w-full text-xs min-w-175">
                 <thead>
-                  <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
                     <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Loan No</th>
                     <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>App No</th>
                     <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Company</th>
@@ -212,8 +212,8 @@ export function MisOverviewPage() {
                 </thead>
                 <tbody>
                   {filteredDisbursals.map((rec) => (
-                    <tr key={rec.id} className="hover:bg-white/5 transition-colors"
-                      style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <tr key={rec.id} className="hover:bg-(--shell-hover-soft) transition-colors"
+                      style={{ borderBottom: '1px solid var(--shell-border)' }}>
                       <td className="px-4 py-3 font-mono font-semibold" style={{ color: '#C9A961' }}>
                         {rec.loanNo ?? <span style={{ color: 'var(--text-muted)' }}>—</span>}
                       </td>
@@ -310,7 +310,7 @@ export function MisOverviewPage() {
         {/* Card 1 — Commission received vs expected */}
         <SummaryCard label="Commission">
           {data.loading ? (
-            <div className="h-10 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+            <div className="h-10 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
           ) : (
             <div className="flex items-end gap-3 flex-wrap">
               <div>
@@ -344,7 +344,7 @@ export function MisOverviewPage() {
         {/* Card 2 — Open Statements */}
         <SummaryCard label="Open Statements">
           {data.loading ? (
-            <div className="h-10 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+            <div className="h-10 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
           ) : (
             <div>
               <p className="text-4xl font-bold" style={{ color: 'var(--text-primary)' }}>
@@ -360,7 +360,7 @@ export function MisOverviewPage() {
         {/* Card 3 — Pending RM Payouts */}
         <SummaryCard label="Pending RM Payouts">
           {data.loading ? (
-            <div className="h-10 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+            <div className="h-10 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
           ) : (
             <div>
               <p className="text-2xl font-semibold" style={{ color: 'var(--text-primary)' }}>
@@ -376,7 +376,7 @@ export function MisOverviewPage() {
         {/* Card 4 — Discrepancies */}
         <SummaryCard label="Discrepancies">
           {data.loading ? (
-            <div className="h-10 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+            <div className="h-10 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
           ) : (
             <div>
               <p
@@ -400,7 +400,7 @@ export function MisOverviewPage() {
         <div className="glass-panel overflow-hidden">
           <div
             className="flex items-center justify-between px-5 py-4"
-            style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+            style={{ borderBottom: '1px solid var(--shell-border)' }}
           >
             <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Recent Statements</p>
             <button
@@ -415,7 +415,7 @@ export function MisOverviewPage() {
           {data.loading ? (
             <div className="p-5 space-y-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-8 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                <div key={i} className="h-8 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
               ))}
             </div>
           ) : data.recentStatements.length === 0 ? (
@@ -425,7 +425,7 @@ export function MisOverviewPage() {
           ) : (
             <table className="w-full text-xs">
               <thead>
-                <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
                   <th className="px-4 py-2.5 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Provider</th>
                   <th className="px-4 py-2.5 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Period</th>
                   <th className="px-4 py-2.5 text-right font-semibold" style={{ color: 'var(--text-muted)' }}>Total</th>
@@ -437,8 +437,8 @@ export function MisOverviewPage() {
                   <tr
                     key={stmt.id}
                     onClick={() => navigate(`/mis/statements/${stmt.id}`)}
-                    className="cursor-pointer hover:bg-white/5 transition-colors"
-                    style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                    className="cursor-pointer hover:bg-(--shell-hover-soft) transition-colors"
+                    style={{ borderBottom: '1px solid var(--shell-border)' }}
                   >
                     <td className="px-4 py-2.5 font-medium truncate max-w-30" style={{ color: 'var(--text-primary)' }}>
                       {stmt.providerId}
@@ -465,7 +465,7 @@ export function MisOverviewPage() {
         <div className="glass-panel overflow-hidden">
           <div
             className="flex items-center justify-between px-5 py-4"
-            style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+            style={{ borderBottom: '1px solid var(--shell-border)' }}
           >
             <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Recent RM Payouts</p>
             <button
@@ -480,7 +480,7 @@ export function MisOverviewPage() {
           {data.loading ? (
             <div className="p-5 space-y-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-8 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                <div key={i} className="h-8 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
               ))}
             </div>
           ) : data.recentPayouts.length === 0 ? (
@@ -490,7 +490,7 @@ export function MisOverviewPage() {
           ) : (
             <table className="w-full text-xs">
               <thead>
-                <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
                   <th className="px-4 py-2.5 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>RM</th>
                   <th className="px-4 py-2.5 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Period</th>
                   <th className="px-4 py-2.5 text-right font-semibold" style={{ color: 'var(--text-muted)' }}>Amount</th>
@@ -501,8 +501,8 @@ export function MisOverviewPage() {
                 {data.recentPayouts.map((payout: RmPayout) => (
                   <tr
                     key={payout.id}
-                    className="hover:bg-white/5 transition-colors"
-                    style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                    className="hover:bg-(--shell-hover-soft) transition-colors"
+                    style={{ borderBottom: '1px solid var(--shell-border)' }}
                   >
                     <td className="px-4 py-2.5 font-medium truncate max-w-30" style={{ color: 'var(--text-primary)' }}>
                       {payout.rmDisplayName}

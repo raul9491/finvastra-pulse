@@ -21,7 +21,7 @@ function fmtAmount(n: number | undefined): string {
 
 const STATUS_STYLES: Record<WealthInvestment['status'], React.CSSProperties> = {
   active:   { backgroundColor: '#F0FDF4', color: '#166534' },
-  redeemed: { backgroundColor: '#F8FAFC', color: '#475569' },
+  redeemed: { backgroundColor: 'var(--glass-panel-bg)', color: 'var(--text-muted)' },
   paused:   { backgroundColor: '#FFFBEB', color: '#92400E' },
 };
 
@@ -62,22 +62,22 @@ function AddInvestmentModal({
   };
 
   const inp = (field?: string) =>
-    `w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-white transition-colors ${
+    `w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-(--ss-bg) transition-colors ${
       field && errors[field]
         ? 'border-red-400 focus:ring-red-200/50'
-        : 'border-slate-200 focus:ring-2'
+        : 'border-(--shell-border-mid) focus:ring-2'
     }`;
 
   const isSip = form.investmentType === 'mf_sip' || form.investmentType === 'mf_lumpsum';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl space-y-4 overflow-y-auto max-h-[90vh]">
-        <h3 className="text-base font-semibold text-ink">Add Investment</h3>
+      <div className="glass-modal-panel p-6 w-full max-w-md mx-4 space-y-4 overflow-y-auto max-h-[90vh]">
+        <h3 className="text-base font-semibold text-(--text-primary)">Add Investment</h3>
 
         {/* Type */}
         <div>
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-mute mb-1">Type *</label>
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-(--text-muted) mb-1">Type *</label>
           <select className={inp()} value={form.investmentType}
             onChange={(e) => set('investmentType', e.target.value as WealthInvestmentType)}>
             {(Object.entries(WEALTH_INVESTMENT_TYPE_LABELS) as [WealthInvestmentType, string][]).map(([v, l]) => (
@@ -101,7 +101,7 @@ function AddInvestmentModal({
         {/* Folio number (MF only) */}
         {isSip && (
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-widest text-mute mb-1">Folio Number</label>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-(--text-muted) mb-1">Folio Number</label>
             <input className={inp()} value={form.folioNumber ?? ''}
               onChange={(e) => set('folioNumber', e.target.value || undefined)}
               placeholder="Optional" />
@@ -111,7 +111,7 @@ function AddInvestmentModal({
         {/* SIP amount (SIP only) */}
         {form.investmentType === 'mf_sip' && (
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-widest text-mute mb-1">Monthly SIP Amount (₹)</label>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-(--text-muted) mb-1">Monthly SIP Amount (₹)</label>
             <input type="number" className={inp()} value={form.sipAmount ?? ''}
               onChange={(e) => set('sipAmount', parseFloat(e.target.value) || undefined)}
               placeholder="5000" />
@@ -134,13 +134,13 @@ function AddInvestmentModal({
         {(isSip || form.investmentType === 'direct_equity') && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-mute mb-1">Units / Shares</label>
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-(--text-muted) mb-1">Units / Shares</label>
               <input type="number" className={inp()} value={form.units ?? ''}
                 onChange={(e) => set('units', parseFloat(e.target.value) || undefined)}
                 placeholder="123.456" />
             </div>
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-mute mb-1">Purchase NAV/Price</label>
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-(--text-muted) mb-1">Purchase NAV/Price</label>
               <input type="number" className={inp()} value={form.purchaseNAV ?? ''}
                 onChange={(e) => set('purchaseNAV', parseFloat(e.target.value) || undefined)}
                 placeholder="55.23" />
@@ -150,7 +150,7 @@ function AddInvestmentModal({
 
         {/* Current value */}
         <div>
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-mute mb-1">Current Value (₹) <span className="normal-case font-normal">(optional)</span></label>
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-(--text-muted) mb-1">Current Value (₹) <span className="normal-case font-normal">(optional)</span></label>
           <input type="number" className={inp()} value={form.currentValue ?? ''}
             onChange={(e) => set('currentValue', parseFloat(e.target.value) || undefined)}
             placeholder="115000" />
@@ -168,7 +168,7 @@ function AddInvestmentModal({
 
         {/* Status */}
         <div>
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-mute mb-1">Status</label>
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-(--text-muted) mb-1">Status</label>
           <select className={inp()} value={form.status}
             onChange={(e) => set('status', e.target.value as AddInvestmentPayload['status'])}>
             <option value="active">Active</option>
@@ -179,7 +179,7 @@ function AddInvestmentModal({
 
         {/* Notes */}
         <div>
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-mute mb-1">Notes</label>
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-(--text-muted) mb-1">Notes</label>
           <textarea className={`${inp()} resize-none`} rows={2} value={form.notes ?? ''}
             onChange={(e) => set('notes', e.target.value || undefined)}
             placeholder="Optional" />
@@ -187,7 +187,7 @@ function AddInvestmentModal({
 
         <div className="flex gap-3 pt-2">
           <button onClick={onClose}
-            className="flex-1 px-4 py-2.5 text-sm border border-slate-200 rounded-xl hover:bg-slate-50 text-ink-soft">
+            className="flex-1 px-4 py-2.5 text-sm border border-(--shell-border-mid) rounded-xl hover:bg-(--shell-hover-soft) text-(--text-primary)">
             Cancel
           </button>
           <button onClick={handleSave} disabled={saving}
@@ -228,9 +228,9 @@ export function WealthInvestmentsSection({
   const gainPct       = totalInvested > 0 ? (gain / totalInvested) * 100 : 0;
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-6">
+    <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border-mid) p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xs font-bold uppercase tracking-widest text-mute">Investments</h3>
+        <h3 className="text-xs font-bold uppercase tracking-widest text-(--text-muted)">Investments</h3>
         {canWrite && (
           <button
             onClick={() => setShowAdd(true)}
@@ -243,31 +243,31 @@ export function WealthInvestmentsSection({
 
       {loading ? (
         <div className="space-y-2">
-          {[1, 2].map((i) => <div key={i} className="h-12 bg-slate-100 rounded-xl animate-pulse" />)}
+          {[1, 2].map((i) => <div key={i} className="h-12 bg-(--shell-hover-hard) rounded-xl animate-pulse" />)}
         </div>
       ) : investments.length === 0 ? (
-        <p className="text-sm text-mute py-2">No investments recorded yet.</p>
+        <p className="text-sm text-(--text-muted) py-2">No investments recorded yet.</p>
       ) : (
         <>
           {/* Summary strip */}
           {investments.length > 1 && (
-            <div className="grid grid-cols-3 gap-3 mb-4 p-3 bg-slate-50 rounded-xl">
+            <div className="grid grid-cols-3 gap-3 mb-4 p-3 bg-(--shell-hover-soft) rounded-xl">
               <div>
-                <p className="text-[10px] text-mute font-medium uppercase tracking-widest">Invested</p>
-                <p className="text-sm font-semibold text-ink">{fmtAmount(totalInvested)}</p>
+                <p className="text-[10px] text-(--text-muted) font-medium uppercase tracking-widest">Invested</p>
+                <p className="text-sm font-semibold text-(--text-primary)">{fmtAmount(totalInvested)}</p>
               </div>
               <div>
-                <p className="text-[10px] text-mute font-medium uppercase tracking-widest">Current</p>
-                <p className="text-sm font-semibold text-ink">{fmtAmount(totalCurrent)}</p>
+                <p className="text-[10px] text-(--text-muted) font-medium uppercase tracking-widest">Current</p>
+                <p className="text-sm font-semibold text-(--text-primary)">{fmtAmount(totalCurrent)}</p>
               </div>
               <div>
-                <p className="text-[10px] text-mute font-medium uppercase tracking-widest">Return</p>
+                <p className="text-[10px] text-(--text-muted) font-medium uppercase tracking-widest">Return</p>
                 <div className="flex items-center gap-1">
                   {gain > 0
                     ? <TrendingUp size={13} className="text-green-600" />
                     : gain < 0
                     ? <TrendingDown size={13} className="text-red-500" />
-                    : <Minus size={13} className="text-mute" />
+                    : <Minus size={13} className="text-(--text-muted)" />
                   }
                   <p className="text-sm font-semibold"
                     style={{ color: gain > 0 ? '#166534' : gain < 0 ? '#991B1B' : '#8B8B85' }}>
@@ -279,7 +279,7 @@ export function WealthInvestmentsSection({
           )}
 
           {/* Investment rows */}
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-(--shell-border)">
             {investments.map((inv) => {
               const s = STATUS_STYLES[inv.status];
               const currentVal = inv.currentValue ?? inv.investedAmount;
@@ -289,7 +289,7 @@ export function WealthInvestmentsSection({
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-ink truncate">{inv.schemeName}</span>
+                        <span className="text-sm font-medium text-(--text-primary) truncate">{inv.schemeName}</span>
                         <span className="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded"
                           style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8' }}>
                           {WEALTH_INVESTMENT_TYPE_LABELS[inv.investmentType]}
@@ -299,10 +299,10 @@ export function WealthInvestmentsSection({
                           {inv.status}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3 mt-1.5 text-xs text-mute flex-wrap">
-                        <span>Invested: <strong className="text-ink">{fmtAmount(inv.investedAmount)}</strong></span>
+                      <div className="flex items-center gap-3 mt-1.5 text-xs text-(--text-muted) flex-wrap">
+                        <span>Invested: <strong className="text-(--text-primary)">{fmtAmount(inv.investedAmount)}</strong></span>
                         {inv.currentValue !== undefined && (
-                          <span>Current: <strong className="text-ink">{fmtAmount(inv.currentValue)}</strong></span>
+                          <span>Current: <strong className="text-(--text-primary)">{fmtAmount(inv.currentValue)}</strong></span>
                         )}
                         {inv.units && <span>{inv.units.toFixed(3)} units</span>}
                         {inv.folioNumber && <span>Folio: {inv.folioNumber}</span>}
@@ -327,7 +327,7 @@ export function WealthInvestmentsSection({
                     )}
                   </div>
                   {inv.notes && (
-                    <p className="text-xs text-mute mt-1.5 italic">{inv.notes}</p>
+                    <p className="text-xs text-(--text-muted) mt-1.5 italic">{inv.notes}</p>
                   )}
                 </div>
               );

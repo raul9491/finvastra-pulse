@@ -122,12 +122,12 @@ export function StatementTemplatesPage() {
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <label className="p-1.5 rounded-lg hover:bg-white/10 cursor-pointer" title="Test with a sample CSV" style={{ color: '#C9A961' }}>
+                <label className="p-1.5 rounded-lg hover:bg-(--shell-hover-mid) cursor-pointer" title="Test with a sample CSV" style={{ color: '#C9A961' }}>
                   <FlaskConical size={14} />
                   <input type="file" accept=".csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) testTemplate(t, f); }} />
                 </label>
-                <button onClick={() => setEditing(t)} className="p-1.5 rounded-lg hover:bg-white/10" style={{ color: 'var(--shell-text-secondary)' }}><Pencil size={14} /></button>
-                <button onClick={() => remove(t.id!)} className="p-1.5 rounded-lg hover:bg-white/10" style={{ color: '#f87171' }}><Trash2 size={14} /></button>
+                <button onClick={() => setEditing(t)} className="p-1.5 rounded-lg hover:bg-(--shell-hover-mid)" style={{ color: 'var(--shell-text-secondary)' }}><Pencil size={14} /></button>
+                <button onClick={() => remove(t.id!)} className="p-1.5 rounded-lg hover:bg-(--shell-hover-mid)" style={{ color: '#f87171' }}><Trash2 size={14} /></button>
               </div>
             </div>
           ))}

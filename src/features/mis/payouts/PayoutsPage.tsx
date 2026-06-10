@@ -144,8 +144,8 @@ export function PayoutsPage() {
           {(filterPeriod || filterRm || filterStatus) && (
             <button
               onClick={() => { setFilterPeriod(''); setFilterRm(''); setFilterStatus(''); }}
-              className="text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors"
-              style={{ color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.15)' }}
+              className="text-xs px-3 py-2 rounded-lg hover:bg-(--shell-hover-soft) transition-colors"
+              style={{ color: 'var(--text-muted)', border: '1px solid var(--shell-border-mid)' }}
             >
               Clear filters
             </button>
@@ -173,7 +173,7 @@ export function PayoutsPage() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
                 <th className="px-5 py-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>RM Name</th>
                 <th className="px-5 py-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Period</th>
                 <th className="px-5 py-3 text-right font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Total Received</th>
@@ -186,8 +186,8 @@ export function PayoutsPage() {
               {filtered.map((payout) => (
                 <tr
                   key={payout.id}
-                  className="hover:bg-white/5 transition-colors"
-                  style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                  className="hover:bg-(--shell-hover-soft) transition-colors"
+                  style={{ borderBottom: '1px solid var(--shell-border)' }}
                 >
                   <td className="px-5 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>
                     {payout.rmDisplayName}
@@ -207,7 +207,7 @@ export function PayoutsPage() {
                   <td className="px-5 py-3 text-right">
                     <button
                       onClick={() => navigate(`/mis/payouts/${payout.id}`)}
-                      className="text-xs px-3 py-1.5 rounded-md font-semibold hover:bg-white/5 transition-colors"
+                      className="text-xs px-3 py-1.5 rounded-md font-semibold hover:bg-(--shell-hover-soft) transition-colors"
                       style={{ color: '#C9A961', border: '1px solid rgba(201,169,97,0.30)' }}
                     >
                       View

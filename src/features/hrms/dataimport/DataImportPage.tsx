@@ -620,7 +620,7 @@ function PreviewTable({
       <table className="w-full text-xs">
         <thead style={{ backgroundColor: 'var(--glass-panel-bg)', position: 'sticky', top: 0 }}>
           <tr>{['Row','Emp Code','Asset Type','Asset Name','Serial No.','Date','Condition','Status'].map((h) => (
-            <th key={h} className="px-3 py-2.5 text-left font-semibold text-slate-500 whitespace-nowrap">{h}</th>
+            <th key={h} className="px-3 py-2.5 text-left font-semibold text-(--text-muted) whitespace-nowrap">{h}</th>
           ))}</tr>
         </thead>
         <tbody className="divide-y divide-(--shell-border)">
@@ -628,11 +628,11 @@ function PreviewTable({
             <tr key={row.rowIndex} style={{ backgroundColor: row._errors.length ? '#FEF2F2' : undefined }}>
               <td className="px-3 py-2 text-(--text-muted)">{row.rowIndex}</td>
               <td className="px-3 py-2 font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{row.empCode}</td>
-              <td className="px-3 py-2 text-slate-600">{row.assetType}</td>
-              <td className="px-3 py-2 text-slate-700">{row.assetName}</td>
-              <td className="px-3 py-2 text-slate-500">{row.serialNumber || '—'}</td>
-              <td className="px-3 py-2 text-slate-500">{row.assignmentDate || '—'}</td>
-              <td className="px-3 py-2 text-slate-500">{row.condition ?? '—'}</td>
+              <td className="px-3 py-2 text-(--text-muted)">{row.assetType}</td>
+              <td className="px-3 py-2 text-(--text-primary)">{row.assetName}</td>
+              <td className="px-3 py-2 text-(--text-muted)">{row.serialNumber || '—'}</td>
+              <td className="px-3 py-2 text-(--text-muted)">{row.assignmentDate || '—'}</td>
+              <td className="px-3 py-2 text-(--text-muted)">{row.condition ?? '—'}</td>
               <td className="px-3 py-2">
                 {row._errors.length
                   ? <span className="flex items-center gap-1 text-red-600"><XCircle size={12}/>{row._errors[0]}</span>
@@ -651,7 +651,7 @@ function PreviewTable({
       <table className="w-full text-xs">
         <thead style={{ backgroundColor: 'var(--glass-panel-bg)', position: 'sticky', top: 0 }}>
           <tr>{['Row','Emp Code','Year','CL','SL','EL','Comp Off','Status'].map((h) => (
-            <th key={h} className="px-3 py-2.5 text-left font-semibold text-slate-500 whitespace-nowrap">{h}</th>
+            <th key={h} className="px-3 py-2.5 text-left font-semibold text-(--text-muted) whitespace-nowrap">{h}</th>
           ))}</tr>
         </thead>
         <tbody className="divide-y divide-(--shell-border)">
@@ -659,11 +659,11 @@ function PreviewTable({
             <tr key={row.rowIndex} style={{ backgroundColor: row._errors.length ? '#FEF2F2' : undefined }}>
               <td className="px-3 py-2 text-(--text-muted)">{row.rowIndex}</td>
               <td className="px-3 py-2 font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{row.empCode}</td>
-              <td className="px-3 py-2 text-slate-600">{row.year}</td>
-              <td className="px-3 py-2 text-slate-600">{row.clTotal} / {row.clUsed} used</td>
-              <td className="px-3 py-2 text-slate-600">{row.slTotal} / {row.slUsed} used</td>
-              <td className="px-3 py-2 text-slate-600">{row.elTotal} / {row.elUsed} used</td>
-              <td className="px-3 py-2 text-slate-600">{row.compOffTotal} / {row.compOffUsed} used</td>
+              <td className="px-3 py-2 text-(--text-muted)">{row.year}</td>
+              <td className="px-3 py-2 text-(--text-muted)">{row.clTotal} / {row.clUsed} used</td>
+              <td className="px-3 py-2 text-(--text-muted)">{row.slTotal} / {row.slUsed} used</td>
+              <td className="px-3 py-2 text-(--text-muted)">{row.elTotal} / {row.elUsed} used</td>
+              <td className="px-3 py-2 text-(--text-muted)">{row.compOffTotal} / {row.compOffUsed} used</td>
               <td className="px-3 py-2">
                 {row._errors.length
                   ? <span className="flex items-center gap-1 text-red-600"><XCircle size={12}/>{row._errors[0]}</span>
@@ -682,7 +682,7 @@ function PreviewTable({
     <table className="w-full text-xs">
       <thead style={{ backgroundColor: 'var(--glass-panel-bg)', position: 'sticky', top: 0 }}>
         <tr>{['Row','Emp Code','Joining Date','Salary','Department','Designation','UAN','Status'].map((h) => (
-          <th key={h} className="px-3 py-2.5 text-left font-semibold text-slate-500 whitespace-nowrap">{h}</th>
+          <th key={h} className="px-3 py-2.5 text-left font-semibold text-(--text-muted) whitespace-nowrap">{h}</th>
         ))}</tr>
       </thead>
       <tbody className="divide-y divide-(--shell-border)">
@@ -690,11 +690,11 @@ function PreviewTable({
           <tr key={row.rowIndex} style={{ backgroundColor: row._errors.length ? '#FEF2F2' : undefined }}>
             <td className="px-3 py-2 text-(--text-muted)">{row.rowIndex}</td>
             <td className="px-3 py-2 font-mono font-medium" style={{ color: 'var(--text-primary)' }}>{row.empCode}</td>
-            <td className="px-3 py-2 text-slate-600">{row.joiningDate || '—'}</td>
-            <td className="px-3 py-2 text-slate-600">{row.grossSalary != null ? `₹${row.grossSalary.toLocaleString('en-IN')}` : '—'}</td>
-            <td className="px-3 py-2 text-slate-600">{row.department || '—'}</td>
-            <td className="px-3 py-2 text-slate-600">{row.designation || '—'}</td>
-            <td className="px-3 py-2 text-slate-500">{row.uan || '—'}</td>
+            <td className="px-3 py-2 text-(--text-muted)">{row.joiningDate || '—'}</td>
+            <td className="px-3 py-2 text-(--text-muted)">{row.grossSalary != null ? `₹${row.grossSalary.toLocaleString('en-IN')}` : '—'}</td>
+            <td className="px-3 py-2 text-(--text-muted)">{row.department || '—'}</td>
+            <td className="px-3 py-2 text-(--text-muted)">{row.designation || '—'}</td>
+            <td className="px-3 py-2 text-(--text-muted)">{row.uan || '—'}</td>
             <td className="px-3 py-2">
               {row._errors.length
                 ? <span className="flex items-center gap-1 text-red-600"><XCircle size={12}/>{row._errors[0]}</span>

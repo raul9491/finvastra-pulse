@@ -45,7 +45,7 @@ export function ImportHistoryPage() {
         {loading ? (
           <div className="animate-pulse">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-14" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.02)' }} />
+              <div key={i} className="h-14" style={{ borderBottom: '1px solid var(--shell-border)', backgroundColor: 'var(--shell-hover-soft)' }} />
             ))}
           </div>
         ) : jobs.length === 0 ? (
@@ -56,7 +56,7 @@ export function ImportHistoryPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
                   {['Name', 'Batch ID', 'Started', 'Total', 'Imported', 'Errors', 'Distributed', 'Status', ''].map((h) => (
                     <th key={h} className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{h}</th>
                   ))}
@@ -64,8 +64,8 @@ export function ImportHistoryPage() {
               </thead>
               <tbody>
                 {jobs.map((job) => (
-                  <tr key={job.id} className="hover:bg-white/5 transition-colors"
-                    style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <tr key={job.id} className="hover:bg-(--shell-hover-soft) transition-colors"
+                    style={{ borderBottom: '1px solid var(--shell-border)' }}>
                     <td className="px-4 py-3">
                       <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{job.importName || '—'}</p>
                     </td>

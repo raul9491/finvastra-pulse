@@ -36,8 +36,8 @@ function MarkPaidModal({ record, onClose }: { record: CommissionRecord; onClose:
       footer={
         <>
           <button onClick={onClose}
-            className="px-5 py-2.5 text-sm border rounded-xl hover:bg-white/5 transition-colors"
-            style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>Cancel</button>
+            className="px-5 py-2.5 text-sm border rounded-xl hover:bg-(--shell-hover-soft) transition-colors"
+            style={{ color: 'var(--text-muted)', borderColor: 'var(--shell-border-mid)' }}>Cancel</button>
           <button onClick={handleSave} disabled={saving}
             className="px-7 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-50"
             style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
@@ -84,8 +84,8 @@ function ClawbackModal({ record, onClose }: { record: CommissionRecord; onClose:
       footer={
         <>
           <button onClick={onClose}
-            className="px-5 py-2.5 text-sm border rounded-xl hover:bg-white/5 transition-colors"
-            style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>Cancel</button>
+            className="px-5 py-2.5 text-sm border rounded-xl hover:bg-(--shell-hover-soft) transition-colors"
+            style={{ color: 'var(--text-muted)', borderColor: 'var(--shell-border-mid)' }}>Cancel</button>
           <button onClick={handleSave} disabled={saving || !reason.trim()}
             className="px-7 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-50 btn-glass-danger">
             {saving ? 'Saving…' : 'Confirm Clawback'}
@@ -179,7 +179,7 @@ export function CommissionRecordsPage() {
           {loading ? (
             <div className="animate-pulse">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-12" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', backgroundColor: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }} />
+                <div key={i} className="h-12" style={{ borderBottom: '1px solid var(--shell-border)', backgroundColor: i % 2 === 0 ? 'var(--shell-hover-soft)' : 'transparent' }} />
               ))}
             </div>
           ) : filtered.length === 0 ? (
@@ -190,7 +190,7 @@ export function CommissionRecordsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
                     {['Opportunity', 'Bank', 'Disbursed ₹', 'Commission ₹', 'Expected Date', isAdmin ? 'RM' : null, 'Status', ''].filter(Boolean).map((h) => (
                       <th key={h!} className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{h}</th>
                     ))}
@@ -201,8 +201,8 @@ export function CommissionRecordsPage() {
                     const st = STATUS_STYLES[r.status];
                     const noSlab = r.notes?.includes('NO_SLAB_MATCH');
                     return (
-                      <tr key={r.id} className="hover:bg-white/5 transition-colors"
-                        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <tr key={r.id} className="hover:bg-(--shell-hover-soft) transition-colors"
+                        style={{ borderBottom: '1px solid var(--shell-border)' }}>
                         <td className="px-4 py-3">
                           <button
                             onClick={() => navigate(`/crm/leads/${r.leadId}/opportunities/${r.opportunityId}`)}

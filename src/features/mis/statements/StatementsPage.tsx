@@ -169,7 +169,7 @@ export function StatementsPage() {
         {loading ? (
           <div className="p-6 space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-10 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+              <div key={i} className="h-10 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -193,7 +193,7 @@ export function StatementsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
                   <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Provider</th>
                   <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Period</th>
                   <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Received Date</th>
@@ -212,8 +212,8 @@ export function StatementsPage() {
                   return (
                     <tr
                       key={stmt.id}
-                      className="hover:bg-white/5 transition-colors"
-                      style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                      className="hover:bg-(--shell-hover-soft) transition-colors"
+                      style={{ borderBottom: '1px solid var(--shell-border)' }}
                     >
                       <td className="px-4 py-3 font-medium max-w-[140px] truncate" style={{ color: 'var(--text-primary)' }}>
                         {providerName}

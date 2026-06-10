@@ -17,7 +17,7 @@ function StatusPill({ status }: { status: LeaveStatus }) {
     pending:   { label: 'Pending',   color: '#fbbf24', bg: 'rgba(251,191,36,0.15)'  },
     approved:  { label: 'Approved',  color: '#34d399', bg: 'rgba(52,211,153,0.15)'  },
     rejected:  { label: 'Rejected',  color: '#f87171', bg: 'rgba(248,113,113,0.15)' },
-    cancelled: { label: 'Cancelled', color: 'rgba(240,236,224,0.40)', bg: 'rgba(255,255,255,0.07)' },
+    cancelled: { label: 'Cancelled', color: 'var(--text-muted)', bg: 'var(--glass-panel-bg)' },
   };
   const { label, color, bg } = config[status];
   return (
@@ -55,7 +55,7 @@ function BalanceCard({ label, used, total, remaining }: BalanceCardProps) {
       <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
         days remaining &nbsp;·&nbsp; {used}/{total} used
       </p>
-      <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+      <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--shell-hover-hard)' }}>
         <div
           className="h-full rounded-full transition-all duration-300"
           style={{ width: `${pct}%`, backgroundColor: '#C9A961' }}
@@ -84,7 +84,7 @@ function EncashPill({ status }: { status: string }) {
     rejected: { label: 'Rejected', color: '#f87171', bg: 'rgba(248,113,113,0.15)' },
     paid:     { label: 'Paid',     color: '#60a5fa', bg: 'rgba(96,165,250,0.15)'  },
   };
-  const { label, color, bg } = cfg[status] ?? { label: status, color: 'var(--text-muted)', bg: 'rgba(255,255,255,0.07)' };
+  const { label, color, bg } = cfg[status] ?? { label: status, color: 'var(--text-muted)', bg: 'var(--glass-panel-bg)' };
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
       style={{ color, backgroundColor: bg }}>
@@ -183,15 +183,15 @@ export function LeavePage() {
           {/* Secondary links — surfaced here since they're removed from the main nav */}
           <Link
             to="/hrms/leave/team-calendar"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors hover:bg-white/10"
-            style={{ color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.10)' }}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors hover:bg-(--shell-hover-mid)"
+            style={{ color: 'var(--text-muted)', border: '1px solid var(--shell-border-mid)' }}
           >
             Team Calendar →
           </Link>
           <Link
             to="/hrms/holidays"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors hover:bg-white/10"
-            style={{ color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.10)' }}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors hover:bg-(--shell-hover-mid)"
+            style={{ color: 'var(--text-muted)', border: '1px solid var(--shell-border-mid)' }}
           >
             Holidays →
           </Link>
@@ -200,7 +200,7 @@ export function LeavePage() {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
             style={{
               background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
-              color:      'var(--text-primary)',
+              color:      '#0B1538',
               border:     '1px solid rgba(201,169,97,0.40)',
             }}
           >
@@ -250,7 +250,7 @@ export function LeavePage() {
 
       {/* ── Applications table ── */}
       <div className="glass-panel overflow-hidden">
-        <div className="px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--shell-border)' }}>
           <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
             My Applications
           </h3>
@@ -268,7 +268,7 @@ export function LeavePage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <tr style={{ borderBottom: '1px solid var(--shell-border)' }}>
                   {['Type', 'From', 'To', 'Days', 'Status', 'Applied On', ''].map((h) => (
                     <th
                       key={h}
@@ -284,8 +284,8 @@ export function LeavePage() {
                 {applications.map((app) => (
                   <tr
                     key={app.id}
-                    className="transition-colors hover:bg-[rgba(255,255,255,0.03)]"
-                    style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                    className="transition-colors hover:bg-(--shell-hover-soft)"
+                    style={{ borderBottom: '1px solid var(--shell-border)' }}
                   >
                     <td className="px-6 py-3.5 font-medium" style={{ color: 'var(--text-primary)' }}>
                       {TYPE_LABELS[app.type] ?? app.type}
@@ -331,7 +331,7 @@ export function LeavePage() {
 
       {/* ── Leave Encashment ── */}
       <div className="glass-panel overflow-hidden">
-        <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--shell-border)' }}>
           <div className="flex items-center gap-2">
             <Coins size={15} style={{ color: '#C9A961' }} />
             <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Leave Encashment</h3>
@@ -342,7 +342,7 @@ export function LeavePage() {
               className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:brightness-110"
               style={{
                 background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
-                color:      'var(--text-primary)',
+                color:      '#0B1538',
                 border:     '1px solid rgba(201,169,97,0.40)',
               }}
             >
@@ -359,7 +359,7 @@ export function LeavePage() {
         )}
 
         {showEncash && (
-          <div className="p-6 space-y-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="p-6 space-y-4" style={{ borderBottom: '1px solid var(--shell-border)' }}>
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Only Earned Leave (EL) can be encashed. Maximum 15 days per request. Daily rate = Gross ÷ 26.</p>
             {encError && (
               <div className="flex items-center gap-2 p-3 rounded-xl" style={{ backgroundColor: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.20)' }}>
@@ -410,8 +410,8 @@ export function LeavePage() {
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowEncash(false)}
-                className="px-4 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-white/10"
-                style={{ color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.12)' }}
+                className="px-4 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-(--shell-hover-mid)"
+                style={{ color: 'var(--text-muted)', border: '1px solid var(--shell-border-mid)' }}
               >
                 Cancel
               </button>
@@ -421,7 +421,7 @@ export function LeavePage() {
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50 transition-all hover:brightness-110"
                 style={{
                   background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
-                  color:      'var(--text-primary)',
+                  color:      '#0B1538',
                   border:     '1px solid rgba(201,169,97,0.40)',
                 }}
               >
@@ -439,7 +439,7 @@ export function LeavePage() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <tr style={{ borderBottom: '1px solid var(--shell-border)' }}>
                 {['Month', 'Days', 'Daily Rate', 'Amount', 'Status', 'Submitted'].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{h}</th>
                 ))}
@@ -449,7 +449,7 @@ export function LeavePage() {
               {encashReqs.map((r) => {
                 const d = r.submittedAt?.toDate?.();
                 return (
-                  <tr key={r.id} className="transition-colors hover:bg-[rgba(255,255,255,0.03)]" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <tr key={r.id} className="transition-colors hover:bg-(--shell-hover-soft)" style={{ borderBottom: '1px solid var(--shell-border)' }}>
                     <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{r.month}</td>
                     <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>{r.leaveDays}</td>
                     <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>₹{r.dailyRate.toLocaleString('en-IN')}</td>

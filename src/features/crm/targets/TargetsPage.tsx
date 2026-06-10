@@ -64,7 +64,7 @@ function ProgressCard({ label, kind, actual, target, daysLeft }: {
         <span className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{fmtVal(kind, actual)}</span>
         <span className="text-xs" style={{ color: 'var(--shell-text-dim)' }}>of {target > 0 ? fmtVal(kind, target) : '—'}</span>
       </div>
-      <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+      <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--shell-hover-hard)' }}>
         <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: barColor }} />
       </div>
       <p className="text-xs mt-1.5 font-semibold" style={{ color: barColor }}>{pct}% achieved</p>
@@ -199,7 +199,7 @@ function TeamCell({ actual, target, kind, past20 }: { actual: number; target: nu
   return (
     <td className="px-3 py-2.5">
       <div className="text-sm font-semibold" style={{ color }}>{fmtVal(kind, actual)}<span className="font-normal" style={{ color: 'var(--shell-text-dim)' }}> / {target > 0 ? fmtVal(kind, target) : '—'}</span></div>
-      <div className="w-full h-1 rounded-full overflow-hidden mt-1" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+      <div className="w-full h-1 rounded-full overflow-hidden mt-1" style={{ backgroundColor: 'var(--shell-hover-hard)' }}>
         <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
       </div>
     </td>
@@ -260,8 +260,8 @@ function TeamView({ period, isAdmin, setBy, onEdit }: {
                 <TeamCell actual={r.actuals.commissionGenerated} target={r.target?.targets.commissionGenerated ?? 0} kind="money" past20={past20} />
                 <td className="px-3 py-2.5">
                   <div className="flex gap-2">
-                    <button onClick={() => onEdit(r)} title="Set target" className="p-1.5 rounded-lg hover:bg-white/10" style={{ color: 'var(--shell-text-secondary)' }}><Pencil size={14} /></button>
-                    {isAdmin && <button onClick={() => generateScorecard(r.rmId)} title="Generate scorecard" className="p-1.5 rounded-lg hover:bg-white/10" style={{ color: '#C9A961' }}><FileText size={14} /></button>}
+                    <button onClick={() => onEdit(r)} title="Set target" className="p-1.5 rounded-lg hover:bg-(--shell-hover-mid)" style={{ color: 'var(--shell-text-secondary)' }}><Pencil size={14} /></button>
+                    {isAdmin && <button onClick={() => generateScorecard(r.rmId)} title="Generate scorecard" className="p-1.5 rounded-lg hover:bg-(--shell-hover-mid)" style={{ color: '#C9A961' }}><FileText size={14} /></button>}
                   </div>
                 </td>
               </tr>

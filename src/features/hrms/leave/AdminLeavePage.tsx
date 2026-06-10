@@ -241,7 +241,7 @@ function PendingTab({ approverId, employeeNameById }: PendingTabProps) {
           </thead>
           <tbody>
             {applications.map((app) => (
-              <tr key={app.id} className="border-b border-slate-50 hover:bg-(--glass-panel-bg) transition-colors">
+              <tr key={app.id} className="border-b border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors">
                 <td className="px-6 py-3.5 font-medium" style={{ color: 'var(--text-primary)' }}>
                   {employeeNameById(app.employeeId)}
                 </td>
@@ -416,7 +416,7 @@ function AllTab({ employeeNameById, employees }: AllTabProps) {
             </thead>
             <tbody>
               {filtered.map((app) => (
-                <tr key={app.id} className="border-b border-slate-50 hover:bg-(--glass-panel-bg) transition-colors">
+                <tr key={app.id} className="border-b border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors">
                   <td className="px-6 py-3.5 font-medium" style={{ color: 'var(--text-primary)' }}>
                     {employeeNameById(app.employeeId)}
                   </td>
@@ -691,7 +691,7 @@ function EditLeaveBalanceModal({
                 <div className="px-4 py-6 text-sm text-center" style={{ color: 'var(--text-muted)' }}>Loading current balances…</div>
               ) : (
                 rows.map((r) => (
-                  <div key={r.type} className="grid grid-cols-3 min-w-70 items-center px-4 py-3 border-b border-slate-50 last:border-0">
+                  <div key={r.type} className="grid grid-cols-3 min-w-70 items-center px-4 py-3 border-b border-(--shell-border) last:border-0">
                     <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{r.label}</span>
                     <span className="text-center text-sm" style={{ color: 'var(--text-muted)' }}>{r.current} days</span>
                     <div className="flex justify-center">
@@ -856,7 +856,7 @@ function BalancesTab({ employees, actorUid, actorName }: BalancesTabProps) {
             </thead>
             <tbody>
               {records.map((r) => (
-                <tr key={r.id} className="border-b border-slate-50 hover:bg-(--glass-panel-bg) transition-colors">
+                <tr key={r.id} className="border-b border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors">
                   <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>
                     {employeeNameById(r.employeeId)}
                   </td>
@@ -950,7 +950,7 @@ function EncashmentTab({ actorUid }: { actorUid: string }) {
         <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="h-12 bg-(--glass-panel-bg) rounded-xl animate-pulse" />)}</div>
       ) : pendingRequests.length === 0 && otherRequests.length === 0 ? (
         <div className="py-10 text-center">
-          <Coins size={32} className="mx-auto mb-3 text-slate-200" />
+          <Coins size={32} className="mx-auto mb-3 text-(--text-dim)" />
           <p className="text-sm text-(--text-muted)">No encashment requests yet.</p>
         </div>
       ) : (
@@ -1027,7 +1027,7 @@ function EncashmentTab({ actorUid }: { actorUid: string }) {
                     };
                     const cfg = statusCfg[r.status] ?? { label: r.status, color: '#374151', bg: '#F3F4F6' };
                     return (
-                      <tr key={r.id} className="border-b border-slate-50">
+                      <tr key={r.id} className="border-b border-(--shell-border)">
                         <td className="px-3 py-2.5 font-medium text-(--text-primary)">{r.employeeName}</td>
                         <td className="px-3 py-2.5 text-(--text-muted)">{r.month}</td>
                         <td className="px-3 py-2.5 text-(--text-muted)">{r.leaveDays}</td>

@@ -64,8 +64,8 @@ function DeleteConfirm({ doc: d, onConfirm, onCancel, loading }: {
         </p>
         <div className="flex gap-3 justify-end">
           <button onClick={onCancel}
-            className="px-4 py-2 text-sm rounded-lg border hover:bg-white/5 transition-colors"
-            style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>
+            className="px-4 py-2 text-sm rounded-lg border hover:bg-(--shell-hover-soft) transition-colors"
+            style={{ color: 'var(--text-muted)', borderColor: 'var(--shell-border-mid)' }}>
             Cancel
           </button>
           <button onClick={onConfirm} disabled={loading}
@@ -171,7 +171,7 @@ export function CrmDocumentVault({ opportunityId, leadId, canWrite }: Props) {
       </button>
 
       {expanded && (
-        <div className="px-6 pb-6 space-y-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="px-6 pb-6 space-y-4 pt-4" style={{ borderTop: '1px solid var(--shell-border)' }}>
 
           {/* Upload row */}
           {canWrite && (
@@ -242,8 +242,8 @@ export function CrmDocumentVault({ opportunityId, leadId, canWrite }: Props) {
                 return (
                   <div
                     key={d.id}
-                    className="flex items-center gap-3 p-3 rounded-xl transition-colors hover:bg-white/5"
-                    style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+                    className="flex items-center gap-3 p-3 rounded-xl transition-colors hover:bg-(--shell-hover-soft)"
+                    style={{ border: '1px solid var(--shell-border)' }}
                   >
                     {/* File icon */}
                     <div className="shrink-0">
@@ -281,7 +281,7 @@ export function CrmDocumentVault({ opportunityId, leadId, canWrite }: Props) {
                         href={d.storageUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-(--shell-hover-soft) transition-colors"
                         title="Download / View"
                       >
                         <Download size={15} style={{ color: 'var(--text-muted)' }} />
@@ -290,7 +290,7 @@ export function CrmDocumentVault({ opportunityId, leadId, canWrite }: Props) {
                         <button
                           type="button"
                           onClick={() => setDeleteTarget(d)}
-                          className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-(--shell-hover-soft) transition-colors"
                           title="Delete"
                         >
                           <Trash2 size={15} style={{ color: '#f87171' }} />

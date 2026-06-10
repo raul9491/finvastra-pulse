@@ -163,8 +163,8 @@ export function ImportReferralsPage() {
         <div className="flex items-center justify-center gap-3 pt-2">
           <button
             onClick={() => { setImportState('idle'); setRows([]); setFileName(''); }}
-            className="text-sm px-4 py-2 rounded-lg border transition-colors hover:bg-white/5"
-            style={{ borderColor: 'rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
+            className="text-sm px-4 py-2 rounded-lg border transition-colors hover:bg-(--shell-hover-soft)"
+            style={{ borderColor: 'var(--shell-border-mid)', color: 'var(--text-primary)' }}
           >
             Import another file
           </button>
@@ -216,8 +216,8 @@ export function ImportReferralsPage() {
           </div>
           <button
             onClick={downloadSample}
-            className="flex items-center gap-1.5 text-sm px-3.5 py-2 rounded-lg border transition-colors hover:bg-white/5"
-            style={{ borderColor: 'rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
+            className="flex items-center gap-1.5 text-sm px-3.5 py-2 rounded-lg border transition-colors hover:bg-(--shell-hover-soft)"
+            style={{ borderColor: 'var(--shell-border-mid)', color: 'var(--text-primary)' }}
           >
             <Download size={14} />
             Download template
@@ -240,8 +240,8 @@ export function ImportReferralsPage() {
         )}
 
         <div
-          className="border-2 border-dashed rounded-xl flex flex-col items-center justify-center py-10 px-6 text-center cursor-pointer transition-colors hover:bg-white/5"
-          style={{ borderColor: 'rgba(255,255,255,0.15)' }}
+          className="border-2 border-dashed rounded-xl flex flex-col items-center justify-center py-10 px-6 text-center cursor-pointer transition-colors hover:bg-(--shell-hover-soft)"
+          style={{ borderColor: 'var(--shell-border-mid)' }}
           onClick={() => fileRef.current?.click()}
         >
           <Upload size={24} className="mb-3" style={{ color: 'var(--text-muted)' }} />
@@ -263,7 +263,7 @@ export function ImportReferralsPage() {
       {(importState === 'preview' || importState === 'importing') && rows.length > 0 && (
         <div className="glass-panel overflow-hidden">
           <div className="px-5 py-4 flex items-center justify-between"
-            style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+            style={{ borderBottom: '1px solid var(--shell-border)' }}>
             <div>
               <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                 Step 3 — Review & Import
@@ -289,10 +289,10 @@ export function ImportReferralsPage() {
 
           {/* Progress bar while importing */}
           {importState === 'importing' && (
-            <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+            <div className="px-5 py-3" style={{ borderBottom: '1px solid var(--shell-border)' }}>
               <div className="flex items-center gap-3">
                 <Loader2 size={14} className="animate-spin shrink-0" style={{ color: '#C9A961' }} />
-                <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--shell-hover-hard)' }}>
                   <div
                     className="h-full rounded-full transition-all"
                     style={{ width: validRows.length > 0 ? `${(progress / validRows.length) * 100}%` : '0%', backgroundColor: '#C9A961' }}
@@ -308,7 +308,7 @@ export function ImportReferralsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <tr style={{ borderBottom: '1px solid var(--shell-border)' }}>
                   <th className="py-2.5 pl-5 pr-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Row</th>
                   <th className="py-2.5 px-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Name</th>
                   <th className="py-2.5 px-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Phone</th>
@@ -322,7 +322,7 @@ export function ImportReferralsPage() {
                   <tr
                     key={row.index}
                     style={{
-                      borderBottom: '1px solid rgba(255,255,255,0.06)',
+                      borderBottom: '1px solid var(--shell-border)',
                       backgroundColor: row.errors.length > 0 ? 'rgba(248,113,113,0.06)' : undefined,
                     }}
                   >

@@ -49,7 +49,7 @@ export function ImportProgressDock({ jobs }: { jobs: ImportJob[] }) {
               </p>
               <span className="text-xs font-bold" style={{ color: '#C9A961' }}>{pct}%</span>
             </div>
-            <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+            <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--shell-hover-hard)' }}>
               <div className="h-full rounded-full transition-all duration-500"
                 style={{ width: `${pct}%`, backgroundColor: '#C9A961' }} />
             </div>
@@ -88,7 +88,7 @@ export function ImportProgressDock({ jobs }: { jobs: ImportJob[] }) {
                 )}
               </div>
               <button onClick={() => dismiss(job.id)}
-                className="shrink-0 p-0.5 rounded hover:bg-white/10" aria-label="Dismiss">
+                className="shrink-0 p-0.5 rounded hover:bg-(--shell-hover-mid)" aria-label="Dismiss">
                 <X size={14} style={{ color: 'var(--shell-text-dim)' }} />
               </button>
             </div>

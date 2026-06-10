@@ -191,7 +191,7 @@ function OrgRow({ node, collapsed, onToggle }: OrgRowProps) {
         {hasKids ? (
           <button
             onClick={() => onToggle(node.userId)}
-            className="w-5 h-5 flex items-center justify-center rounded shrink-0 transition-colors hover:bg-slate-200"
+            className="w-5 h-5 flex items-center justify-center rounded shrink-0 transition-colors hover:bg-(--shell-hover-hard)"
             style={{ color: 'var(--text-muted)' }}
             title={isCollapsed ? `Show ${node.children.length} report${node.children.length !== 1 ? 's' : ''}` : 'Collapse'}
           >
@@ -378,7 +378,7 @@ export function OrgChartPage() {
           </div>
         ) : !filteredTree ? (
           <div className="flex flex-col items-center justify-center h-64 gap-2">
-            <Users size={36} className="text-slate-200" />
+            <Users size={36} className="text-(--text-dim)" />
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               No employees in <strong>{deptFilter}</strong>.
             </p>

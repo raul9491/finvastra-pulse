@@ -240,8 +240,8 @@ export function NewLeadPage() {
             {isSubmitting ? 'Saving…' : 'Save Customer'}
           </button>
           <button type="button" onClick={() => navigate('/crm/leads')}
-            className="px-6 py-3 rounded-lg text-sm font-medium border hover:bg-white/5 transition-colors"
-            style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>
+            className="px-6 py-3 rounded-lg text-sm font-medium border hover:bg-(--shell-hover-soft) transition-colors"
+            style={{ color: 'var(--text-muted)', borderColor: 'var(--shell-border-mid)' }}>
             Cancel
           </button>
         </div>

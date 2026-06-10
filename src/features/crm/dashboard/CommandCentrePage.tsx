@@ -258,7 +258,7 @@ export function CommandCentrePage() {
                   {list.map((e) => (
                     <button key={e.uid} onClick={() => navigate(`/hrms/employees/${e.uid}`)} title={e.name}
                       className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold"
-                      style={{ border: `2px solid ${color}`, color: 'var(--text-primary)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                      style={{ border: `2px solid ${color}`, color: 'var(--text-primary)', backgroundColor: 'var(--shell-hover-soft)' }}>
                       {e.photoURL ? <img src={e.photoURL} alt={e.name} className="w-full h-full rounded-full object-cover" /> : avatar(e)}
                     </button>
                   ))}
@@ -281,7 +281,7 @@ export function CommandCentrePage() {
                   [CalendarCheck, 'Attendance corrections', data.pending.corrections, '/hrms/admin/attendance'],
                   [Receipt, 'Leave encashment', data.pending.encashment, '/hrms/leave/admin'],
                 ] as const).filter(([, , n]) => n > 0).map(([Icon, label, n, link]) => (
-                  <button key={label} onClick={() => navigate(link)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors hover:bg-white/5" style={{ border: '1px solid var(--shell-border)' }}>
+                  <button key={label} onClick={() => navigate(link)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors hover:bg-(--shell-hover-soft)" style={{ border: '1px solid var(--shell-border)' }}>
                     <Icon size={16} style={{ color: '#C9A961' }} />
                     <span className="text-sm flex-1 text-left" style={{ color: 'var(--text-primary)' }}>{label}</span>
                     <span className="text-sm font-bold" style={{ color: '#f87171' }}>{n}</span>
@@ -302,7 +302,7 @@ export function CommandCentrePage() {
                 ['Target', fmtCompact(targetTotal), '#C9A961'],
                 ['Achievement', `${teamAchievement}%`, teamAchievement >= 75 ? '#34d399' : '#C9A961'],
               ].map(([label, val, color]) => (
-                <div key={label} className="rounded-xl px-3 py-2.5" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
+                <div key={label} className="rounded-xl px-3 py-2.5" style={{ backgroundColor: 'var(--shell-hover-soft)' }}>
                   <p className="text-lg font-bold" style={{ color: color as string }}>{val}</p>
                   <p className="text-[10px]" style={{ color: 'var(--shell-text-dim)' }}>{label}</p>
                 </div>
@@ -315,7 +315,7 @@ export function CommandCentrePage() {
                 return (
                   <div key={line} className="flex items-center gap-3">
                     <span className="text-xs capitalize w-16" style={{ color: 'var(--shell-text-secondary)' }}>{line}</span>
-                    <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
+                    <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--glass-panel-bg)' }}>
                       <div className="h-full rounded-full" style={{ width: `${w}%`, backgroundColor: '#C9A961' }} />
                     </div>
                     <span className="text-xs w-28 text-right" style={{ color: 'var(--text-primary)' }}>{fmtCompact(data.byLine[line].value)} <span style={{ color: 'var(--shell-text-dim)' }}>({data.byLine[line].count})</span></span>
@@ -362,7 +362,7 @@ export function CommandCentrePage() {
                 {data.compliance.map((c) => {
                   const red = c.status === 'overdue';
                   return (
-                    <button key={c.id} onClick={() => navigate('/hrms/admin/compliance')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors hover:bg-white/5"
+                    <button key={c.id} onClick={() => navigate('/hrms/admin/compliance')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors hover:bg-(--shell-hover-soft)"
                       style={{ border: `1px solid ${red ? 'rgba(248,113,113,0.4)' : 'rgba(251,191,36,0.4)'}` }}>
                       <span className="text-sm flex-1" style={{ color: 'var(--text-primary)' }}>{c.label} — <span style={{ color: red ? '#f87171' : '#fbbf24' }}>{red ? `overdue by ${c.days}d` : `due in ${c.days}d`}</span></span>
                       <span className="text-xs font-semibold flex items-center gap-1" style={{ color: '#C9A961' }}>Mark as Filed <ArrowRight size={12} /></span>

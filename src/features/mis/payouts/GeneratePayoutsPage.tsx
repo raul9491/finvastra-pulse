@@ -137,7 +137,7 @@ export function GeneratePayoutsPage() {
         <div className="glass-panel overflow-hidden mb-6">
           <div
             className="px-6 py-4 flex items-center justify-between"
-            style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+            style={{ borderBottom: '1px solid var(--shell-border)' }}
           >
             <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
               Payout Preview — {period}
@@ -169,7 +169,7 @@ export function GeneratePayoutsPage() {
 
           <table className="w-full text-sm mt-2">
             <thead>
-              <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
                 <th className="px-5 py-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>RM Name</th>
                 <th className="px-5 py-3 text-right font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Records</th>
                 <th className="px-5 py-3 text-right font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Total Received</th>
@@ -181,8 +181,8 @@ export function GeneratePayoutsPage() {
               {previewRows.map((row) => (
                 <tr
                   key={row.rmId}
-                  className={`hover:bg-white/5 transition-colors${row.noSlabWarning ? ' opacity-60' : ''}`}
-                  style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                  className={`hover:bg-(--shell-hover-soft) transition-colors${row.noSlabWarning ? ' opacity-60' : ''}`}
+                  style={{ borderBottom: '1px solid var(--shell-border)' }}
                 >
                   <td className="px-5 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>
                     {row.rmDisplayName}

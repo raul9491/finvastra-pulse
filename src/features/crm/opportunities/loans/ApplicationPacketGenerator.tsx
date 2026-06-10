@@ -138,7 +138,7 @@ export function ApplicationPacketGenerator({
   return (
     <div>
       {!canGenerate && totalDocs > 0 && (
-        <p className="text-xs mb-2" style={{ color: '#8B8B85' }}>
+        <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
           {pctLabel}. Minimum 80% required to generate packet.
         </p>
       )}
@@ -147,8 +147,8 @@ export function ApplicationPacketGenerator({
         type="button"
         onClick={handleGenerate}
         disabled={!canGenerate || generating}
-        className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        style={{ color: '#2A2A2A' }}
+        className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg border border-(--shell-border-mid) hover:bg-(--shell-hover-soft) transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        style={{ color: 'var(--text-primary)' }}
         title={
           !canGenerate && totalDocs > 0
             ? `${pctLabel} — need 80% to generate`

@@ -26,11 +26,11 @@ const CATEGORY_META: Record<HrTicketCategory, { label: string; color: string; bg
   workplace_concern: { label: 'Workplace',          color: '#D97706', bg: '#FEF9C3' },
   posh:              { label: 'POSH Complaint',     color: '#9F1239', bg: '#FFE4E6' },
   it_access:         { label: 'IT / System Access', color: '#374151', bg: '#F3F4F6' },
-  other:             { label: 'Other',              color: '#6B7280', bg: '#F9FAFB' },
+  other:             { label: 'Other',              color: 'var(--text-muted)', bg: '#F9FAFB' },
 };
 
 const PRIORITY_META: Record<HrTicketPriority, { label: string; color: string }> = {
-  low:    { label: 'Low',    color: '#6B7280' },
+  low:    { label: 'Low',    color: 'var(--text-muted)' },
   medium: { label: 'Medium', color: '#D97706' },
   high:   { label: 'High',   color: '#EA580C' },
   urgent: { label: 'Urgent', color: '#DC2626' },
@@ -40,7 +40,7 @@ const STATUS_META: Record<HrTicket['status'], { label: string; color: string; ic
   open:      { label: 'Open',       color: '#D97706', icon: Clock         },
   in_review: { label: 'In Review',  color: '#0369A1', icon: Eye           },
   resolved:  { label: 'Resolved',   color: '#059669', icon: CheckCircle2  },
-  closed:    { label: 'Closed',     color: '#6B7280', icon: CheckCircle2  },
+  closed:    { label: 'Closed',     color: 'var(--text-muted)', icon: CheckCircle2  },
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -138,7 +138,7 @@ function NewTicketModal({
       <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-(--shell-border)">
           <h2 className="text-base font-semibold">Raise HR Ticket</h2>
-          <button onClick={onClose} className="text-(--text-muted) hover:text-slate-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-(--text-muted) hover:text-(--text-muted)"><X size={18} /></button>
         </div>
 
         <div className="p-6 space-y-4">
@@ -241,7 +241,7 @@ function TicketDetailPanel({ ticket, onClose }: { ticket: HrTicket; onClose: () 
             <StatusPill status={ticket.status} />
             <CategoryPill cat={ticket.category} />
           </div>
-          <button onClick={onClose} className="text-(--text-muted) hover:text-slate-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-(--text-muted) hover:text-(--text-muted)"><X size={18} /></button>
         </div>
         <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           <div>
@@ -357,7 +357,7 @@ export function HrHelpdeskPage() {
               <div className="space-y-3">
                 {open.map((t) => (
                   <button key={t.id} onClick={() => setDetailTicket(t)}
-                    className="w-full text-left bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-4 hover:border-slate-300 transition-colors flex items-center gap-4">
+                    className="w-full text-left bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-4 hover:border-(--shell-border-mid) transition-colors flex items-center gap-4">
                     <AlertCircle size={18} style={{ color: PRIORITY_META[t.priority].color }} className="shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">

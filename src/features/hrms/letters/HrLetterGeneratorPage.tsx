@@ -520,7 +520,7 @@ export function HrLetterGeneratorPage() {
                 key={value}
                 onClick={() => { setLetterType(value); setSuccess(''); setError(''); setFieldErrors({}); }}
                 className={`p-3 rounded-xl border text-left transition-all ${
-                  letterType === value ? 'border-navy bg-navy/5' : 'border-(--shell-border) hover:border-slate-300'
+                  letterType === value ? 'border-navy bg-navy/5' : 'border-(--shell-border) hover:border-(--shell-border-mid)'
                 }`}
               >
                 <p className={`text-xs font-semibold ${letterType === value ? 'text-navy' : 'text-(--text-primary)'}`}>{lbl}</p>
@@ -835,7 +835,7 @@ export function HrLetterGeneratorPage() {
                           </td>
                           <td className="px-2 py-1.5 text-center">
                             <button type="button" onClick={() => removeSalaryRow(idx)}
-                              className="text-slate-300 hover:text-red-400 transition-colors">
+                              className="text-(--text-muted) hover:text-red-400 transition-colors">
                               <Minus size={12} />
                             </button>
                           </td>
@@ -843,7 +843,7 @@ export function HrLetterGeneratorPage() {
                       );
                     })}
                     {/* Totals row */}
-                    <tr className="border-t-2 border-slate-300" style={{ backgroundColor: '#F5EDD8' }}>
+                    <tr className="border-t-2 border-(--shell-border-mid)" style={{ backgroundColor: '#F5EDD8' }}>
                       <td className="px-3 py-2 text-xs font-bold" style={{ color: 'var(--text-primary)' }} colSpan={2}>TOTAL COST TO COMPANY (CTC)</td>
                       <td className="px-3 py-2 text-xs font-bold text-right" style={{ color: 'var(--text-primary)' }}>
                         {totalMonthly > 0 ? totalMonthly.toLocaleString('en-IN') : '—'}
@@ -999,7 +999,7 @@ export function HrLetterGeneratorPage() {
             </div>
           ) : letters.length === 0 ? (
             <div className="py-10 text-center">
-              <FileText size={32} className="mx-auto mb-3 text-slate-200" />
+              <FileText size={32} className="mx-auto mb-3 text-(--text-dim)" />
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No letters generated yet.</p>
             </div>
           ) : (
@@ -1033,7 +1033,7 @@ function LetterRow({ letter: l }: { letter: GeneratedLetter }) {
   const typeLabel = LETTER_TYPES.find((t) => t.value === l.letterType)?.label ?? l.letterType;
 
   return (
-    <tr className="border-b border-slate-50 hover:bg-(--glass-panel-bg)/50">
+    <tr className="border-b border-(--shell-border) hover:bg-(--glass-panel-bg)/50">
       <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{l.employeeName}</td>
       <td className="px-4 py-3">
         <span className="text-xs font-semibold px-2 py-0.5 rounded-full"

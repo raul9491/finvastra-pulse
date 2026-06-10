@@ -142,7 +142,7 @@ export function DocumentTypesPage() {
         {/* Table header */}
         <div
           className="grid grid-cols-[1fr_160px_140px_120px] gap-4 px-6 py-3"
-          style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+          style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}
         >
           <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
             Document Type
@@ -166,8 +166,8 @@ export function DocumentTypesPage() {
           return (
             <div
               key={row.id}
-              className="grid grid-cols-[1fr_160px_140px_120px] gap-4 items-center px-6 py-4 hover:bg-white/5 transition-colors"
-              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+              className="grid grid-cols-[1fr_160px_140px_120px] gap-4 items-center px-6 py-4 hover:bg-(--shell-hover-soft) transition-colors"
+              style={{ borderBottom: '1px solid var(--shell-border)' }}
             >
               {/* Label */}
               <div>

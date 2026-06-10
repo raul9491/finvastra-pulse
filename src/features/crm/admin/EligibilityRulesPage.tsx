@@ -131,7 +131,7 @@ function EligibilityEditRow({
             <button
               onClick={handleSave}
               disabled={saving || !jsonValid}
-              className="p-1.5 rounded-lg hover:bg-white/5 disabled:opacity-50 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-(--shell-hover-soft) disabled:opacity-50 transition-colors"
               style={{ color: '#34d399' }}
               title="Save"
             >
@@ -139,7 +139,7 @@ function EligibilityEditRow({
             </button>
             <button
               onClick={onCancel}
-              className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-(--shell-hover-soft) transition-colors"
               style={{ color: 'var(--text-muted)' }}
               title="Cancel"
             >
@@ -185,7 +185,7 @@ function EligibilityReadRow({
       <td className="px-4 py-3">
         <button
           onClick={onEdit}
-          className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+          className="p-1.5 rounded-lg hover:bg-(--shell-hover-soft) transition-colors"
           style={{ color: 'var(--text-muted)' }}
           title="Edit eligibility rules"
         >
@@ -246,7 +246,7 @@ export function EligibilityRulesPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
                   {[
                     'Bank',
                     'Min Monthly Income',
@@ -269,8 +269,8 @@ export function EligibilityRulesPage() {
                 {bankProviders.map((provider) => (
                   <tr
                     key={provider.id}
-                    className="hover:bg-white/5 transition-colors"
-                    style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                    className="hover:bg-(--shell-hover-soft) transition-colors"
+                    style={{ borderBottom: '1px solid var(--shell-border)' }}
                   >
                     {editingId === provider.id ? (
                       <EligibilityEditRow

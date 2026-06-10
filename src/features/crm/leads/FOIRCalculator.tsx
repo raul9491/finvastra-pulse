@@ -21,9 +21,9 @@ export function FOIRCalculator({ lead, opportunities }: Props) {
   if (!loanOpp) return null;
   if (!lead.monthlyIncome) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-200 p-5">
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#8B8B85' }}>FOIR Snapshot</h3>
-        <p className="text-sm" style={{ color: '#8B8B85' }}>
+      <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border-mid) p-5">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>FOIR Snapshot</h3>
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Add monthly income to this customer profile to see FOIR analysis.
         </p>
       </div>
@@ -34,30 +34,30 @@ export function FOIRCalculator({ lead, opportunities }: Props) {
   const st = STATUS_STYLES[foir.status];
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5">
+    <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border-mid) p-5">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>FOIR Snapshot</h3>
+        <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>FOIR Snapshot</h3>
         <span className="text-xs font-bold px-2.5 py-1 rounded-full"
           style={{ backgroundColor: st.bg, color: st.text }}>{st.label}</span>
       </div>
       <div className="grid grid-cols-3 gap-4 mb-3">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>FOIR</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>FOIR</p>
           <p className="text-lg font-semibold" style={{ color: st.text }}>{foir.foirPct}%</p>
         </div>
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>Proposed EMI</p>
-          <p className="text-sm font-medium" style={{ color: '#0A0A0A' }}>₹{foir.proposedEmi.toLocaleString('en-IN')}</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Proposed EMI</p>
+          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>₹{foir.proposedEmi.toLocaleString('en-IN')}</p>
         </div>
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8B8B85' }}>Total Obligations</p>
-          <p className="text-sm font-medium" style={{ color: '#0A0A0A' }}>₹{foir.totalObligationsAfter.toLocaleString('en-IN')}</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Total Obligations</p>
+          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>₹{foir.totalObligationsAfter.toLocaleString('en-IN')}</p>
         </div>
       </div>
       {foir.suggestions.map((s, i) => (
         <p key={i} className="text-xs mt-1" style={{ color: '#92400E' }}>→ {s}</p>
       ))}
-      <p className="text-xs mt-2" style={{ color: '#8B8B85' }}>
+      <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
         Based on {loanOpp.product} · ₹{(loanOpp.dealSize / 100000).toFixed(1)}L
       </p>
     </div>

@@ -18,10 +18,10 @@ const SOURCE_STYLES: Record<LeadSource, { bg: string; text: string }> = {
   social_meta:       { bg: 'rgba(201,169,97,0.15)', text: '#C9A961' },
   instagram:         { bg: 'rgba(201,169,97,0.15)', text: '#C9A961' },
   facebook:          { bg: 'rgba(201,169,97,0.15)', text: '#C9A961' },
-  offline_bulk:      { bg: 'rgba(255,255,255,0.06)', text: 'rgba(240,236,224,0.50)' },
+  offline_bulk:      { bg: 'var(--glass-panel-bg)', text: 'var(--text-muted)' },
   walkin:            { bg: 'rgba(52,211,153,0.15)', text: '#34d399' },
   referral:          { bg: 'rgba(52,211,153,0.15)', text: '#34d399' },
-  broker:            { bg: 'rgba(255,255,255,0.06)', text: 'rgba(240,236,224,0.50)' },
+  broker:            { bg: 'var(--glass-panel-bg)', text: 'var(--text-muted)' },
   employee_referral: { bg: 'rgba(201,169,97,0.15)', text: '#C9A961' },
 };
 
@@ -156,8 +156,8 @@ export function MyQueueRow({ item, onRefresh }: Props) {
             <button
               onClick={() => setLogOpen((v) => !v)}
               title="Log call"
-              className="text-xs px-3 py-1.5 rounded-lg border hover:bg-white/5 transition-colors font-medium"
-              style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.12)' }}
+              className="text-xs px-3 py-1.5 rounded-lg border hover:bg-(--shell-hover-soft) transition-colors font-medium"
+              style={{ color: 'var(--text-primary)', borderColor: 'var(--shell-border-mid)' }}
             >
               📞 Log call
             </button>
@@ -166,8 +166,8 @@ export function MyQueueRow({ item, onRefresh }: Props) {
               onClick={() => setTransferOpen(true)}
               disabled={!opp}
               title={opp ? 'Transfer to specialist' : 'No open opportunity'}
-              className="text-xs px-3 py-1.5 rounded-lg border hover:bg-white/5 transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.12)' }}
+              className="text-xs px-3 py-1.5 rounded-lg border hover:bg-(--shell-hover-soft) transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ color: 'var(--text-primary)', borderColor: 'var(--shell-border-mid)' }}
             >
               → Transfer
             </button>
@@ -187,7 +187,7 @@ export function MyQueueRow({ item, onRefresh }: Props) {
         {logOpen && (
           <div
             className="px-5 py-4 space-y-3"
-            style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderTop: '1px solid rgba(255,255,255,0.08)' }}
+            style={{ backgroundColor: 'var(--shell-hover-soft)', borderTop: '1px solid var(--shell-border)' }}
           >
             {saved ? (
               <p className="text-sm font-semibold py-1" style={{ color: 'var(--status-success)' }}>
@@ -235,8 +235,8 @@ export function MyQueueRow({ item, onRefresh }: Props) {
                     </button>
                     <button
                       onClick={() => { setLogOpen(false); setNotes(''); setOutcome(CALL_OUTCOMES[0]); }}
-                      className="text-sm px-3 py-1.5 border rounded-lg hover:bg-white/5 transition-colors"
-                      style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}
+                      className="text-sm px-3 py-1.5 border rounded-lg hover:bg-(--shell-hover-soft) transition-colors"
+                      style={{ color: 'var(--text-muted)', borderColor: 'var(--shell-border-mid)' }}
                     >
                       Cancel
                     </button>

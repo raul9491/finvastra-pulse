@@ -84,7 +84,7 @@ function RatingRow({
             onClick={() => onChange?.(n)}
             className={`w-7 h-7 rounded text-xs font-semibold transition-all ${onChange ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`}
             style={{
-              backgroundColor: n <= value ? '#C9A961' : '#F1F5F9',
+              backgroundColor: n <= value ? '#C9A961' : 'var(--shell-hover-hard)',
               color: n <= value ? '#0B1538' : 'var(--text-muted)',
             }}
           >
@@ -180,7 +180,7 @@ function EvalModal({ record, byUid, onClose }: EvalModalProps) {
             <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>
               Competency Ratings
             </p>
-            <div className="rounded-xl border border-(--shell-border) px-4 divide-y divide-slate-50">
+            <div className="rounded-xl border border-(--shell-border) px-4 divide-y divide-(--shell-border)">
               <RatingRow label="Work Quality"       value={workQuality}   onChange={setWorkQuality} />
               <RatingRow label="Communication"      value={communication} onChange={setCommunication} />
               <RatingRow label="Attendance"         value={attendance}    onChange={setAttendance} />
@@ -217,7 +217,7 @@ function EvalModal({ record, byUid, onClose }: EvalModalProps) {
                     style={{
                       backgroundColor: active ? cfg.bg : '#F8FAFC',
                       color: active ? cfg.color : 'var(--text-muted)',
-                      border: `2px solid ${active ? cfg.bg : '#F1F5F9'}`,
+                      border: `2px solid ${active ? cfg.bg : 'var(--shell-hover-hard)'}`,
                     }}
                   >
                     {cfg.label}
@@ -867,7 +867,7 @@ export function ProbationPage() {
 
                   return (
                     <tr key={rec.id}
-                      className={`border-b border-slate-50 transition-colors ${isSuccess ? 'bg-green-50' : 'hover:bg-(--glass-panel-bg)'}`}>
+                      className={`border-b border-(--shell-border) transition-colors ${isSuccess ? 'bg-green-50' : 'hover:bg-(--glass-panel-bg)'}`}>
                       {/* Employee */}
                       <td className="px-5 py-3.5">
                         <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>

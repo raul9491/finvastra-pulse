@@ -126,7 +126,7 @@ export function AccessLogsPage() {
               : { backgroundColor: 'var(--glass-panel-bg)', color: 'var(--shell-text-secondary)', border: '1px solid var(--shell-border)' }}>
             {label}
             <span className="text-[10px] px-1.5 py-0.5 rounded-full"
-              style={{ backgroundColor: tab === key ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.08)' }}>
+              style={{ backgroundColor: tab === key ? 'rgba(0,0,0,0.15)' : 'var(--shell-hover-hard)' }}>
               {count}
             </span>
           </button>

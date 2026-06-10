@@ -208,9 +208,9 @@ export function CommissionLeakagePage() {
       {/* Table */}
       <div className="glass-panel overflow-hidden">
         {loading ? (
-          <div className="animate-pulse divide-y" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+          <div className="animate-pulse divide-y" style={{ borderColor: 'var(--shell-border)' }}>
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-12" style={{ backgroundColor: 'rgba(255,255,255,0.03)' }} />
+              <div key={i} className="h-12" style={{ backgroundColor: 'var(--shell-hover-soft)' }} />
             ))}
           </div>
         ) : !report ? (
@@ -225,7 +225,7 @@ export function CommissionLeakagePage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
                   {['Provider', 'Lead ID', 'Disbursed Amount', 'Disbursed At', 'Issue', 'Actions'].map((h) => (
                     <th
                       key={h}
@@ -239,7 +239,7 @@ export function CommissionLeakagePage() {
               </thead>
               <tbody>
                 {visibleLeaks.map((leak) => (
-                  <tr key={leak.submissionId} className="hover:bg-white/5 transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <tr key={leak.submissionId} className="hover:bg-(--shell-hover-soft) transition-colors" style={{ borderBottom: '1px solid var(--shell-border)' }}>
                     <td className="px-4 py-3 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                       {leak.providerName}
                     </td>

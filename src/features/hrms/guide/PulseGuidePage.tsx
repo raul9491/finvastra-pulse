@@ -369,7 +369,7 @@ function AccordionSection({ section }: { section: Section }) {
 
       {/* Items */}
       {open && (
-        <div className="border-t border-(--shell-border) divide-y divide-slate-50">
+        <div className="border-t border-(--shell-border) divide-y divide-(--shell-border)">
           {section.items.map((item, i) => (
             <div key={i} className="px-5">
               <button

@@ -119,7 +119,7 @@ function UploadCompanyDocModal({ uploadedBy, onClose }: { uploadedBy: string; on
             <input ref={fileRef} type="file" accept=".pdf,.doc,.docx" className="hidden"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
             <button type="button" onClick={() => fileRef.current?.click()}
-              className="w-full border-2 border-dashed border-(--shell-border) rounded-xl py-4 text-sm text-(--text-muted) hover:border-slate-300 transition-colors flex items-center justify-center gap-2">
+              className="w-full border-2 border-dashed border-(--shell-border) rounded-xl py-4 text-sm text-(--text-muted) hover:border-(--shell-border-mid) transition-colors flex items-center justify-center gap-2">
               <Upload size={16} />
               {file ? file.name : 'Choose file'}
             </button>
@@ -205,7 +205,7 @@ function UploadEmployeeDocModal({ uploadedBy, employeeId, onClose }: { uploadedB
             <input ref={fileRef} type="file" accept=".pdf,.doc,.docx" className="hidden"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
             <button type="button" onClick={() => fileRef.current?.click()}
-              className="w-full border-2 border-dashed border-(--shell-border) rounded-xl py-4 text-sm text-(--text-muted) hover:border-slate-300 transition-colors flex items-center justify-center gap-2">
+              className="w-full border-2 border-dashed border-(--shell-border) rounded-xl py-4 text-sm text-(--text-muted) hover:border-(--shell-border-mid) transition-colors flex items-center justify-center gap-2">
               <Upload size={16} />
               {file ? file.name : 'Choose file'}
             </button>
@@ -424,7 +424,7 @@ export function AdminDocumentsPage() {
                     const ackedCount = ackCountMap[d.id] ?? 0;
                     const totalActive = activeEmployees.length;
                     return (
-                      <tr key={d.id} className="border-b border-slate-50 hover:bg-(--glass-panel-bg)/50">
+                      <tr key={d.id} className="border-b border-(--shell-border) hover:bg-(--glass-panel-bg)/50">
                         <td className="p-4 font-medium text-(--text-primary)">{d.title}</td>
                         <td className="p-4 text-(--text-muted) capitalize">{d.category}</td>
                         <td className="p-4 text-(--text-muted)">{uploadedDate ? format(uploadedDate, 'dd MMM yyyy') : '—'}</td>
@@ -487,7 +487,7 @@ export function AdminDocumentsPage() {
 
           {!selectedEmp ? (
             <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl py-16 text-center">
-              <FileText size={36} className="mx-auto mb-3 text-slate-300" />
+              <FileText size={36} className="mx-auto mb-3 text-(--text-muted)" />
               <p className="text-sm text-(--text-muted)">Select an employee to view their documents.</p>
             </div>
           ) : (
@@ -511,7 +511,7 @@ export function AdminDocumentsPage() {
                       const uploadedDate = toTs(d.uploadedAt);
                       const typeLabel = EMP_DOC_TYPES.find(t => t.value === d.documentType)?.label ?? d.documentType;
                       return (
-                        <tr key={d.id} className="border-b border-slate-50 hover:bg-(--glass-panel-bg)/50">
+                        <tr key={d.id} className="border-b border-(--shell-border) hover:bg-(--glass-panel-bg)/50">
                           <td className="p-4 font-medium text-(--text-primary)">{d.title}</td>
                           <td className="p-4 text-(--text-muted)">{typeLabel}</td>
                           <td className="p-4 text-(--text-muted)">{uploadedDate ? format(uploadedDate, 'dd MMM yyyy') : '—'}</td>

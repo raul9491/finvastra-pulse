@@ -260,7 +260,7 @@ export function AdminCompOffPage() {
             </div>
           ) : credits.length === 0 ? (
             <div className="py-12 text-center">
-              <CalendarDays size={36} className="mx-auto mb-3 text-slate-200" />
+              <CalendarDays size={36} className="mx-auto mb-3 text-(--text-dim)" />
               <p className="text-sm text-(--text-muted)">No comp off credits granted yet.</p>
             </div>
           ) : (
@@ -278,7 +278,7 @@ export function AdminCompOffPage() {
                 {credits.map((c) => {
                   const grantedDate = toTs(c.grantedAt);
                   return (
-                    <tr key={c.id} className="border-b border-slate-50 hover:bg-(--glass-panel-bg)/50">
+                    <tr key={c.id} className="border-b border-(--shell-border) hover:bg-(--glass-panel-bg)/50">
                       <td className="p-4 font-medium text-(--text-primary)">{c.employeeName}</td>
                       <td className="p-4 text-(--text-muted)">
                         {format(new Date(c.dateWorked + 'T00:00:00'), 'EEE, d MMM yyyy')}

@@ -50,7 +50,7 @@ function StepIndicator({ current }: { current: 1 | 2 | 3 }) {
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold"
                 style={{
-                  backgroundColor: isDone ? '#0B1538' : isActive ? '#C9A961' : 'rgba(255,255,255,0.10)',
+                  backgroundColor: isDone ? '#0B1538' : isActive ? '#C9A961' : 'var(--shell-hover-hard)',
                   color: isDone ? '#C9A961' : isActive ? '#0B1538' : 'var(--text-muted)',
                 }}
               >
@@ -66,7 +66,7 @@ function StepIndicator({ current }: { current: 1 | 2 | 3 }) {
             {idx < steps.length - 1 && (
               <div
                 className="w-16 h-px mx-2 mb-4"
-                style={{ backgroundColor: step < current ? '#0B1538' : 'rgba(255,255,255,0.15)' }}
+                style={{ backgroundColor: step < current ? '#0B1538' : 'var(--shell-hover-hard)' }}
               />
             )}
           </div>
@@ -443,10 +443,10 @@ export function UploadStatementPage() {
             <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>
               Preview (first 5 rows)
             </p>
-            <div className="overflow-x-auto rounded-lg" style={{ border: '1px solid rgba(255,255,255,0.10)' }}>
+            <div className="overflow-x-auto rounded-lg" style={{ border: '1px solid var(--shell-border-mid)' }}>
               <table className="w-full text-xs">
                 <thead>
-                  <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
                     <th className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Date</th>
                     <th className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Description</th>
                     <th className="px-3 py-2 text-right font-semibold" style={{ color: 'var(--text-muted)' }}>Amount</th>
@@ -454,7 +454,7 @@ export function UploadStatementPage() {
                 </thead>
                 <tbody>
                   {uploadResp.previewRows.map((row, i) => (
-                    <tr key={i} className="hover:bg-white/5 transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <tr key={i} className="hover:bg-(--shell-hover-soft) transition-colors" style={{ borderBottom: '1px solid var(--shell-border)' }}>
                       <td className="px-3 py-1.5" style={{ color: 'var(--text-primary)' }}>
                         {confirmedCols.dateCol >= 0 ? (row[confirmedCols.dateCol] ?? '—') : '—'}
                       </td>
@@ -490,8 +490,8 @@ export function UploadStatementPage() {
           <div className="flex gap-3">
             <button
               onClick={() => { setStep(1); setError(null); }}
-              className="px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors hover:bg-white/5"
-              style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
+              className="px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors hover:bg-(--shell-hover-soft)"
+              style={{ border: '1px solid var(--shell-border-mid)', color: 'var(--text-primary)' }}
             >
               Back
             </button>
@@ -526,14 +526,14 @@ export function UploadStatementPage() {
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div
               className="rounded-xl px-4 py-3 text-center"
-              style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+              style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid var(--shell-border)' }}
             >
               <div className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{processResp.lineCount}</div>
               <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Lines imported</div>
             </div>
             <div
               className="rounded-xl px-4 py-3 text-center"
-              style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+              style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid var(--shell-border)' }}
             >
               <div className="text-2xl font-bold" style={{ color: '#C9A961' }}>
                 ₹{processResp.totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
@@ -542,7 +542,7 @@ export function UploadStatementPage() {
             </div>
             <div
               className="rounded-xl px-4 py-3 text-center"
-              style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+              style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid var(--shell-border)' }}
             >
               <div className="text-2xl font-bold" style={{ color: 'var(--text-muted)' }}>{processResp.lineCount}</div>
               <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Unmatched lines</div>
@@ -559,8 +559,8 @@ export function UploadStatementPage() {
             </button>
             <button
               onClick={resetWizard}
-              className="px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors hover:bg-white/5"
-              style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
+              className="px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors hover:bg-(--shell-hover-soft)"
+              style={{ border: '1px solid var(--shell-border-mid)', color: 'var(--text-primary)' }}
             >
               Upload Another Statement
             </button>

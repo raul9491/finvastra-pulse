@@ -2146,6 +2146,23 @@ Complete visual overhaul to editorial-premium dark glass aesthetic.
 
 **Separate class — dark-*built* modals** (opposite problem: hardcoded navy bg breaks in LIGHT mode). The codemod only handled light-built pages. A hand-rolled modal using `backgroundColor: 'rgba(11,21,56,0.9…)'` + white-alpha borders stays dark in light mode → invisible labels. **Fix: use the theme-aware classes `glass-modal-overlay` / `glass-modal-panel` / `glass-modal-header`** (as `EditMyDetailsModal` does) instead of hardcoded navy; white-alpha borders → `var(--shell-border)`, panels → `var(--glass-panel-bg)`; navy text on gold buttons → keep `#0B1538`. Fixed the New Claim modal (`ClaimsPage`) this way 2026-06-09 — it was the only HRMS modal not using the shared `Modal` component.
 
+#### FULL-APP theme sweep — ✅ both themes, all modules (2026-06-10)
+
+A second two-pass codemod (run once, then deleted) converted the **remaining ~790 hardcoded colour spots across 109 files** — this time covering BOTH failure classes app-wide (CRM + MIS + HRMS + shared components):
+
+- **Dark-only → vars** (was invisible in light mode): `bg-white/5|10`→`bg-(--shell-hover-soft|hard)` · `hover:bg-white/5|10`→`hover:bg-(--shell-hover-soft|mid)` · `border-white/N`→`border-(--shell-border[-mid])` · inline `rgba(255,255,255,a)` borders/bg/text → `--shell-border[-mid]` / `--shell-hover-*` / `--glass-panel-bg` / `--text-dim|muted|primary` by alpha · cream `rgba(240,236,224,a)` text → text vars by alpha.
+- **Light-only → vars** (was invisible in dark mode): `text-slate-300..600`→muted, `700+`→primary · `bg-slate-50/100`, `'#F1F5F9'`→`--shell-hover-soft|hard` · `border-slate-*`, `#E2E8F0`, `border-slate-50` row dividers, `divide-slate-*`→`--shell-border[-mid]` · inline dark-text hex (`#475569`/`#64748B`/`#8B8B85`/`#94A3B8`)→muted.
+
+**Rules that must hold for every new page** (the codemod's exception list):
+1. **Fixed pastel chip + matching fixed dark text** (`#FEE2E2`+`#991B1B`, `#D1FAE5`+`#065F46`, `#FEF3C7`+`#92400E`…) — KEEP; readable in both themes. **Never pair a fixed pastel bg with a `var(--text-*)`** — the var flips with the theme but the pastel doesn't (fix: tint bg `rgba(52,211,153,0.10)` + mid-tone fixed text like `#059669`, as in the compliance "filed" box).
+2. **Fixed navy/gold surfaces keep FIXED text**: gold gradient buttons → `color:'#0B1538'`; navy hero strips (Attendance Today card) → `color:'#f0ece0'`/gold. A `var(--text-*)` on a fixed-colour surface breaks in one theme.
+3. **`text-white` on solid accent buttons** (red/green/navy pills) — KEEP.
+4. **Auth pages (`features/auth/`) are theme-EXEMPT** — fixed white card on fixed dark aurora; never convert them to vars (cream text on the white card in dark mode). The codemod excluded them.
+5. Hand-rolled white modal panels (`bg-white rounded-2xl shadow-xl`) → `glass-modal-panel` class (done for Wealth/Insurance section modals + the attendance RegularizeModal).
+6. Solid input fields needing an opaque bg → `bg-(--ss-bg)` (solid navy/white), not translucent panel bg.
+
+**Mobile**: `ThemeProvider` now also syncs `<meta name="theme-color">` (`#050d1f` dark / `#FAFAF7` light) so the phone browser chrome matches the theme. The theme CSS itself is identical across breakpoints (mobile drawers/shells already use shell vars).
+
 ### CRM — Pipeline Stage Data Capture
 
 Each opportunity stage now collects structured data on advance.

@@ -152,7 +152,7 @@ export function AdminAnnouncementsPage() {
               {announcements.map((a) => {
                 const publishedDate = toTs(a.publishedAt);
                 return (
-                  <tr key={a.id} className="border-b border-slate-50 hover:bg-(--glass-panel-bg)/50" style={{ opacity: a.isActive ? 1 : 0.5 }}>
+                  <tr key={a.id} className="border-b border-(--shell-border) hover:bg-(--glass-panel-bg)/50" style={{ opacity: a.isActive ? 1 : 0.5 }}>
                     <td className="p-4">
                       <div className="flex items-center gap-2">
                         {a.pinned && <Pin size={13} style={{ color: '#C9A961' }} />}

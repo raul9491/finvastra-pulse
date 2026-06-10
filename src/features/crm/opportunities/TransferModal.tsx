@@ -62,8 +62,8 @@ export function TransferModal({ isOpen, onClose, leadId, opportunityId, opportun
       <button
         onClick={onClose}
         disabled={submitting}
-        className="px-4 py-2 text-sm border rounded-lg hover:bg-white/5 transition-colors disabled:opacity-50"
-        style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}
+        className="px-4 py-2 text-sm border rounded-lg hover:bg-(--shell-hover-soft) transition-colors disabled:opacity-50"
+        style={{ color: 'var(--text-muted)', borderColor: 'var(--shell-border-mid)' }}
       >
         Cancel
       </button>
@@ -97,7 +97,7 @@ export function TransferModal({ isOpen, onClose, leadId, opportunityId, opportun
           {loading ? (
             <div className="space-y-2">
               {[1, 2].map((i) => (
-                <div key={i} className="h-14 rounded-lg animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                <div key={i} className="h-14 rounded-lg animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
               ))}
             </div>
           ) : specialists.length === 0 ? (
@@ -122,7 +122,7 @@ export function TransferModal({ isOpen, onClose, leadId, opportunityId, opportun
                       style={
                         isSelected
                           ? { backgroundColor: 'rgba(96,165,250,0.15)', borderColor: '#60a5fa', color: '#60a5fa' }
-                          : { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.10)', color: 'var(--text-primary)' }
+                          : { backgroundColor: 'var(--shell-hover-soft)', borderColor: 'var(--shell-border-mid)', color: 'var(--text-primary)' }
                       }
                     >
                       <div className="flex items-center justify-between">

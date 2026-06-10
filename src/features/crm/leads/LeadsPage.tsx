@@ -26,12 +26,12 @@ function TableSkeleton() {
   return (
     <div className="animate-pulse">
       {[...Array(5)].map((_, i) => (
-        <div key={i} className="flex items-center gap-4 px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="h-4 rounded w-40" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-          <div className="h-4 rounded w-24 ml-auto" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-          <div className="h-4 rounded w-20" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-          <div className="h-4 rounded w-20" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-          <div className="h-4 rounded w-24" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+        <div key={i} className="flex items-center gap-4 px-6 py-4" style={{ borderBottom: '1px solid var(--shell-border)' }}>
+          <div className="h-4 rounded w-40" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
+          <div className="h-4 rounded w-24 ml-auto" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
+          <div className="h-4 rounded w-20" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
+          <div className="h-4 rounded w-20" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
+          <div className="h-4 rounded w-24" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
         </div>
       ))}
     </div>
@@ -287,7 +287,7 @@ export function LeadsPage() {
             style={
               filterSource === 'employee_referral'
                 ? { backgroundColor: '#C9A961', color: '#0B1538', borderColor: '#C9A961' }
-                : { backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }
+                : { backgroundColor: 'var(--glass-panel-bg)', color: 'var(--text-muted)', borderColor: 'var(--shell-border-mid)' }
             }
           >
             🔖 Referrals
@@ -301,7 +301,7 @@ export function LeadsPage() {
             style={
               filterUnassigned
                 ? { backgroundColor: '#f87171', color: '#fff', borderColor: '#f87171' }
-                : { backgroundColor: 'rgba(255,255,255,0.06)', color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }
+                : { backgroundColor: 'var(--glass-panel-bg)', color: 'var(--text-muted)', borderColor: 'var(--shell-border-mid)' }
             }
           >
             <UserCheck size={12} />
@@ -334,7 +334,7 @@ export function LeadsPage() {
                       const due = col.key === 'callback' && l.callbackAt ? new Date(l.callbackAt).getTime() <= Date.now() : false;
                       return (
                         <button key={l.id} onClick={() => navigate(`/crm/leads/${l.id}`)}
-                          className="w-full text-left px-2.5 py-2 rounded-lg transition-colors hover:bg-white/5"
+                          className="w-full text-left px-2.5 py-2 rounded-lg transition-colors hover:bg-(--shell-hover-soft)"
                           style={{ border: `1px solid ${due ? 'rgba(248,113,113,0.5)' : 'var(--shell-border)'}` }}>
                           <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{l.displayName}</p>
                           <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>{l.phone} · {rmName(l.primaryOwnerId)}</p>
@@ -379,7 +379,7 @@ export function LeadsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
                   {/* Select-all checkbox */}
                   <th className="px-5 py-3.5 w-10">
                     <input
@@ -399,8 +399,8 @@ export function LeadsPage() {
                 {tableLeads.map((lead: Lead) => (
                   <tr key={lead.id}
                     onClick={() => navigate(`/crm/leads/${lead.id}`)}
-                    className="cursor-pointer hover:bg-white/5 transition-colors"
-                    style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    className="cursor-pointer hover:bg-(--shell-hover-soft) transition-colors"
+                    style={{ borderBottom: '1px solid var(--shell-border)' }}>
                     {/* Per-row checkbox — stopPropagation so clicking it doesn't navigate */}
                     <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
                       <input

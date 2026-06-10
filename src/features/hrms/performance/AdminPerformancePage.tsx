@@ -28,7 +28,7 @@ function toDate(ts: unknown): Date | null {
 }
 
 const STATUS_CFG: Record<PerformanceReviewStatus, { label: string; bg: string; color: string }> = {
-  pending:        { label: 'Pending',         bg: '#F3F4F6', color: '#6B7280' },
+  pending:        { label: 'Pending',         bg: '#F3F4F6', color: 'var(--text-muted)' },
   self_review:    { label: 'Self-Assessment',  bg: '#FEF3C7', color: '#92400E' },
   manager_review: { label: 'Manager Done',    bg: '#EFF6FF', color: '#1D4ED8' },
   completed:      { label: 'Completed',        bg: '#D1FAE5', color: '#065F46' },
@@ -58,7 +58,7 @@ function RatingRow({ label, value, onChange }: {
             onClick={() => onChange?.(n)}
             className={`w-7 h-7 rounded text-xs font-semibold transition-all ${onChange ? 'cursor-pointer hover:scale-110' : 'cursor-default'}`}
             style={{
-              backgroundColor: n <= value ? '#C9A961' : '#F1F5F9',
+              backgroundColor: n <= value ? '#C9A961' : 'var(--shell-hover-hard)',
               color: n <= value ? '#0B1538' : 'var(--text-muted)',
             }}
           >
@@ -131,7 +131,7 @@ function SelfAssessmentModal({ review, onClose }: {
               {[1, 2, 3, 4, 5].map((n) => (
                 <button key={n} type="button" onClick={() => setSelfRating(n)}
                   className="w-9 h-9 rounded-xl text-sm font-semibold transition-all"
-                  style={{ backgroundColor: selfRating === n ? '#C9A961' : '#F1F5F9', color: selfRating === n ? '#0B1538' : 'var(--text-muted)' }}>
+                  style={{ backgroundColor: selfRating === n ? '#C9A961' : 'var(--shell-hover-hard)', color: selfRating === n ? '#0B1538' : 'var(--text-muted)' }}>
                   {n}
                 </button>
               ))}
@@ -215,7 +215,7 @@ function ManagerReviewModal({ review, byUid, onClose }: {
 
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>KRA Ratings (1–5)</p>
-            <div className="rounded-xl border border-(--shell-border) px-4 divide-y divide-slate-50">
+            <div className="rounded-xl border border-(--shell-border) px-4 divide-y divide-(--shell-border)">
               <RatingRow label="Work Quality"  value={workQuality}   onChange={setWorkQuality} />
               <RatingRow label="Work Quantity" value={workQuantity}  onChange={setWorkQuantity} />
               <RatingRow label="Initiative"    value={initiative}    onChange={setInitiative} />

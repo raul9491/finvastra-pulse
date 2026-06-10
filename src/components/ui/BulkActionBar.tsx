@@ -48,7 +48,7 @@ export function BulkActionBar({
         }}
         disabled={isProcessing}
         className="text-sm px-3 py-1.5 rounded-lg outline-none bg-transparent cursor-pointer disabled:opacity-50"
-        style={{ color: '#94A3B8', border: '1px solid #1B2A4E' }}
+        style={{ color: 'var(--text-muted)', border: '1px solid #1B2A4E' }}
       >
         <option value="" disabled style={{ backgroundColor: '#0B1538' }}>Move to stage…</option>
         {stageOptions.map((s) => (
@@ -69,7 +69,7 @@ export function BulkActionBar({
         }}
         disabled={isProcessing}
         className="text-sm px-3 py-1.5 rounded-lg outline-none bg-transparent cursor-pointer disabled:opacity-50"
-        style={{ color: '#94A3B8', border: '1px solid #1B2A4E' }}
+        style={{ color: 'var(--text-muted)', border: '1px solid #1B2A4E' }}
       >
         <option value="" disabled style={{ backgroundColor: '#0B1538' }}>Assign to RM…</option>
         {rmOptions.map((r) => (
@@ -91,7 +91,7 @@ export function BulkActionBar({
         onClick={onClearSelection}
         disabled={isProcessing}
         className="text-sm px-3 py-1.5 rounded-lg transition-opacity hover:opacity-70 disabled:opacity-40"
-        style={{ color: '#94A3B8' }}
+        style={{ color: 'var(--text-muted)' }}
       >
         Clear
       </button>

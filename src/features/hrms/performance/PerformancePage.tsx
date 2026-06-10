@@ -44,7 +44,7 @@ function RatingDisplay({ label, value }: { label: string; value: number }) {
             key={n}
             className="w-7 h-7 rounded text-xs font-semibold flex items-center justify-center"
             style={{
-              backgroundColor: n <= value ? '#C9A961' : '#F1F5F9',
+              backgroundColor: n <= value ? '#C9A961' : 'var(--shell-hover-hard)',
               color: n <= value ? '#0B1538' : 'var(--text-muted)',
             }}
           >
@@ -237,7 +237,7 @@ export function PerformancePage() {
                     onClick={() => setSelfRating(n)}
                     className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all text-xs font-semibold"
                     style={{
-                      backgroundColor: selfRating === n ? '#C9A961' : '#F1F5F9',
+                      backgroundColor: selfRating === n ? '#C9A961' : 'var(--shell-hover-hard)',
                       color: selfRating === n ? '#0B1538' : 'var(--text-muted)',
                     }}
                   >
@@ -331,7 +331,7 @@ export function PerformancePage() {
           </button>
           {openSection === 'mgr' && (
             <div className="px-6 pb-6 pt-2 border-t border-(--shell-border) space-y-4">
-              <div className="divide-y divide-slate-50">
+              <div className="divide-y divide-(--shell-border)">
                 <RatingDisplay label="Work Quality"  value={review.managerReview.workQuality} />
                 <RatingDisplay label="Work Quantity" value={review.managerReview.workQuantity} />
                 <RatingDisplay label="Initiative"    value={review.managerReview.initiative} />

@@ -59,7 +59,7 @@ export function QuickContactBar({ lead, oppId }: Props) {
   return (
     <div className="sticky top-0 z-10 glass-panel overflow-hidden">
       {/* ─── Action bar ─────────────────────────────────────────────────── */}
-      <div className="px-6 py-3 flex items-center gap-3 flex-wrap" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="px-6 py-3 flex items-center gap-3 flex-wrap" style={{ borderBottom: '1px solid var(--shell-border)' }}>
         <span
           className="text-[10px] font-semibold uppercase tracking-widest"
           style={{ color: 'var(--text-muted)' }}
@@ -72,8 +72,8 @@ export function QuickContactBar({ lead, oppId }: Props) {
           onClick={() => oppId && setLogOpen((v) => !v)}
           disabled={!oppId}
           title={oppId ? 'Log a call outcome' : 'No open opportunity on this lead'}
-          className="text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
-          style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.12)' }}
+          className="text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors hover:bg-(--shell-hover-soft) disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ color: 'var(--text-primary)', borderColor: 'var(--shell-border-mid)' }}
         >
           📞 Log Call
         </button>
@@ -83,8 +83,8 @@ export function QuickContactBar({ lead, oppId }: Props) {
           href={waLink}
           target="_blank"
           rel="noreferrer"
-          className="text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors hover:bg-white/5 no-underline"
-          style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.12)' }}
+          className="text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors hover:bg-(--shell-hover-soft) no-underline"
+          style={{ color: 'var(--text-primary)', borderColor: 'var(--shell-border-mid)' }}
         >
           💬 WhatsApp
         </a>
@@ -93,8 +93,8 @@ export function QuickContactBar({ lead, oppId }: Props) {
         {lead.email && (
           <a
             href={`mailto:${lead.email}`}
-            className="text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors hover:bg-white/5 no-underline"
-            style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.12)' }}
+            className="text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors hover:bg-(--shell-hover-soft) no-underline"
+            style={{ color: 'var(--text-primary)', borderColor: 'var(--shell-border-mid)' }}
           >
             ✉ Email
           </a>
@@ -103,7 +103,7 @@ export function QuickContactBar({ lead, oppId }: Props) {
 
       {/* ─── Inline log form ────────────────────────────────────────────── */}
       {logOpen && (
-        <div className="px-6 py-4 space-y-3" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}>
+        <div className="px-6 py-4 space-y-3" style={{ backgroundColor: 'var(--shell-hover-soft)' }}>
           {saved ? (
             <p className="text-sm font-semibold py-1" style={{ color: 'var(--status-success)' }}>
               Saved ✓
@@ -160,8 +160,8 @@ export function QuickContactBar({ lead, oppId }: Props) {
                       setNotes('');
                       setOutcome(CALL_OUTCOMES[0]);
                     }}
-                    className="text-sm px-3 py-1.5 border rounded-lg hover:bg-white/5 transition-colors"
-                    style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}
+                    className="text-sm px-3 py-1.5 border rounded-lg hover:bg-(--shell-hover-soft) transition-colors"
+                    style={{ color: 'var(--text-muted)', borderColor: 'var(--shell-border-mid)' }}
                   >
                     Cancel
                   </button>

@@ -43,8 +43,8 @@ export function BankEligibilityCard({ opportunity, lead, foirPct }: Props) {
             const st = VERDICT_STYLES[r.verdict];
             return (
               <div key={r.providerId}
-                className="flex items-center justify-between py-2.5 cursor-pointer hover:bg-white/5 rounded px-1 transition-colors"
-                style={{ borderBottom: idx < results.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}
+                className="flex items-center justify-between py-2.5 cursor-pointer hover:bg-(--shell-hover-soft) rounded px-1 transition-colors"
+                style={{ borderBottom: idx < results.length - 1 ? '1px solid var(--shell-border)' : 'none' }}
                 onClick={() => setSelectedResult(r)}>
                 <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{r.providerName}</p>
                 <div className="flex items-center gap-2">
@@ -85,8 +85,8 @@ export function BankEligibilityCard({ opportunity, lead, foirPct }: Props) {
               </ul>
             )}
             <button onClick={() => setSelectedResult(null)}
-              className="mt-4 w-full px-4 py-2.5 text-sm border rounded-xl hover:bg-white/5 transition-colors"
-              style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>Close</button>
+              className="mt-4 w-full px-4 py-2.5 text-sm border rounded-xl hover:bg-(--shell-hover-soft) transition-colors"
+              style={{ color: 'var(--text-muted)', borderColor: 'var(--shell-border-mid)' }}>Close</button>
           </div>
         </div>
       )}

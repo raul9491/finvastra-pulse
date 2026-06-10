@@ -316,7 +316,7 @@ function PermRow({
             onChange={(e) => onChange({ crmAccess: e.target.checked })}
             className="sr-only peer"
           />
-          <div className="w-9 h-5 bg-white/20 peer-checked:bg-gold rounded-full peer-focus:ring-2
+          <div className="w-9 h-5 bg-(--shell-hover-hard) peer-checked:bg-gold rounded-full peer-focus:ring-2
             peer-focus:ring-gold/30 transition-colors after:content-[''] after:absolute after:top-0.5
             after:left-0.5 after:w-4 after:h-4 after:bg-(--glass-panel-bg) after:rounded-full after:transition-transform
             peer-checked:after:translate-x-4" />
@@ -894,7 +894,7 @@ export function SuperAdminPermissionsPage() {
 
               <button
                 onClick={handleDiscard}
-                className="flex items-center gap-1.5 text-xs transition-colors hover:text-slate-200"
+                className="flex items-center gap-1.5 text-xs transition-colors hover:text-(--text-primary)"
                 style={{ color: 'var(--text-muted)' }}
               >
                 <RotateCcw size={13} />

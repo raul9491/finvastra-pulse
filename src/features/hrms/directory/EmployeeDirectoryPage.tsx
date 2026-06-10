@@ -177,7 +177,7 @@ export function EmployeeDirectoryPage() {
         </div>
         <Link to="/hrms/org-chart"
           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors hover:bg-(--glass-panel-bg) shrink-0"
-          style={{ color: 'var(--text-muted)', border: '1px solid #E2E8F0' }}>
+          style={{ color: 'var(--text-muted)', border: '1px solid var(--shell-border)' }}>
           Org Chart →
         </Link>
       </div>
@@ -243,7 +243,7 @@ export function EmployeeDirectoryPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl py-16 text-center">
-          <Users size={40} className="mx-auto mb-3 text-slate-200" />
+          <Users size={40} className="mx-auto mb-3 text-(--text-dim)" />
           <p className="text-sm text-(--text-muted)">
             {search || deptFilter ? 'No employees match your search.' : 'No active employees found.'}
           </p>

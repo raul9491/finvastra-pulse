@@ -235,10 +235,12 @@ function AnniversarySection({
               key={emp.userId}
               className="flex items-center gap-4 rounded-xl px-5 py-4"
               style={{
-                backgroundColor: isMilestone ? 'rgba(11,21,56,0.04)' : 'rgba(201,169,97,0.04)',
-                border: `1px solid ${isMilestone ? 'rgba(11,21,56,0.18)' : 'rgba(201,169,97,0.20)'}`,
+                // Blue accent for milestones, gold for regular — both tints are
+                // visible on dark and light backgrounds (navy tint was not).
+                backgroundColor: isMilestone ? 'rgba(96,165,250,0.08)' : 'rgba(201,169,97,0.06)',
+                border: `1px solid ${isMilestone ? 'rgba(96,165,250,0.30)' : 'rgba(201,169,97,0.25)'}`,
                 borderLeftWidth: '4px',
-                borderLeftColor: isMilestone ? '#0B1538' : '#C9A961',
+                borderLeftColor: isMilestone ? '#60a5fa' : '#C9A961',
               }}
             >
               <span className="text-2xl shrink-0 select-none" aria-hidden>
@@ -303,7 +305,7 @@ function UpcomingAnniversariesSection({ employees }: { employees: UpcomingAnnive
                   className="w-7 h-7 rounded-full object-cover shrink-0" />
               ) : (
                 <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                  style={{ backgroundColor: 'rgba(11,21,56,0.1)', color: 'var(--text-primary)' }}>
+                  style={{ backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-primary)' }}>
                   {initials}
                 </div>
               )}
@@ -464,7 +466,7 @@ function AnnouncementBanner({
       </div>
       <button
         onClick={() => markAnnouncementRead(top.id, userId)}
-        className="p-1.5 rounded-lg hover:bg-white/10 transition-colors shrink-0"
+        className="p-1.5 rounded-lg hover:bg-(--shell-hover-mid) transition-colors shrink-0"
         title="Dismiss"
       >
         <X size={14} style={{ color: 'var(--text-muted)' }} />
@@ -490,11 +492,11 @@ function StatCard({
           style={{ backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961' }}>
           {icon}
         </div>
-        <ChevronRight size={14} style={{ color: 'rgba(240,236,224,0.25)' }} className="group-hover:opacity-70 transition-opacity" />
+        <ChevronRight size={14} style={{ color: 'var(--text-dim)' }} className="group-hover:opacity-70 transition-opacity" />
       </div>
       <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
       {loading ? (
-        <div className="h-8 w-24 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+        <div className="h-8 w-24 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
       ) : (
         <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
       )}
@@ -523,12 +525,12 @@ function LeaveCard({ loading, balance }: {
           style={{ backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961' }}>
           <CalendarOff size={18} />
         </div>
-        <ChevronRight size={14} style={{ color: 'rgba(240,236,224,0.25)' }} className="group-hover:opacity-70 transition-opacity" />
+        <ChevronRight size={14} style={{ color: 'var(--text-dim)' }} className="group-hover:opacity-70 transition-opacity" />
       </div>
       <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Leave Balance</p>
       {loading ? (
         <div className="space-y-2">
-          {[1,2,3].map(i => <div key={i} className="h-4 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />)}
+          {[1,2,3].map(i => <div key={i} className="h-4 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />)}
         </div>
       ) : !balance ? (
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No balance set yet</p>
@@ -543,7 +545,7 @@ function LeaveCard({ loading, balance }: {
                   <span style={{ color: 'var(--text-muted)' }}>{label}</span>
                   <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{b.remaining} / {b.total}</span>
                 </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--shell-hover-hard)' }}>
                   <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
                 </div>
               </div>
@@ -569,11 +571,11 @@ function HolidaysCard({ holidays, loading }: { holidays: { date: string; name: s
           style={{ backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961' }}>
           <CalendarDays size={18} />
         </div>
-        <ChevronRight size={14} style={{ color: 'rgba(240,236,224,0.25)' }} className="group-hover:opacity-70 transition-opacity" />
+        <ChevronRight size={14} style={{ color: 'var(--text-dim)' }} className="group-hover:opacity-70 transition-opacity" />
       </div>
       <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Upcoming Holidays</p>
       {loading ? (
-        <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-5 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />)}</div>
+        <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-5 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />)}</div>
       ) : upcoming.length === 0 ? (
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No upcoming holidays</p>
       ) : (
@@ -586,7 +588,7 @@ function HolidaysCard({ holidays, loading }: { holidays: { date: string; name: s
               </div>
               <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded"
                 style={{
-                  backgroundColor: h.type === 'national' ? 'rgba(96,165,250,0.15)' : h.type === 'regional' ? 'rgba(201,169,97,0.15)' : 'rgba(255,255,255,0.06)',
+                  backgroundColor: h.type === 'national' ? 'rgba(96,165,250,0.15)' : h.type === 'regional' ? 'rgba(201,169,97,0.15)' : 'var(--glass-panel-bg)',
                   color:           h.type === 'national' ? '#60a5fa' : h.type === 'regional' ? '#C9A961' : 'var(--text-muted)',
                 }}>
                 {h.type}
@@ -611,11 +613,11 @@ function TeamTodayCard({ present, leave, absent, loading }: { present: number; l
           style={{ backgroundColor: 'rgba(52,211,153,0.12)', color: '#34d399' }}>
           <Clock size={18} />
         </div>
-        <ChevronRight size={14} style={{ color: 'rgba(240,236,224,0.25)' }} className="group-hover:opacity-70 transition-opacity" />
+        <ChevronRight size={14} style={{ color: 'var(--text-dim)' }} className="group-hover:opacity-70 transition-opacity" />
       </div>
       <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>Team Today</p>
       {loading ? (
-        <div className="h-8 w-24 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+        <div className="h-8 w-24 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
       ) : (
         <div className="space-y-1.5 text-sm">
           <div className="flex items-center gap-2">
@@ -736,7 +738,7 @@ function HrPendingActionsPanel({
                 {count > 1 ? `${count} ${labelPlural}` : `${count} ${label}`} pending
               </span>
             </div>
-            <ChevronRight size={14} style={{ color: 'rgba(240,236,224,0.25)' }} className="group-hover:opacity-70 transition-opacity shrink-0" />
+            <ChevronRight size={14} style={{ color: 'var(--text-dim)' }} className="group-hover:opacity-70 transition-opacity shrink-0" />
           </button>
         ))}
       </div>
@@ -764,14 +766,14 @@ function HeadcountCard({ total, byDept }: { total: number; byDept: [string, numb
             <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{total} active</p>
           </div>
         </div>
-        <ChevronRight size={14} style={{ color: 'rgba(240,236,224,0.25)' }} className="group-hover:opacity-70 transition-opacity" />
+        <ChevronRight size={14} style={{ color: 'var(--text-dim)' }} className="group-hover:opacity-70 transition-opacity" />
       </div>
       {byDept.length > 0 && (
         <div className="space-y-2">
           {byDept.slice(0, 5).map(([dept, count]) => (
             <div key={dept} className="flex items-center gap-2">
               <span className="text-xs w-44 truncate shrink-0 text-left" style={{ color: 'var(--text-muted)' }}>{dept}</span>
-              <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+              <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--shell-hover-hard)' }}>
                 <div className="h-full rounded-full transition-all"
                   style={{ width: `${(count / (total || 1)) * 100}%`, backgroundColor: 'rgba(201,169,97,0.50)' }} />
               </div>
@@ -1020,7 +1022,7 @@ export function HrmsDashboardPage() {
               {unreadCount} unread announcement{unreadCount > 1 ? 's' : ''}
             </p>
           </div>
-          <ChevronRight size={16} style={{ color: 'rgba(240,236,224,0.25)' }} className="group-hover:opacity-70 transition-all" />
+          <ChevronRight size={16} style={{ color: 'var(--text-dim)' }} className="group-hover:opacity-70 transition-all" />
         </button>
       )}
     </div>

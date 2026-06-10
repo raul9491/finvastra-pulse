@@ -9,7 +9,7 @@ import type { Announcement, AnnouncementPriority, Holiday } from '../../../types
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const PRIORITY_META: Record<AnnouncementPriority, { label: string; bg: string; border: string; color: string; icon: typeof Info }> = {
-  normal:    { label: 'Normal',    bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.10)', color: 'var(--text-muted)',  icon: Info },
+  normal:    { label: 'Normal',    bg: 'var(--shell-hover-soft)', border: 'var(--shell-hover-hard)', color: 'var(--text-muted)',  icon: Info },
   important: { label: 'Important', bg: 'rgba(251,191,36,0.08)',  border: 'rgba(251,191,36,0.25)',  color: '#fbbf24',            icon: AlertTriangle },
   urgent:    { label: 'Urgent',    bg: 'rgba(248,113,113,0.08)', border: 'rgba(248,113,113,0.25)', color: '#f87171',            icon: AlertTriangle },
 };
@@ -30,7 +30,7 @@ function HolidayPill({ diff }: { diff: number }) {
       style={{
         backgroundColor: diff === 0 ? '#C9A961'
                        : isVeryClose ? 'rgba(251,191,36,0.20)'
-                       : 'rgba(255,255,255,0.08)',
+                       : 'var(--shell-hover-hard)',
         color: diff === 0 ? '#0B1538'
              : isVeryClose ? '#fbbf24'
              : 'var(--text-muted)',

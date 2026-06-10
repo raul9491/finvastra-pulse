@@ -87,7 +87,7 @@ function EmployeeDocRow({ doc: d }: { doc: EmployeeDocument }) {
   const uploadedDate = toTs(d.uploadedAt);
 
   return (
-    <div className="flex items-center gap-4 py-3.5 border-b border-slate-50 last:border-0">
+    <div className="flex items-center gap-4 py-3.5 border-b border-(--shell-border) last:border-0">
       <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
         style={{ backgroundColor: '#0B153815', color: 'var(--text-primary)' }}>
         <FileText size={16} />
@@ -261,7 +261,7 @@ export function DocumentsPage() {
           </div>
         ) : companyDocs.length === 0 ? (
           <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl py-12 text-center">
-            <FileText size={36} className="mx-auto mb-3 text-slate-300" />
+            <FileText size={36} className="mx-auto mb-3 text-(--text-muted)" />
             <p className="text-sm text-(--text-muted)">No company documents yet.</p>
           </div>
         ) : (
@@ -285,7 +285,7 @@ export function DocumentsPage() {
             </div>
           ) : myDocs.length === 0 ? (
             <div className="text-center py-8">
-              <FileText size={36} className="mx-auto mb-3 text-slate-300" />
+              <FileText size={36} className="mx-auto mb-3 text-(--text-muted)" />
               <p className="text-sm text-(--text-muted)">Your documents will appear here once HR uploads them.</p>
             </div>
           ) : (

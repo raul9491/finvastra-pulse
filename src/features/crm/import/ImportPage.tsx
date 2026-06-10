@@ -428,7 +428,7 @@ export function ImportPage() {
               {liveJob.status}
             </span>
           </div>
-          <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+          <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--shell-hover-hard)' }}>
             <div className="h-full rounded-full transition-all duration-500"
               style={{ width: `${jobPct}%`, backgroundColor: liveJob.status === 'failed' ? '#f87171' : '#C9A961' }} />
           </div>

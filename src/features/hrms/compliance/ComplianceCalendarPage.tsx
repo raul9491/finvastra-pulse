@@ -33,7 +33,7 @@ const FALLBACK_META = { icon: FileText, title: 'Compliance', iconColor: '#94A3B8
 const metaFor = (t: ComplianceType) => TYPE_META[t] ?? FALLBACK_META;
 
 const STATUS_META: Record<ComplianceStatus, { label: string; bg: string; text: string; dot: string }> = {
-  upcoming: { label: 'Upcoming', bg: '#F1F5F9', text: 'var(--text-muted)', dot: '#94A3B8' },
+  upcoming: { label: 'Upcoming', bg: 'var(--shell-hover-hard)', text: 'var(--text-muted)', dot: '#94A3B8' },
   due_soon: { label: 'Due Soon', bg: '#FEF3C7', text: '#92400E', dot: '#D97706' },
   overdue:  { label: 'Overdue',  bg: '#FEE2E2', text: '#991B1B', dot: '#DC2626' },
   filed:    { label: 'Filed',    bg: '#D1FAE5', text: '#065F46', dot: '#059669' },
@@ -398,20 +398,21 @@ function ComplianceCard({ record, onMarkFiled, onView }: {
         <span style={{ color: status === 'filed' ? '#059669' : '#DC2626', fontWeight: 600 }}>{dueFmt}</span>
       </div>
 
-      {/* Filed info */}
+      {/* Filed info — green TINT (not fixed pastel) so var(--text-muted) labels
+          stay readable in both themes; values use a mid-green that works on both. */}
       {status === 'filed' && (
-        <div className="rounded-lg p-3 text-xs space-y-1" style={{ backgroundColor: '#F0FDF4' }}>
+        <div className="rounded-lg p-3 text-xs space-y-1" style={{ backgroundColor: 'rgba(52,211,153,0.10)' }}>
           {record.referenceNumber && (
             <p><span style={{ color: 'var(--text-muted)' }}>Ref: </span>
-              <span className="font-mono font-medium" style={{ color: '#065F46' }}>{record.referenceNumber}</span></p>
+              <span className="font-mono font-medium" style={{ color: '#059669' }}>{record.referenceNumber}</span></p>
           )}
           {record.amount != null && (
             <p><span style={{ color: 'var(--text-muted)' }}>Amount: </span>
-              <span style={{ color: '#065F46' }}>₹{record.amount.toLocaleString('en-IN')}</span></p>
+              <span style={{ color: '#059669' }}>₹{record.amount.toLocaleString('en-IN')}</span></p>
           )}
           {filedDate && (
             <p><span style={{ color: 'var(--text-muted)' }}>Filed: </span>
-              <span style={{ color: '#065F46' }}>{filedDate}</span></p>
+              <span style={{ color: '#059669' }}>{filedDate}</span></p>
           )}
         </div>
       )}
@@ -427,14 +428,14 @@ function ComplianceCard({ record, onMarkFiled, onView }: {
         ) : (
           <button onClick={onView}
             className="flex-1 text-xs font-semibold py-2 rounded-lg border transition-colors"
-            style={{ border: '1px solid #E2E8F0', color: 'var(--text-muted)' }}>
+            style={{ border: '1px solid var(--shell-border)', color: 'var(--text-muted)' }}>
             View Details
           </button>
         )}
         {status === 'filed' && (
           <button onClick={onMarkFiled}
             className="text-xs font-medium px-3 py-2 rounded-lg border"
-            style={{ border: '1px solid #E2E8F0', color: 'var(--text-muted)' }}>
+            style={{ border: '1px solid var(--shell-border)', color: 'var(--text-muted)' }}>
             Edit
           </button>
         )}
@@ -513,7 +514,7 @@ function CalendarGrid({ year, month, records, onOpenDay }: {
                 </span>
                 {items.length > 0 && (
                   <span className="text-[9px] font-bold px-1 rounded-full"
-                    style={{ backgroundColor: hasOverdue ? '#FEE2E2' : allFiled ? '#D1FAE5' : '#F1F5F9',
+                    style={{ backgroundColor: hasOverdue ? '#FEE2E2' : allFiled ? '#D1FAE5' : 'var(--shell-hover-hard)',
                              color: hasOverdue ? '#991B1B' : allFiled ? '#065F46' : 'var(--text-muted)' }}>
                     {items.length}
                   </span>
@@ -838,7 +839,7 @@ export function ComplianceCalendarPage() {
           { key: 'overdue',  label: 'Overdue',  bg: '#FEE2E2', text: '#991B1B', icon: AlertCircle  },
           { key: 'due_soon', label: 'Due Soon', bg: '#FEF3C7', text: '#92400E', icon: Clock         },
           { key: 'filed',    label: 'Filed',    bg: '#D1FAE5', text: '#065F46', icon: CheckCircle2  },
-          { key: 'upcoming', label: 'Upcoming', bg: '#F1F5F9', text: 'var(--text-muted)', icon: Clock         },
+          { key: 'upcoming', label: 'Upcoming', bg: 'var(--shell-hover-hard)', text: 'var(--text-muted)', icon: Clock         },
         ] as Array<{ key: ComplianceStatus; label: string; bg: string; text: string; icon: ElementType }>).map(
           ({ key, label, bg, text, icon: Icon }) => (
             <div key={key} className="rounded-2xl p-4 flex items-center gap-3" style={{ backgroundColor: bg }}>

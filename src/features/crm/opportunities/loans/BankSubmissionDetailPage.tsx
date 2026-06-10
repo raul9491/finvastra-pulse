@@ -23,7 +23,7 @@ const STATUS_LABELS: Record<BankSubmissionStatus, string> = {
   rejected:   'Rejected',
 };
 const STATUS_STYLES: Record<BankSubmissionStatus, { bg: string; text: string; badgeClass: string }> = {
-  preparing:  { bg: 'rgba(255,255,255,0.08)', text: 'var(--text-muted)',  badgeClass: 'badge-glass-muted'   },
+  preparing:  { bg: 'var(--shell-hover-hard)', text: 'var(--text-muted)',  badgeClass: 'badge-glass-muted'   },
   submitted:  { bg: 'rgba(96,165,250,0.12)',  text: '#60a5fa',            badgeClass: 'badge-glass-info'    },
   in_review:  { bg: 'rgba(201,169,97,0.12)', text: '#C9A961',             badgeClass: 'badge-glass-warning' },
   sanctioned: { bg: 'rgba(52,211,153,0.12)', text: '#34d399',             badgeClass: 'badge-glass-success' },
@@ -55,7 +55,7 @@ function StatusStepper({ current }: { current: BankSubmissionStatus }) {
             <div className="flex flex-col items-center min-w-[72px]">
               <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
                 style={{
-                  backgroundColor: done ? '#0B1538' : active ? '#C9A961' : 'rgba(255,255,255,0.10)',
+                  backgroundColor: done ? '#0B1538' : active ? '#C9A961' : 'var(--shell-hover-hard)',
                   color: done ? '#C9A961' : active ? '#0B1538' : 'var(--text-dim)',
                 }}>
                 {done ? '✓' : i + 1}
@@ -67,7 +67,7 @@ function StatusStepper({ current }: { current: BankSubmissionStatus }) {
             </div>
             {i < STATUS_ORDER.length - 1 && (
               <div className="w-6 h-0.5 mb-5"
-                style={{ backgroundColor: done ? '#0B1538' : 'rgba(255,255,255,0.10)' }} />
+                style={{ backgroundColor: done ? '#0B1538' : 'var(--shell-hover-hard)' }} />
             )}
           </div>
         );
@@ -277,9 +277,9 @@ export function BankSubmissionDetailPage() {
   if (loading || !sub) {
     return (
       <div className="max-w-3xl mx-auto animate-pulse space-y-4">
-        <div className="h-5 rounded w-40" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-        <div className="h-8 rounded w-56" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-        <div className="h-40 rounded-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }} />
+        <div className="h-5 rounded w-40" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
+        <div className="h-8 rounded w-56" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
+        <div className="h-40 rounded-2xl" style={{ backgroundColor: 'var(--glass-panel-bg)' }} />
       </div>
     );
   }
@@ -304,7 +304,7 @@ export function BankSubmissionDetailPage() {
               onClick={handleGenerateTrackerLink}
               disabled={generatingToken}
               className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg border transition-colors disabled:opacity-50"
-              style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.04)' }}>
+              style={{ color: 'var(--text-primary)', borderColor: 'var(--shell-border-mid)', backgroundColor: 'var(--shell-hover-soft)' }}>
               {generatingToken ? '…' : '🔗 Share tracker with customer'}
             </button>
           ) : (
@@ -319,8 +319,8 @@ export function BankSubmissionDetailPage() {
                 className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
                 style={{
                   color: copySuccess ? '#34d399' : 'var(--text-primary)',
-                  borderColor: 'rgba(255,255,255,0.15)',
-                  backgroundColor: 'rgba(255,255,255,0.04)',
+                  borderColor: 'var(--shell-border-mid)',
+                  backgroundColor: 'var(--shell-hover-soft)',
                 }}>
                 {copySuccess ? '✓ Copied!' : 'Copy'}
               </button>
@@ -380,7 +380,7 @@ export function BankSubmissionDetailPage() {
         </div>
 
         {sub.notes && (
-          <p className="text-sm italic pt-3 mt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-muted)' }}>
+          <p className="text-sm italic pt-3 mt-3" style={{ borderTop: '1px solid var(--shell-border)', color: 'var(--text-muted)' }}>
             {sub.notes}
           </p>
         )}
@@ -415,22 +415,22 @@ export function BankSubmissionDetailPage() {
               const canAdvance = canAct && status !== 'accepted' && status !== 'rejected';
               return (
                 <div key={docId} className="flex items-center justify-between py-3 gap-3"
-                  style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  style={{ borderBottom: '1px solid var(--shell-border)' }}>
                   <p className="text-sm flex-1" style={{ color: 'var(--text-primary)' }}>{dtLabel}</p>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className={dst.badgeClass}>{dst.label}</span>
                     {canAdvance && (
                       <button
                         onClick={() => advanceDocumentStatus(leadId!, oppId!, subId!, docId, status, user!.uid)}
-                        className="text-xs px-2.5 py-1 rounded-lg border transition-colors hover:bg-white/5"
-                        style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.15)' }}>
+                        className="text-xs px-2.5 py-1 rounded-lg border transition-colors hover:bg-(--shell-hover-soft)"
+                        style={{ color: 'var(--text-primary)', borderColor: 'var(--shell-border-mid)' }}>
                         Advance
                       </button>
                     )}
                     {canAct && status !== 'rejected' && (
                       <button
                         onClick={() => rejectDocument(leadId!, oppId!, subId!, docId, status, user!.uid)}
-                        className="text-xs px-2.5 py-1 rounded-lg border transition-colors hover:bg-white/5"
+                        className="text-xs px-2.5 py-1 rounded-lg border transition-colors hover:bg-(--shell-hover-soft)"
                         style={{ color: '#f87171', borderColor: 'rgba(248,113,113,0.25)' }}>
                         Reject
                       </button>
@@ -450,7 +450,7 @@ export function BankSubmissionDetailPage() {
           <div>
             {[...sub.statusHistory].reverse().map((entry, i) => (
               <div key={i} className="py-3 flex gap-3"
-                style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                style={{ borderBottom: '1px solid var(--shell-border)' }}>
                 <span className="text-base shrink-0">🔄</span>
                 <div>
                   <p className="text-sm" style={{ color: 'var(--text-primary)' }}>

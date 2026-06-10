@@ -22,8 +22,8 @@ function fmtAmount(n: number | undefined): string {
 const STATUS_STYLES: Record<InsurancePolicy['status'], React.CSSProperties> = {
   active:    { backgroundColor: '#F0FDF4', color: '#166534' },
   lapsed:    { backgroundColor: '#FEF2F2', color: '#991B1B' },
-  matured:   { backgroundColor: '#F8FAFC', color: '#475569' },
-  cancelled: { backgroundColor: '#FEF2F2', color: '#6B7280' },
+  matured:   { backgroundColor: 'var(--glass-panel-bg)', color: 'var(--text-muted)' },
+  cancelled: { backgroundColor: '#FEF2F2', color: '#991B1B' },
 };
 
 const FREQ_LABELS: Record<string, string> = {
@@ -80,22 +80,22 @@ function AddPolicyModal({
   };
 
   const inp = (field?: string) =>
-    `w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-white transition-colors ${
+    `w-full text-sm px-3.5 py-2.5 border rounded-lg outline-none focus:ring-2 bg-(--ss-bg) transition-colors ${
       field && errors[field]
         ? 'border-red-400 focus:ring-red-200/50'
-        : 'border-slate-200'
+        : 'border-(--shell-border-mid)'
     }`;
 
   const isSavings = ['endowment', 'ulip', 'pension'].includes(form.policyType);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl space-y-4 overflow-y-auto max-h-[90vh]">
-        <h3 className="text-base font-semibold text-ink">Add Insurance Policy</h3>
+      <div className="glass-modal-panel p-6 w-full max-w-md mx-4 space-y-4 overflow-y-auto max-h-[90vh]">
+        <h3 className="text-base font-semibold text-(--text-primary)">Add Insurance Policy</h3>
 
         {/* Policy Type */}
         <div>
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-mute mb-1">Policy Type *</label>
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-(--text-muted) mb-1">Policy Type *</label>
           <select className={inp()} value={form.policyType}
             onChange={(e) => set('policyType', e.target.value as InsurancePolicyType)}>
             {(Object.entries(INSURANCE_POLICY_TYPE_LABELS) as [InsurancePolicyType, string][]).map(([v, l]) => (
@@ -161,7 +161,7 @@ function AddPolicyModal({
 
         {/* Frequency */}
         <div>
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-mute mb-1">Premium Frequency</label>
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-(--text-muted) mb-1">Premium Frequency</label>
           <select className={inp()} value={form.premiumFrequency}
             onChange={(e) => set('premiumFrequency', e.target.value as AddPolicyPayload['premiumFrequency'])}>
             <option value="annual">Annual</option>
@@ -194,7 +194,7 @@ function AddPolicyModal({
         {/* Maturity Date (savings products) */}
         {isSavings && (
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-widest text-mute mb-1">Maturity Date</label>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-(--text-muted) mb-1">Maturity Date</label>
             <input type="date" className={inp()} value={form.maturityDate ?? ''}
               onChange={(e) => set('maturityDate', e.target.value || undefined)} />
           </div>
@@ -202,7 +202,7 @@ function AddPolicyModal({
 
         {/* Status */}
         <div>
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-mute mb-1">Status</label>
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-(--text-muted) mb-1">Status</label>
           <select className={inp()} value={form.status}
             onChange={(e) => set('status', e.target.value as AddPolicyPayload['status'])}>
             <option value="active">Active</option>
@@ -214,14 +214,14 @@ function AddPolicyModal({
 
         {/* Notes */}
         <div>
-          <label className="block text-[10px] font-bold uppercase tracking-widest text-mute mb-1">Notes</label>
+          <label className="block text-[10px] font-bold uppercase tracking-widest text-(--text-muted) mb-1">Notes</label>
           <textarea className={`${inp()} resize-none`} rows={2} value={form.notes ?? ''}
             onChange={(e) => set('notes', e.target.value || undefined)} placeholder="Optional" />
         </div>
 
         <div className="flex gap-3 pt-2">
           <button onClick={onClose}
-            className="flex-1 px-4 py-2.5 text-sm border border-slate-200 rounded-xl hover:bg-slate-50 text-ink-soft">
+            className="flex-1 px-4 py-2.5 text-sm border border-(--shell-border-mid) rounded-xl hover:bg-(--shell-hover-soft) text-(--text-primary)">
             Cancel
           </button>
           <button onClick={handleSave} disabled={saving}
@@ -258,9 +258,9 @@ export function InsurancePoliciesSection({
   const today = new Date();
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-6">
+    <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border-mid) p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xs font-bold uppercase tracking-widest text-mute">Insurance Policies</h3>
+        <h3 className="text-xs font-bold uppercase tracking-widest text-(--text-muted)">Insurance Policies</h3>
         {canWrite && (
           <button
             onClick={() => setShowAdd(true)}
@@ -273,12 +273,12 @@ export function InsurancePoliciesSection({
 
       {loading ? (
         <div className="space-y-2">
-          {[1, 2].map((i) => <div key={i} className="h-12 bg-slate-100 rounded-xl animate-pulse" />)}
+          {[1, 2].map((i) => <div key={i} className="h-12 bg-(--shell-hover-hard) rounded-xl animate-pulse" />)}
         </div>
       ) : policies.length === 0 ? (
-        <p className="text-sm text-mute py-2">No policies recorded yet.</p>
+        <p className="text-sm text-(--text-muted) py-2">No policies recorded yet.</p>
       ) : (
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-(--shell-border)">
           {policies.map((pol) => {
             const s = STATUS_STYLES[pol.status];
             const daysToRenewal = differenceInCalendarDays(parseISO(pol.renewalDate), today);
@@ -288,7 +288,7 @@ export function InsurancePoliciesSection({
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-ink">{pol.productName}</span>
+                      <span className="text-sm font-medium text-(--text-primary)">{pol.productName}</span>
                       <span className="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded"
                         style={{ backgroundColor: '#FFF7ED', color: '#9A3412' }}>
                         {INSURANCE_POLICY_TYPE_LABELS[pol.policyType]}
@@ -298,11 +298,11 @@ export function InsurancePoliciesSection({
                         {pol.status}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 mt-1.5 text-xs text-mute flex-wrap">
+                    <div className="flex items-center gap-3 mt-1.5 text-xs text-(--text-muted) flex-wrap">
                       <span>{pol.insurerName}</span>
                       <span>Policy: {pol.policyNumber}</span>
-                      <span>SA: <strong className="text-ink">{fmtAmount(pol.sumAssured)}</strong></span>
-                      <span>Premium: <strong className="text-ink">{fmtAmount(pol.annualPremium)}</strong>/{FREQ_LABELS[pol.premiumFrequency]}</span>
+                      <span>SA: <strong className="text-(--text-primary)">{fmtAmount(pol.sumAssured)}</strong></span>
+                      <span>Premium: <strong className="text-(--text-primary)">{fmtAmount(pol.annualPremium)}</strong>/{FREQ_LABELS[pol.premiumFrequency]}</span>
                       <span>From: {format(parseISO(pol.commencementDate), 'dd MMM yyyy')}</span>
                     </div>
                     {renewalSoon && (
@@ -314,14 +314,14 @@ export function InsurancePoliciesSection({
                     )}
                   </div>
                   {!renewalSoon && pol.status === 'active' && (
-                    <div className="text-right shrink-0 text-xs text-mute">
+                    <div className="text-right shrink-0 text-xs text-(--text-muted)">
                       <p>Renews</p>
-                      <p className="font-medium text-ink">{format(parseISO(pol.renewalDate), 'dd MMM yyyy')}</p>
+                      <p className="font-medium text-(--text-primary)">{format(parseISO(pol.renewalDate), 'dd MMM yyyy')}</p>
                     </div>
                   )}
                 </div>
                 {pol.notes && (
-                  <p className="text-xs text-mute mt-1.5 italic">{pol.notes}</p>
+                  <p className="text-xs text-(--text-muted) mt-1.5 italic">{pol.notes}</p>
                 )}
               </div>
             );

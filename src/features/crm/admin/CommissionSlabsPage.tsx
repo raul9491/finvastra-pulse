@@ -86,8 +86,8 @@ function SlabFormModal({ slab, onClose, userId }: {
       footer={
         <>
           <button onClick={onClose}
-            className="px-5 py-2.5 text-sm border rounded-xl hover:bg-white/5 transition-colors"
-            style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>Cancel</button>
+            className="px-5 py-2.5 text-sm border rounded-xl hover:bg-(--shell-hover-soft) transition-colors"
+            style={{ color: 'var(--text-muted)', borderColor: 'var(--shell-border-mid)' }}>Cancel</button>
           <button onClick={handleSubmit(onSubmit)} disabled={saving}
             className="px-7 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-50"
             style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
@@ -224,8 +224,8 @@ function CopyBankModal({ onClose, userId }: { onClose: () => void; userId: strin
       ) : (
         <>
           <button onClick={onClose}
-            className="px-5 py-2.5 text-sm border rounded-xl hover:bg-white/5 transition-colors"
-            style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>Cancel</button>
+            className="px-5 py-2.5 text-sm border rounded-xl hover:bg-(--shell-hover-soft) transition-colors"
+            style={{ color: 'var(--text-muted)', borderColor: 'var(--shell-border-mid)' }}>Cancel</button>
           <button onClick={handleCopy} disabled={!from || !to || from === to || saving}
             className="px-6 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-50" style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
             {saving ? 'Copying…' : 'Copy Active Slabs'}
@@ -314,8 +314,8 @@ export function CommissionSlabsPage() {
           </div>
           <div className="flex gap-2">
             <button onClick={() => setCopyModalOpen(true)}
-              className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg border transition-colors hover:bg-white/5"
-              style={{ color: 'var(--text-primary)', borderColor: 'rgba(255,255,255,0.15)' }}>
+              className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg border transition-colors hover:bg-(--shell-hover-soft)"
+              style={{ color: 'var(--text-primary)', borderColor: 'var(--shell-border-mid)' }}>
               <Copy size={14} /> Copy Bank
             </button>
             <button onClick={openCreate}
@@ -348,7 +348,7 @@ export function CommissionSlabsPage() {
           {loading ? (
             <div className="animate-pulse">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-12" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.02)' }} />
+                <div key={i} className="h-12" style={{ borderBottom: '1px solid var(--shell-border)', backgroundColor: 'var(--shell-hover-soft)' }} />
               ))}
             </div>
           ) : filtered.length === 0 ? (
@@ -362,7 +362,7 @@ export function CommissionSlabsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                  <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
                     {['Bank', 'Product', 'Ticket Range', 'Rate', 'Basis', 'Effective', 'Active', ''].map((h) => (
                       <th key={h} className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{h}</th>
                     ))}
@@ -370,8 +370,8 @@ export function CommissionSlabsPage() {
                 </thead>
                 <tbody>
                   {filtered.map((s) => (
-                    <tr key={s.id} className="hover:bg-white/5 transition-colors"
-                      style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <tr key={s.id} className="hover:bg-(--shell-hover-soft) transition-colors"
+                      style={{ borderBottom: '1px solid var(--shell-border)' }}>
                       <td className="px-4 py-3 text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                         {providerMap.get(s.providerId) ?? s.providerId.slice(0, 8)}
                       </td>
@@ -393,7 +393,7 @@ export function CommissionSlabsPage() {
                         </button>
                       </td>
                       <td className="px-4 py-3">
-                        <button onClick={() => openEdit(s)} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors" style={{ color: 'var(--text-muted)' }}>
+                        <button onClick={() => openEdit(s)} className="p-1.5 rounded-lg hover:bg-(--shell-hover-soft) transition-colors" style={{ color: 'var(--text-muted)' }}>
                           <Edit2 size={14} />
                         </button>
                       </td>

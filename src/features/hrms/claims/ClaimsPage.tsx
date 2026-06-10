@@ -19,7 +19,7 @@ const CLAIM_TYPE_META: Record<ClaimType, { label: string; icon: typeof Car; colo
   cibil:                { label: 'CIBIL',                icon: CreditCard,  color: '#22d3ee' },
   software:             { label: 'Software',             icon: Laptop,      color: '#818cf8' },
   office_supplies:      { label: 'Office Supplies',      icon: Package,     color: '#fb923c' },
-  other:                { label: 'Other',                icon: HelpCircle,  color: 'rgba(240,236,224,0.40)' },
+  other:                { label: 'Other',                icon: HelpCircle,  color: 'var(--text-muted)' },
 };
 
 // Categories offered when creating a NEW claim — 'mobile' retired (kept in META for old claims).
@@ -218,7 +218,7 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
                 <FileText size={15} style={{ color: '#C9A961' }} className="shrink-0" />
                 <span className="text-sm truncate flex-1" style={{ color: 'var(--text-primary)' }}>{file.name}</span>
                 <span className="text-[11px] shrink-0" style={{ color: 'var(--text-muted)' }}>{formatBytes(file.size)}</span>
-                <button type="button" onClick={() => setFile(null)} className="p-1 rounded hover:bg-white/10 shrink-0" aria-label="Remove file">
+                <button type="button" onClick={() => setFile(null)} className="p-1 rounded hover:bg-(--shell-hover-mid) shrink-0" aria-label="Remove file">
                   <X size={13} style={{ color: 'var(--text-muted)' }} />
                 </button>
               </div>
@@ -243,8 +243,8 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
               {submitting ? (uploadPct !== null ? `Uploading… ${uploadPct}%` : 'Submitting…') : 'Submit Claim'}
             </button>
             <button type="button" onClick={onClose}
-              className="px-5 py-2.5 rounded-xl text-sm transition-colors hover:bg-white/10"
-              style={{ color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.12)' }}>
+              className="px-5 py-2.5 rounded-xl text-sm transition-colors hover:bg-(--shell-hover-mid)"
+              style={{ color: 'var(--text-muted)', border: '1px solid var(--shell-border-mid)' }}>
               Cancel
             </button>
           </div>
@@ -263,7 +263,7 @@ function ClaimRow({ claim, onCancel }: { claim: Claim; onCancel: () => void }) {
   const submittedDate = toTs(claim.submittedAt);
 
   return (
-    <div className="flex items-center gap-4 py-3 last:border-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+    <div className="flex items-center gap-4 py-3 last:border-0" style={{ borderBottom: '1px solid var(--shell-border)' }}>
       <div
         className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
         style={{ backgroundColor: meta.color + '20', color: meta.color }}
@@ -378,7 +378,7 @@ export function ClaimsPage() {
         {loading ? (
           <div className="space-y-3">
             {[1,2,3].map(i => (
-              <div key={i} className="h-12 rounded-lg animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }} />
+              <div key={i} className="h-12 rounded-lg animate-pulse" style={{ backgroundColor: 'var(--glass-panel-bg)' }} />
             ))}
           </div>
         ) : claims.length === 0 ? (

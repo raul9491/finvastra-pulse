@@ -85,7 +85,7 @@ export function LoginPage() {
 
   // inp kept for legacy reference; replaced by glass-inp class in the form
   const inp = [
-    'w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm outline-none',
+    'w-full px-4 py-3 bg-(--shell-hover-soft) border rounded-xl text-sm outline-none',
     'transition-all duration-200',
     'focus:border-[#C9A961] focus:ring-2 focus:ring-[#C9A961]/10',
   ].join(' ');

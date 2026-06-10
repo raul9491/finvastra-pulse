@@ -86,9 +86,9 @@ export function StatementDetailPage() {
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-4">
-        <div className="h-6 w-32 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-        <div className="h-40 rounded-2xl animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-        <div className="h-64 rounded-2xl animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+        <div className="h-6 w-32 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
+        <div className="h-40 rounded-2xl animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
+        <div className="h-64 rounded-2xl animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
       </div>
     );
   }
@@ -177,17 +177,17 @@ export function StatementDetailPage() {
         className="glass-panel px-6 py-4 mb-6 flex items-center gap-6 flex-wrap"
       >
         <StatBadge label="Matched"     count={statement.matchedCount}     color="#34d399" />
-        <div className="w-px h-4" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} />
+        <div className="w-px h-4" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
         <StatBadge label="Discrepancy" count={statement.discrepancyCount} color="#C9A961" />
-        <div className="w-px h-4" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} />
+        <div className="w-px h-4" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
         <StatBadge label="Unmatched"   count={statement.unmatchedCount}   color="#f87171" />
-        <div className="w-px h-4" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} />
+        <div className="w-px h-4" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
         <StatBadge
           label="Excluded"
           count={lines.filter((l) => l.status === 'excluded').length}
           color="var(--text-muted)"
         />
-        <div className="w-px h-4" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }} />
+        <div className="w-px h-4" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
         <div className="flex items-center gap-1.5">
           <span className="text-sm font-bold" style={{ color: '#C9A961' }}>
             ₹{statement.totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
@@ -208,8 +208,8 @@ export function StatementDetailPage() {
           )}
           <button
             onClick={handleExport}
-            className="px-4 py-2 text-sm font-semibold rounded-lg transition-colors hover:bg-white/5"
-            style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
+            className="px-4 py-2 text-sm font-semibold rounded-lg transition-colors hover:bg-(--shell-hover-soft)"
+            style={{ border: '1px solid var(--shell-border-mid)', color: 'var(--text-primary)' }}
           >
             Export CSV
           </button>
@@ -220,7 +220,7 @@ export function StatementDetailPage() {
       <div className="glass-panel overflow-hidden">
         <div
           className="px-5 py-4"
-          style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+          style={{ borderBottom: '1px solid var(--shell-border)' }}
         >
           <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
             Statement Lines
@@ -241,7 +241,7 @@ export function StatementDetailPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
                   <th className="px-4 py-3 text-left font-semibold whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>Date</th>
                   <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Description</th>
                   <th className="px-4 py-3 text-right font-semibold whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>Amount</th>
@@ -251,7 +251,7 @@ export function StatementDetailPage() {
               </thead>
               <tbody>
                 {lines.map((line: StatementLine) => (
-                  <tr key={line.id} className="hover:bg-white/5 transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <tr key={line.id} className="hover:bg-(--shell-hover-soft) transition-colors" style={{ borderBottom: '1px solid var(--shell-border)' }}>
                     <td className="px-4 py-2.5 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                       {line.parsedDate
                         ? format(new Date(line.parsedDate), 'd MMM yyyy')

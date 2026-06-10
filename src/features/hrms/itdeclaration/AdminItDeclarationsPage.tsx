@@ -82,7 +82,7 @@ function DeclarationDetail({
           className="flex items-center gap-1.5 text-sm text-(--text-muted) hover:opacity-70 transition-opacity">
           <ChevronLeft size={15} /> Back to list
         </button>
-        <div className="w-px h-4 bg-slate-200" />
+        <div className="w-px h-4 bg-(--shell-hover-hard)" />
         <div>
           <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
             {employeeName} — IT Declaration ({fyLabel(decl.year)})
@@ -107,7 +107,7 @@ function DeclarationDetail({
 
       {decl.revisionNote && (
         <div className="text-sm px-4 py-3 rounded-xl"
-          style={{ backgroundColor: 'var(--glass-panel-bg)', color: 'var(--text-muted)', border: '1px solid #E2E8F0' }}>
+          style={{ backgroundColor: 'var(--glass-panel-bg)', color: 'var(--text-muted)', border: '1px solid var(--shell-border)' }}>
           <span className="font-semibold">HR Note: </span>{decl.revisionNote}
         </div>
       )}
@@ -434,7 +434,7 @@ export function AdminItDeclarationsPage() {
           <div className="divide-y divide-(--shell-border) animate-pulse">
             {[1,2,3,4,5].map((i) => (
               <div key={i} className="flex items-center gap-4 px-6 py-4">
-                <div className="h-4 bg-slate-200 rounded w-36" />
+                <div className="h-4 bg-(--shell-hover-hard) rounded w-36" />
                 <div className="h-4 bg-(--glass-panel-bg) rounded w-24 ml-auto" />
                 <div className="h-4 bg-(--glass-panel-bg) rounded w-16" />
                 <div className="h-4 bg-(--glass-panel-bg) rounded w-16" />
@@ -445,7 +445,7 @@ export function AdminItDeclarationsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead>
-                <tr style={{ backgroundColor: 'var(--glass-panel-bg)', borderBottom: '1px solid #E2E8F0' }}>
+                <tr style={{ backgroundColor: 'var(--glass-panel-bg)', borderBottom: '1px solid var(--shell-border)' }}>
                   {['Employee', 'Department', 'Status', '80C', '80D', 'HRA', 'Submitted On', 'Actions'].map((h) => (
                     <th key={h} className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-(--text-muted) whitespace-nowrap">
                       {h}
@@ -456,7 +456,7 @@ export function AdminItDeclarationsPage() {
               <tbody>
                 {rows.map(({ employee: emp, decl }) => (
                   <tr key={emp.userId}
-                    className="border-b border-slate-50 last:border-0 hover:bg-(--glass-panel-bg)/50 transition-colors">
+                    className="border-b border-(--shell-border) last:border-0 hover:bg-(--glass-panel-bg)/50 transition-colors">
                     <td className="px-5 py-4">
                       <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{emp.displayName}</p>
                       <p className="text-xs text-(--text-muted) mt-0.5">{emp.employeeId}</p>

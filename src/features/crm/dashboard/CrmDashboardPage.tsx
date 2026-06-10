@@ -126,8 +126,8 @@ function BizLineCard({
       </div>
       {loading ? (
         <div className="space-y-1.5">
-          <div className="h-7 w-20 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-          <div className="h-3.5 w-14 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+          <div className="h-7 w-20 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
+          <div className="h-3.5 w-14 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
         </div>
       ) : (
         <>
@@ -162,7 +162,7 @@ function SourceBreakdown({ leads }: { leads: Lead[] }) {
       {counts.map(([source, count]) => (
         <div key={source} className="flex items-center gap-3">
           <span className="text-xs w-24 shrink-0 truncate" style={{ color: 'var(--text-muted)' }}>{source}</span>
-          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
+          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--shell-hover-hard)' }}>
             <div className="h-full rounded-full transition-all duration-500"
               style={{ width: `${(count / total) * 100}%`, backgroundColor: '#C9A961' }} />
           </div>
@@ -229,7 +229,7 @@ function RmPerformanceTable({
     <div className="overflow-x-auto -mx-1">
       <table className="w-full text-sm min-w-120">
         <thead>
-          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <tr style={{ borderBottom: '1px solid var(--shell-border)' }}>
             <th className="text-left text-[10px] font-bold uppercase tracking-widest pb-2.5 pl-1 w-7" style={{ color: 'var(--text-muted)' }}>#</th>
             <th className="text-left text-[10px] font-bold uppercase tracking-widest pb-2.5" style={{ color: 'var(--text-muted)' }}>Name</th>
             <th className="text-right text-[10px] font-bold uppercase tracking-widest pb-2.5" style={{ color: 'var(--text-muted)' }}>Leads</th>
@@ -240,7 +240,7 @@ function RmPerformanceTable({
         </thead>
         <tbody>
           {stats.map(({ uid, name, activeLeads, openOpps, pipelineValue, commissionMonth }, i) => (
-            <tr key={uid} className="hover:bg-white/5 transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            <tr key={uid} className="hover:bg-(--shell-hover-soft) transition-colors" style={{ borderBottom: '1px solid var(--shell-border)' }}>
               <td className="py-2.5 pl-1">
                 {i === 0
                   ? <Medal size={14} style={{ color: '#C9A961' }} />
@@ -295,9 +295,9 @@ function QuickActions({ isAdmin }: { isAdmin: boolean }) {
 function SkeletonRow() {
   return (
     <div className="flex items-center gap-3 py-1">
-      <div className="h-4 w-4 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-      <div className="flex-1 h-4 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-      <div className="h-4 w-16 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+      <div className="h-4 w-4 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
+      <div className="flex-1 h-4 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
+      <div className="h-4 w-16 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
     </div>
   );
 }
@@ -496,7 +496,7 @@ export function CrmDashboardPage() {
               {loading ? (
                 <div className="space-y-2.5">
                   {[...Array(5)].map((_, i) => (
-                    <div key={i} className="h-4 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                    <div key={i} className="h-4 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
                   ))}
                 </div>
               ) : (
@@ -593,7 +593,7 @@ export function CrmDashboardPage() {
               {loading ? (
                 <div className="space-y-2.5">
                   {[...Array(4)].map((_, i) => (
-                    <div key={i} className="h-4 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                    <div key={i} className="h-4 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
                   ))}
                 </div>
               ) : (
@@ -799,8 +799,8 @@ function DevAdminTools() {
           <p className="text-sm font-medium mb-0.5" style={{ color: 'var(--text-primary)' }}>{label}</p>
           <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>{desc}</p>
           <button onClick={fn}
-            className="px-5 py-2 rounded-lg text-sm font-semibold border hover:bg-white/5 transition-colors"
-            style={{ color: 'var(--text-muted)', borderColor: 'rgba(255,255,255,0.12)' }}>
+            className="px-5 py-2 rounded-lg text-sm font-semibold border hover:bg-(--shell-hover-soft) transition-colors"
+            style={{ color: 'var(--text-muted)', borderColor: 'var(--shell-border-mid)' }}>
             {btn}
           </button>
           {statuses[key] && (
@@ -809,7 +809,7 @@ function DevAdminTools() {
               {statuses[key]}
             </p>
           )}
-          <hr className="mt-4" style={{ borderColor: 'rgba(255,255,255,0.08)' }} />
+          <hr className="mt-4" style={{ borderColor: 'var(--shell-border)' }} />
         </div>
       ))}
     </div>

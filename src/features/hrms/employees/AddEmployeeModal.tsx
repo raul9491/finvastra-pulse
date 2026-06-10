@@ -503,7 +503,7 @@ export function AddEmployeeModal({
           <div>
             {fLabel('Gross (auto-computed)')}
             <div className="w-full text-sm px-3.5 py-2.5 rounded-lg font-semibold"
-              style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid #E2E8F0', color: computedGross > 0 ? '#065F46' : 'var(--text-muted)' }}>
+              style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid var(--shell-border)', color: computedGross > 0 ? '#065F46' : 'var(--text-muted)' }}>
               {computedGross > 0 ? `₹${computedGross.toLocaleString('en-IN')}` : '—'}
             </div>
           </div>

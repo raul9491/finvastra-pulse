@@ -406,7 +406,7 @@ export function AdminClaimsPage() {
             style={{ backgroundColor: '#166534', color: '#FFFFFF' }}>
             Mark as Paid
           </button>
-          <button onClick={() => setSelected(new Set())} className="text-sm text-(--text-muted) hover:opacity-70 ml-auto">
+          <button onClick={() => setSelected(new Set())} className="text-sm opacity-80 hover:opacity-60 ml-auto" style={{ color: '#166534' }}>
             Clear selection
           </button>
         </div>
@@ -445,7 +445,7 @@ export function AdminClaimsPage() {
                 const isApproved = c.status === 'approved';
                 return (
                   <tr key={c.id} onClick={() => setDetailClaim(c)}
-                    className="border-b border-slate-50 hover:bg-(--glass-panel-bg)/50 transition-colors cursor-pointer">
+                    className="border-b border-(--shell-border) hover:bg-(--glass-panel-bg)/50 transition-colors cursor-pointer">
                     <td className="p-4" onClick={(e) => e.stopPropagation()}>
                       {isApproved && (
                         <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)}

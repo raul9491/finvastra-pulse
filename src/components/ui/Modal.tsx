@@ -47,7 +47,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', footer }:
               <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{title}</h2>
               <button
                 onClick={onClose}
-                className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors hover:bg-white/10"
+                className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors hover:bg-(--shell-hover-mid)"
                 style={{ color: 'var(--text-muted)' }}
               >
                 <X size={18} />
@@ -61,7 +61,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', footer }:
 
             {/* Footer */}
             {footer && (
-              <div className="px-8 py-5 flex justify-end gap-3 shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+              <div className="px-8 py-5 flex justify-end gap-3 shrink-0" style={{ borderTop: '1px solid var(--shell-border)', backgroundColor: 'var(--shell-hover-soft)' }}>
                 {footer}
               </div>
             )}

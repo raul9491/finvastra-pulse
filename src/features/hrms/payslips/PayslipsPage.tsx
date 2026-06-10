@@ -28,7 +28,7 @@ function EditProfileButton() {
   return (
     <button
       onClick={() => navigate('/hrms/settings')}
-      className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-white/10 text-white hover:bg-white/20 transition-colors border border-white/20"
+      className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-(--shell-hover-hard) text-white hover:bg-(--shell-hover-hard) transition-colors border border-(--shell-border-mid)"
     >
       Edit Profile
     </button>
@@ -93,9 +93,9 @@ function ProfileMeta({ profile }: { profile: UserProfile }) {
       </h2>
       <div className="flex flex-wrap items-center gap-3 text-xs text-(--text-muted)">
         {profile.designation && <span>{profile.designation}</span>}
-        {profile.designation && profile.department && <span className="text-slate-300">·</span>}
+        {profile.designation && profile.department && <span className="text-(--text-muted)">·</span>}
         {profile.department && <span>{profile.department}</span>}
-        <span className="text-slate-300">·</span>
+        <span className="text-(--text-muted)">·</span>
         <span className="font-mono">
           ID {profile.employeeId ?? profile.userId.slice(-8).toUpperCase()}
         </span>

@@ -148,8 +148,8 @@ export function SubmitReferralPage() {
               setSuccess(false);
               setForm({ displayName: '', phone: '', email: '', productInterest: '', notes: '', consentMethod: '', consentGiven: false });
             }}
-            className="text-sm px-4 py-2 rounded-lg border transition-colors hover:bg-white/5"
-            style={{ borderColor: 'rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
+            className="text-sm px-4 py-2 rounded-lg border transition-colors hover:bg-(--shell-hover-soft)"
+            style={{ borderColor: 'var(--shell-border-mid)', color: 'var(--text-primary)' }}
           >
             Submit another
           </button>

@@ -30,7 +30,7 @@ const REASON_COLOR: Record<SalaryRevisionReason, { color: string; bg: string }> 
   promotion:        { color: '#4C1D95', bg: '#EDE9FE' },
   correction:       { color: '#374151', bg: '#F3F4F6' },
   contract_renewal: { color: '#B45309', bg: '#FEF3C7' },
-  other:            { color: '#6B7280', bg: '#F9FAFB'  },
+  other:            { color: 'var(--text-muted)', bg: '#F9FAFB'  },
 };
 
 function ReasonPill({ reason }: { reason: SalaryRevisionReason }) {
@@ -67,7 +67,7 @@ function EmployeeTimeline({
             <h2 className="text-base font-semibold">{employeeName}</h2>
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Salary history</p>
           </div>
-          <button onClick={onClose} className="text-(--text-muted) hover:text-slate-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-(--text-muted) hover:text-(--text-muted)"><X size={18} /></button>
         </div>
         <div className="flex-1 p-6">
           {loading ? (
@@ -77,13 +77,13 @@ function EmployeeTimeline({
           ) : (
             <div className="relative">
               {/* Vertical timeline line */}
-              <div className="absolute left-3 top-2 bottom-2 w-px bg-slate-200" />
+              <div className="absolute left-3 top-2 bottom-2 w-px bg-(--shell-hover-hard)" />
               <div className="space-y-6">
                 {records.map((r, i) => (
                   <div key={r.id} className="flex gap-4">
                     {/* Dot */}
                     <div className="w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 relative z-10"
-                      style={{ backgroundColor: i === 0 ? '#0B1538' : '#F8FAFC', borderColor: i === 0 ? '#0B1538' : '#E2E8F0' }}>
+                      style={{ backgroundColor: i === 0 ? '#0B1538' : 'var(--shell-hover-soft)', borderColor: i === 0 ? '#0B1538' : 'var(--shell-border-mid)' }}>
                       {i === 0 && <div className="w-2 h-2 rounded-full bg-(--glass-panel-bg)" />}
                     </div>
                     {/* Content */}
@@ -201,7 +201,7 @@ function AddRevisionModal({
       <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-(--shell-border)">
           <h2 className="text-base font-semibold">Record Salary Revision</h2>
-          <button onClick={onClose} className="text-(--text-muted) hover:text-slate-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-(--text-muted) hover:text-(--text-muted)"><X size={18} /></button>
         </div>
         <div className="p-6 space-y-4">
           {/* Employee */}
@@ -476,7 +476,7 @@ export function AdminSalaryHistoryPage() {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-(--shell-border)">
               {filtered.map((r) => (
                 <tr key={r.id} className="hover:bg-(--glass-panel-bg) transition-colors">
                   <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{r.employeeName}</td>

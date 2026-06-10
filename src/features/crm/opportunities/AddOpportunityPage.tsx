@@ -71,7 +71,7 @@ function DynamicFieldRenderer({
                   type="checkbox"
                   checked={value === true}
                   onChange={(e) => onChange({ ...values, [fieldKey]: e.target.checked })}
-                  className="w-4 h-4 rounded border-slate-300 accent-navy"
+                  className="w-4 h-4 rounded border-(--shell-border-mid) accent-navy"
                 />
                 <span style={{ color: 'var(--text-primary)' }}>{def.label}</span>
               </label>
@@ -202,7 +202,7 @@ function Step2({
 
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 animate-pulse">
-          {[...Array(6)].map((_, i) => <div key={i} className="h-12 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />)}
+          {[...Array(6)].map((_, i) => <div key={i} className="h-12 rounded-xl" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />)}
         </div>
       ) : filtered.length === 0 ? (
         <div className="glass-panel py-12 text-center space-y-3">
@@ -372,7 +372,7 @@ function Step3({
         {selectedTypeConfig.businessLine === 'loan' &&
           selectedTypeConfig.customFieldsSchema &&
           Object.keys(selectedTypeConfig.customFieldsSchema).length > 0 && (
-          <div className="pt-5 space-y-4" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="pt-5 space-y-4" style={{ borderTop: '1px solid var(--shell-border)' }}>
             <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
               Loan Details
             </h3>
@@ -490,7 +490,7 @@ export function AddOpportunityPage() {
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
                   style={{
-                    backgroundColor: done ? '#C9A961' : active ? '#C9A961' : 'rgba(255,255,255,0.08)',
+                    backgroundColor: done ? '#C9A961' : active ? '#C9A961' : 'var(--shell-hover-hard)',
                     color: done ? '#0B1538' : active ? '#0B1538' : 'var(--text-dim)',
                   }}>
                   {done ? '✓' : n}
@@ -498,7 +498,7 @@ export function AddOpportunityPage() {
                 <span className="text-xs font-medium" style={{ color: active ? 'var(--text-primary)' : 'var(--text-dim)' }}>{label}</span>
               </div>
               {i < STEP_LABELS.length - 1 && (
-                <div className="w-8 h-px mx-2" style={{ backgroundColor: done ? '#C9A961' : 'rgba(255,255,255,0.08)' }} />
+                <div className="w-8 h-px mx-2" style={{ backgroundColor: done ? '#C9A961' : 'var(--shell-hover-hard)' }} />
               )}
             </div>
           );

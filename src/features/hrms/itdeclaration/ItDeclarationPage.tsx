@@ -377,7 +377,7 @@ export function ItDeclarationPage() {
 
       {!loading && !declaration && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
-          style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid #E2E8F0', color: 'var(--text-muted)' }}>
+          style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid var(--shell-border)', color: 'var(--text-muted)' }}>
           <Info size={15} className="shrink-0" />
           No declaration on file for {fyLabel(selectedYear)}. Fill the form and save as draft to start.
         </div>

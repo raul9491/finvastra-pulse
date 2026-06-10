@@ -80,8 +80,8 @@ function MarkPaidModal({ isOpen, onClose, payoutId, rmDisplayName }: MarkPaidMod
         <>
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-semibold rounded-lg hover:bg-white/5 transition-colors"
-            style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
+            className="px-4 py-2 text-sm font-semibold rounded-lg hover:bg-(--shell-hover-soft) transition-colors"
+            style={{ border: '1px solid var(--shell-border-mid)', color: 'var(--text-primary)' }}
           >
             Cancel
           </button>
@@ -338,8 +338,8 @@ export function PayoutDetailPage() {
             )}
             <button
               onClick={() => generatePayoutPdf(payout, profile?.displayName ?? '')}
-              className="px-4 py-2 text-sm font-semibold rounded-lg hover:bg-white/5 transition-colors"
-              style={{ border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-primary)' }}
+              className="px-4 py-2 text-sm font-semibold rounded-lg hover:bg-(--shell-hover-soft) transition-colors"
+              style={{ border: '1px solid var(--shell-border-mid)', color: 'var(--text-primary)' }}
             >
               Download Payout Summary
             </button>
@@ -359,7 +359,7 @@ export function PayoutDetailPage() {
         {payout.status === 'paid' && (
           <div
             className="mt-4 pt-4 grid grid-cols-2 gap-4 text-sm"
-            style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}
+            style={{ borderTop: '1px solid var(--shell-border)' }}
           >
             <div>
               <span
@@ -426,7 +426,7 @@ export function PayoutDetailPage() {
       <div className="glass-panel overflow-hidden">
         <div
           className="px-6 py-4"
-          style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+          style={{ borderBottom: '1px solid var(--shell-border)' }}
         >
           <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Commission Line Items</h2>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
@@ -440,7 +440,7 @@ export function PayoutDetailPage() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
                 <th className="px-5 py-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Customer</th>
                 <th className="px-5 py-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Product</th>
                 <th className="px-5 py-3 text-left font-semibold text-xs uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Bank / Provider</th>
@@ -453,8 +453,8 @@ export function PayoutDetailPage() {
               {payout.lineItems.map((item) => (
                 <tr
                   key={item.commissionRecordId}
-                  className="hover:bg-white/5 transition-colors"
-                  style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                  className="hover:bg-(--shell-hover-soft) transition-colors"
+                  style={{ borderBottom: '1px solid var(--shell-border)' }}
                 >
                   <td className="px-5 py-3 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
                     …{item.leadId.slice(-8)}

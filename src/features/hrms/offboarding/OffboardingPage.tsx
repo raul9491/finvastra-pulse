@@ -1103,7 +1103,7 @@ function ChecklistDetail({
                   <div className="mt-0.5 flex-shrink-0">
                     {item.completed
                       ? <CheckCircle2 size={18} className="text-green-500" />
-                      : <div className="w-[18px] h-[18px] rounded-full border-2 border-slate-300" />}
+                      : <div className="w-[18px] h-[18px] rounded-full border-2 border-(--shell-border-mid)" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm ${item.completed ? 'line-through text-muted' : 'text-(--text-primary)'}`}>{item.task}</p>

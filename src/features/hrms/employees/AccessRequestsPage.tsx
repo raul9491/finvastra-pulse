@@ -336,7 +336,7 @@ export function AccessRequestsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ backgroundColor: 'var(--glass-panel-bg)', borderBottom: '1px solid #E2E8F0' }}>
+                <tr style={{ backgroundColor: 'var(--glass-panel-bg)', borderBottom: '1px solid var(--shell-border)' }}>
                   {['Name', 'Department', 'Designation', 'Personal Email', 'Mobile', 'Submitted', 'Status', ''].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest"
                       style={{ color: 'var(--text-muted)' }}>{h}</th>
@@ -345,7 +345,7 @@ export function AccessRequestsPage() {
               </thead>
               <tbody>
                 {requests.map((req) => (
-                  <tr key={req.id} className="border-b border-slate-50 last:border-0 hover:bg-(--glass-panel-bg) transition-colors">
+                  <tr key={req.id} className="border-b border-(--shell-border) last:border-0 hover:bg-(--glass-panel-bg) transition-colors">
                     <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{req.fullName}</td>
                     <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{req.department}</td>
                     <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{req.designation}</td>

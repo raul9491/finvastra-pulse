@@ -146,7 +146,7 @@ export function ReferralIntelligencePage() {
 
       {loading ? (
         <div className="animate-pulse space-y-3">
-          <div className="h-64 rounded-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+          <div className="h-64 rounded-2xl" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
         </div>
       ) : rows.length === 0 ? (
         <div className="glass-panel p-12 text-center">
@@ -159,7 +159,7 @@ export function ReferralIntelligencePage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
                   {[
                     '#',
                     'Referrer Name',
@@ -193,8 +193,8 @@ export function ReferralIntelligencePage() {
                   return (
                     <tr
                       key={r.name}
-                      className="hover:bg-white/5 transition-colors"
-                      style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                      className="hover:bg-(--shell-hover-soft) transition-colors"
+                      style={{ borderBottom: '1px solid var(--shell-border)' }}
                     >
                       <td className="px-4 py-3 text-center" style={{ color: 'var(--text-muted)' }}>
                         {isTopThree ? (

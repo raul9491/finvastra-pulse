@@ -290,7 +290,7 @@ export function PfTrackerPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ backgroundColor: 'var(--glass-panel-bg)', borderBottom: '1px solid #E2E8F0' }}>
+                  <tr style={{ backgroundColor: 'var(--glass-panel-bg)', borderBottom: '1px solid var(--shell-border)' }}>
                     <th className={thCls} style={{ color: 'var(--text-muted)' }}>Emp Code</th>
                     <th className={thCls} style={{ color: 'var(--text-muted)' }}>Name</th>
                     <th className={`${thCls} text-right`} style={{ color: 'var(--text-muted)' }}>Basic Salary</th>
@@ -305,7 +305,7 @@ export function PfTrackerPage() {
                 <tbody>
                   {rows.map((r, idx) => (
                     <tr key={r.userId} style={{
-                      borderBottom: idx < rows.length - 1 ? '1px solid #F1F5F9' : 'none',
+                      borderBottom: idx < rows.length - 1 ? '1px solid var(--shell-border)' : 'none',
                     }}>
                       <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>{r.empCode}</td>
                       <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{r.name}</td>
@@ -335,7 +335,7 @@ export function PfTrackerPage() {
                 </tbody>
                 {/* Totals footer */}
                 <tfoot>
-                  <tr style={{ borderTop: '2px solid #E2E8F0', backgroundColor: 'var(--glass-panel-bg)' }}>
+                  <tr style={{ borderTop: '2px solid var(--shell-border)', backgroundColor: 'var(--glass-panel-bg)' }}>
                     <td colSpan={4} className="px-4 py-3 text-xs font-bold uppercase tracking-widest"
                       style={{ color: 'var(--text-muted)' }}>Totals</td>
                     <td className="px-4 py-3 text-right font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>

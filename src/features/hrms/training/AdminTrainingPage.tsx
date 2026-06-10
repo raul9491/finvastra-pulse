@@ -138,7 +138,7 @@ function ProgramModal({
           <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
             {existing ? 'Edit Program' : 'New Training Program'}
           </h2>
-          <button onClick={onClose} className="text-(--text-muted) hover:text-slate-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-(--text-muted) hover:text-(--text-muted)"><X size={18} /></button>
         </div>
         <div className="p-6 space-y-4">
           <div>
@@ -263,7 +263,7 @@ function EnrollModal({
       <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-(--shell-border)">
           <h2 className="text-base font-semibold">Enroll Employee</h2>
-          <button onClick={onClose} className="text-(--text-muted) hover:text-slate-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-(--text-muted) hover:text-(--text-muted)"><X size={18} /></button>
         </div>
         <div className="p-6 space-y-4">
           <div>
@@ -340,7 +340,7 @@ function CompleteModal({
       <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-(--shell-border)">
           <h2 className="text-base font-semibold">Mark as Completed</h2>
-          <button onClick={onClose} className="text-(--text-muted) hover:text-slate-600"><X size={18} /></button>
+          <button onClick={onClose} className="text-(--text-muted) hover:text-(--text-muted)"><X size={18} /></button>
         </div>
         <div className="p-6 space-y-4">
           <div className="p-3 rounded-xl" style={{ backgroundColor: '#F0F9FF' }}>
@@ -534,7 +534,7 @@ export function AdminTrainingPage() {
         {(['programs', 'records'] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-5 py-1.5 text-sm font-semibold rounded-lg transition-all capitalize ${
-              tab === t ? 'bg-(--glass-panel-bg) shadow-sm text-[#0A0A0A]' : 'text-slate-500 hover:text-slate-700'}`}>
+              tab === t ? 'bg-(--glass-panel-bg) shadow-sm text-[#0A0A0A]' : 'text-(--text-muted) hover:text-(--text-primary)'}`}>
             {t}
           </button>
         ))}
@@ -561,7 +561,7 @@ export function AdminTrainingPage() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
+              <tbody className="divide-y divide-(--shell-border)">
                 {programs.map((p) => (
                   <tr key={p.id} className="hover:bg-(--glass-panel-bg) transition-colors">
                     <td className="px-4 py-3">
@@ -653,7 +653,7 @@ export function AdminTrainingPage() {
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-(--shell-border)">
                   {filteredRecords.map((r) => (
                     <tr key={r.id} className="hover:bg-(--glass-panel-bg) transition-colors">
                       <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{r.employeeName}</td>

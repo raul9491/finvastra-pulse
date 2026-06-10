@@ -41,7 +41,7 @@ export function VastraLogo({
           </span>
           {/* Subline */}
           <span
-            className={`text-[10px] font-bold uppercase leading-none mt-1 select-none ${light ? 'text-slate-400' : 'text-gold-deep'}`}
+            className={`text-[10px] font-bold uppercase leading-none mt-1 select-none ${light ? 'text-(--text-muted)' : 'text-gold-deep'}`}
             style={{ letterSpacing: '0.22em' }}
           >
             Pulse

@@ -2506,7 +2506,7 @@ A standard-edition database created with `gcloud firestore databases create` in 
 4. Repointed: `firebase-applet-config.json` `firestoreDatabaseId` → `pulse`, `firebase.json` `firestore[].database` → `pulse`, `server.ts` `FIRESTORE_DB_ID` → `pulse`, and all `scripts/**` DB ids.
 5. `firebase deploy --only firestore` (rules + indexes to `pulse`) → `npm run deploy` (client) → `gcloud run deploy pulse-api` (server).
 6. `gcloud firestore databases update --database=pulse --delete-protection` (production safety).
-- **The old DB `ai-studio-27afcadd-…` is kept intact as rollback** (still capped, harmless). To roll back: revert the 4 DB-id references + redeploy client & server. Delete the old DB only once fully confident.
+- **The old DB `ai-studio-27afcadd-…` was DELETED 2026-06-10** once `pulse` was confirmed stable. The independent **managed export backup is retained** at `gs://gen-lang-client-0643641184-fs-backup/2026-06-10T06:59:32_16433/` — to recover that data, `gcloud firestore import` it into a (new) database. Only `pulse` remains in the project now.
 - **Index cleanup:** the new DB strictly rejects **single-field indexes** ("not necessary, configure using single field index controls"). Removed 5 single-field entries from `firestore.indexes.json` (`leads/importHash`, `activities/at`, `commission_leakage_reports/runAt`, `commission_statements/importedAt`, `bank_submissions/slaBreached`) — Firestore auto-indexes single fields, so those queries still work. **Rule for the future: `firestore.indexes.json` must contain only composite (multi-field) indexes.**
 
 ### Fix 2 — Rules role checks now read custom claims first (cuts read volume)

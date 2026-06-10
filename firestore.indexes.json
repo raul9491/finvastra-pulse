@@ -123,6 +123,22 @@
       ]
     },
     {
+      "collectionGroup": "attendance",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "date",   "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "attendance",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId",  "order": "ASCENDING" },
+        { "fieldPath": "checkIn", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "leave_applications",
       "queryScope": "COLLECTION",
       "fields": [
@@ -228,6 +244,185 @@
         { "fieldPath": "primaryOwnerId", "order": "ASCENDING" },
         { "fieldPath": "source",         "order": "ASCENDING" },
         { "fieldPath": "createdAt",      "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "opportunities",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",    "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "commission_slabs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "active",     "order": "ASCENDING" },
+        { "fieldPath": "providerId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "crm_documents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "opportunityId", "order": "ASCENDING" },
+        { "fieldPath": "deleted",       "order": "ASCENDING" },
+        { "fieldPath": "uploadedAt",    "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "access_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",      "order": "ASCENDING" },
+        { "fieldPath": "submittedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "attendance_regularizations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employeeId", "order": "ASCENDING" },
+        { "fieldPath": "date",       "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "attendance_regularizations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",      "order": "ASCENDING" },
+        { "fieldPath": "submittedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "claims",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employeeId",  "order": "ASCENDING" },
+        { "fieldPath": "submittedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "claims",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",      "order": "ASCENDING" },
+        { "fieldPath": "submittedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "claims",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "month",       "order": "ASCENDING" },
+        { "fieldPath": "submittedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "comp_off_credits",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employeeId", "order": "ASCENDING" },
+        { "fieldPath": "grantedAt",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "company_documents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive",   "order": "ASCENDING" },
+        { "fieldPath": "uploadedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "company_documents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "category",   "order": "ASCENDING" },
+        { "fieldPath": "isActive",   "order": "ASCENDING" },
+        { "fieldPath": "uploadedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "employee_documents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employeeId", "order": "ASCENDING" },
+        { "fieldPath": "uploadedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "employee_documents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employeeId", "order": "ASCENDING" },
+        { "fieldPath": "isActive",   "order": "ASCENDING" },
+        { "fieldPath": "uploadedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "hr_tickets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employeeId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "leave_applications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",   "order": "ASCENDING" },
+        { "fieldPath": "fromDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "leave_encashment_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employeeId",  "order": "ASCENDING" },
+        { "fieldPath": "submittedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "salary_history",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employeeId",    "order": "ASCENDING" },
+        { "fieldPath": "effectiveDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "training_records",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employeeId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "rm_payouts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "rmId",        "order": "ASCENDING" },
+        { "fieldPath": "generatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId",    "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "generated_letters",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "employeeId",  "order": "ASCENDING" },
+        { "fieldPath": "generatedAt", "order": "DESCENDING" }
       ]
     }
   ],

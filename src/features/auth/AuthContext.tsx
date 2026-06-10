@@ -14,6 +14,20 @@ interface AuthState {
   profile: UserProfile | null;
   loading: boolean;
   authError: string;
+  // True when the user is authenticated but their profile could not be loaded
+  // after retries (transient network, DB outage, etc.). Lets the UI show a clear
+  // "couldn't load your account — retry" screen instead of a confusing half-app.
+  profileLoadFailed?: boolean;
+}
+
+// Retry a Firestore read a few times before giving up — smooths transient blips.
+async function getDocWithRetry(ref: Parameters<typeof getDoc>[0], attempts = 3) {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try { return await getDoc(ref); }
+    catch (e) { lastErr = e; await new Promise((r) => setTimeout(r, 400 * (i + 1))); }
+  }
+  throw lastErr;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -129,7 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         const ref = doc(db, 'users', user.uid);
-        const snap = await getDoc(ref);
+        const snap = await getDocWithRetry(ref);
 
         if (!snap.exists()) {
           // First sign-in: create profile. Admin email gets role='admin' (allowlisted in rules).
@@ -165,11 +179,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
       } catch {
-        // Firestore read/write failed (offline, transient network, a rules edge case).
-        // The user IS authenticated — never strand them on a blank/stuck sign-in page.
-        // Resolve loading so the router redirect fires; the profile rehydrates on the
-        // next sign-in / token refresh.
-        setState({ user, profile: null, loading: false, authError: '' });
+        // Firestore read/write failed after retries (offline, transient network, a
+        // DB/rules outage). The user IS authenticated — never strand them on a blank
+        // page. Resolve loading and flag the failure so the UI can show a clear
+        // "couldn't load your account — retry" screen instead of a confusing half-app.
+        setState({ user, profile: null, loading: false, authError: '', profileLoadFailed: true });
       }
 
       // Non-blocking: track login history and detect new devices.

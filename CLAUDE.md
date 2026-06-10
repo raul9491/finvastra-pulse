@@ -2288,7 +2288,7 @@ Authoritative list of every Express route. Verify against `server.ts` after any 
 - `POST /api/calendar/events` · `POST /api/hrms/leave/sync-calendar` — leave → shared Calendar (fire-and-forget)
 
 **Admin / dev / claims**
-- `GET  /api/health`
+- `GET  /api/health` (static ok) · `GET /api/health/deep` (does a real Firestore read → 200 if OK, 503 if the DB read fails; **uptime-monitored** so DB/quota/rules outages page within minutes)
 - `POST /api/dev/bootstrap-admin` — promote allowlisted admin email
 - `POST /api/admin/users/:uid/sync-claims` — stamp role/access custom claims
 - `POST /api/admin/sync-all-claims` — bulk re-stamp claims for EVERY user (admin-only; super-admin targets skipped unless caller is super admin). Button on Permission Manager. Run once so all tokens carry claims → the claims-first rules skip the per-request /users read. Returns `{synced, skipped, noAuth, total}`.
@@ -2515,3 +2515,26 @@ After repointing to `pulse`, the app **still** showed null-profile / only-HRMS. 
 ### Prevention / follow-ups
 - **Never use an AI-Studio free-tier database for production** — it ignores billing and hard-caps. Always a `gcloud`-created standard DB (`freeTier:false`).
 - Further read cuts available if needed: add `limit()` to dashboard queries; convert broad collection-wide `onSnapshot` listeners (Command Centre, CRM dashboards, connectors) to one-time `getDocs` where live updates aren't essential.
+
+---
+
+## Reliability & Monitoring (2026-06-10)
+
+Added after the DB-cap outage so future failures are **detected in minutes, fail gracefully, and aren't self-inflicted by a deploy.**
+
+### Detection — Cloud Monitoring (alerts → email rahulv@finvastra.com)
+- **Deep health endpoint** `GET /api/health/deep` (`server.ts`) — performs a real Firestore read; 200 only if it succeeds, else 503. A plain HTTP 200 check would NOT have caught the incident (index.html stayed 200 while reads 429'd) — this does.
+- **Two uptime checks** (Cloud Monitoring, every 5 min, external probers): `Pulse API + DB (deep health)` → `/api/health/deep` (catches DB/quota/rules/API outages) and `Pulse app (pulse.finvastra.com)` → `/` (catches hosting/CDN outages).
+- **Alert policy** `Pulse — app / API / DB down` (OR of both checks) → **email notification channel** to `rahulv@finvastra.com`. Manage in Cloud Monitoring console.
+- **SMS not auto-set**: Cloud Monitoring SMS channels are free (no Google charge) but need a one-time phone verification in the Console — add `+91-9247519002` via Monitoring → Notification channels → SMS, then attach it to the policy above.
+- **Budget**: ₹4,000/mo billing budget with 50/90/100% email alerts (see migration section).
+
+### Graceful failure (client)
+- `AuthContext` retries the profile read (`getDocWithRetry`, 3× backoff) and, if it still fails, sets `profileLoadFailed` instead of silently nulling the profile. `LauncherPage` then shows a clear **"We couldn't load your account — Reload / Sign out"** screen rather than a confusing modules-missing launcher.
+
+### Data safety
+- **Point-in-Time Recovery ENABLED** on `pulse` → 7-day rollback window for accidental data corruption.
+
+### Safe deploys
+- **`npm run verify:deploy`** (`scripts/verify-deploy.sh`) — post-deploy smoke test: app shell 200, deep health 200 (real DB read), and **rules actually bound to `pulse` with real content** (the exact thing that silently broke during migration). Exits non-zero on any failure. **Run it after every deploy.**
+- New scripts **`npm run deploy:rules`** / **`deploy:indexes`** — deploy them SEPARATELY. A combined `firebase deploy --only firestore` aborts on an index error **before binding rules**, which is how `pulse` ended up on default deny-all. Deploy rules first, verify, then indexes.

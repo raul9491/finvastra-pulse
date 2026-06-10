@@ -56,11 +56,38 @@ function ModuleTile({ icon, name, description, path, accentColor }: ModuleTilePr
 }
 
 export function LauncherPage() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, profileLoadFailed } = useAuth();
   const navigate = useNavigate();
 
   if (loading) return <FullPageLoader />;
   if (!user) return <Navigate to="/login" replace />;
+
+  // Authenticated but the profile couldn't load (transient blip / DB outage).
+  // Show an honest, actionable screen rather than a confusing modules-missing launcher.
+  if (!profile && profileLoadFailed) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center" style={{ backgroundColor: 'var(--navy-deep)' }}>
+        <VideoLogo size="sm" showText={false} />
+        <h1 className="text-2xl mt-8 mb-2" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
+          We couldn't load your account
+        </h1>
+        <p className="text-sm mb-6 max-w-md" style={{ color: 'var(--text-muted)' }}>
+          This is usually a brief connection hiccup. Reload to try again — your data is safe.
+        </p>
+        <div className="flex gap-3">
+          <button onClick={() => window.location.reload()}
+            className="px-6 py-2.5 rounded-lg text-sm font-semibold" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+            Reload
+          </button>
+          <button onClick={async () => { await signOut(auth); navigate('/login', { replace: true }); }}
+            className="px-6 py-2.5 rounded-lg text-sm font-semibold border" style={{ borderColor: 'var(--shell-border, rgba(255,255,255,0.15))', color: 'var(--text-muted)' }}>
+            Sign out
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (profile?.mustResetPassword) return <Navigate to="/reset-password" replace />;
 
   const isAdmin = profile?.role === 'admin';

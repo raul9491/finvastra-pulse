@@ -864,6 +864,21 @@ async function startServer() {
   // Health check
   app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
+  // Deep health check — actually touches Firestore so uptime monitoring catches
+  // DB/quota/rules outages (a plain HTTP 200 check would miss them: in the
+  // 2026-06-10 incident index.html stayed 200 while every Firestore read 429'd).
+  // Returns 200 only if a real read succeeds; 503 otherwise. ~1 read/min = trivial.
+  app.get("/api/health/deep", async (_req, res) => {
+    try {
+      await db.collection("users").limit(1).get();
+      return res.json({ status: "ok", firestore: "ok" });
+    } catch (e) {
+      console.error("deep health check failed:", e);
+      return res.status(503).json({ status: "degraded", firestore: "error",
+        message: e instanceof Error ? e.message : "read failed" });
+    }
+  });
+
   // ─── Bootstrap admin ─────────────────────────────────────────────────────────
   // Promotes the caller to admin if their email is in the hardcoded allowlist.
   // Safe to expose: the allowlist is server-side only; no client can self-promote.

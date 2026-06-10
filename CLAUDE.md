@@ -2522,11 +2522,10 @@ After repointing to `pulse`, the app **still** showed null-profile / only-HRMS. 
 
 Added after the DB-cap outage so future failures are **detected in minutes, fail gracefully, and aren't self-inflicted by a deploy.**
 
-### Detection — Cloud Monitoring (alerts → email rahulv@finvastra.com)
+### Detection — Cloud Monitoring
 - **Deep health endpoint** `GET /api/health/deep` (`server.ts`) — performs a real Firestore read; 200 only if it succeeds, else 503. A plain HTTP 200 check would NOT have caught the incident (index.html stayed 200 while reads 429'd) — this does.
 - **Two uptime checks** (Cloud Monitoring, every 5 min, external probers): `Pulse API + DB (deep health)` → `/api/health/deep` (catches DB/quota/rules/API outages) and `Pulse app (pulse.finvastra.com)` → `/` (catches hosting/CDN outages).
-- **Alert policy** `Pulse — app / API / DB down` (OR of both checks) → **email notification channel** to `rahulv@finvastra.com`. Manage in Cloud Monitoring console.
-- **SMS not auto-set**: Cloud Monitoring SMS channels are free (no Google charge) but need a one-time phone verification in the Console — add `+91-9247519002` via Monitoring → Notification channels → SMS, then attach it to the policy above.
+- **Alert policy** `Pulse — app / API / DB down` (OR of both checks) → fires to **3 channels**: email `rahulv@finvastra.com`, email `kumar@finvastra.com`, and **SMS `+91 9247519002`** (verified). Manage in Cloud Monitoring → Alerting / Edit notification channels. (Cloud Monitoring has no voice-call channel — for call escalation, connect PagerDuty/Opsgenie.)
 - **Budget**: ₹4,000/mo billing budget with 50/90/100% email alerts (see migration section).
 
 ### Graceful failure (client)

@@ -2,9 +2,41 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { defineConfig } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    // Phase P — installable PWA. ASSET PRECACHE ONLY: no runtimeCaching for
+    // firestore.googleapis.com (Firestore streams over channels workbox cannot
+    // cache; its own IndexedDB persistence is the offline data layer).
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['images/logo-finvastra.png'],
+      manifest: {
+        name: 'Finvastra Pulse',
+        short_name: 'Pulse',
+        description: 'Finvastra HRMS, CRM and MIS — one internal platform.',
+        theme_color: '#0B1538',
+        background_color: '#050d1f',
+        display: 'standalone',
+        orientation: 'portrait-primary',
+        start_url: '/',
+        icons: [
+          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+        ],
+      },
+      workbox: {
+        // Large code-split app — raise the precache size ceiling (xlsx chunk ~430kB).
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // SPA fallback for offline navigation; never intercept API or Google endpoints.
+        navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/api\//],
+      },
+    }),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),

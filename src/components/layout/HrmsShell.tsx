@@ -21,6 +21,7 @@ import { ThemeToggle } from '../ui/ThemeProvider';
 import { UserMenu } from '../ui/UserMenu';
 import { AppsMenu } from '../ui/AppsMenu';
 import { SharePageButton } from '../ui/SharePageButton';
+import { MobileTabBar } from '../ui/MobileTabBar';
 import { SharedNavSection, locationCoveredByShares } from './SharedNavSection';
 import { useMyShares } from '../../features/auth/hooks/useMyShares';
 import { resolvePageKey } from '../../config/shareablePages';
@@ -807,7 +808,7 @@ export function HrmsShell() {
         </header>
 
         {/* Page content — fades in on route change */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8" style={{ backgroundColor: 'transparent' }}>
+        <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-8" style={{ backgroundColor: 'transparent' }}>
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
@@ -821,6 +822,19 @@ export function HrmsShell() {
           </AnimatePresence>
         </main>
       </div>
+
+      {/* Phase R — app-style bottom tabs on phones (share-only users use the drawer) */}
+      {!isShareOnly && (
+        <MobileTabBar
+          tabs={[
+            { label: 'Home',       path: '/hrms/dashboard',  Icon: LayoutDashboard, end: true },
+            { label: 'Attendance', path: '/hrms/attendance', Icon: Clock, end: true },
+            { label: 'Leave',      path: '/hrms/leave',      Icon: CalendarDays },
+            { label: 'Claims',     path: '/hrms/claims',     Icon: Receipt, end: true },
+          ]}
+          onMenu={() => setMobileNavOpen(true)}
+        />
+      )}
     </div>
   );
 }

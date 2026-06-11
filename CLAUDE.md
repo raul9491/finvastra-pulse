@@ -2542,6 +2542,18 @@ Mobile-first features for telecallers and field RMs. All deterministic — no AI
 - Leads `allow list` — added `isManagerOf(resource.data.primaryOwnerId)` (works because team queries pin `primaryOwnerId` per report; a broad unpinned query still fails).
 - Attendance update `hasOnly` — added `checkOutLocation` (create has no hasOnly, so `checkInLocation` passes as-is).
 - **New `/app_config/{docId}`** — read `isSignedIn()`, write `isAdmin() || isHrmsManager()`. Holds `attendance_geofence`; no PII lives here.
+- Lead owner-update `hasOnly` — added `meetingLocation` (so "Log visit here" can refresh the last-met point).
+- `isValidActivity` hasOnly — added optional `location` (GPS-tagged field-visit activities).
+
+### Phase R second pass — Field RMs + mobile app UX (2026-06-11, same day)
+
+| Part | Feature | Files |
+|---|---|---|
+| **Field-RM geofence exemption** | `GeofenceConfig.exemptUids: string[]` — picked via MultiSearchableSelect on the Admin Attendance → Geofence tab. Exempt employees (field RMs/telecallers) clock in/out from **anywhere**, but their GPS point is **required** (location denied = blocked) and stored on the record. AttendancePage shows "Field mode — you can clock in/out from anywhere; your location is recorded." `enforceGeofence(config, uid)` gained the uid param | `geo.ts`, `AttendancePage.tsx`, `AdminAttendancePage.tsx` |
+| **Manager view of clock locations** | Admin Attendance Daily View — gold 📍 Google-Maps link next to check-in/out times whenever the record carries `checkInLocation`/`checkOutLocation` | `AdminAttendancePage.tsx` |
+| **"Log visit here" on customers** | LeadDetailPage button (next to Schedule follow-up, owner/manager/admin) — captures GPS → writes a `meeting` activity with `location {lat,lng}` to `/leads/{id}/activities` AND refreshes `lead.meetingLocation` (header "Met At" link always shows the last visit). `LeadActivityFeed` renders a "📍 map" link on located activities — managers see the full visit trail per customer | `LeadDetailPage.tsx`, `LeadActivityFeed.tsx` |
+| **Mobile bottom tab bar** | `src/components/ui/MobileTabBar.tsx` — app-style fixed bottom tabs (`md:hidden`, safe-area inset, glass bg) in **all 3 shells**: CRM = Dashboard/Customers/My Queue/Pipeline (referral-only users get Referrals/Submit), HRMS = Home/Attendance/Leave/Claims, MIS = Overview/Statements/Reconcile/Payouts, + a **Menu** tab opening the existing drawer. Hidden for share-only users (NOTHING LOCKED). Shells' main content gained `pb-24` below md so pages clear the bar | `MobileTabBar.tsx`, `CrmShell.tsx`, `HrmsShell.tsx`, `MisShell.tsx` |
+| **Customers page mobile cards** | LeadsPage table is `hidden md:block`; below md a **card list** renders instead (name, tappable phone, source · RM · import, Call/WhatsApp/Email icons, Assign button on unassigned) — no horizontal scrolling, nothing cut off | `LeadsPage.tsx` |
 
 ---
 

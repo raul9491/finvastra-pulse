@@ -7,6 +7,7 @@ import {
   Menu, X, User, AlertTriangle,
 } from 'lucide-react';
 import { useOpenDisputeCount } from '../../features/mis/hooks/useDisputes';
+import { MobileTabBar } from '../ui/MobileTabBar';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { VideoLogo } from '../ui/VideoLogo';
@@ -289,7 +290,7 @@ export function MisShell() {
         )}
 
         {/* Page content — fades in on route change */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8" style={{ backgroundColor: 'transparent' }}>
+        <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-8" style={{ backgroundColor: 'transparent' }}>
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
@@ -303,6 +304,19 @@ export function MisShell() {
           </AnimatePresence>
         </main>
       </div>
+
+      {/* Phase R — app-style bottom tabs on phones (share-only users use the drawer) */}
+      {!isShareOnly && (
+        <MobileTabBar
+          tabs={[
+            { label: 'Overview',   path: '/mis/overview',       Icon: LayoutDashboard },
+            { label: 'Statements', path: '/mis/statements',     Icon: FileText },
+            { label: 'Reconcile',  path: '/mis/reconciliation', Icon: GitMerge, end: true },
+            { label: 'Payouts',    path: '/mis/payouts',        Icon: IndianRupee },
+          ]}
+          onMenu={() => setMobileNavOpen(true)}
+        />
+      )}
     </div>
   );
 }

@@ -170,8 +170,9 @@ service cloud.firestore {
     function isValidActivity(data) {
       // Phase P: byName + opportunityId added for QuickLogBar (optional keys —
       // existing writers that omit them remain valid).
+      // Phase R: location {lat,lng} — GPS-tagged customer visits by field RMs.
       return data.keys().hasAll(['type', 'content', 'by', 'at']) &&
-             data.keys().hasOnly(['type', 'content', 'by', 'at', 'relatedDocId', 'byName', 'opportunityId']) &&
+             data.keys().hasOnly(['type', 'content', 'by', 'at', 'relatedDocId', 'byName', 'opportunityId', 'location']) &&
              data.type in ['call', 'email', 'whatsapp', 'meeting', 'note', 'status_change', 'ownership_change', 'commission_calculated'] &&
              data.content is string && data.content.size() > 0 && data.content.size() <= 2000 &&
              data.by == request.auth.uid;
@@ -328,7 +329,8 @@ service cloud.firestore {
                           'displayName', 'phone', 'email', 'source', 'tags',
                           'primaryOwnerId', 'updatedAt', 'slaDeadline',
                           'leadStatus', 'leadStatusAt', 'leadStatusBy',
-                          'callbackAt', 'callbackReminderSent'
+                          'callbackAt', 'callbackReminderSent',
+                          'meetingLocation'
                         ]) &&
                         (!incoming().diff(existing()).affectedKeys().hasAny(['slaDeadline'])
                          || incoming().slaDeadline == null));

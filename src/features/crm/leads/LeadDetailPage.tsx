@@ -13,7 +13,7 @@ import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/fi
 import { FOIRCalculator } from './FOIRCalculator';
 import { QuickContactBar } from './QuickContactBar';
 import { ContactActions, PhoneLink } from '../components/ContactActions';
-import { mapsLink } from '../../../lib/geo';
+import { mapsLink, getCurrentPosition } from '../../../lib/geo';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { writeNotification } from '../../../lib/notifications';
 import { PresenceChips } from '../components/PresenceChips';
@@ -221,6 +221,39 @@ export function LeadDetailPage() {
       );
     } finally {
       setSavingStatus(false);
+    }
+  };
+
+  // ─── Log a field visit — GPS-tagged meeting on the customer's record ────────────
+  // Writes a 'meeting' activity with the RM's current location AND refreshes
+  // lead.meetingLocation, so managers see where the customer was last met.
+  const [loggingVisit, setLoggingVisit] = useState(false);
+  const [visitMessage, setVisitMessage] = useState('');
+
+  const handleLogVisit = async () => {
+    if (!leadId || !user) return;
+    setLoggingVisit(true);
+    setVisitMessage('');
+    try {
+      const pos = await getCurrentPosition();
+      await addDoc(collection(db, 'leads', leadId, 'activities'), {
+        type: 'meeting',
+        content: `📍 Met ${lead?.displayName ?? 'customer'} on a field visit`,
+        location: { lat: pos.lat, lng: pos.lng },
+        by: user.uid,
+        byName: profile?.displayName ?? '',
+        at: serverTimestamp(),
+      });
+      await updateDoc(doc(db, 'leads', leadId), {
+        meetingLocation: { lat: pos.lat, lng: pos.lng, capturedAt: new Date().toISOString() },
+        updatedAt: serverTimestamp(),
+      });
+      setVisitMessage('Visit logged with your location ✓');
+      setTimeout(() => setVisitMessage(''), 4000);
+    } catch (e) {
+      setVisitMessage(e instanceof Error ? e.message : 'Could not log the visit.');
+    } finally {
+      setLoggingVisit(false);
     }
   };
 
@@ -499,6 +532,18 @@ export function LeadDetailPage() {
                 style={{ borderColor: 'rgba(201,169,97,0.4)', color: '#C9A961' }}>
                 📞 Schedule follow-up
               </button>
+            )}
+            {/* Field visit — GPS-tagged meeting log for RMs out at the customer's place */}
+            <button onClick={handleLogVisit} disabled={loggingVisit}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors hover:bg-(--shell-hover-soft) disabled:opacity-50"
+              style={{ borderColor: 'rgba(201,169,97,0.4)', color: '#C9A961' }}>
+              {loggingVisit ? 'Getting location…' : '📍 Log visit here'}
+            </button>
+            {visitMessage && (
+              <span className="text-xs font-medium"
+                style={{ color: visitMessage.endsWith('✓') ? '#34d399' : '#f87171' }}>
+                {visitMessage}
+              </span>
             )}
             {(lead.leadStatus === 'callback' || showCallback) && (
               <div className="flex flex-wrap items-center gap-2 w-full mt-1">

@@ -352,7 +352,8 @@ export function AttendancePage() {
     try {
       // Geofence check first — throws a readable error when outside the office
       // radius (or when location is denied while the geofence is enabled).
-      const location = await enforceGeofence(geofence);
+      // Field RMs on the exempt list clock from anywhere; GPS still recorded.
+      const location = await enforceGeofence(geofence, userId);
       await checkIn(userId, location);
     } catch (err) {
       console.error('[AttendancePage] checkIn error:', err);
@@ -371,7 +372,7 @@ export function AttendancePage() {
     }
     setCheckingOut(true);
     try {
-      const location = await enforceGeofence(geofence);
+      const location = await enforceGeofence(geofence, userId);
       await checkOut(todayRecord.id, checkInDate, location);
     } catch (err) {
       console.error('[AttendancePage] checkOut error:', err);
@@ -440,7 +441,9 @@ export function AttendancePage() {
 
           {geofence?.enabled && (
             <p className="mb-3 text-[11px] flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
-              📍 Clock in/out works within {geofence.radiusMeters} m of {geofence.label || 'the office'}.
+              {(geofence.exemptUids ?? []).includes(userId)
+                ? '📍 Field mode — you can clock in/out from anywhere; your location is recorded.'
+                : `📍 Clock in/out works within ${geofence.radiusMeters} m of ${geofence.label || 'the office'}.`}
             </p>
           )}
 

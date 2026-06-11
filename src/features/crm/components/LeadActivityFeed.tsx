@@ -16,6 +16,8 @@ interface LeadActivity {
   byName?: string;
   at: Timestamp | null;
   opportunityId?: string | null;
+  // Phase R — GPS point captured by "Log visit here" (field RM meetings)
+  location?: { lat: number; lng: number };
 }
 
 const TYPE_META: Partial<Record<ActivityType, { label: string; icon: typeof Phone; color: string }>> = {
@@ -140,6 +142,13 @@ export function LeadActivityFeed({ leadId }: { leadId: string }) {
                       )}
                       <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-dim)' }}>
                         {meta.label} · {a.byName || a.by.slice(0, 6)} · {a.at?.toDate ? format(a.at.toDate(), 'dd MMM, HH:mm') : 'just now'}
+                        {a.location && (
+                          <a href={`https://maps.google.com/?q=${a.location.lat},${a.location.lng}`}
+                            target="_blank" rel="noreferrer"
+                            className="ml-1.5 no-underline hover:underline" style={{ color: '#C9A961' }}>
+                            · 📍 map
+                          </a>
+                        )}
                       </p>
                     </div>
                     {canEdit && !isEditing && (

@@ -13,7 +13,8 @@ import {
   rejectRegularization,
 } from '../hooks/useAttendanceRegularization';
 import { writeNotification, sendHrEmailNotification, buildHrEmailHtml } from '../../../lib/notifications';
-import { useGeofenceConfig, saveGeofenceConfig, getCurrentPosition } from '../../../lib/geo';
+import { useGeofenceConfig, saveGeofenceConfig, getCurrentPosition, mapsLink } from '../../../lib/geo';
+import { MultiSearchableSelect } from '../../../components/ui/SearchableSelect';
 import type { Attendance, AttendanceStatus, UserProfile, AttendanceRegularization } from '../../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -717,14 +718,24 @@ export function AdminAttendancePage() {
                             )}
                           </td>
 
-                          {/* Check-in */}
+                          {/* Check-in (+ field-clock location when captured) */}
                           <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>
                             {rec ? formatTime(rec.checkIn) : '—'}
+                            {rec?.checkInLocation && (
+                              <a href={mapsLink(rec.checkInLocation)} target="_blank" rel="noreferrer"
+                                className="ml-1.5 no-underline hover:underline" title="Clock-in location"
+                                style={{ color: '#C9A961' }}>📍</a>
+                            )}
                           </td>
 
                           {/* Check-out */}
                           <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>
                             {rec ? formatTime(rec.checkOut) : '—'}
+                            {rec?.checkOutLocation && (
+                              <a href={mapsLink(rec.checkOutLocation)} target="_blank" rel="noreferrer"
+                                className="ml-1.5 no-underline hover:underline" title="Clock-out location"
+                                style={{ color: '#C9A961' }}>📍</a>
+                            )}
                           </td>
 
                           {/* Hours */}
@@ -812,11 +823,13 @@ export function AdminAttendancePage() {
 // ─── Geofence settings — lock clock in/out to the office radius ───────────────
 function GeofenceTab({ adminUid }: { adminUid: string }) {
   const { config, loading } = useGeofenceConfig();
+  const { employees } = useAllEmployees();
   const [enabled, setEnabled] = useState(false);
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
   const [radius, setRadius] = useState('200');
   const [label, setLabel] = useState('');
+  const [exemptUids, setExemptUids] = useState<string[]>([]);
   const [gettingLoc, setGettingLoc] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
@@ -829,6 +842,7 @@ function GeofenceTab({ adminUid }: { adminUid: string }) {
     setLng(String(config.lng ?? ''));
     setRadius(String(config.radiusMeters ?? 200));
     setLabel(config.label ?? '');
+    setExemptUids(config.exemptUids ?? []);
   }, [config]);
 
   const handleUseCurrentLocation = async () => {
@@ -867,6 +881,7 @@ function GeofenceTab({ adminUid }: { adminUid: string }) {
         lng: Number.isNaN(nLng) ? 0 : nLng,
         radiusMeters: Number.isNaN(nRadius) ? 200 : nRadius,
         label: label.trim(),
+        exemptUids,
         updatedBy: adminUid,
       });
       setMessage({ kind: 'ok', text: enabled ? 'Geofence saved — clock in/out is now locked to the office.' : 'Saved. Geofence is OFF — employees can clock in from anywhere.' });
@@ -947,6 +962,26 @@ function GeofenceTab({ adminUid }: { adminUid: string }) {
             className="w-full text-sm border border-(--shell-border) rounded-xl px-3 py-2 bg-(--glass-panel-bg)"
             style={{ color: 'var(--text-primary)' }} />
         </div>
+      </div>
+
+      {/* Field RMs — exempt from the radius, location still recorded */}
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
+          Field employees (exempt from radius)
+        </p>
+        <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
+          RMs who work outside the office can clock in/out from anywhere. Their GPS
+          location is still required and recorded on every clock action.
+        </p>
+        <MultiSearchableSelect
+          options={employees
+            .filter((e) => e.employeeStatus !== 'inactive')
+            .map((e) => ({ value: e.userId, label: e.displayName }))}
+          value={exemptUids}
+          onChange={setExemptUids}
+          placeholder="Select field employees…"
+          label="Field employees"
+        />
       </div>
 
       {message && (

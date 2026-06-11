@@ -14,7 +14,7 @@ import { db } from '../../../lib/firebase';
 import { BulkActionBar } from '../../../components/ui/BulkActionBar';
 import type { Lead, LeadSource } from '../../../types';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
-import { PhoneLink } from '../components/ContactActions';
+import { ContactActions, PhoneLink } from '../components/ContactActions';
 
 const SOURCE_LABELS: Record<LeadSource, string> = {
   website: 'Website', instagram: 'Instagram', facebook: 'Facebook',
@@ -410,7 +410,49 @@ export function LeadsPage() {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* ── Mobile card list — no horizontal scrolling, everything in context ── */}
+          <div className="md:hidden divide-y" style={{ borderColor: 'var(--shell-border)' }}>
+            {tableLeads.map((lead: Lead) => (
+              <div key={lead.id}
+                onClick={() => navigate(`/crm/leads/${lead.id}`)}
+                className="px-4 py-3.5 cursor-pointer active:bg-(--shell-hover-soft) transition-colors"
+                style={{ borderBottom: '1px solid var(--shell-border)' }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                      {lead.displayName}
+                    </p>
+                    <p className="text-xs mt-0.5" onClick={(e) => e.stopPropagation()}>
+                      <PhoneLink phone={lead.phone} mono={false} className="text-xs" />
+                    </p>
+                    <p className="text-[11px] mt-1 truncate" style={{ color: 'var(--text-muted)' }}>
+                      {SOURCE_LABELS[lead.source] ?? lead.source}
+                      {' · '}
+                      {lead.primaryOwnerId === 'UNASSIGNED'
+                        ? <span style={{ color: '#f87171' }}>Unassigned</span>
+                        : rmName(lead.primaryOwnerId)}
+                      {lead.importName ? ` · ${lead.importName}` : ''}
+                    </p>
+                  </div>
+                  <div className="shrink-0 flex flex-col items-end gap-2" onClick={(e) => e.stopPropagation()}>
+                    <ContactActions phone={lead.phone} email={lead.email} name={lead.displayName} size="sm" />
+                    {isAdmin && lead.primaryOwnerId === 'UNASSIGNED' && (
+                      <button
+                        onClick={() => setAssigningLead(lead)}
+                        className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg"
+                        style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961' }}>
+                        <UserCheck size={12} /> Assign
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Desktop table ── */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left">
               <thead>
                 <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
@@ -480,6 +522,7 @@ export function LeadsPage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 

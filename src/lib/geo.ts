@@ -59,6 +59,10 @@ export interface GeofenceConfig {
   lng: number;
   radiusMeters: number;
   label?: string;            // e.g. "Finvastra HQ, Hyderabad"
+  // Field RMs / telecallers who work outside the office. They can clock in/out
+  // from anywhere, but their GPS point is REQUIRED and stored on the record so
+  // managers can see where each field clock-in happened.
+  exemptUids?: string[];
   updatedBy?: string;
   updatedAt?: unknown;
 }
@@ -86,14 +90,24 @@ export async function saveGeofenceConfig(
 /**
  * Enforce the geofence for a clock action. Returns the captured position
  * (to store on the attendance record) or throws a human-readable error.
- * When the geofence is disabled/unset, still best-effort captures the position
- * but never blocks.
+ *
+ * - Geofence disabled/unset → best-effort capture, never blocks.
+ * - Enabled + uid in exemptUids (field RM) → no distance check, but the GPS
+ *   point is REQUIRED (location denied = blocked) so the manager always sees
+ *   where the field clock-in happened.
+ * - Enabled + everyone else → must be within radiusMeters of the office.
  */
-export async function enforceGeofence(config: GeofenceConfig | null): Promise<GeoPoint | null> {
+export async function enforceGeofence(
+  config: GeofenceConfig | null,
+  uid?: string,
+): Promise<GeoPoint | null> {
   if (!config?.enabled) {
     try { return await getCurrentPosition(6000); } catch { return null; }
   }
   const pos = await getCurrentPosition(); // throws readable errors (denied/timeout)
+  if (uid && (config.exemptUids ?? []).includes(uid)) {
+    return pos; // field worker — clock anywhere, location recorded
+  }
   const dist = haversineMeters(pos, config);
   if (dist > config.radiusMeters) {
     throw new Error(

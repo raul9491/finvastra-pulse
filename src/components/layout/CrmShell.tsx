@@ -19,6 +19,7 @@ import { ThemeToggle } from '../ui/ThemeProvider';
 import { UserMenu } from '../ui/UserMenu';
 import { AppsMenu } from '../ui/AppsMenu';
 import { SharePageButton } from '../ui/SharePageButton';
+import { MobileTabBar, type MobileTab } from '../ui/MobileTabBar';
 import { SharedNavSection, locationCoveredByShares } from './SharedNavSection';
 import { useMyShares } from '../../features/auth/hooks/useMyShares';
 import { resolvePageKey } from '../../config/shareablePages';
@@ -454,7 +455,7 @@ export function CrmShell() {
               </div>
             </div>
           )}
-          <div className="p-4 md:p-8">
+          <div className="p-4 pb-24 md:p-8">
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}
@@ -469,6 +470,26 @@ export function CrmShell() {
           </div>
         </main>
       </div>
+
+      {/* Phase R — app-style bottom tabs on phones (share-only users use the drawer) */}
+      {!isShareOnly && (
+        <MobileTabBar
+          tabs={
+            isReferralOnly
+              ? ([
+                  { label: 'Referrals', path: '/crm/referrals', Icon: Bookmark, end: true },
+                  { label: 'Submit',    path: '/crm/referrals/new', Icon: Plus },
+                ] as MobileTab[])
+              : ([
+                  { label: 'Dashboard', path: '/crm/dashboard', Icon: LayoutDashboard, end: true },
+                  { label: 'Customers', path: '/crm/leads',     Icon: Inbox },
+                  { label: 'My Queue',  path: '/crm/my-queue',  Icon: Clock, end: true },
+                  { label: 'Pipeline',  path: '/crm/pipeline',  Icon: GitBranch, end: true },
+                ] as MobileTab[])
+          }
+          onMenu={() => setMobileNavOpen(true)}
+        />
+      )}
 
       {/* Global import progress — persists across CRM pages while a bulk import runs */}
       {canImport && <ImportProgressDock jobs={importJobs} />}

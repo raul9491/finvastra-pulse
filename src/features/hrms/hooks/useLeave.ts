@@ -16,6 +16,25 @@ import { parseISO, eachDayOfInterval, format } from 'date-fns';
 import { db, auth } from '../../../lib/firebase';
 import type { LeaveApplication, LeaveBalance, LeaveType, Holiday } from '../../../types';
 
+// ─── Leave year + defaults (single source of truth) ──────────────────────────
+// Balance docs are keyed per FINANCIAL year (April–March), matching the
+// year-end reset job: April onwards → current calendar year; Jan–Mar → previous.
+// (Previously some call sites used the calendar year, which split a financial
+// year's balance across two docs every January–March.)
+export function currentLeaveYear(): number {
+  const now = new Date();
+  return now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+}
+
+// HR Handbook annual entitlements — used when a balance doc/entry doesn't
+// exist yet (never seed total:0, it sticks once the doc exists).
+export const LEAVE_DEFAULT_TOTALS: Record<'casual' | 'sick' | 'earned' | 'comp_off', number> = {
+  casual: 8,
+  sick: 7,
+  earned: 15,
+  comp_off: 0,
+};
+
 // ─── useMyLeaveBalance ────────────────────────────────────────────────────────
 // Real-time subscription to /leave_balances/{userId} for the given year.
 // The document id convention is `{userId}_{year}` to allow multiple years.
@@ -175,21 +194,25 @@ export async function approveLeave(
   // Deduct from leave balance (casual / sick / earned / comp_off have tracked balances)
   const balanceType = application.type as LeaveType;
   if (balanceType === 'casual' || balanceType === 'sick' || balanceType === 'earned' || balanceType === 'comp_off') {
-    const year = new Date().getFullYear();
+    const year = currentLeaveYear();
     const balanceRef = doc(db, 'leave_balances', `${application.employeeId}_${year}`);
     const balSnap = await getDoc(balanceRef);
 
-    const current = balSnap.exists()
+    // When the doc or the type entry is missing, seed from the HR Handbook
+    // defaults — NOT total:0, which would permanently show a zero balance once
+    // the doc exists (the UI's "?? default" fallback only applies to a null doc).
+    const existingEntry = balSnap.exists()
       ? (balSnap.data() as LeaveBalance)[balanceType]
-      : { total: 0, used: 0, remaining: 0 };
+      : undefined;
+    const total = existingEntry?.total ?? LEAVE_DEFAULT_TOTALS[balanceType];
 
-    const newUsed      = (current?.used ?? 0) + application.days;
-    const newRemaining = Math.max(0, (current?.total ?? 0) - newUsed);
+    const newUsed      = (existingEntry?.used ?? 0) + application.days;
+    const newRemaining = Math.max(0, total - newUsed);
 
     await setDoc(balanceRef, {
       employeeId: application.employeeId,
       year,
-      [balanceType]: { ...current, used: newUsed, remaining: newRemaining },
+      [balanceType]: { total, used: newUsed, remaining: newRemaining },
     }, { merge: true });
   }
 
@@ -230,7 +253,30 @@ export async function rejectLeave(
 // ─── cancelLeave ──────────────────────────────────────────────────────────────
 // Employee-initiated cancellation of their own pending application.
 export async function cancelLeave(applicationId: string): Promise<void> {
-  await updateDoc(doc(db, 'leave_applications', applicationId), {
+  const appRef = doc(db, 'leave_applications', applicationId);
+  const appSnap = await getDoc(appRef);
+  const application = appSnap.exists() ? (appSnap.data() as Omit<LeaveApplication, 'id'>) : null;
+
+  await updateDoc(appRef, {
     status: 'cancelled',
   });
+
+  // Refund the balance when cancelling an APPROVED leave — approval deducted
+  // the days, so cancellation must give them back (was previously never
+  // refunded, silently inflating "used").
+  const balanceType = application?.type as LeaveType | undefined;
+  if (application?.status === 'approved' &&
+      (balanceType === 'casual' || balanceType === 'sick' || balanceType === 'earned' || balanceType === 'comp_off')) {
+    const year = currentLeaveYear();
+    const balanceRef = doc(db, 'leave_balances', `${application.employeeId}_${year}`);
+    const balSnap = await getDoc(balanceRef);
+    if (balSnap.exists()) {
+      const entry = (balSnap.data() as LeaveBalance)[balanceType];
+      const total = entry?.total ?? LEAVE_DEFAULT_TOTALS[balanceType];
+      const newUsed = Math.max(0, (entry?.used ?? 0) - application.days);
+      await setDoc(balanceRef, {
+        [balanceType]: { total, used: newUsed, remaining: Math.max(0, total - newUsed) },
+      }, { merge: true });
+    }
+  }
 }

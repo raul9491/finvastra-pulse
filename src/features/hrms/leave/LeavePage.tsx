@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Plus, Coins, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
-import { useMyLeaveBalance, useMyApplications, cancelLeave } from '../hooks/useLeave';
+import { useMyLeaveBalance, useMyApplications, cancelLeave, currentLeaveYear } from '../hooks/useLeave';
 import {
   useMyEncashmentRequests,
   submitEncashmentRequest,
@@ -97,7 +97,7 @@ function EncashPill({ status }: { status: string }) {
 
 export function LeavePage() {
   const { user, profile } = useAuth();
-  const year = new Date().getFullYear();
+  const year = currentLeaveYear();
   const { balance, loading: balLoading } = useMyLeaveBalance(user?.uid ?? '', year);
   const { applications, loading: appsLoading } = useMyApplications(user?.uid ?? '');
   const { requests: encashReqs, loading: encashLoading } = useMyEncashmentRequests(user?.uid ?? '');
@@ -219,23 +219,26 @@ export function LeavePage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Per-type optional chaining: a PARTIAL balance doc (e.g. created by
+              a comp-off grant or an approval before other types were seeded)
+              previously crashed this section via balance?.casual.used. */}
           <BalanceCard
             label="Casual Leave"
-            used={balance?.casual.used ?? 0}
-            total={balance?.casual.total ?? 8}
-            remaining={balance?.casual.remaining ?? 8}
+            used={balance?.casual?.used ?? 0}
+            total={balance?.casual?.total ?? 8}
+            remaining={balance?.casual?.remaining ?? 8}
           />
           <BalanceCard
             label="Sick Leave"
-            used={balance?.sick.used ?? 0}
-            total={balance?.sick.total ?? 7}
-            remaining={balance?.sick.remaining ?? 7}
+            used={balance?.sick?.used ?? 0}
+            total={balance?.sick?.total ?? 7}
+            remaining={balance?.sick?.remaining ?? 7}
           />
           <BalanceCard
             label="Earned Leave"
-            used={balance?.earned.used ?? 0}
-            total={balance?.earned.total ?? 15}
-            remaining={balance?.earned.remaining ?? 15}
+            used={balance?.earned?.used ?? 0}
+            total={balance?.earned?.total ?? 15}
+            remaining={balance?.earned?.remaining ?? 15}
           />
           {balance?.comp_off && (
             <BalanceCard

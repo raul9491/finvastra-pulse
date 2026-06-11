@@ -5,10 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Finvastra Pulse</title>
     <link rel="icon" type="image/png" href="/favicon.png" />
+    <script>
+      // Apply the saved theme BEFORE first paint. Without this, light-mode
+      // users see a dark flash on every load/refresh (ThemeProvider only
+      // applies the body class after React mounts). Must stay inline + tiny.
+      (function () {
+        try {
+          if (localStorage.getItem('fv-theme') === 'light') {
+            document.documentElement.style.backgroundColor = '#FAFAF7';
+            // <body> doesn't exist yet — class lands as soon as parsing reaches it.
+            document.addEventListener('DOMContentLoaded', function () {
+              document.body.classList.add('light-mode');
+            });
+            // …but the CSS body class can be set earlier via a parser trick:
+            // observe for body creation and tag it immediately.
+            new MutationObserver(function (m, obs) {
+              if (document.body) { document.body.classList.add('light-mode'); obs.disconnect(); }
+            }).observe(document.documentElement, { childList: true });
+            var meta = document.createElement('meta');
+            meta.name = 'theme-color';
+            meta.content = '#FAFAF7';
+            document.head.appendChild(meta);
+          } else {
+            document.documentElement.style.backgroundColor = '#050d1f';
+          }
+        } catch (e) { /* storage unavailable — default dark */ }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

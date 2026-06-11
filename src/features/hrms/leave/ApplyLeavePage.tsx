@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { format, parseISO, isAfter, isBefore } from 'date-fns';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
-import { applyForLeave, useMyLeaveBalance, calculateWorkingDays } from '../hooks/useLeave';
+import { applyForLeave, useMyLeaveBalance, calculateWorkingDays, currentLeaveYear, LEAVE_DEFAULT_TOTALS } from '../hooks/useLeave';
 import { useHolidays } from '../hooks/useHolidays';
 import type { LeaveType } from '../../../types';
 
@@ -22,7 +22,7 @@ const BALANCE_TYPES = new Set<LeaveType>(['casual', 'sick', 'earned', 'comp_off'
 export function ApplyLeavePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const year = new Date().getFullYear();
+  const year = currentLeaveYear();
 
   const { balance }    = useMyLeaveBalance(user?.uid ?? '', year);
   const { holidays }   = useHolidays(year);
@@ -67,9 +67,12 @@ export function ApplyLeavePage() {
       return 'The selected date range has no working days (Sundays / holidays excluded; Mon–Sat work week).';
     }
 
-    // Balance check for tracked leave types
+    // Balance check for tracked leave types.
+    // Per-type entry may be missing on a partial doc (e.g. comp-off-only) —
+    // fall back to the HR Handbook default instead of crashing on `!`.
     if (BALANCE_TYPES.has(leaveType) && balance) {
-      const remaining = balance[leaveType as 'casual' | 'sick' | 'earned' | 'comp_off']!.remaining;
+      const t = leaveType as 'casual' | 'sick' | 'earned' | 'comp_off';
+      const remaining = balance[t]?.remaining ?? LEAVE_DEFAULT_TOTALS[t];
       if (workingDays > remaining) {
         return `Insufficient ${leaveType} leave balance. You have ${remaining} day(s) remaining but requested ${workingDays}.`;
       }

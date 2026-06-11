@@ -19,6 +19,7 @@ import {
   usePendingApprovals,
   approveLeave,
   rejectLeave,
+  currentLeaveYear,
 } from '../hooks/useLeave';
 import {
   useAllEncashmentRequests,
@@ -804,7 +805,7 @@ interface BalancesTabProps {
 }
 
 function BalancesTab({ employees, actorUid, actorName }: BalancesTabProps) {
-  const currentYear = new Date().getFullYear();
+  const currentYear = currentLeaveYear();
   const [showEditModal, setShowEditModal] = useState(false);
   const { records, loading } = useAdjustmentHistory();
 

@@ -16,13 +16,13 @@ import {
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { useAllCompOffCredits, grantCompOff } from '../hooks/useCompOff';
-import { useMyLeaveBalance } from '../hooks/useLeave';
+import { useMyLeaveBalance, currentLeaveYear } from '../hooks/useLeave';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 
 // ─── Balance chip ─────────────────────────────────────────────────────────────
 
 function BalanceChip({ employeeId }: { employeeId: string }) {
-  const year = new Date().getFullYear();
+  const year = currentLeaveYear();
   const { balance, loading } = useMyLeaveBalance(employeeId, year);
 
   if (loading) return <span className="text-xs text-(--text-muted)">Loading balance…</span>;
@@ -84,7 +84,8 @@ export function AdminCompOffPage() {
     setSaving(true);
 
     try {
-      const year = new Date(dateWorked).getFullYear();
+      const d = new Date(dateWorked);
+      const year = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1; // FY of the date worked
       await grantCompOff({
         employeeId:    empId,
         employeeName:  selectedEmp?.displayName ?? empId,

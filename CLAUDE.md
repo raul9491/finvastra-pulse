@@ -1521,6 +1521,19 @@ HR Handbook alignment. All changes are deterministic code — no AI/LLM.
 
 Files changed: `src/types/index.ts`, `src/features/hrms/hooks/useLeave.ts`, `src/features/hrms/leave/ApplyLeavePage.tsx`, `src/features/hrms/leave/AdminLeavePage.tsx`, `src/features/hrms/leave/LeavePage.tsx`
 
+### Leave-balance correctness fixes (2026-06-11)
+
+Four bugs that made balances "off", all in the same flow:
+
+1. **`approveLeave` seeded `total: 0`** when the balance doc/type entry didn't exist — once the doc existed, the UI's `?? 8` fallback never applied again, so employees showed 0 totals / 0 remaining forever. Now seeds from `LEAVE_DEFAULT_TOTALS` (CL 8 · SL 7 · EL 15 · comp_off 0) exported from `useLeave.ts`.
+2. **`cancelLeave` never refunded** — cancelling an APPROVED leave left `used` inflated. Now decrements used/recomputes remaining for tracked types.
+3. **Partial balance docs crashed readers** — a doc with only `comp_off` (created by a comp-off grant) blew up `balance?.casual.used` on LeavePage and `balance[type]!.remaining` on ApplyLeavePage. All per-type reads are now optional-chained with handbook defaults.
+4. **Year convention unified to FINANCIAL year** via `currentLeaveYear()` in `useLeave.ts` (April→current year; Jan–Mar→previous), matching the Phase G year-end reset job. Previously LeavePage/ApplyLeavePage/AdminLeavePage/approveLeave used the CALENDAR year, which would split each FY's balance across two docs every Jan–Mar. Call sites switched: LeavePage, ApplyLeavePage, AdminLeavePage (BalancesTab), AdminCompOffPage (display + grant uses FY of dateWorked), approveLeave, cancelLeave. **Rule: any new code touching `/leave_balances` must use `currentLeaveYear()` — never `new Date().getFullYear()`.**
+
+### Theme flash fix (2026-06-11)
+
+Light-mode users saw a **dark flash on every load/refresh** (ThemeProvider only applies the `light-mode` body class after React mounts; more visible since the PWA made loads faster). Fixed with a tiny inline **pre-paint script in `index.html`** that reads `localStorage('fv-theme')` and sets the html background + body class (via MutationObserver before parse completes) + theme-color meta before first paint. Keep this script inline and tiny; don't move it into the bundle.
+
 ---
 
 ## Phase G — Leave Year-End Reset, HR Letters, Self-Service Profile, Leave Encashment, Org Chart (2026-05-27)

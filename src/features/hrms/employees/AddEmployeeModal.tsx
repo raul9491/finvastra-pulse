@@ -149,8 +149,8 @@ export function AddEmployeeModal({
     const sorted = [...employees]
       .filter((e) => e.employeeStatus !== 'inactive')   // can't report to someone who has left
       .sort((a, b) => {
-      const aSuper = isSuperAdmin(a.userId) ? 0 : a.role === 'admin' ? 1 : 2;
-      const bSuper = isSuperAdmin(b.userId) ? 0 : b.role === 'admin' ? 1 : 2;
+      const aSuper = isSuperAdmin(a.userId, a) ? 0 : a.role === 'admin' ? 1 : 2;
+      const bSuper = isSuperAdmin(b.userId, b) ? 0 : b.role === 'admin' ? 1 : 2;
       if (aSuper !== bSuper) return aSuper - bSuper;
       return a.displayName.localeCompare(b.displayName);
     });

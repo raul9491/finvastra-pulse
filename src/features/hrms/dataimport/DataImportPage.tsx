@@ -257,7 +257,7 @@ const COLUMN_HINTS: Record<ImportType, string[]> = {
 
 export function DataImportPage() {
   const { user, profile } = useAuth();
-  const isSA = isSuperAdmin(user?.uid ?? '');
+  const isSA = isSuperAdmin(user?.uid ?? '', profile);
 
   const [activeTab, setActiveTab]       = useState<ImportType>('assets');
   const [file, setFile]                 = useState<File | null>(null);

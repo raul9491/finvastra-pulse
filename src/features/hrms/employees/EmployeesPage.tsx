@@ -82,8 +82,8 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
     [...allEmployees]
       .filter((e) => e.userId !== employee.userId && e.employeeStatus !== 'inactive') // not self, not inactive (inactive managers break the org tree)
       .sort((a, b) => {
-        const as_ = isSuperAdmin(a.userId) ? 0 : a.role === 'admin' ? 1 : 2;
-        const bs_ = isSuperAdmin(b.userId) ? 0 : b.role === 'admin' ? 1 : 2;
+        const as_ = isSuperAdmin(a.userId, a) ? 0 : a.role === 'admin' ? 1 : 2;
+        const bs_ = isSuperAdmin(b.userId, b) ? 0 : b.role === 'admin' ? 1 : 2;
         if (as_ !== bs_) return as_ - bs_;
         return a.displayName.localeCompare(b.displayName);
       })
@@ -729,7 +729,7 @@ export function EmployeesPage() {
                 <tbody>
                   {filtered.map((emp) => {
                     const isInactive = (emp.employeeStatus ?? 'active') === 'inactive';
-                    const isSA = isSuperAdmin(emp.userId);
+                    const isSA = isSuperAdmin(emp.userId, emp);
                     const isSelected = selectedIds.has(emp.userId);
                     const loginStatus = isInactive
                       ? { label: 'Inactive',          variant: 'muted'  as const }

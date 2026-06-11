@@ -386,7 +386,7 @@ export function HrmsShell() {
   // Safe when profile is null (still loading): all flags default to false.
   const isAdmin        = profile?.role === 'admin';
   const isHrmsManager  = profile?.isHrmsManager === true;
-  const isSA           = isSuperAdmin(user?.uid ?? '');
+  const isSA           = isSuperAdmin(user?.uid ?? '', profile);
 
   // ── All hooks unconditionally at the top — Rules of Hooks ───────────────────
   // Early returns come AFTER this block. Hooks with `enabled=false` return safe

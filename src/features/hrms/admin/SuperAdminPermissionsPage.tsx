@@ -10,6 +10,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import type { UserProfile, CrmRole, MisAccess, ConvertorVertical } from '../../../types';
 import { isSuperAdmin, SUPER_ADMIN_UIDS, SUPER_ADMIN_LABELS } from '../../../config/hrmsConfig';
+import { SuperAdminPromotionSection } from './SuperAdminPromotionSection';
 
 // Ajay is the first super admin UID — his permissions need a one-time fix
 const AJAY_UID: string = SUPER_ADMIN_UIDS[0];
@@ -435,7 +436,7 @@ export function SuperAdminPermissionsPage() {
     initialized.current = true;
     const map: Record<string, PermDraft> = {};
     employees
-      .filter((e) => !isSuperAdmin(e.userId))
+      .filter((e) => !isSuperAdmin(e.userId, e))
       .forEach((e) => { map[e.userId] = toDraft(e); });
     setOriginals(map);
     setDrafts({ ...map });
@@ -454,7 +455,7 @@ export function SuperAdminPermissionsPage() {
   // ── Super admin accounts (read-only rows at top of table) ─────────────────
   const superAdminEmployees = useMemo(() =>
     employees
-      .filter((e) => isSuperAdmin(e.userId))
+      .filter((e) => isSuperAdmin(e.userId, e))
       .sort((a, b) =>
         (SUPER_ADMIN_UIDS as readonly string[]).indexOf(a.userId) -
         (SUPER_ADMIN_UIDS as readonly string[]).indexOf(b.userId),
@@ -465,7 +466,7 @@ export function SuperAdminPermissionsPage() {
   // ── Editable employees list (non-super-admin, sorted alphabetically) ─────
   const editableEmployees = useMemo(() =>
     employees
-      .filter((e) => !isSuperAdmin(e.userId))
+      .filter((e) => !isSuperAdmin(e.userId, e))
       .sort((a, b) => a.displayName.localeCompare(b.displayName)),
     [employees],
   );
@@ -493,7 +494,7 @@ export function SuperAdminPermissionsPage() {
   }, [editableEmployees, drafts, search, filter, dirtyUids]);
 
   // ── All hooks declared — guard comes after ────────────────────────────────
-  if (!isSuperAdmin(user?.uid ?? '')) return <Navigate to="/hrms/dashboard" replace />;
+  if (!isSuperAdmin(user?.uid ?? '', profile)) return <Navigate to="/hrms/dashboard" replace />;
 
   // ── Ajay permission check (after guard) ──────────────────────────────────
   // FAPL-000 needs: role=admin, crmAccess=true, crmRole=admin, misAccess=admin
@@ -865,6 +866,13 @@ export function SuperAdminPermissionsPage() {
           {filteredRows.length} of {editableEmployees.length} employees shown
         </p>
       )}
+
+      {/* ── Phase P: Super Admin promotion / demotion + audit log ─────────── */}
+      <SuperAdminPromotionSection
+        employees={employees}
+        actorUid={user?.uid ?? ''}
+        actorName={profile?.displayName ?? ''}
+      />
 
       {/* ── Fixed save bar — appears when there are unsaved changes ──────── */}
       {(dirtyUids.length > 0 || saving) && (

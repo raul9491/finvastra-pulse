@@ -18,6 +18,10 @@ import { NotificationBell } from '../ui/NotificationBell';
 import { ThemeToggle } from '../ui/ThemeProvider';
 import { UserMenu } from '../ui/UserMenu';
 import { AppsMenu } from '../ui/AppsMenu';
+import { SharePageButton } from '../ui/SharePageButton';
+import { SharedNavSection, locationCoveredByShares } from './SharedNavSection';
+import { useMyShares } from '../../features/auth/hooks/useMyShares';
+import { resolvePageKey } from '../../config/shareablePages';
 
 type NavEntry = { path: string; label: string; icon: ElementType; live: boolean; end?: boolean; badge?: number };
 
@@ -154,6 +158,9 @@ export function CrmShell() {
   // Import Queue badge — batches imported but not yet distributed (admin sees all; others their own).
   const { jobs: importJobs } = useImportHistory(profile?.role === 'admin');
 
+  // Phase P — active page shares (exception grants for users without crmAccess).
+  const myShares = useMyShares(user?.uid);
+
   // Targets badge — is the current month's target unset for this user?
   useEffect(() => {
     if (!user?.uid) return;
@@ -187,11 +194,27 @@ export function CrmShell() {
   if (profile?.mustResetPassword) return <Navigate to="/reset-password" replace />;
 
   // Full CRM access: admin or explicit crmAccess flag.
-  // Referral-only access: any HRMS employee (hrmsAccess absent = true by default) without full CRM.
   const canFullAccess  = profile?.role === 'admin' || profile?.crmAccess === true;
-  const isReferralOnly = !canFullAccess && (profile?.hrmsAccess !== false);
-  const canEnter       = canFullAccess || isReferralOnly;
+
+  // Phase P — route-guard race: on hard refresh the share snapshot lands after
+  // auth. Never redirect a non-full-access user while shares are still loading.
+  if (!canFullAccess && myShares.loading) return <FullPageLoader />;
+
+  const crmShares    = myShares.sharesByModule.crm;
+  const isShareOnly  = !canFullAccess && crmShares.length > 0;
+  // Referral-only access: any HRMS employee (hrmsAccess absent = true by default)
+  // without full CRM and without shares.
+  const isReferralOnly = !canFullAccess && !isShareOnly && (profile?.hrmsAccess !== false);
+  const canEnter       = canFullAccess || isShareOnly || isReferralOnly;
   if (!canEnter) return <Navigate to="/" replace />;
+
+  // Phase P — share-only users may open ONLY their shared pages (+ drill-downs).
+  if (isShareOnly) {
+    const key = resolvePageKey(location.pathname, location.search);
+    if (!locationCoveredByShares(crmShares, key, location.pathname)) {
+      return <Navigate to={crmShares[0].pageRoute} replace />;
+    }
+  }
 
   // Redirect referral-only users away from full-CRM pages they can't see
   if (isReferralOnly && !location.pathname.startsWith('/crm/referrals')) {
@@ -220,7 +243,10 @@ export function CrmShell() {
   // ── Shared nav scroll body ────────────────────────────────────────────────────
   const navBody = (
     <div className="flex-1 px-2 space-y-0.5 overflow-y-auto pb-4">
-      {isReferralOnly ? (
+      {isShareOnly ? (
+        /* Phase P — share-only users see ONLY their shared pages */
+        <SharedNavSection shares={crmShares} />
+      ) : isReferralOnly ? (
         /* Referral-mode minimal nav */
         <>
           <NavItemLive
@@ -281,6 +307,9 @@ export function CrmShell() {
               <NavItemLive entry={{ path: '/crm/reports/aging', label: 'Lead Aging', icon: BarChart3, live: true, end: true }} isActive={location.pathname === '/crm/reports/aging'} />
             </>
           )}
+
+          {/* Phase P — full-access user who ALSO holds shares (edge case) */}
+          <SharedNavSection shares={crmShares} />
         </>
       )}
     </div>
@@ -387,6 +416,7 @@ export function CrmShell() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <SharePageButton pageKey={resolvePageKey(location.pathname, location.search)} />
             <ThemeToggle />
             {user && <NotificationBell uid={user.uid} />}
             <UserMenu

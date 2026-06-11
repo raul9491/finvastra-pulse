@@ -86,6 +86,13 @@ export interface UserProfile {
   crmCanImport?: boolean;     // can trigger bulk Sheet imports (default: only managers; admin can grant individually)
   misAccess?: MisAccess;
   commandCentreAccess?: boolean; // grants the cross-module Command Centre (admins always have it)
+  // Phase P — page sharing: modules in which this user holds ≥1 active page
+  // share. Grants module-level DATA read via rules; UI restricts nav to the
+  // shared pages. Maintained atomically alongside /page_shares writes.
+  sharedModules?: ShareableModule[];
+  // Phase P — true when promoted to super admin from the UI (recognised
+  // client-side via isSuperAdmin(uid, profile) without a redeploy).
+  superAdmin?: boolean;
   createdAt?: import('firebase/firestore').Timestamp;
 }
 
@@ -716,6 +723,9 @@ export type NotificationType =
   | 'payroll_processed'
   | 'announcement'
   | 'follow_up_needed'
+  | 'share_granted'
+  | 'share_revoked'
+  | 'dispute_created'
   | 'system';
 
 export interface Notification {
@@ -1690,4 +1700,101 @@ export interface Toast {
   message: string;
   title?: string;
   duration?: number;
+}
+
+// ═══ Phase P — Page Sharing / Presence / Disputes / Field History ═════════════
+
+export type ShareableModule = 'crm' | 'hrms' | 'mis';
+
+// /page_shares/{shareId} — a super admin granting one page to one user.
+// Permanent (no expiry concept); revocable/restorable by super admins only.
+export interface PageShare {
+  id: string;
+  grantedTo: string;            // uid
+  grantedToName: string;
+  grantedToEmail: string;
+  grantedBy: string;            // super admin uid
+  grantedByName: string;
+  pageKey: string;              // key into SHAREABLE_PAGES
+  pageTitle: string;            // denormalised for list rendering
+  pageRoute: string;
+  module: ShareableModule;
+  icon: string;                 // lucide icon name
+  active: boolean;
+  grantedAt: import('firebase/firestore').Timestamp;
+  revokedAt: import('firebase/firestore').Timestamp | null;
+  revokedBy: string | null;
+  revokedByName: string | null;
+  note: string | null;
+}
+
+// /super_admin_log/{id} — append-only promotion/demotion audit.
+export interface SuperAdminLogEntry {
+  id: string;
+  promotedUid: string;
+  promotedName: string;
+  promotedBy: string;
+  promotedByName: string;
+  action: 'promote' | 'demote';
+  reason: string | null;
+  promotedAt: import('firebase/firestore').Timestamp;
+}
+
+// /presence/{pageKey}/viewers/{uid} — ephemeral "who's on this page".
+export interface PresenceUser {
+  uid: string;
+  displayName: string;
+  avatarInitials: string;
+  enteredAt: import('firebase/firestore').Timestamp;
+  lastSeen: import('firebase/firestore').Timestamp;
+  pageKey: string;
+}
+
+// /commission_disputes/{id} — variance dispute raised against a provider.
+export type DisputeStatus = 'open' | 'investigating' | 'resolved' | 'written_off';
+export type DisputePriority = 'high' | 'medium' | 'low';
+
+export interface DisputeNote {
+  text: string;
+  by: string;
+  byName: string;
+  at: import('firebase/firestore').Timestamp;
+}
+
+export interface CommissionDispute {
+  id: string;
+  commissionRecordId: string;
+  statementLineId: string;
+  providerId: string;
+  providerName: string;
+  opportunityId: string;
+  leadId?: string;              // for the CRM deep-link
+  leadName: string;
+  expectedAmount: number;       // ₹ (matches existing commission_records units)
+  receivedAmount: number;
+  variance: number;             // received − expected
+  variancePct: number;
+  status: DisputeStatus;
+  priority: DisputePriority;    // high >₹10,000 · medium ₹1,000–10,000 · low <₹1,000
+  assignedTo: string | null;
+  assignedToName: string | null;
+  assignedAt: import('firebase/firestore').Timestamp | null;
+  notes: DisputeNote[];         // append-only
+  resolution: string | null;
+  resolvedBy: string | null;
+  resolvedAt: import('firebase/firestore').Timestamp | null;
+  createdAt: import('firebase/firestore').Timestamp;
+  createdBy: string;            // 'system' for auto-created disputes
+}
+
+// {parent}/field_history/{fieldName}/changes/{changeId} — audit diff per field.
+export interface FieldChange {
+  id: string;
+  field: string;
+  oldValue: unknown;
+  newValue: unknown;
+  changedBy: string;
+  changedByName: string;
+  changedAt: import('firebase/firestore').Timestamp;
+  context: string | null;       // e.g. 'transfer', 'mark_paid'
 }

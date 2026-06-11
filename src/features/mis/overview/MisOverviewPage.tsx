@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
@@ -79,7 +79,16 @@ export function MisOverviewPage() {
 
   const todayMonth = format(new Date(), 'yyyy-MM');
   const [selectedMonth, setSelectedMonth] = useState(todayMonth);
-  const [activeTab, setActiveTab] = useState<MisTab>('overview');
+  // Phase P — /mis/overview?tab=disbursals deep-links straight to a tab
+  // (used by the mis.disbursals shareable-page entry).
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<MisTab>(
+    () => (searchParams.get('tab') === 'disbursals' ? 'disbursals' : 'overview'),
+  );
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t === 'disbursals' || t === 'overview') setActiveTab(t);
+  }, [searchParams]);
 
   const data = useMisOverview(selectedMonth);
 

@@ -30,6 +30,11 @@ const TYPE_META: Record<AppNotification['type'], { icon: string; color: string }
   claim_paid:       { icon: '💰', color: '#C9A961' },
   it_decl_revision: { icon: '✏️', color: '#fbbf24' },
   it_decl_accepted: { icon: '✅', color: '#34d399' },
+  follow_up_needed: { icon: '⏰', color: '#fbbf24' },
+  // Phase P
+  share_granted:    { icon: '🔗', color: '#C9A961' },
+  share_revoked:    { icon: '🔒', color: '#f87171' },
+  dispute_created:  { icon: '⚠️', color: '#f87171' },
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────

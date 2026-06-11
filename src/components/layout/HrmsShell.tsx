@@ -20,6 +20,10 @@ import { NotificationBell } from '../ui/NotificationBell';
 import { ThemeToggle } from '../ui/ThemeProvider';
 import { UserMenu } from '../ui/UserMenu';
 import { AppsMenu } from '../ui/AppsMenu';
+import { SharePageButton } from '../ui/SharePageButton';
+import { SharedNavSection, locationCoveredByShares } from './SharedNavSection';
+import { useMyShares } from '../../features/auth/hooks/useMyShares';
+import { resolvePageKey } from '../../config/shareablePages';
 import { useUnreadAnnouncementCount, getUnseenHolidayCount } from '../../features/hrms/hooks/useAnnouncements';
 import { useHolidays } from '../../features/hrms/hooks/useHolidays';
 import { useMyItDeclaration, usePendingItDeclarationCount, currentFinancialYear } from '../../features/hrms/hooks/useItDeclarations';
@@ -423,6 +427,9 @@ export function HrmsShell() {
   // Work anniversary employees (admin/manager only)
   const { anniversaryEmployees } = useWorkAnniversaries(isAdmin || isHrmsManager);
 
+  // Phase P — active page shares (exception grants for users without hrmsAccess).
+  const myShares = useMyShares(user?.uid);
+
   // Close mobile drawer automatically when the user navigates to a different page
   useEffect(() => { setMobileNavOpen(false); setNavSearch(''); }, [location.pathname]);
 
@@ -431,8 +438,23 @@ export function HrmsShell() {
   if (!user) return <Navigate to="/login" replace />;
   if (profile?.mustResetPassword) return <Navigate to="/reset-password" replace />;
 
-  const canAccess = profile?.role === 'admin' || profile?.hrmsAccess !== false;
+  const hasDirectAccess = profile?.role === 'admin' || profile?.hrmsAccess !== false;
+
+  // Phase P — never redirect while shares are still loading (hard-refresh race).
+  if (!hasDirectAccess && myShares.loading) return <FullPageLoader />;
+
+  const hrmsShares  = myShares.sharesByModule.hrms;
+  const isShareOnly = !hasDirectAccess && hrmsShares.length > 0;
+  const canAccess   = hasDirectAccess || isShareOnly;
   if (!canAccess) return <Navigate to="/" replace />;
+
+  // Phase P — share-only users may open ONLY their shared pages (+ drill-downs).
+  if (isShareOnly) {
+    const key = resolvePageKey(location.pathname, location.search);
+    if (!locationCoveredByShares(hrmsShares, key, location.pathname)) {
+      return <Navigate to={hrmsShares[0].pageRoute} replace />;
+    }
+  }
 
   // Undismissed birthdays today: read localStorage — refreshes on each navigation
   const _todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -531,7 +553,10 @@ export function HrmsShell() {
 
   const navBody = (
     <div className="flex-1 px-2 overflow-y-auto pb-4 space-y-0.5">
-      {navSearchResults ? (
+      {isShareOnly ? (
+        /* Phase P — share-only users see ONLY their shared pages */
+        <SharedNavSection shares={hrmsShares} />
+      ) : navSearchResults ? (
         navSearchResults.length > 0 ? (
           SEARCH_GROUP_ORDER
             .filter((g) => navSearchResults.some((r) => r.group === g))
@@ -651,6 +676,8 @@ export function HrmsShell() {
           </NavSection>
         </>
       )}
+      {/* Phase P — full-access user who ALSO holds shares (edge case) */}
+      <SharedNavSection shares={hrmsShares} />
       </>
       )}
     </div>
@@ -756,8 +783,9 @@ export function HrmsShell() {
             <h1 className="text-base font-semibold truncate min-w-0" style={{ color: 'var(--text-primary)' }}>{pageTitle}</h1>
           </div>
 
-          {/* Right: notifications + user menu */}
+          {/* Right: share + notifications + user menu */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <SharePageButton pageKey={resolvePageKey(location.pathname, location.search)} />
             <ThemeToggle />
             {user && <NotificationBell uid={user.uid} />}
             <UserMenu

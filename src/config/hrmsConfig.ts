@@ -125,6 +125,11 @@ export const SUPER_ADMIN_LABELS: Record<string, string> = {
   '5lAbJ4CZ5uM0LbU4gUYItNRAlEn2': 'Tech & Builder',
 };
 
-export function isSuperAdmin(uid: string): boolean {
-  return (SUPER_ADMIN_UIDS as readonly string[]).includes(uid);
+// Phase P: a user is a super admin if they're in the hardcoded list OR their
+// user doc carries superAdmin:true (set by the in-app Promote flow). The doc
+// flag lets the CLIENT recognise promoted SAs without a redeploy; Firestore
+// RULES still use the hardcoded isSuperAdminUid() list, so a promoted SA needs
+// the printed manual rules + env-var update before rules-gated SA actions work.
+export function isSuperAdmin(uid: string, profile?: { superAdmin?: boolean } | null): boolean {
+  return (SUPER_ADMIN_UIDS as readonly string[]).includes(uid) || profile?.superAdmin === true;
 }

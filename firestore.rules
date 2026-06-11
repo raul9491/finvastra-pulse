@@ -29,11 +29,19 @@ service cloud.firestore {
              (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'employee') == 'admin'));
     }
+    // Phase P: each module helper also accepts users holding ≥1 active page
+    // share in that module ('crm'/'hrms'/'mis' in /users.sharedModules). A page
+    // share therefore grants module-level DATA read; the UI restricts their
+    // navigation to the shared pages. Accepted trade-off for a 25-person tool.
+    // The sharedModules check lives in the get() FALLBACK branch — share-only
+    // users carry no module claim, so the fallback runs for them; claim-holders
+    // short-circuit before the read (no extra reads added).
     function hasCrmAccess() {
       return isSignedIn() && (
              request.auth.token.get('crmAccess', false) == true ||
              (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('crmAccess', false) == true));
+              (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('crmAccess', false) == true ||
+               'crm' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('sharedModules', []))));
     }
     // Any employee with HRMS self-service access (hrmsAccess absent = true by default).
     // Used to allow HRMS-only employees to submit employee_referral leads.
@@ -41,7 +49,8 @@ service cloud.firestore {
       return isSignedIn() && (
              request.auth.token.get('hrmsAccess', false) == true ||
              (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('hrmsAccess', true) == true));
+              (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('hrmsAccess', true) == true ||
+               'hrms' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('sharedModules', []))));
     }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
@@ -155,11 +164,22 @@ service cloud.firestore {
     }
 
     function isValidActivity(data) {
+      // Phase P: byName + opportunityId added for QuickLogBar (optional keys —
+      // existing writers that omit them remain valid).
       return data.keys().hasAll(['type', 'content', 'by', 'at']) &&
-             data.keys().hasOnly(['type', 'content', 'by', 'at', 'relatedDocId']) &&
+             data.keys().hasOnly(['type', 'content', 'by', 'at', 'relatedDocId', 'byName', 'opportunityId']) &&
              data.type in ['call', 'email', 'whatsapp', 'meeting', 'note', 'status_change', 'ownership_change', 'commission_calculated'] &&
              data.content is string && data.content.size() > 0 && data.content.size() <= 2000 &&
              data.by == request.auth.uid;
+    }
+
+    // Phase P: author may edit an activity's content for 5 minutes after logging.
+    function canEditOwnActivityContent() {
+      return isSignedIn() &&
+             request.auth.uid == resource.data.by &&
+             request.time < resource.data.at + duration.value(5, 'm') &&
+             incoming().diff(existing()).affectedKeys().hasOnly(['content']) &&
+             incoming().content is string && incoming().content.size() > 0 && incoming().content.size() <= 2000;
     }
 
     // ─── Users (org directory — readable by all signed-in employees) ────────────
@@ -195,8 +215,11 @@ service cloud.firestore {
         // Admin can update any user field, but:
         // (a) crmRole/convertorVertical must be a valid pair
         // (b) super admin accounts can only be updated by another super admin
+        // (c) Phase P: only a (hardcoded) super admin may touch the superAdmin
+        //     promotion flag — prevents a plain admin self-promoting via API
         (isAdmin() && validCrmRolePair(incoming()) &&
-         (!isSuperAdminTarget(userId) || isSuperAdminUid()))
+         (!isSuperAdminTarget(userId) || isSuperAdminUid()) &&
+         (!incoming().diff(existing()).affectedKeys().hasAny(['superAdmin']) || isSuperAdminUid()))
       );
     }
 
@@ -343,7 +366,21 @@ service cloud.firestore {
                      )) ||
                      isManagerOf(get(/databases/$(database)/documents/leads/$(leadId)).data.primaryOwnerId);
       allow create: if hasCrmAccess() && isValidActivity(incoming());
-      allow update: if isAdmin();
+      // Phase P: author can edit their own activity's content within 5 minutes.
+      allow update: if isAdmin() || canEditOwnActivityContent();
+      allow delete: if isAdmin();
+    }
+
+    // ─── CRM: Lead-level Activities (Phase P — QuickLogBar) ──────────────────────
+    // A lead-level feed independent of any opportunity (raw leads have none).
+    // Read mirrors lead access; create validated like opportunity activities.
+    match /leads/{leadId}/activities/{actId} {
+      allow read: if isAdmin() ||
+                     (hasCrmAccess() &&
+                      get(/databases/$(database)/documents/leads/$(leadId)).data.primaryOwnerId == request.auth.uid) ||
+                     isManagerOf(get(/databases/$(database)/documents/leads/$(leadId)).data.primaryOwnerId);
+      allow create: if hasCrmAccess() && isValidActivity(incoming());
+      allow update: if isAdmin() || canEditOwnActivityContent();
       allow delete: if isAdmin();
     }
 
@@ -759,11 +796,13 @@ service cloud.firestore {
 
     // ─── MIS: Helpers ─────────────────────────────────────────────────────────────
     // Claim-first (see role-check note near the top) — get() only as fallback.
+    // Phase P: also true for users with an active MIS page share (sharedModules).
     function hasMisAccess() {
       return isSignedIn() && (
              request.auth.token.get('misAccess', '') != '' ||
              (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('misAccess', null) != null));
+              (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('misAccess', null) != null ||
+               'mis' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('sharedModules', []))));
     }
     function isMisAdmin() {
       return isSignedIn() && (
@@ -1114,6 +1153,73 @@ service cloud.firestore {
       allow read:   if isAdmin() || hasMisAccess();
       allow create, update: if isAdmin();
       allow delete: if isAdmin();
+    }
+
+    // ═══ Phase P — Page Sharing / Super Admin Log / Presence / Disputes /
+    //              Field History ═══════════════════════════════════════════════
+
+    // Page shares — exception grants of single pages, created/revoked by super
+    // admins only (hardcoded list; a UI-promoted SA needs the printed manual
+    // rules edit before they can share). Permanent until revoked; no deletes.
+    match /page_shares/{shareId} {
+      allow read:   if isSuperAdminUid() ||
+                       (isSignedIn() && request.auth.uid == resource.data.grantedTo);
+      allow create: if isSuperAdminUid();
+      allow update: if isSuperAdminUid() &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'active', 'revokedAt', 'revokedBy', 'revokedByName'
+                       ]);
+      allow delete: if false;
+    }
+
+    // Super-admin promotion/demotion audit — append-only, SA-only.
+    match /super_admin_log/{logId} {
+      allow read:   if isSuperAdminUid();
+      allow create: if isSuperAdminUid();
+      allow update, delete: if false;
+    }
+
+    // Real-time presence — ephemeral "who's viewing this page". Each user may
+    // only write their own viewer doc; anyone signed in can see viewers.
+    match /presence/{pageKey}/viewers/{uid} {
+      allow read:   if isSignedIn();
+      allow create, update, delete: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Commission disputes — variance disputes with providers (MIS).
+    match /commission_disputes/{disputeId} {
+      allow read:   if isAdmin() || hasMisAccess();
+      allow create: if isAdmin() || isMisAdmin();
+      allow update: if isAdmin() || hasMisAccess();
+      allow delete: if false;
+    }
+
+    // Field history — per-field audit diffs written in the SAME batch as the
+    // parent update. Append-only; admin/manager read.
+    match /leads/{leadId}/field_history/{fieldName}/changes/{changeId} {
+      allow read:   if isAdmin() || isManager();
+      allow create: if isSignedIn() && incoming().changedBy == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /leads/{leadId}/opportunities/{oppId}/field_history/{fieldName}/changes/{changeId} {
+      allow read:   if isAdmin() || isManager();
+      allow create: if isSignedIn() && incoming().changedBy == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /leads/{leadId}/opportunities/{oppId}/bank_submissions/{subId}/field_history/{fieldName}/changes/{changeId} {
+      allow read:   if isAdmin() || isManager();
+      allow create: if isSignedIn() && incoming().changedBy == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /commission_records/{recordId}/field_history/{fieldName}/changes/{changeId} {
+      allow read:   if isAdmin() || isManager();
+      allow create: if isSignedIn() && incoming().changedBy == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /users/{userId}/field_history/{fieldName}/changes/{changeId} {
+      allow read:   if isAdmin() || isManager();
+      allow create: if isSignedIn() && incoming().changedBy == request.auth.uid;
+      allow update, delete: if false;
     }
   }
 }

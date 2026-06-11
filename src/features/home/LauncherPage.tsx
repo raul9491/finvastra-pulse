@@ -1,9 +1,11 @@
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, Link } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
-import { Users, TrendingUp, BarChart3, ArrowRight, LogOut, Command } from 'lucide-react';
+import { Users, TrendingUp, BarChart3, ArrowRight, LogOut, Command, Share2 } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../auth/AuthContext';
 import { VideoLogo } from '../../components/ui/VideoLogo';
+import { useMyShares } from '../auth/hooks/useMyShares';
+import { isSuperAdmin } from '../../config/hrmsConfig';
 
 function FullPageLoader() {
   return (
@@ -58,6 +60,8 @@ function ModuleTile({ icon, name, description, path, accentColor }: ModuleTilePr
 export function LauncherPage() {
   const { user, profile, loading, profileLoadFailed } = useAuth();
   const navigate = useNavigate();
+  // Phase P — page shares: a shared page makes its module tile visible too.
+  const myShares = useMyShares(user?.uid);
 
   if (loading) return <FullPageLoader />;
   if (!user) return <Navigate to="/login" replace />;
@@ -91,9 +95,12 @@ export function LauncherPage() {
   if (profile?.mustResetPassword) return <Navigate to="/reset-password" replace />;
 
   const isAdmin = profile?.role === 'admin';
-  const showHrms = isAdmin || profile?.hrmsAccess !== false;
-  const showCrm  = isAdmin || profile?.crmAccess === true;
-  const showMis  = isAdmin || profile?.misAccess != null;
+  const isSA = isSuperAdmin(user.uid, profile);
+  // Phase P — a tile also shows when the user holds ≥1 active share in that module
+  const { sharesByModule } = myShares;
+  const showHrms = isAdmin || profile?.hrmsAccess !== false || sharesByModule.hrms.length > 0;
+  const showCrm  = isAdmin || profile?.crmAccess === true   || sharesByModule.crm.length > 0;
+  const showMis  = isAdmin || profile?.misAccess != null    || sharesByModule.mis.length > 0;
   const showCommand = isAdmin || profile?.commandCentreAccess === true;
 
   const firstName = profile?.displayName?.split(' ')[0] ?? 'there';
@@ -206,6 +213,17 @@ export function LauncherPage() {
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               No modules assigned yet. Contact your admin.
             </p>
+          )}
+
+          {/* Phase P — super-admin console for page shares */}
+          {isSA && (
+            <div className="mt-8 flex justify-center">
+              <Link to="/admin/shares"
+                className="inline-flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl transition-opacity hover:opacity-80"
+                style={{ color: '#C9A961', border: '1px solid rgba(201,169,97,0.35)' }}>
+                <Share2 size={15} /> Manage Shares <ArrowRight size={14} />
+              </Link>
+            </div>
           )}
         </div>
       </main>

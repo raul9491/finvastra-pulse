@@ -72,6 +72,7 @@ const ComplianceCalendarPage   = lazyPage(() => import('./features/hrms/complian
 const PfTrackerPage            = lazyPage(() => import('./features/hrms/compliance/PfTrackerPage'), 'PfTrackerPage');
 const AssetsPage               = lazyPage(() => import('./features/hrms/assets/AssetsPage'), 'AssetsPage');
 const ConnectorsPage           = lazyPage(() => import('./features/hrms/connectors/ConnectorsPage'), 'ConnectorsPage');
+const ManageSharesPage         = lazyPage(() => import('./features/admin/ManageSharesPage'), 'ManageSharesPage');
 const OnboardingPage           = lazyPage(() => import('./features/hrms/onboarding/OnboardingPage'), 'OnboardingPage');
 const OffboardingPage          = lazyPage(() => import('./features/hrms/offboarding/OffboardingPage'), 'OffboardingPage');
 const ItDeclarationPage        = lazyPage(() => import('./features/hrms/itdeclaration/ItDeclarationPage'), 'ItDeclarationPage');
@@ -164,6 +165,11 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <LauncherPage />,
+  },
+  {
+    // Phase P — super-admin console for page shares (standalone, no module shell)
+    path: '/admin/shares',
+    element: s(<ManageSharesPage />),
   },
   {
     path: '/hrms',

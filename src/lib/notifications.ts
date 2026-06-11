@@ -27,7 +27,12 @@ export type NotificationType =
   | 'claim_rejected'
   | 'claim_paid'
   | 'it_decl_revision'
-  | 'it_decl_accepted';
+  | 'it_decl_accepted'
+  | 'follow_up_needed'
+  // Phase P
+  | 'share_granted'
+  | 'share_revoked'
+  | 'dispute_created';
 
 export interface AppNotification {
   id:        string;

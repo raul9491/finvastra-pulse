@@ -12,6 +12,10 @@ import { VideoLogo } from '../ui/VideoLogo';
 import { ThemeToggle } from '../ui/ThemeProvider';
 import { UserMenu } from '../ui/UserMenu';
 import { AppsMenu } from '../ui/AppsMenu';
+import { SharePageButton } from '../ui/SharePageButton';
+import { SharedNavSection, locationCoveredByShares } from './SharedNavSection';
+import { useMyShares } from '../../features/auth/hooks/useMyShares';
+import { resolvePageKey } from '../../config/shareablePages';
 
 type NavEntry = { path: string; label: string; icon: ElementType; adminOnly: boolean };
 
@@ -58,6 +62,9 @@ export function MisShell() {
   // Mobile nav drawer state
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
+  // Phase P — active page shares (exception grants for users without misAccess).
+  const myShares = useMyShares(user?.uid);
+
   // Close mobile drawer on route change
   useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
 
@@ -65,8 +72,23 @@ export function MisShell() {
   if (!user) return <Navigate to="/login" replace />;
   if (profile?.mustResetPassword) return <Navigate to="/reset-password" replace />;
 
-  const canAccess = profile?.role === 'admin' || profile?.misAccess != null;
+  const hasDirectAccess = profile?.role === 'admin' || profile?.misAccess != null;
+
+  // Phase P — never redirect while shares are still loading (hard-refresh race).
+  if (!hasDirectAccess && myShares.loading) return <FullPageLoader />;
+
+  const misShares   = myShares.sharesByModule.mis;
+  const isShareOnly = !hasDirectAccess && misShares.length > 0;
+  const canAccess   = hasDirectAccess || isShareOnly;
   if (!canAccess) return <Navigate to="/" replace />;
+
+  // Phase P — share-only users may open ONLY their shared pages (+ drill-downs).
+  if (isShareOnly) {
+    const key = resolvePageKey(location.pathname, location.search);
+    if (!locationCoveredByShares(misShares, key, location.pathname)) {
+      return <Navigate to={misShares[0].pageRoute} replace />;
+    }
+  }
 
   const isMisAdmin = profile?.role === 'admin' || profile?.misAccess === 'admin';
   const isViewer   = profile?.misAccess === 'viewer';
@@ -88,24 +110,33 @@ export function MisShell() {
   // ── Shared nav scroll body ────────────────────────────────────────────────────
   const navBody = (
     <div className="flex-1 px-2 space-y-0.5 overflow-y-auto pb-4">
-      {visibleNav.map(({ path, label, icon: Icon }) => (
-        <NavLink
-          key={path}
-          to={path}
-          end
-          className={({ isActive }) =>
-            `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3 nav-item-hover'}`
-          }
-          style={({ isActive }) =>
-            isActive
-              ? { backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961', borderColor: '#C9A961' }
-              : { color: 'var(--shell-text-secondary)' }
-          }
-        >
-          <Icon size={17} className="shrink-0" />
-          <span className="text-sm">{label}</span>
-        </NavLink>
-      ))}
+      {isShareOnly ? (
+        /* Phase P — share-only users see ONLY their shared pages */
+        <SharedNavSection shares={misShares} />
+      ) : (
+        <>
+          {visibleNav.map(({ path, label, icon: Icon }) => (
+            <NavLink
+              key={path}
+              to={path}
+              end
+              className={({ isActive }) =>
+                `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3 nav-item-hover'}`
+              }
+              style={({ isActive }) =>
+                isActive
+                  ? { backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961', borderColor: '#C9A961' }
+                  : { color: 'var(--shell-text-secondary)' }
+              }
+            >
+              <Icon size={17} className="shrink-0" />
+              <span className="text-sm">{label}</span>
+            </NavLink>
+          ))}
+          {/* Phase P — full-access user who ALSO holds shares (edge case) */}
+          <SharedNavSection shares={misShares} />
+        </>
+      )}
     </div>
   );
 
@@ -215,8 +246,9 @@ export function MisShell() {
             <h1 className="text-base font-semibold truncate min-w-0" style={{ color: 'var(--text-primary)' }}>{pageTitle}</h1>
           </div>
 
-          {/* Right: theme toggle + user menu */}
+          {/* Right: share + theme toggle + user menu */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <SharePageButton pageKey={resolvePageKey(location.pathname, location.search)} />
             <ThemeToggle />
             <UserMenu
               displayName={profile?.displayName ?? ''}

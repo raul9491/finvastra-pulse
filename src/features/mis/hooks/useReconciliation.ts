@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import {
-  collection, query, where, onSnapshot, getDocs, updateDoc,
+  collection, query, where, onSnapshot, getDocs, getDoc, updateDoc,
   doc, writeBatch, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
+import { maybeCreateDispute, type DisputeSeed } from './useDisputes';
 import type { StatementLine, StatementLineStatus, CommissionRecord } from '../../../types';
 
 // ─── useUnmatchedLines ────────────────────────────────────────────────────────
@@ -116,6 +117,8 @@ export async function autoMatch(
     recordId: string;
     status: StatementLineStatus;
     discrepancyAmount: number | null;
+    // Phase P — seed for auto-creating a commission dispute on >5% variance
+    disputeSeed?: DisputeSeed;
   }> = [];
 
   // 3. Score each unmatched line against every available commission record
@@ -160,7 +163,20 @@ export async function autoMatch(
       const status: StatementLineStatus = diffPct <= 0.02 ? 'matched' : 'discrepancy';
       const discrepancyAmount =
         status === 'discrepancy' ? line.parsedAmount - bestRecord.calculatedCommission : null;
-      updates.push({ lineId: line.id, recordId: bestRecord.id, status, discrepancyAmount });
+      updates.push({
+        lineId: line.id, recordId: bestRecord.id, status, discrepancyAmount,
+        ...(status === 'discrepancy' ? {
+          disputeSeed: {
+            commissionRecordId: bestRecord.id,
+            statementLineId:    line.id,
+            providerId:         bestRecord.providerId,
+            opportunityId:      bestRecord.opportunityId,
+            leadId:             bestRecord.leadId,
+            expectedAmount:     bestRecord.calculatedCommission,
+            receivedAmount:     line.parsedAmount,
+          },
+        } : {}),
+      });
       if (status === 'matched') matched++;
       else discrepancy++;
     }
@@ -180,6 +196,12 @@ export async function autoMatch(
       );
     }
     await batch.commit();
+  }
+
+  // 5b. Phase P — auto-create disputes for >5% variances (deduped inside;
+  //     fire-and-forget so reconciliation never blocks on it)
+  for (const u of updates) {
+    if (u.disputeSeed) void maybeCreateDispute(u.disputeSeed);
   }
 
   // 6. Update statement-level counts and status
@@ -225,6 +247,26 @@ export async function manualMatch(
       reconciledAt: serverTimestamp(),
     },
   );
+
+  // Phase P — auto-create a dispute when the manual match lands as a
+  // >5% discrepancy (deduped + fire-and-forget inside maybeCreateDispute).
+  if (status === 'discrepancy') {
+    try {
+      const recSnap = await getDoc(doc(db, 'commission_records', commissionRecordId));
+      if (recSnap.exists()) {
+        const rec = recSnap.data() as CommissionRecord;
+        void maybeCreateDispute({
+          commissionRecordId,
+          statementLineId: lineId,
+          providerId:      rec.providerId,
+          opportunityId:   rec.opportunityId,
+          leadId:          rec.leadId,
+          expectedAmount:  recordAmount,
+          receivedAmount:  lineAmount,
+        });
+      }
+    } catch { /* never block manual matching */ }
+  }
 }
 
 // ─── unmatch ──────────────────────────────────────────────────────────────────

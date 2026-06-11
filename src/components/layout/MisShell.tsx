@@ -4,8 +4,9 @@ import { signOut } from 'firebase/auth';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   LayoutDashboard, FileText, GitMerge, IndianRupee, Settings, LogOut, LayoutGrid, BarChart3,
-  Menu, X, User,
+  Menu, X, User, AlertTriangle,
 } from 'lucide-react';
+import { useOpenDisputeCount } from '../../features/mis/hooks/useDisputes';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { VideoLogo } from '../ui/VideoLogo';
@@ -23,6 +24,7 @@ const NAV: NavEntry[] = [
   { path: '/mis/overview',            label: 'Dashboard',      icon: BarChart3,       adminOnly: false },
   { path: '/mis/statements',          label: 'Statements',     icon: FileText,        adminOnly: false },
   { path: '/mis/reconciliation',      label: 'Reconciliation', icon: GitMerge,        adminOnly: false },
+  { path: '/mis/disputes',            label: 'Disputes',       icon: AlertTriangle,   adminOnly: false },
   { path: '/mis/payouts',             label: 'RM Payouts',     icon: IndianRupee,      adminOnly: false },
   { path: '/mis/admin/payout-slabs',  label: 'Payout Slabs',   icon: Settings,        adminOnly: true  },
   { path: '/mis/admin/statement-templates', label: 'Statement Templates', icon: Settings, adminOnly: true },
@@ -40,6 +42,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/mis/statements':         'Commission Statements',
   '/mis/statements/upload':  'Upload Statement',
   '/mis/reconciliation':     'Reconciliation',
+  '/mis/disputes':           'Commission Disputes',
   '/mis/payouts':            'RM Payouts',
   '/mis/payouts/generate':   'Generate Payouts',
   '/mis/admin/payout-slabs': 'Payout Slabs',
@@ -64,6 +67,11 @@ export function MisShell() {
 
   // Phase P — active page shares (exception grants for users without misAccess).
   const myShares = useMyShares(user?.uid);
+
+  // Phase P — red badge: open commission disputes.
+  const openDisputes = useOpenDisputeCount(
+    profile?.role === 'admin' || profile?.misAccess != null,
+  );
 
   // Close mobile drawer on route change
   useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
@@ -130,7 +138,13 @@ export function MisShell() {
               }
             >
               <Icon size={17} className="shrink-0" />
-              <span className="text-sm">{label}</span>
+              <span className="text-sm flex-1">{label}</span>
+              {path === '/mis/disputes' && openDisputes > 0 && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                  style={{ backgroundColor: 'rgba(248,113,113,0.18)', color: '#f87171' }}>
+                  {openDisputes}
+                </span>
+              )}
             </NavLink>
           ))}
           {/* Phase P — full-access user who ALSO holds shares (edge case) */}

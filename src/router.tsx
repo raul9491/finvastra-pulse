@@ -129,6 +129,7 @@ const TeamPerformancePage      = lazyPage(() => import('./features/crm/team/Team
 // ── MIS (lazy group) ─────────────────────────────────────────────────────────
 const MisShell                 = lazyPage(() => import('./components/layout/MisShell'), 'MisShell');
 const MisOverviewPage          = lazyPage(() => import('./features/mis/overview/MisOverviewPage'), 'MisOverviewPage');
+const DisputesPage             = lazyPage(() => import('./features/mis/disputes/DisputesPage'), 'DisputesPage');
 const StatementsPage           = lazyPage(() => import('./features/mis/statements/StatementsPage'), 'StatementsPage');
 const UploadStatementPage      = lazyPage(() => import('./features/mis/statements/UploadStatementPage'), 'UploadStatementPage');
 const StatementDetailPage      = lazyPage(() => import('./features/mis/statements/StatementDetailPage'), 'StatementDetailPage');
@@ -276,6 +277,7 @@ export const router = createBrowserRouter([
       { path: 'statements/upload',    element: s(<UploadStatementPage />) },
       { path: 'statements/:statementId', element: s(<StatementDetailPage />) },
       { path: 'reconciliation',       element: s(<ReconciliationPage />) },
+      { path: 'disputes',             element: s(<DisputesPage />) },
       { path: 'payouts',              element: s(<PayoutsPage />) },
       { path: 'payouts/generate',     element: s(<GeneratePayoutsPage />) },
       { path: 'payouts/:payoutId',    element: s(<PayoutDetailPage />) },

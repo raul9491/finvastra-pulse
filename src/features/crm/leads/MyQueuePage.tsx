@@ -74,10 +74,11 @@ export function MyQueuePage() {
       {!loading && leads.length > 0 && (
         <div className="hidden sm:flex items-center gap-4 px-5 py-2">
           <div className="w-32 shrink-0 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Name</div>
-          <div className="w-36 shrink-0 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Product</div>
-          <div className="w-20 shrink-0 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Source</div>
+          <div className="w-28 shrink-0 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Contact</div>
+          <div className="hidden md:block w-36 shrink-0 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Product</div>
+          <div className="hidden lg:block w-20 shrink-0 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Source</div>
           <div className="w-32 shrink-0 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>SLA</div>
-          <div className="flex-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Stage</div>
+          <div className="hidden md:block flex-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Stage</div>
           <div className="shrink-0 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Actions</div>
         </div>
       )}

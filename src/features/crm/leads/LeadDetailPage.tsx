@@ -12,6 +12,10 @@ import { auth, db } from '../../../lib/firebase';
 import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { FOIRCalculator } from './FOIRCalculator';
 import { QuickContactBar } from './QuickContactBar';
+import { ContactActions, PhoneLink } from '../components/ContactActions';
+import { mapsLink } from '../../../lib/geo';
+import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import { writeNotification } from '../../../lib/notifications';
 import { PresenceChips } from '../components/PresenceChips';
 import { QuickLogBar } from '../components/QuickLogBar';
 import { LeadActivityFeed } from '../components/LeadActivityFeed';
@@ -164,6 +168,9 @@ export function LeadDetailPage() {
 
   const isAdmin = profile?.role === 'admin';
   const isPrimaryOwner = user?.uid === lead?.primaryOwnerId;
+  // CRM managers can work their reports' leads (rules verify the actual
+  // reporting relationship via isManagerOf — a wrong manager's write fails).
+  const canWorkLead = isAdmin || isPrimaryOwner || profile?.crmRole === 'manager';
 
   // ─── Lead view audit log ──────────────────────────────────────────────────────
   // Fires once when the lead finishes loading. useRef guard prevents double-fire
@@ -214,6 +221,44 @@ export function LeadDetailPage() {
       );
     } finally {
       setSavingStatus(false);
+    }
+  };
+
+  // ─── Reassign lead (owner/admin → anyone with CRM access) ───────────────────────
+  // The owner-update rule already permits primaryOwnerId changes; this adds the UI.
+  const [showReassign, setShowReassign] = useState(false);
+  const [reassignTo, setReassignTo] = useState('');
+  const [savingReassign, setSavingReassign] = useState(false);
+
+  const handleReassign = async () => {
+    if (!leadId || !user || !reassignTo || reassignTo === lead?.primaryOwnerId) return;
+    setSavingReassign(true);
+    try {
+      await updateWithHistory(
+        doc(db, 'leads', leadId),
+        { primaryOwnerId: { old: lead?.primaryOwnerId ?? null, new: reassignTo } },
+        { uid: user.uid, name: profile?.displayName ?? '' },
+        'reassign',
+        { updatedAt: serverTimestamp() },
+      );
+      // Activity trail + tell the new owner (both fire-and-forget).
+      addDoc(collection(db, 'leads', leadId, 'activities'), {
+        type: 'status_change',
+        content: `Customer reassigned to ${ownerName(reassignTo)} by ${profile?.displayName ?? 'a colleague'}`,
+        by: user.uid,
+        byName: profile?.displayName ?? '',
+        at: serverTimestamp(),
+      }).catch(() => {});
+      writeNotification(reassignTo, {
+        type: 'new_lead',
+        title: 'Customer assigned to you',
+        body: `${lead?.displayName ?? 'A customer'} was assigned to you by ${profile?.displayName ?? 'a colleague'}.`,
+        link: `/crm/leads/${leadId}`,
+      });
+      setShowReassign(false);
+      setReassignTo('');
+    } finally {
+      setSavingReassign(false);
     }
   };
 
@@ -317,8 +362,9 @@ export function LeadDetailPage() {
         <ArrowLeft size={15} /> Back to Customers
       </button>
 
-      {/* Quick contact bar — shown to the lead generator who owns this lead */}
-      {profile?.crmRole === 'lead_generator' && user?.uid === lead.primaryOwnerId && (
+      {/* Quick contact bar — shown to the lead's owner, their manager, and admins
+          (previously generator-only, which hid Call/WhatsApp from convertors) */}
+      {canWorkLead && (
         <QuickContactBar
           lead={lead}
           oppId={
@@ -359,7 +405,45 @@ export function LeadDetailPage() {
                   View HR Profile →
                 </Link>
               )}
+              {canWorkLead && !showReassign && (
+                <button
+                  onClick={() => setShowReassign(true)}
+                  className="text-xs font-medium underline transition-opacity hover:opacity-70"
+                  style={{ color: '#C9A961' }}
+                >
+                  Reassign
+                </button>
+              )}
             </p>
+            {showReassign && (
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <div style={{ minWidth: 220 }}>
+                  <SearchableSelect
+                    value={reassignTo}
+                    onChange={setReassignTo}
+                    options={employees
+                      .filter((e) => (e.crmAccess === true || e.role === 'admin') && e.userId !== lead.primaryOwnerId && e.employeeStatus !== 'inactive')
+                      .map((e) => ({ value: e.userId, label: e.displayName }))}
+                    placeholder="Assign to…"
+                  />
+                </div>
+                <button
+                  onClick={handleReassign}
+                  disabled={savingReassign || !reassignTo}
+                  className="text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40"
+                  style={{ backgroundColor: '#C9A961', color: '#0B1538' }}
+                >
+                  {savingReassign ? 'Assigning…' : 'Assign'}
+                </button>
+                <button
+                  onClick={() => { setShowReassign(false); setReassignTo(''); }}
+                  className="text-xs"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {/* Phase P — who else is on this lead right now */}
@@ -381,7 +465,7 @@ export function LeadDetailPage() {
         </div>
 
         {/* Lead disposition — telecaller marks the call outcome (works even with no opportunity) */}
-        {(isAdmin || isPrimaryOwner) && (
+        {canWorkLead && (
           <div className="flex flex-wrap items-center gap-2 mb-5 pb-5" style={{ borderBottom: '1px solid var(--shell-border)' }}>
             <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Status</span>
             {leadId && <FieldHistory parentPath={['leads', leadId]} field="leadStatus" label="Status" />}
@@ -440,7 +524,10 @@ export function LeadDetailPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Phone</p>
-            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{lead.phone}</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <PhoneLink phone={lead.phone} mono={false} className="text-sm font-medium" />
+              <ContactActions phone={lead.phone} email={lead.email} name={lead.displayName} size="sm" />
+            </div>
           </div>
           {lead.email && (
             <div>
@@ -475,6 +562,20 @@ export function LeadDetailPage() {
               {lead.createdAt?.toDate ? format(lead.createdAt.toDate(), 'dd MMM yyyy') : '—'}
             </p>
           </div>
+          {lead.meetingLocation && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Met At</p>
+              <a
+                href={mapsLink(lead.meetingLocation)}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm font-medium no-underline hover:underline"
+                style={{ color: '#C9A961' }}
+              >
+                📍 View on map
+              </a>
+            </div>
+          )}
           {(lead.tags ?? []).length > 0 && (
             <div className="col-span-2">
               <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Tags</p>

@@ -7,13 +7,14 @@ import {
   doc, collection, query, where, orderBy, limit, serverTimestamp,
 } from 'firebase/firestore';
 import { useAuth } from '../../auth/AuthContext';
-import { useLeads } from '../hooks/useLeads';
+import { useLeads, useTeamLeads } from '../hooks/useLeads';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { useOpportunityTypes } from '../hooks/useOpportunities';
 import { db } from '../../../lib/firebase';
 import { BulkActionBar } from '../../../components/ui/BulkActionBar';
 import type { Lead, LeadSource } from '../../../types';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import { PhoneLink } from '../components/ContactActions';
 
 const SOURCE_LABELS: Record<LeadSource, string> = {
   website: 'Website', instagram: 'Instagram', facebook: 'Facebook',
@@ -50,9 +51,23 @@ export function LeadsPage() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const isAdmin = profile?.role === 'admin';
-  const { leads, loading } = useLeads(user?.uid ?? null, isAdmin);
+  const { leads: ownLeads, loading } = useLeads(user?.uid ?? null, isAdmin);
   const { employees } = useAllEmployees();
   const { types } = useOpportunityTypes();
+
+  // Manager team view — a CRM manager (e.g. a telecaller team lead) can switch
+  // between their own customers and their direct reports'. Reports never see
+  // each other's leads; only the manager gets the team scope.
+  const isTeamManager = !isAdmin && profile?.crmRole === 'manager';
+  const [viewScope, setViewScope] = useState<'mine' | 'team'>('mine');
+  const { leads: teamLeads, teamUids } = useTeamLeads(
+    user?.uid ?? null,
+    isTeamManager && viewScope === 'team',
+  );
+  const leads = useMemo(
+    () => (isTeamManager && viewScope === 'team' ? [...ownLeads, ...teamLeads] : ownLeads),
+    [isTeamManager, viewScope, ownLeads, teamLeads],
+  );
 
   const [search, setSearch] = useState('');
   const [filterSource, setFilterSource] = useState('');
@@ -277,6 +292,25 @@ export function LeadsPage() {
           onChange={(v) => setFilterRm(v)}
           label="Filter by RM"
         />
+        {/* Manager scope toggle — own customers vs the whole team's */}
+        {isTeamManager && (
+          <div className="flex rounded-full border overflow-hidden" style={{ borderColor: 'var(--shell-border-mid)' }}>
+            {([['mine', 'My customers'], ['team', `Team${viewScope === 'team' && teamUids.length > 0 ? ` (${teamUids.length})` : ''}`]] as const).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setViewScope(key)}
+                className="text-xs font-semibold px-3 py-2 transition-colors"
+                style={
+                  viewScope === key
+                    ? { backgroundColor: '#C9A961', color: '#0B1538' }
+                    : { backgroundColor: 'var(--glass-panel-bg)', color: 'var(--text-muted)' }
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         {/* Referrals quick-filter chip — visible to admin and CRM-role employees */}
         {(isAdmin || !!profile?.crmRole) && (
           <button
@@ -414,7 +448,9 @@ export function LeadsPage() {
                     <td className="px-5 py-4">
                       <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{lead.displayName}</p>
                     </td>
-                    <td className="px-5 py-4 text-sm" style={{ color: 'var(--text-muted)' }}>{lead.phone}</td>
+                    <td className="px-5 py-4 text-sm" onClick={(e) => e.stopPropagation()}>
+                      <PhoneLink phone={lead.phone} mono={false} className="text-sm" />
+                    </td>
                     <td className="px-5 py-4 text-sm" style={{ color: 'var(--text-muted)' }}>
                       {SOURCE_LABELS[lead.source] ?? lead.source}
                     </td>

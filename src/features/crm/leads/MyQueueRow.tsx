@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QuickLogBar } from '../components/QuickLogBar';
+import { ContactActions, PhoneLink } from '../components/ContactActions';
 import { TransferModal } from '../opportunities/TransferModal';
 import { formatSlaStatus } from '../../../lib/slaUtils';
 import type { LeadWithOpportunity } from '../hooks/useMyLeads';
@@ -57,21 +58,26 @@ export function MyQueueRow({ item, onRefresh }: Props) {
 
   return (
     <>
-      {/* ─── Main row ──────────────────────────────────────────────────────── */}
+      {/* ─── Main row — wraps on mobile so nothing is cut off ─────────────── */}
       <div className="glass-panel overflow-hidden">
-        <div className="flex items-center gap-4 px-5 py-4">
-          {/* Name */}
-          <div className="w-32 shrink-0">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 sm:px-5 py-3.5">
+          {/* Name + tappable phone */}
+          <div className="w-36 sm:w-32 shrink-0">
             <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
               {shortName(lead.displayName)}
             </p>
-            <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--text-muted)' }}>
-              {lead.phone}
+            <p className="text-[11px] mt-0.5 truncate">
+              <PhoneLink phone={lead.phone} mono={false} className="text-[11px]" />
             </p>
           </div>
 
-          {/* Product badge */}
-          <div className="w-36 shrink-0">
+          {/* Call / WhatsApp / Email — one-tap from the queue */}
+          <div className="sm:w-28 shrink-0">
+            <ContactActions phone={lead.phone} email={lead.email} name={lead.displayName} size="sm" />
+          </div>
+
+          {/* Product badge — hidden on small screens */}
+          <div className="hidden md:block w-36 shrink-0">
             {opp?.product ? (
               <span
                 className="inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full truncate max-w-full badge-glass-warning"
@@ -83,8 +89,8 @@ export function MyQueueRow({ item, onRefresh }: Props) {
             )}
           </div>
 
-          {/* Source */}
-          <div className="w-20 shrink-0">
+          {/* Source — hidden on small screens */}
+          <div className="hidden lg:block w-20 shrink-0">
             <span
               className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full"
               style={{ backgroundColor: sourcePill.bg, color: sourcePill.text }}
@@ -93,8 +99,8 @@ export function MyQueueRow({ item, onRefresh }: Props) {
             </span>
           </div>
 
-          {/* SLA */}
-          <div className="w-32 shrink-0">
+          {/* SLA — always visible (the urgency signal) */}
+          <div className="w-auto sm:w-32 shrink-0">
             {sla ? (
               <span
                 className={`inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${sla.overdue ? 'badge-glass-danger' : sla.hoursLeft < 2 ? 'badge-glass-warning' : 'badge-glass-success'}`}
@@ -106,29 +112,29 @@ export function MyQueueRow({ item, onRefresh }: Props) {
             )}
           </div>
 
-          {/* Stage */}
-          <div className="flex-1 min-w-0">
+          {/* Stage — hidden on small screens */}
+          <div className="hidden md:block flex-1 min-w-0">
             <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>
               {opp?.stage ?? '—'}
             </p>
           </div>
 
-          {/* Quick actions */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Quick actions — full-width row on mobile, inline on desktop */}
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto sm:ml-auto">
             <button
               onClick={() => setLogOpen((v) => !v)}
               title="Log activity"
-              className="text-xs px-3 py-1.5 rounded-lg border hover:bg-(--shell-hover-soft) transition-colors font-medium"
+              className="text-xs px-3 py-2 sm:py-1.5 rounded-lg border hover:bg-(--shell-hover-soft) transition-colors font-medium flex-1 sm:flex-none"
               style={{ color: 'var(--text-primary)', borderColor: 'var(--shell-border-mid)' }}
             >
-              📞 Log activity
+              📝 Log
             </button>
 
             <button
               onClick={() => setTransferOpen(true)}
               disabled={!opp}
               title={opp ? 'Transfer to specialist' : 'No open opportunity'}
-              className="text-xs px-3 py-1.5 rounded-lg border hover:bg-(--shell-hover-soft) transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+              className="text-xs px-3 py-2 sm:py-1.5 rounded-lg border hover:bg-(--shell-hover-soft) transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex-1 sm:flex-none"
               style={{ color: 'var(--text-primary)', borderColor: 'var(--shell-border-mid)' }}
             >
               → Transfer
@@ -137,7 +143,7 @@ export function MyQueueRow({ item, onRefresh }: Props) {
             <button
               onClick={() => navigate('/crm/leads/' + lead.id)}
               title="Open lead detail"
-              className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-opacity hover:opacity-80"
+              className="text-xs px-3 py-2 sm:py-1.5 rounded-lg font-semibold transition-opacity hover:opacity-80 flex-1 sm:flex-none"
               style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
             >
               ↗ Open

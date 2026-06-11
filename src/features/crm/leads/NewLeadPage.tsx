@@ -10,6 +10,7 @@ import { useConnectors } from '../../hrms/hooks/useConnectors';
 import { leadSchema, type LeadFormValues } from './leadSchema';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { checkForDuplicates } from './duplicateDetection';
+import { getCurrentPosition, mapsLink, type GeoPoint } from '../../../lib/geo';
 
 function Field({ label, error, children, hint }: {
   label: string; error?: string; children: React.ReactNode; hint?: string;
@@ -36,6 +37,23 @@ export function NewLeadPage() {
   const { connectors } = useConnectors();
   const [submitError, setSubmitError] = useState('');
   const [connectorId, setConnectorId] = useState('');
+
+  // Field ops — RM captures the meeting spot when adding a customer on the go
+  const [meetingLoc, setMeetingLoc] = useState<GeoPoint | null>(null);
+  const [locStatus, setLocStatus] = useState<'idle' | 'getting' | 'error'>('idle');
+  const [locError, setLocError] = useState('');
+
+  const handleCaptureLocation = async () => {
+    setLocStatus('getting');
+    setLocError('');
+    try {
+      setMeetingLoc(await getCurrentPosition());
+      setLocStatus('idle');
+    } catch (e) {
+      setLocError(e instanceof Error ? e.message : 'Could not get location.');
+      setLocStatus('error');
+    }
+  };
 
   const rmOptions = useMemo(
     () => employees.filter((e) => e.crmAccess === true || e.role === 'admin'),
@@ -79,7 +97,8 @@ export function NewLeadPage() {
     try {
       const conn = connectorId ? activeConnectors.find((c) => c.id === connectorId) : null;
       const newId = await createLead(values, user.uid,
-        conn ? { id: conn.id, code: conn.connectorCode, name: conn.displayName } : null);
+        conn ? { id: conn.id, code: conn.connectorCode, name: conn.displayName } : null,
+        meetingLoc ? { lat: meetingLoc.lat, lng: meetingLoc.lng } : null);
       navigate(`/crm/leads/${newId}`, { state: { justCreated: true } });
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : 'Failed to create customer. Please try again.');
@@ -185,6 +204,44 @@ export function NewLeadPage() {
               onChange={setConnectorId}
               placeholder="Direct / no connector"
             />
+          </Field>
+
+          {/* Field-meeting location — optional GPS tag for on-site customer additions */}
+          <Field label="Meeting Location" hint={meetingLoc ? undefined : 'On a field visit? Tag where you met the customer.'}>
+            <div className="flex flex-wrap items-center gap-2">
+              {meetingLoc ? (
+                <>
+                  <a
+                    href={mapsLink(meetingLoc)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm font-medium no-underline hover:underline"
+                    style={{ color: '#C9A961' }}
+                  >
+                    📍 Location captured — view on map
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setMeetingLoc(null)}
+                    className="text-xs"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    Remove
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleCaptureLocation}
+                  disabled={locStatus === 'getting'}
+                  className="text-sm px-4 py-2.5 rounded-lg border font-medium transition-colors hover:bg-(--shell-hover-soft) disabled:opacity-50"
+                  style={{ color: 'var(--text-primary)', borderColor: 'var(--shell-border-mid)' }}
+                >
+                  {locStatus === 'getting' ? 'Getting location…' : '📍 Use my current location'}
+                </button>
+              )}
+            </div>
+            {locError && <p className="mt-1 text-xs text-red-400">{locError}</p>}
           </Field>
         </div>
 

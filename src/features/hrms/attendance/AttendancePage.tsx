@@ -15,6 +15,7 @@ import { Timestamp } from 'firebase/firestore';
 import { useAuth } from '../../auth/AuthContext';
 import type { UserProfile } from '../../../types';
 import { useMyAttendance, useTodayAttendance, checkIn, checkOut } from '../hooks/useAttendance';
+import { useGeofenceConfig, enforceGeofence } from '../../../lib/geo';
 import type { AttendanceStatus, Attendance } from '../../../types';
 import {
   useMyRegularizations, submitRegularization,
@@ -308,6 +309,9 @@ export function AttendancePage() {
   const { records, loading: monthLoading } = useMyAttendance(userId, currentMonth);
   const { record: todayRecord, loading: todayLoading } = useTodayAttendance(userId);
 
+  // ── Office geofence (admin-set) — clock in/out locked to the office radius ──
+  const { config: geofence } = useGeofenceConfig();
+
   // ── Regularization state ───────────────────────────────────────────────────
   const [regularizeDate, setRegularizeDate] = useState<string | null>(null);
   const { requests: myRegularizations } = useMyRegularizations(userId, currentMonth);
@@ -346,14 +350,17 @@ export function AttendancePage() {
     if (!userId) return;
     setCheckingIn(true);
     try {
-      await checkIn(userId);
+      // Geofence check first — throws a readable error when outside the office
+      // radius (or when location is denied while the geofence is enabled).
+      const location = await enforceGeofence(geofence);
+      await checkIn(userId, location);
     } catch (err) {
       console.error('[AttendancePage] checkIn error:', err);
-      showClockError('Check-in failed. Please try again.');
+      showClockError(err instanceof Error ? err.message : 'Check-in failed. Please try again.');
     } finally {
       setCheckingIn(false);
     }
-  }, [userId]);
+  }, [userId, geofence]);
 
   const handleCheckOut = useCallback(async () => {
     if (!todayRecord) return;
@@ -364,14 +371,15 @@ export function AttendancePage() {
     }
     setCheckingOut(true);
     try {
-      await checkOut(todayRecord.id, checkInDate);
+      const location = await enforceGeofence(geofence);
+      await checkOut(todayRecord.id, checkInDate, location);
     } catch (err) {
       console.error('[AttendancePage] checkOut error:', err);
-      showClockError('Check-out failed. Please try again.');
+      showClockError(err instanceof Error ? err.message : 'Check-out failed. Please try again.');
     } finally {
       setCheckingOut(false);
     }
-  }, [todayRecord]);
+  }, [todayRecord, geofence]);
 
   // ── Calendar helpers ───────────────────────────────────────────────────────
   const recordMap = new Map<string, Attendance>(records.map((r) => [r.date, r]));
@@ -428,6 +436,12 @@ export function AttendancePage() {
             <div className="mb-4 px-3 py-2 rounded-lg text-xs" style={{ backgroundColor: 'rgba(248,113,113,0.12)', color: '#f87171', border: '1px solid rgba(248,113,113,0.25)' }}>
               {clockError}
             </div>
+          )}
+
+          {geofence?.enabled && (
+            <p className="mb-3 text-[11px] flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
+              📍 Clock in/out works within {geofence.radiusMeters} m of {geofence.label || 'the office'}.
+            </p>
           )}
 
           {todayLoading && (

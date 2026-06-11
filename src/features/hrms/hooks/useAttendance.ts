@@ -82,7 +82,12 @@ export function useTodayAttendance(userId: string): {
 
 // ─── checkIn ─────────────────────────────────────────────────────────────────
 // Creates a new attendance record with checkIn timestamp.
-export async function checkIn(userId: string): Promise<void> {
+// location: GPS point captured at clock-in (geofence enforcement happens in the
+// page before this is called; stored for the audit trail either way).
+export async function checkIn(
+  userId: string,
+  location?: { lat: number; lng: number } | null,
+): Promise<void> {
   await addDoc(collection(db, 'attendance'), {
     userId,
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -92,6 +97,7 @@ export async function checkIn(userId: string): Promise<void> {
     status: 'present' as AttendanceStatus,
     markedBy: 'self' as const,
     notes: '',
+    ...(location ? { checkInLocation: { lat: location.lat, lng: location.lng } } : {}),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -100,11 +106,16 @@ export async function checkIn(userId: string): Promise<void> {
 // ─── checkOut ────────────────────────────────────────────────────────────────
 // Writes checkOut as serverTimestamp, then reads the committed value back to
 // compute workingHours from server time — avoids client clock drift.
-export async function checkOut(recordId: string, checkInTime: Date): Promise<void> {
+export async function checkOut(
+  recordId: string,
+  checkInTime: Date,
+  location?: { lat: number; lng: number } | null,
+): Promise<void> {
   const ref = doc(db, 'attendance', recordId);
   try {
     await updateDoc(ref, {
       checkOut:  serverTimestamp(),
+      ...(location ? { checkOutLocation: { lat: location.lat, lng: location.lng } } : {}),
       updatedAt: serverTimestamp(),
     });
 

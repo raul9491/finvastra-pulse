@@ -92,7 +92,11 @@ service cloud.firestore {
                'consentMethod', 'createdBy', 'createdAt', 'updatedAt', 'deleted',
                'deletedAt', 'slaDeadline', 'triagePriority', 'importBatchId',
                'importHash', 'importedBy', 'importedAt', 'referredBy',
-               'referrerName'
+               'referrerName',
+               // Phase Q connector (was missing — blocked connector-sourced customers)
+               'connectorId', 'connectorCode', 'connectorName',
+               // Field ops — GPS point captured when the RM adds a customer on-site
+               'meetingLocation'
              ]) &&
              data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 200 &&
              data.phone is string && data.phone.size() == 10 &&
@@ -302,6 +306,9 @@ service cloud.firestore {
                      resource.data.get('referredBy', null) == request.auth.uid;
       allow list: if isAdmin() ||
                      (hasCrmAccess() && resource.data.primaryOwnerId == request.auth.uid) ||
+                     // Manager team view — works for queries that pin primaryOwnerId
+                     // to a single value (the client queries per direct report).
+                     isManagerOf(resource.data.primaryOwnerId) ||
                      resource.data.get('referredBy', null) == request.auth.uid;
 
       // Admin always bypasses crmAccess — needed when the user doc was bootstrapped
@@ -741,9 +748,17 @@ service cloud.firestore {
                        (isSignedIn() &&
                         resource.data.get('userId', '') == request.auth.uid &&
                         incoming().diff(existing()).affectedKeys().hasOnly(
-                          ['checkOut', 'workingHours', 'status', 'updatedAt']
+                          ['checkOut', 'checkOutLocation', 'workingHours', 'status', 'updatedAt']
                         ));
       allow delete: if false;
+    }
+
+    // ─── App config (admin-set platform settings, e.g. attendance geofence) ─────
+    // Readable by everyone signed in (the attendance page must check the fence);
+    // writable by admin / HR manager only. No PII lives here.
+    match /app_config/{docId} {
+      allow read:   if isSignedIn();
+      allow write:  if isAdmin() || isHrmsManager();
     }
 
     // ─── HRMS: Leave Applications ────────────────────────────────────────────────

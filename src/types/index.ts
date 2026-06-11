@@ -334,6 +334,9 @@ export interface Attendance {
   status: AttendanceStatus;
   markedBy: 'self' | 'admin';
   notes: string;
+  // Field ops — GPS points captured at clock in/out (geofence audit trail)
+  checkInLocation?: { lat: number; lng: number };
+  checkOutLocation?: { lat: number; lng: number };
   createdAt: import('firebase/firestore').Timestamp;
   updatedAt: import('firebase/firestore').Timestamp;
 }
@@ -438,6 +441,8 @@ export interface Lead {
   // Callback scheduling — set when leadStatus === 'callback'
   callbackAt?: string;             // ISO datetime the customer asked to be called back
   callbackReminderSent?: boolean;  // server sets true once the due reminder has fired
+  // Field ops — GPS point captured by the RM when the customer was added at a meeting
+  meetingLocation?: { lat: number; lng: number; capturedAt: string };
   // Bulk import provenance fields
   importBatchId?: string;
   importName?: string;    // denormalised batch label for source-quality analysis

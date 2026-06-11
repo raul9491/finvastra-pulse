@@ -2384,7 +2384,7 @@ Every collection with a rule block. The global deny-all (`/{document=**}`) rejec
 
 **MIS**: `commission_statements`, `commission_statements/{id}/lines`, `rm_payout_slabs`, `rm_payouts`
 
-**Infra**: `rate_limits` (server-only), `audit_logs`, `access_logs`
+**Infra**: `rate_limits` (server-only), `audit_logs`, `access_logs`, `app_config` (Phase R — admin-set platform settings, e.g. `attendance_geofence`)
 
 **Performance (Phase N)**: `rm_targets`, `follow_up_logs`, `scorecard_logs`, `commission_statement_templates`
 
@@ -2521,6 +2521,27 @@ The **main `/connectors/{id}` doc is readable by CRM users** (so the add-case pi
 
 ### Payouts flow
 On a connector's detail modal: pending/paid summary chips, **Add payout** (business line + case reference + amount + notes), each pending payout has **Mark as paid** (reveals a payment-reference field). The connectors list shows each connector's **pending ₹** total (live from a `connector_payouts` subscription). Manual entry for v1 — not auto-created from disbursals.
+
+---
+
+## Phase R — Telecaller Field Ops + Geofenced Attendance + Manager Team View (2026-06-11)
+
+Mobile-first features for telecallers and field RMs. All deterministic — no AI.
+
+| Part | Feature | Files |
+|---|---|---|
+| **One-tap contact actions** | `ContactActions` + `PhoneLink` (`src/features/crm/components/ContactActions.tsx`) — Call (`tel:+91…` → default dialer), WhatsApp (`wa.me/91…`), Email (`mailto:`); `telHref`/`waHref` helpers normalise +91/spaces/dashes. Placed: QuickContactBar (new gold **📞 Call** button; Log Call renamed 📝; visibility widened from generator-only to **owner/manager/admin**), MyQueueRow (icon row + tappable number), LeadsPage table (tappable number), LeadDetailPage Phone cell (number + icon row) | `QuickContactBar.tsx`, `MyQueueRow.tsx`, `LeadsPage.tsx`, `LeadDetailPage.tsx` |
+| **Geofenced clock in/out** | `src/lib/geo.ts` — `getCurrentPosition` (readable errors), `haversineMeters`, `useGeofenceConfig`/`saveGeofenceConfig` (`/app_config/attendance_geofence` `{enabled, lat, lng, radiusMeters, label}`), `enforceGeofence` (throws "You are X km from the office…" outside the radius; when disabled, still best-effort captures the point without blocking). `AttendancePage` runs the check before `checkIn`/`checkOut` and shows a radius hint; the GPS point is stored as `checkInLocation`/`checkOutLocation` on the attendance record (audit trail). **Admin config: AdminAttendancePage → new "Geofence" tab** — "Use my current location", radius (min 50 m), label, enable toggle | `geo.ts`, `src/features/hrms/hooks/useAttendance.ts`, `AttendancePage.tsx`, `AdminAttendancePage.tsx` |
+| **Meeting-location on customer add** | NewLeadPage optional "📍 Use my current location" → `lead.meetingLocation {lat,lng,capturedAt}` (via `createLead` 4th param); LeadDetailPage shows "Met At → view on map" (Google Maps link) | `NewLeadPage.tsx`, `useLeads.ts`, `LeadDetailPage.tsx`, `types/index.ts` |
+| **Lead reassign (share)** | LeadDetailPage header "Reassign" link (owner/manager/admin) → SearchableSelect of active CRM users → `updateWithHistory(primaryOwnerId)` + activity entry + bell notification to the new owner. Rules already allowed `primaryOwnerId` in the owner-update key set — this adds the UI | `LeadDetailPage.tsx` |
+| **Manager team leads view** | `useTeamLeads(managerUid, enabled)` in `useLeads.ts` — resolves direct reports (`users.reportingManagerUid == me`, active only), then **one leads listener per report** (each query pins `primaryOwnerId` to a single value so the list rule can evaluate `isManagerOf`). LeadsPage: **"My customers / Team (N)" toggle** for `crmRole==='manager'` non-admins (built for Hemadri's telecaller team). Peers still cannot see each other's leads — only the manager fans out. LeadDetailPage work-controls (`canWorkLead`: disposition, callback, reassign, contact bar) now include managers — rules verify the real reporting relationship, a wrong manager's write fails | `useLeads.ts`, `LeadsPage.tsx`, `LeadDetailPage.tsx` |
+| **Mobile pass** | MyQueueRow rewritten responsive: rows wrap, Product/Source/Stage hide on small screens, SLA always visible, action buttons become a full-width row on mobile (py-2 tap targets), contact icons ≥32 px; MyQueuePage header matches the new columns | `MyQueueRow.tsx`, `MyQueuePage.tsx` |
+
+### firestore.rules changes (Phase R)
+- **`isValidLead` hasOnly fix** — added `connectorId/connectorCode/connectorName` (**latent Phase Q bug**: creating a customer with a connector selected was rejected by rules for everyone, admin included) + `meetingLocation`.
+- Leads `allow list` — added `isManagerOf(resource.data.primaryOwnerId)` (works because team queries pin `primaryOwnerId` per report; a broad unpinned query still fails).
+- Attendance update `hasOnly` — added `checkOutLocation` (create has no hasOnly, so `checkInLocation` passes as-is).
+- **New `/app_config/{docId}`** — read `isSignedIn()`, write `isAdmin() || isHrmsManager()`. Holds `attendance_geofence`; no PII lives here.
 
 ---
 

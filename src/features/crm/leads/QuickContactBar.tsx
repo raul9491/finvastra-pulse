@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import { logCallOutcome } from '../hooks/useMyLeads';
+import { telHref, waHref } from '../components/ContactActions';
 import type { Lead } from '../../../types';
 
 interface Props {
@@ -26,9 +27,7 @@ export function QuickContactBar({ lead, oppId }: Props) {
   const [saving,  setSaving]  = useState(false);
   const [saved,   setSaved]   = useState(false);
 
-  const waLink = `https://wa.me/91${lead.phone}?text=${encodeURIComponent(
-    'Hello ' + lead.displayName.split(' ')[0] + ', ',
-  )}`;
+  const waLink = waHref(lead.phone, lead.displayName);
 
   const handleLogSubmit = async () => {
     if (!user) return;
@@ -67,6 +66,16 @@ export function QuickContactBar({ lead, oppId }: Props) {
           Quick Actions
         </span>
 
+        {/* Call — opens the device's default dialer (tel:) */}
+        <a
+          href={telHref(lead.phone)}
+          className="text-xs px-3 py-1.5 rounded-lg border font-semibold transition-colors no-underline"
+          style={{ backgroundColor: '#0B1538', color: '#C9A961', borderColor: '#0B1538' }}
+          title="Call from your phone"
+        >
+          📞 Call
+        </a>
+
         {/* Log Call */}
         <button
           onClick={() => oppId && setLogOpen((v) => !v)}
@@ -75,7 +84,7 @@ export function QuickContactBar({ lead, oppId }: Props) {
           className="text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors hover:bg-(--shell-hover-soft) disabled:opacity-40 disabled:cursor-not-allowed"
           style={{ color: 'var(--text-primary)', borderColor: 'var(--shell-border-mid)' }}
         >
-          📞 Log Call
+          📝 Log Call
         </button>
 
         {/* WhatsApp */}

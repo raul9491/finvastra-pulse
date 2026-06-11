@@ -12,6 +12,7 @@ import { auth, db } from '../../../lib/firebase';
 import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { FOIRCalculator } from './FOIRCalculator';
 import { QuickContactBar } from './QuickContactBar';
+import { PresenceChips } from '../components/PresenceChips';
 import type { Opportunity, OpportunityType, OpportunityStatus, LeadStatus } from '../../../types';
 
 // ─── Opportunity type icons ───────────────────────────────────────────────────
@@ -351,6 +352,8 @@ export function LeadDetailPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* Phase P — who else is on this lead right now */}
+            <PresenceChips pageKey={leadId ? `lead:${leadId}` : null} />
             <span className="badge-glass-success">
               Consent ✓
             </span>

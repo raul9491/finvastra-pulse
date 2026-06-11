@@ -684,7 +684,7 @@ Provider eligibility:
 - ❌ **Payment processing / collections** — no money flow inside the app.
 - ❌ **WhatsApp bot** — deferred to a later phase. Don't add Interakt/Twilio integration now.
 - ❌ **Native mobile apps** — web-only; must be responsive.
-- ❌ **Real-time collaboration features** — not needed for this use case.
+- ~~❌ Real-time collaboration features~~ — **partially lifted (Phase P, 2026-06-11, approved by Rahul)**: lightweight real-time **presence** ("also viewing" chips on lead/opportunity pages) is now in scope. Anything heavier (co-editing, live cursors, chat) remains out of scope.
 
 If a request implies something on this list, **stop and confirm with me** before building.
 
@@ -2560,3 +2560,62 @@ Added after the DB-cap outage so future failures are **detected in minutes, fail
 ### Safe deploys
 - **`npm run verify:deploy`** (`scripts/verify-deploy.sh`) — post-deploy smoke test: app shell 200, deep health 200 (real DB read), and **rules actually bound to `pulse` with real content** (the exact thing that silently broke during migration). Exits non-zero on any failure. **Run it after every deploy.**
 - New scripts **`npm run deploy:rules`** / **`deploy:indexes`** — deploy them SEPARATELY. A combined `firebase deploy --only firestore` aborts on an index error **before binding rules**, which is how `pulse` ended up on default deny-all. Deploy rules first, verify, then indexes.
+
+---
+
+## Phase P — A++ Build (2026-06-11) — branch `phase-p-a-plus`, NOT yet merged/deployed
+
+Seven capability sets, all deterministic. Built and emulator-tested on the branch; **production deploy is Rahul's manual step** (commands at the end of this section).
+
+**Global UX rule (applies to all future work): NOTHING LOCKED.** Never render locked/greyed/disabled nav items or buttons for missing permissions — omit them entirely. Users only ever see what they can open.
+
+### P1 — Page Sharing System
+- **Registry** `src/config/shareablePages.ts` — `SHAREABLE_PAGES` (27 pages across crm/hrms/mis, REAL router routes), `PageKey`, `pageIcon()`, `resolvePageKey(pathname, search)` (trailing-slash tolerant; `/mis/overview?tab=disbursals` → `mis.disbursals`; MisOverviewPage now reads `?tab=`).
+- **Schema** `/page_shares/{id}`: grantedTo/Name/Email, grantedBy/Name, pageKey/Title/Route, module, icon, active, grantedAt, revokedAt/By/ByName, note. **Permanent — no expiry concept.** Soft revoke + restore; never deleted.
+- **Data-access trade-off (accepted)**: a share grants module-level DATA read — `/users/{uid}.sharedModules: ('crm'|'hrms'|'mis')[]` is maintained **in the same batch** as every share create/revoke/restore (removed only when no other active share remains in that module), and the rules helpers `hasCrmAccess()`/`hasMisAccess()`/`hasHrmsAccess()` accept it in their **get() fallback branch** (claims-first short-circuit unaffected). UI restricts navigation to the shared pages.
+- **UI**: `SharePageButton` (+modal) in all 3 shell headers — rendered ONLY for super admins; share = batch(page_shares + sharedModules) + bell notification; revoke mirrors. `SharedNavSection` — share-only users see ONLY a gold "SHARED WITH ME" nav (full-access users with shares get it appended). **Route guards in each shell wait for `useMyShares().loading === false` before redirecting** (hard-refresh race); share-only users may open shared pages **+ their drill-downs** (`locationCoveredByShares` — e.g. a Leads share covers `/crm/leads/{id}`); anything else redirects to their first shared route. Launcher tiles show for share-holders.
+- **Admin console** `/admin/shares` (`src/features/admin/ManageSharesPage.tsx`, SA-only, standalone no-shell): summary strip, employee/module/status filters, revoke/restore. Launcher "Manage Shares" link (SA-only).
+- **Rules**: `/page_shares` read SA or grantedTo-self; create SA; update SA (revoke-fields only via hasOnly); delete false. NOTE: rules use the **hardcoded** `isSuperAdminUid()` — a UI-promoted SA cannot share until the printed manual rules edit is applied.
+
+### P2 — Super Admin Promotion
+- `isSuperAdmin(uid, profile?)` in hrmsConfig: hardcoded list OR `users.superAdmin === true` (client recognition without redeploy). SA-sensitive call sites pass `profile`.
+- `SuperAdminPromotionSection` on Permission Manager (SA-only): Promote/Demote modal (employee select, gold warning, type-name-to-confirm; founding 3 are permanent; no self-demote) → sets doc flag → sync-claims → append-only `/super_admin_log` → emails ALL current SAs (existing Gmail transport) → **prints + copies** the `gcloud run services update pulse-api --update-env-vars SUPER_ADMIN_UIDS=…` command and the manual firestore.rules edit instruction. Log table at page bottom.
+- Rules: `/super_admin_log` read+create `isSuperAdminUid()`, immutable. `/users` admin-update: only hardcoded SAs may touch the `superAdmin` key (anti-self-promotion).
+
+### P3 — PWA + Offline
+- `vite-plugin-pwa` (autoUpdate): manifest (Pulse, #0B1538/#050d1f, standalone, portrait-primary), icons 192+512 maskable (`public/icons/`, generated by `scripts/generate-pwa-icons.mjs` via sharp from the VastraLogo mark). **Asset precache ONLY — no workbox runtimeCaching for firestore.googleapis.com** (streaming channels; Firestore's own IndexedDB multi-tab persistence — already enabled in lib/firebase.ts — is the offline data layer). navigateFallback index.html, `/api/` denylisted.
+- `OfflineIndicator` (amber dismissible banner, mounted in App.tsx); `InstallPrompt` on the launcher (after 3rd open via localStorage counter, beforeinstallprompt, "Not now" = permanent dismiss).
+
+### P4 — Real-Time Presence (out-of-scope exception, approved)
+- `/presence/{pageKey}/viewers/{uid}`: `{uid, displayName, avatarInitials, enteredAt, lastSeen, pageKey}`. Rules: read signed-in; write own doc only.
+- `usePresence` (`src/features/crm/hooks/usePresence.ts`): write on mount, 30s lastSeen heartbeat, delete on unmount + beforeunload; **staleness (client-side 2-min lastSeen filter, re-evaluated every tick) is the real cleanup** — not query cutoffs. `PresenceChips` ("Also viewing:" ≤3 initials + "+N") on LeadDetailPage (`lead:{id}`) and OpportunityDetailPage (`opportunity:{id}`).
+
+### P5 — Commission Dispute Workflow
+- `/commission_disputes/{id}` (see `CommissionDispute` type): expected/received/variance/variancePct, status open|investigating|resolved|written_off, priority high(>₹10k)/medium(₹1k–10k)/low, assignedTo, append-only notes[], resolution. Rules: read/update admin||misAccess; create admin||misAdmin; delete false.
+- **Auto-create** (`maybeCreateDispute` in `src/features/mis/hooks/useDisputes.ts`): fired from BOTH `autoMatch` and `manualMatch` in useReconciliation when a line lands as discrepancy with |variance| > 5% — deduped on open/investigating per commissionRecordId, fire-and-forget (never blocks reconciliation), bell + email to every MIS admin.
+- `DisputesPage` at `/mis/disputes`: summary strip (Open/Investigating/Resolved/₹ at risk), filter chips, table, Assign-to-me / append-only notes / Resolve / Write-off, detail modal with CRM deep-links. MisShell nav "Disputes" + red open-count badge.
+
+### P6 — One-Tap Activity Logging
+- **NEW lead-level feed** `/leads/{leadId}/activities` (raw leads have no opportunity — the old MyQueue log failed on them). Rules block mirrors lead access; `isValidActivity` extended with optional `byName`/`opportunityId`; **5-minute own-content edit window** (`canEditOwnActivityContent`) on BOTH lead-level and opportunity-level activities.
+- `QuickLogBar` (`src/features/crm/components/QuickLogBar.tsx`): call/whatsapp/email/meeting/note icons + input, min 5 chars, Enter submits, optimistic clear + "Logged ✓". Mounted at LeadDetailPage bottom; MyQueueRow's old outcome panel replaced with an expandable inline QuickLogBar + "Logged X min ago".
+- `LeadActivityFeed` on LeadDetailPage: type filter chips, TODAY/YESTERDAY/EARLIER grouping, pencil-edit own items <5 min.
+
+### P7 — Field History (audit diffs)
+- Schema: `{parent}/field_history/{fieldName}/changes/{changeId}` — `{field, oldValue, newValue, changedBy, changedByName, changedAt, context}`. Written **in the SAME WriteBatch** as the parent update via `src/lib/fieldHistory.ts` (`appendFieldHistory`, `updateWithHistory`).
+- Tracked: leads `leadStatus`/`tags` · opportunities `stage`/`status`/`ownerId` · commission_records `status`/`actualAmount` · bank_submissions `status` · users `crmRole`/`misAccess`/`designation`/`department` (Permission Manager + Employees edit modal).
+- Rules: field_history blocks under all 5 parent paths — read admin||manager; create signed-in self-attributed; immutable.
+- `FieldHistory` component (admin/manager): history icon → popover (last 5) + full-history modal. Placed: LeadDetail Status, OpportunityDetail Stage + Deal Size, CommissionRecords rows (Status/Amount), EmployeeProfile Department/Designation.
+- AccessLogsPage: **CSV export** of the active tab's filtered rows (filters already existed).
+
+### Phase P — new collections / routes / files index
+**Collections**: `page_shares`, `super_admin_log`, `presence/{pageKey}/viewers`, `commission_disputes`, `{parent}/field_history/{field}/changes` (×5 paths), `leads/{id}/activities` (lead-level feed). `users` gained `sharedModules`, `superAdmin`.
+**Routes**: `/admin/shares` (standalone SA console), `/mis/disputes`.
+**Key new files**: `src/config/shareablePages.ts`, `src/features/auth/hooks/useMyShares.ts`, `src/components/ui/SharePageButton.tsx`, `src/components/layout/SharedNavSection.tsx`, `src/features/admin/ManageSharesPage.tsx`, `src/features/hrms/admin/SuperAdminPromotionSection.tsx`, `src/components/ui/OfflineIndicator.tsx`, `src/components/ui/InstallPrompt.tsx`, `scripts/generate-pwa-icons.mjs`, `src/features/crm/hooks/usePresence.ts`, `src/features/crm/components/PresenceChips.tsx`, `src/features/mis/hooks/useDisputes.ts`, `src/features/mis/disputes/DisputesPage.tsx`, `src/features/crm/components/QuickLogBar.tsx`, `src/features/crm/components/LeadActivityFeed.tsx`, `src/lib/fieldHistory.ts`, `src/features/crm/components/FieldHistory.tsx`.
+
+### Phase P deploy (Rahul — after manual testing; NOT yet run)
+```bash
+firebase deploy --only firestore:rules
+firebase deploy --only firestore:indexes
+firebase deploy --only hosting
+# (no new Cloud Scheduler jobs in this phase)
+```

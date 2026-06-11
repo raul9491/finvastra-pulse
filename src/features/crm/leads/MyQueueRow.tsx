@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../auth/AuthContext';
-import { logCallOutcome } from '../hooks/useMyLeads';
+import { QuickLogBar } from '../components/QuickLogBar';
 import { TransferModal } from '../opportunities/TransferModal';
 import { formatSlaStatus } from '../../../lib/slaUtils';
 import type { LeadWithOpportunity } from '../hooks/useMyLeads';
@@ -37,15 +36,6 @@ const SOURCE_LABELS: Record<LeadSource, string> = {
   employee_referral: 'Employee Ref',
 };
 
-const CALL_OUTCOMES = [
-  'Called - Interested',
-  'Called - Not interested',
-  'Called - No answer',
-  'Called - Callback requested',
-  'Called - Wrong number',
-  'Left voicemail',
-] as const;
-
 // Condense "Suresh Kumar" → "Suresh K."
 function shortName(displayName: string): string {
   const parts = displayName.trim().split(' ').filter(Boolean);
@@ -55,43 +45,15 @@ function shortName(displayName: string): string {
 
 export function MyQueueRow({ item, onRefresh }: Props) {
   const navigate  = useNavigate();
-  const { user }  = useAuth();
 
   const [logOpen,   setLogOpen]   = useState(false);
-  const [outcome,   setOutcome]   = useState<string>(CALL_OUTCOMES[0]);
-  const [notes,     setNotes]     = useState('');
-  const [saving,    setSaving]    = useState(false);
-  const [saved,     setSaved]     = useState(false);
+  // Phase P — timestamp of the last QuickLogBar submission for "Logged X min ago"
+  const [lastLoggedAt, setLastLoggedAt] = useState<number | null>(null);
   const [transferOpen, setTransferOpen] = useState(false);
 
   const { lead, firstOpenOpportunity: opp } = item;
   const sourcePill = SOURCE_STYLES[lead.source] ?? SOURCE_STYLES.broker;
   const sla        = formatSlaStatus(lead.slaDeadline);
-
-  const handleLogSubmit = async () => {
-    if (!user) return;
-    if (!opp?.id) {
-      alert('No open opportunity on this lead — cannot log call.');
-      return;
-    }
-    setSaving(true);
-    try {
-      await logCallOutcome(lead.id, opp.id, outcome, notes, user.uid);
-      setSaved(true);
-      setTimeout(() => {
-        setSaved(false);
-        setLogOpen(false);
-        setNotes('');
-        setOutcome(CALL_OUTCOMES[0]);
-        onRefresh?.();
-      }, 1200);
-    } catch {
-      // Non-fatal — surface to user
-      alert('Failed to save call log. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   return (
     <>
@@ -155,11 +117,11 @@ export function MyQueueRow({ item, onRefresh }: Props) {
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setLogOpen((v) => !v)}
-              title="Log call"
+              title="Log activity"
               className="text-xs px-3 py-1.5 rounded-lg border hover:bg-(--shell-hover-soft) transition-colors font-medium"
               style={{ color: 'var(--text-primary)', borderColor: 'var(--shell-border-mid)' }}
             >
-              📞 Log call
+              📞 Log activity
             </button>
 
             <button
@@ -183,82 +145,27 @@ export function MyQueueRow({ item, onRefresh }: Props) {
           </div>
         </div>
 
-        {/* ─── Inline log panel ───────────────────────────────────────────── */}
+        {/* ─── Phase P: inline QuickLogBar (works on raw leads — writes the
+             lead-level activity feed; replaces the old opportunity-only panel) */}
         {logOpen && (
           <div
-            className="px-5 py-4 space-y-3"
+            className="px-5 py-4"
             style={{ backgroundColor: 'var(--shell-hover-soft)', borderTop: '1px solid var(--shell-border)' }}
           >
-            {saved ? (
-              <p className="text-sm font-semibold py-1" style={{ color: 'var(--status-success)' }}>
-                Saved ✓
-              </p>
-            ) : (
-              <>
-                <div className="flex flex-wrap gap-3 items-end">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
-                      Outcome
-                    </p>
-                    <select
-                      value={outcome}
-                      onChange={(e) => setOutcome(e.target.value)}
-                      className="glass-inp text-sm"
-                    >
-                      {CALL_OUTCOMES.map((o) => (
-                        <option key={o} value={o}>{o}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex-1 min-w-48">
-                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
-                      Notes (optional)
-                    </p>
-                    <input
-                      type="text"
-                      placeholder="Notes (optional)…"
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      className="glass-inp w-full text-sm"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleLogSubmit}
-                      disabled={saving}
-                      className="text-sm px-4 py-1.5 font-semibold rounded-lg transition-opacity disabled:opacity-50"
-                      style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
-                    >
-                      {saving ? 'Saving…' : 'Save'}
-                    </button>
-                    <button
-                      onClick={() => { setLogOpen(false); setNotes(''); setOutcome(CALL_OUTCOMES[0]); }}
-                      className="text-sm px-3 py-1.5 border rounded-lg hover:bg-(--shell-hover-soft) transition-colors"
-                      style={{ color: 'var(--text-muted)', borderColor: 'var(--shell-border-mid)' }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-
-                {outcome === 'Called - Not interested' && (
-                  <p className="text-xs px-3 py-2 rounded-lg"
-                    style={{ backgroundColor: 'rgba(251,146,60,0.10)', color: '#fb923c', border: '1px solid rgba(251,146,60,0.25)' }}>
-                    Consider marking this opportunity as lost.
-                  </p>
-                )}
-
-                {!opp && (
-                  <p className="text-xs px-3 py-2 rounded-lg"
-                    style={{ backgroundColor: 'rgba(248,113,113,0.10)', color: '#f87171', border: '1px solid rgba(248,113,113,0.25)' }}>
-                    No open opportunity on this lead — log will not be saved.
-                  </p>
-                )}
-              </>
-            )}
+            <QuickLogBar
+              leadId={lead.id}
+              opportunityId={opp?.id}
+              onLogged={() => {
+                setLastLoggedAt(Date.now());
+                setTimeout(() => { setLogOpen(false); onRefresh?.(); }, 1200);
+              }}
+            />
           </div>
+        )}
+        {!logOpen && lastLoggedAt != null && (
+          <p className="px-5 py-2 text-[11px]" style={{ color: 'var(--status-success)', borderTop: '1px solid var(--shell-border)' }}>
+            Logged {Math.max(1, Math.round((Date.now() - lastLoggedAt) / 60000))} min ago ✓
+          </p>
         )}
       </div>
 

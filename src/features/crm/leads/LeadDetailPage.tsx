@@ -13,6 +13,8 @@ import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/fi
 import { FOIRCalculator } from './FOIRCalculator';
 import { QuickContactBar } from './QuickContactBar';
 import { PresenceChips } from '../components/PresenceChips';
+import { QuickLogBar } from '../components/QuickLogBar';
+import { LeadActivityFeed } from '../components/LeadActivityFeed';
 import type { Opportunity, OpportunityType, OpportunityStatus, LeadStatus } from '../../../types';
 
 // ─── Opportunity type icons ───────────────────────────────────────────────────
@@ -537,6 +539,14 @@ export function LeadDetailPage() {
             })}
           </div>
         )}
+      </div>
+
+      {/* Phase P — lead-level activity feed (filters + day grouping + 5-min edit) */}
+      <LeadActivityFeed leadId={lead.id} />
+
+      {/* Phase P — one-tap activity logging */}
+      <div className="glass-panel p-5 mt-4">
+        <QuickLogBar leadId={lead.id} />
       </div>
     </div>
   );

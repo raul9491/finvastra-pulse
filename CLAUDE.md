@@ -2563,9 +2563,9 @@ Added after the DB-cap outage so future failures are **detected in minutes, fail
 
 ---
 
-## Phase P — A++ Build (2026-06-11) — branch `phase-p-a-plus`, NOT yet merged/deployed
+## Phase P — A++ Build (2026-06-11) — ✅ MERGED TO MAIN + DEPLOYED TO PRODUCTION
 
-Seven capability sets, all deterministic. Built and emulator-tested on the branch; **production deploy is Rahul's manual step** (commands at the end of this section).
+Seven capability sets, all deterministic. QA'd via **`.qa/phase-p-usecases.sh`** — a rerunnable 27-assertion regression suite that signs real test users (a hardcoded-UID SA + a plain employee) into the emulators and exercises every new rules surface (share lifecycle/tamper-protection, presence own-doc writes, dispute access, activity validator + 5-min edit window, field_history attribution/immutability). Run anytime: `npm run dev:emulators` → `bash .qa/phase-p-usecases.sh`. Deployed 2026-06-11 (rules → indexes → hosting; post-deploy verified: new ruleset bound + enforcing on `pulse`, new routes 200, PWA manifest/sw/icons 200).
 
 **Global UX rule (applies to all future work): NOTHING LOCKED.** Never render locked/greyed/disabled nav items or buttons for missing permissions — omit them entirely. Users only ever see what they can open.
 
@@ -2612,10 +2612,5 @@ Seven capability sets, all deterministic. Built and emulator-tested on the branc
 **Routes**: `/admin/shares` (standalone SA console), `/mis/disputes`.
 **Key new files**: `src/config/shareablePages.ts`, `src/features/auth/hooks/useMyShares.ts`, `src/components/ui/SharePageButton.tsx`, `src/components/layout/SharedNavSection.tsx`, `src/features/admin/ManageSharesPage.tsx`, `src/features/hrms/admin/SuperAdminPromotionSection.tsx`, `src/components/ui/OfflineIndicator.tsx`, `src/components/ui/InstallPrompt.tsx`, `scripts/generate-pwa-icons.mjs`, `src/features/crm/hooks/usePresence.ts`, `src/features/crm/components/PresenceChips.tsx`, `src/features/mis/hooks/useDisputes.ts`, `src/features/mis/disputes/DisputesPage.tsx`, `src/features/crm/components/QuickLogBar.tsx`, `src/features/crm/components/LeadActivityFeed.tsx`, `src/lib/fieldHistory.ts`, `src/features/crm/components/FieldHistory.tsx`.
 
-### Phase P deploy (Rahul — after manual testing; NOT yet run)
-```bash
-firebase deploy --only firestore:rules
-firebase deploy --only firestore:indexes
-firebase deploy --only hosting
-# (no new Cloud Scheduler jobs in this phase)
-```
+### Phase P deploy — ✅ DONE 2026-06-11
+Deployed in the safe order (`deploy:rules` → `deploy:indexes` → `npm run deploy`), then `verify:deploy` 3/3 green; production ruleset confirmed to contain all Phase P blocks and enforce them (anon probe 403). No new Cloud Scheduler jobs and no server.ts change in this phase (no Cloud Run deploy needed). Remaining human-eye checks: sharing UX with a real colleague, presence chips on two devices, PWA install on a phone, offline banner.

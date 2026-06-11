@@ -98,19 +98,60 @@ export function AccessLogsPage() {
     acc[l.viewedByName] = (acc[l.viewedByName] ?? 0) + 1;
     return acc;
   }, {});
+
+  // Phase P — export the ACTIVE tab's filtered rows as CSV.
+  const exportCsv = () => {
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    let rows: string[];
+    let name: string;
+    if (tab === 'lead_views') {
+      rows = [
+        ['Viewed By', 'Lead', 'Lead ID', 'Viewed At'].map(esc).join(','),
+        ...filteredViews.map((l) => [l.viewedByName, l.leadName, l.leadId, fmtTs(l.viewedAt)].map(esc).join(',')),
+      ];
+      name = 'lead-view-logs';
+    } else {
+      rows = [
+        ['Actor', 'Action', 'Target', 'Accessed At'].map(esc).join(','),
+        ...filtered.map((l) => [
+          l.actorEmail || l.actorId,
+          ACTION_LABELS[l.action] ?? l.action,
+          `${l.targetType}:${l.targetId}`,
+          fmtTs(l.accessedAt),
+        ].map(esc).join(',')),
+      ];
+      name = 'security-access-logs';
+    }
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${name}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
   const topViewers = Object.entries(viewsByEmployee).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div>
-        <h2 className="text-3xl mb-1"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-          Access Logs
-        </h2>
-        <p className="text-sm" style={{ color: 'var(--shell-text-dim)' }}>
-          Audit trail for sensitive data access and lead views.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-3xl mb-1"
+            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
+            Access Logs
+          </h2>
+          <p className="text-sm" style={{ color: 'var(--shell-text-dim)' }}>
+            Audit trail for sensitive data access and lead views.
+          </p>
+        </div>
+        {/* Phase P — CSV export of the active tab's FILTERED rows */}
+        <button
+          onClick={exportCsv}
+          className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-lg shrink-0"
+          style={{ color: '#C9A961', border: '1px solid rgba(201,169,97,0.35)' }}>
+          ⬇ Export CSV
+        </button>
       </div>
 
       {/* Tab switcher */}

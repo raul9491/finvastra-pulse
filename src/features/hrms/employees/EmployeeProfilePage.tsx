@@ -5,6 +5,7 @@ import { doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, collection, qu
 import { format } from 'date-fns';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
+import { FieldHistory } from '../../crm/components/FieldHistory';
 import { CrmPerformanceWidget } from './CrmPerformanceWidget';
 import { useMyLetters } from '../hooks/useGeneratedLetters';
 import type { UserProfile, UserDetails, EmployeeProfile, Asset, AssetType, GeneratedLetter } from '../../../types';
@@ -924,8 +925,9 @@ export function EmployeeProfilePage() {
       {/* General info */}
       <Section title="Work Details">
         <FieldRow label="Employee Code"    value={displayProfile.employeeId} />
-        <FieldRow label="Department"       value={displayProfile.department} />
-        <FieldRow label="Designation"      value={displayProfile.designation} />
+        {/* Phase P — field-change history icons (admin/manager only) */}
+        <FieldRow label="Department"       value={<>{displayProfile.department ?? '—'} {userId && <FieldHistory parentPath={['users', userId]} field="department" label="Department" />}</>} />
+        <FieldRow label="Designation"      value={<>{displayProfile.designation ?? '—'} {userId && <FieldHistory parentPath={['users', userId]} field="designation" label="Designation" />}</>} />
         <FieldRow label="Reporting Manager"value={displayProfile.reportingManagerName} />
         <FieldRow label="Joining Date"     value={displayProfile.joiningDate} />
         {isAdminOrHr && details?.lastWorkingDate && (

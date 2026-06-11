@@ -4,6 +4,7 @@ import {
   addDoc, updateDoc, doc, serverTimestamp, getDocs, writeBatch,
 } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
+import { appendFieldHistory } from '../../../lib/fieldHistory';
 import type { Lead, ActivityType } from '../../../types';
 import type { LeadFormValues } from '../leads/leadSchema';
 
@@ -78,7 +79,18 @@ export async function createLead(
 export async function updateLeadTags(
   leadId: string,
   tags: string[],
+  // Phase P — optional actor + previous tags for field_history attribution
+  actor?: { uid: string; name: string },
+  prevTags?: string[],
 ): Promise<void> {
+  if (actor) {
+    const leadRef = doc(db, 'leads', leadId);
+    const batch = writeBatch(db);
+    batch.update(leadRef, { tags, updatedAt: serverTimestamp() });
+    appendFieldHistory(batch, leadRef, 'tags', prevTags ?? null, tags, actor, 'tags_edit');
+    await batch.commit();
+    return;
+  }
   await updateDoc(doc(db, 'leads', leadId), { tags, updatedAt: serverTimestamp() });
 }
 

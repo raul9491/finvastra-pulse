@@ -15,6 +15,8 @@ import { QuickContactBar } from './QuickContactBar';
 import { PresenceChips } from '../components/PresenceChips';
 import { QuickLogBar } from '../components/QuickLogBar';
 import { LeadActivityFeed } from '../components/LeadActivityFeed';
+import { updateWithHistory } from '../../../lib/fieldHistory';
+import { FieldHistory } from '../components/FieldHistory';
 import type { Opportunity, OpportunityType, OpportunityStatus, LeadStatus } from '../../../types';
 
 // ─── Opportunity type icons ───────────────────────────────────────────────────
@@ -196,14 +198,20 @@ export function LeadDetailPage() {
     if (!leadId || !user) return;
     setSavingStatus(true);
     try {
-      await updateDoc(doc(db, 'leads', leadId), {
-        leadStatus:   status,
-        leadStatusAt: serverTimestamp(),
-        leadStatusBy: user.uid,
-        updatedAt:    serverTimestamp(),
-        // Closing dispositions clear the SLA so the lead drops out of "overdue" instantly.
-        ...(TERMINAL_STATUSES.has(status) ? { slaDeadline: null } : {}),
-      });
+      // Phase P — status change + field_history diff in ONE batch.
+      await updateWithHistory(
+        doc(db, 'leads', leadId),
+        { leadStatus: { old: lead?.leadStatus ?? null, new: status } },
+        { uid: user.uid, name: profile?.displayName ?? '' },
+        'disposition',
+        {
+          leadStatusAt: serverTimestamp(),
+          leadStatusBy: user.uid,
+          updatedAt:    serverTimestamp(),
+          // Closing dispositions clear the SLA so the lead drops out of "overdue" instantly.
+          ...(TERMINAL_STATUSES.has(status) ? { slaDeadline: null } : {}),
+        },
+      );
     } finally {
       setSavingStatus(false);
     }
@@ -376,6 +384,7 @@ export function LeadDetailPage() {
         {(isAdmin || isPrimaryOwner) && (
           <div className="flex flex-wrap items-center gap-2 mb-5 pb-5" style={{ borderBottom: '1px solid var(--shell-border)' }}>
             <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Status</span>
+            {leadId && <FieldHistory parentPath={['leads', leadId]} field="leadStatus" label="Status" />}
             <select
               value={lead.leadStatus ?? 'new'}
               disabled={savingStatus}

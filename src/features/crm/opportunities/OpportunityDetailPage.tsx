@@ -10,6 +10,7 @@ import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs } fr
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { PresenceChips } from '../components/PresenceChips';
+import { FieldHistory } from '../components/FieldHistory';
 import { useLead } from '../hooks/useLeads';
 import { useOpportunity, useActivities, useOpportunityTypes, updateOpportunityStage, markOpportunityLost, addNote } from '../hooks/useOpportunities';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
@@ -1273,11 +1274,15 @@ export function OpportunityDetailPage() {
             <span className={isWon ? 'badge-glass-success' : isLost ? 'badge-glass-danger' : 'badge-glass-warning'}>
               {opportunity.status}
             </span>
+            {/* Phase P — stage change history (admin/manager) */}
+            {leadId && oppId && (
+              <FieldHistory parentPath={['leads', leadId, 'opportunities', oppId]} field="stage" label="Stage" />
+            )}
           </div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Deal Size</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Deal Size {leadId && oppId && <FieldHistory parentPath={['leads', leadId, 'opportunities', oppId]} field="dealSize" label="Deal Size" />}</p>
             <p className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>₹{opportunity.dealSize.toLocaleString('en-IN')}</p>
           </div>
           <div>

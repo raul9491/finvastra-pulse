@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import {
   collection, collectionGroup, query, orderBy, onSnapshot,
-  addDoc, updateDoc, getDoc, getDocs, doc, serverTimestamp, where,
+  addDoc, updateDoc, getDoc, getDocs, doc, serverTimestamp, where, writeBatch,
 } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
+import { appendFieldHistory } from '../../../lib/fieldHistory';
 import type { Opportunity, OpportunityTypeConfig, Provider, Activity, ActivityType, CrmRole, ConvertorVertical, LostDetails } from '../../../types';
 import { LOST_REASON_LABELS } from '../../../types';
 import type { OpportunityFormValues } from '../leads/opportunitySchema';
@@ -208,14 +209,23 @@ export async function updateOpportunityStage(
   prevStage: string,
   userId: string,
   isLastStage: boolean,
+  actorName = '', // Phase P — for field_history attribution
 ): Promise<void> {
   const now = serverTimestamp();
-  await updateDoc(doc(db, 'leads', leadId, 'opportunities', oppId), {
+  const oppRef = doc(db, 'leads', leadId, 'opportunities', oppId);
+  // Phase P — parent update + field_history diffs in ONE batch.
+  const batch = writeBatch(db);
+  batch.update(oppRef, {
     stage:     newStage,
     status:    isLastStage ? 'won' : 'open',
     updatedAt: now,
     ...(isLastStage ? { actualCloseDate: new Date().toISOString().slice(0, 10) } : {}),
   });
+  const actor = { uid: userId, name: actorName };
+  appendFieldHistory(batch, oppRef, 'stage', prevStage, newStage, actor, 'stage_advance');
+  if (isLastStage) appendFieldHistory(batch, oppRef, 'status', 'open', 'won', actor, 'stage_advance');
+  await batch.commit();
+
   await addDoc(collection(db, 'leads', leadId, 'opportunities', oppId, 'activities'), {
     type:    'status_change' as ActivityType,
     content: `Stage: ${prevStage} → ${newStage}`,
@@ -229,9 +239,13 @@ export async function markOpportunityLost(
   oppId: string,
   userId: string,
   lostDetails?: Omit<LostDetails, 'capturedAt' | 'capturedBy'>,
+  actorName = '', // Phase P — for field_history attribution
 ): Promise<void> {
   const now = serverTimestamp();
-  await updateDoc(doc(db, 'leads', leadId, 'opportunities', oppId), {
+  const oppRef = doc(db, 'leads', leadId, 'opportunities', oppId);
+  // Phase P — parent update + field_history diff in ONE batch.
+  const batch = writeBatch(db);
+  batch.update(oppRef, {
     status:    'lost',
     updatedAt: now,
     ...(lostDetails ? {
@@ -242,6 +256,8 @@ export async function markOpportunityLost(
       },
     } : {}),
   });
+  appendFieldHistory(batch, oppRef, 'status', 'open', 'lost', { uid: userId, name: actorName }, 'mark_lost');
+  await batch.commit();
   await addDoc(collection(db, 'leads', leadId, 'opportunities', oppId, 'activities'), {
     type:    'status_change' as ActivityType,
     content: `Opportunity marked as Lost${lostDetails?.reason ? ` (${LOST_REASON_LABELS[lostDetails.reason]})` : ''}`,
@@ -290,10 +306,17 @@ export async function transferOpportunity(
   }
 
   const now = serverTimestamp();
-  await updateDoc(doc(db, 'leads', leadId, 'opportunities', oppId), {
+  const oppRef = doc(db, 'leads', leadId, 'opportunities', oppId);
+  // Phase P — ownerId change + field_history diff in ONE batch.
+  const batch = writeBatch(db);
+  batch.update(oppRef, {
     ownerId: newConvertorId,
     updatedAt: now,
   });
+  appendFieldHistory(batch, oppRef, 'ownerId', opp.ownerId, newConvertorId,
+    { uid: currentUserId, name: '' }, 'transfer');
+  await batch.commit();
+
   await addDoc(collection(db, 'leads', leadId, 'opportunities', oppId, 'activities'), {
     type:    'ownership_change' as ActivityType,
     content: `Transferred to ${target.displayName ?? newConvertorId}`,

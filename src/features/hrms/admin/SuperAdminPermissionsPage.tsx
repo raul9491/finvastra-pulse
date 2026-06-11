@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import {
   Search, Save, RotateCcw, CheckCircle2, Lock, AlertCircle, RefreshCw,
 } from 'lucide-react';
-import { updateDoc, doc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { updateDoc, doc, addDoc, collection, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { getIdToken } from 'firebase/auth';
 import { auth, db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
@@ -11,6 +11,7 @@ import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import type { UserProfile, CrmRole, MisAccess, ConvertorVertical } from '../../../types';
 import { isSuperAdmin, SUPER_ADMIN_UIDS, SUPER_ADMIN_LABELS } from '../../../config/hrmsConfig';
 import { SuperAdminPromotionSection } from './SuperAdminPromotionSection';
+import { appendFieldHistory } from '../../../lib/fieldHistory';
 
 // Ajay is the first super admin UID — his permissions need a one-time fix
 const AJAY_UID: string = SUPER_ADMIN_UIDS[0];
@@ -533,6 +534,7 @@ export function SuperAdminPermissionsPage() {
     try {
       for (const uid of dirtyUids) {
         const draft = drafts[uid];
+        const before = originals[uid];
         const patch = {
           role:              draft.role,
           hrmsAccess:        draft.hrmsAccess,
@@ -545,7 +547,17 @@ export function SuperAdminPermissionsPage() {
           misAccess:          draft.misAccess,
           commandCentreAccess: draft.commandCentreAccess,
         };
-        await updateDoc(doc(db, 'users', uid), patch);
+        // Phase P — user-doc update + field_history diffs (crmRole/misAccess)
+        // in the SAME batch.
+        {
+          const userRef = doc(db, 'users', uid);
+          const batch = writeBatch(db);
+          batch.update(userRef, patch);
+          const actor = { uid: user!.uid, name: profile?.displayName ?? '' };
+          appendFieldHistory(batch, userRef, 'crmRole', before?.crmRole ?? null, patch.crmRole, actor, 'permission_manager');
+          appendFieldHistory(batch, userRef, 'misAccess', before?.misAccess ?? null, patch.misAccess, actor, 'permission_manager');
+          await batch.commit();
+        }
         await addDoc(collection(db, 'audit_logs'), {
           actor:      user!.uid,
           action:     'super_admin_permissions_update',

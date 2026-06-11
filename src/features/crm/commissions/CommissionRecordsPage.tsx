@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useAuth } from '../../auth/AuthContext';
+import { FieldHistory } from '../components/FieldHistory';
 import { useCommissionRecords, markCommissionPaid, markCommissionClawback } from '../hooks/useCommissionRecords';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { useProviders } from '../hooks/useOpportunities';
@@ -17,6 +18,7 @@ const STATUS_STYLES: Record<CommissionRecordStatus, { badgeClass: string; label:
 
 // ─── Mark Paid Modal ──────────────────────────────────────────────────────────
 function MarkPaidModal({ record, onClose }: { record: CommissionRecord; onClose: () => void }) {
+  const { user: _u, profile: _p } = useAuth();
   const [actualAmount, setActualAmount] = useState(record.calculatedCommission.toString());
   const [actualDate,   setActualDate]   = useState(new Date().toISOString().slice(0, 10));
   const [notes,        setNotes]        = useState('');
@@ -26,7 +28,9 @@ function MarkPaidModal({ record, onClose }: { record: CommissionRecord; onClose:
   const handleSave = async () => {
     setSaving(true); setError('');
     try {
-      await markCommissionPaid(record.id, Number(actualAmount), actualDate, notes);
+      await markCommissionPaid(record.id, Number(actualAmount), actualDate, notes,
+        { uid: _u?.uid ?? '', name: _p?.displayName ?? '' },
+        { status: record.status, actualAmount: record.actualAmount ?? null });
       onClose();
     } catch (e) { setError(e instanceof Error ? e.message : 'Failed.'); setSaving(false); }
   };
@@ -67,6 +71,7 @@ function MarkPaidModal({ record, onClose }: { record: CommissionRecord; onClose:
 
 // ─── Clawback Modal ───────────────────────────────────────────────────────────
 function ClawbackModal({ record, onClose }: { record: CommissionRecord; onClose: () => void }) {
+  const { user: _u, profile: _p } = useAuth();
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -74,7 +79,8 @@ function ClawbackModal({ record, onClose }: { record: CommissionRecord; onClose:
     if (!reason.trim()) return;
     setSaving(true);
     try {
-      await markCommissionClawback(record.id, reason);
+      await markCommissionClawback(record.id, reason,
+        { uid: _u?.uid ?? '', name: _p?.displayName ?? '' }, record.status);
       onClose();
     } finally { setSaving(false); }
   };
@@ -233,6 +239,9 @@ export function CommissionRecordsPage() {
                         )}
                         <td className="px-4 py-3">
                           <span className={st.badgeClass}>{st.label}</span>
+                          {/* Phase P — status/amount change history */}
+                          <FieldHistory parentPath={['commission_records', r.id]} field="status" label="Status" />
+                          <FieldHistory parentPath={['commission_records', r.id]} field="actualAmount" label="Amount" />
                         </td>
                         <td className="px-4 py-3">
                           {isAdmin && r.status === 'pending' && (

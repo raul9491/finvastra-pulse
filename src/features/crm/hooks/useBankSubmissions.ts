@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import {
   collection, query, where, orderBy, onSnapshot,
   addDoc, updateDoc, getDoc, getDocs,
-  doc, serverTimestamp, arrayUnion, runTransaction,
+  doc, serverTimestamp, arrayUnion, runTransaction, writeBatch,
 } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
+import { appendFieldHistory } from '../../../lib/fieldHistory';
 import type { BankSubmission, BankSubmissionStatus, ActivityType, CommissionSlab } from '../../../types';
 import { findMatchingSlab, calculateCommission } from './useCommissionSlabs';
 
@@ -89,13 +90,19 @@ export async function updateSubmissionStatus(
   // History entry uses client ISO timestamp — serverTimestamp() can't go inside arrays
   const historyEntry = { from: prevStatus, to: newStatus, at: new Date().toISOString(), by: userId };
 
-  await updateDoc(doc(db, 'leads', leadId, 'opportunities', oppId, 'bank_submissions', subId), {
+  const subRef = doc(db, 'leads', leadId, 'opportunities', oppId, 'bank_submissions', subId);
+  // Phase P — status change + field_history diff in ONE batch.
+  const batch = writeBatch(db);
+  batch.update(subRef, {
     status:        newStatus,
     updatedAt:     now,
     statusHistory: arrayUnion(historyEntry),
     ...dateFields,
     ...(extra ?? {}),
   });
+  appendFieldHistory(batch, subRef, 'status', prevStatus, newStatus,
+    { uid: userId, name: '' }, 'submission_status');
+  await batch.commit();
 
   await autoPromoteOpportunity(leadId, oppId, newStatus, userId);
 }

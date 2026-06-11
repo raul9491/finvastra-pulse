@@ -12,6 +12,7 @@ import {
   serverTimestamp, writeBatch,
 } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
+import { appendFieldHistory } from '../../../lib/fieldHistory';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { Modal } from '../../../components/ui/Modal';
@@ -118,7 +119,19 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
           : {}),
       };
 
-      await updateDoc(doc(db, 'users', employee.userId), patch);
+      // Phase P — user-doc update + field_history diffs (designation/department/
+      // crmRole/misAccess) in the SAME batch.
+      {
+        const userRef = doc(db, 'users', employee.userId);
+        const batch = writeBatch(db);
+        batch.update(userRef, patch);
+        const actor = { uid: adminUserId, name: '' };
+        if (department)  appendFieldHistory(batch, userRef, 'department',  employee.department ?? null,  department,  actor, 'employee_edit');
+        if (designation) appendFieldHistory(batch, userRef, 'designation', employee.designation ?? null, designation, actor, 'employee_edit');
+        appendFieldHistory(batch, userRef, 'crmRole',   employee.crmRole ?? null,   crmRole ?? null,   actor, 'employee_edit');
+        appendFieldHistory(batch, userRef, 'misAccess', employee.misAccess ?? null, misAccess ?? null, actor, 'employee_edit');
+        await batch.commit();
+      }
       await addDoc(collection(db, 'audit_logs'), {
         actor: adminUserId, action: 'update_employee_profile',
         targetPath: `/users/${employee.userId}`, patch, at: serverTimestamp(),

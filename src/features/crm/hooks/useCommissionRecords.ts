@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import {
   collection, query, where, orderBy, onSnapshot,
-  addDoc, updateDoc, doc, serverTimestamp,
+  addDoc, doc, serverTimestamp, writeBatch,
 } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
+import { appendFieldHistory } from '../../../lib/fieldHistory';
 import type { CommissionRecord, CommissionRecordStatus } from '../../../types';
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -38,14 +39,20 @@ export async function createCommissionRecord(
 }
 
 // ─── Admin mutations ──────────────────────────────────────────────────────────
+// Phase P — financial status/amount changes write field_history diffs in the
+// SAME batch (actor + prev are optional so existing call sites stay valid).
 export async function markCommissionPaid(
   recordId: string,
   actualAmount: number,
   actualPayoutDate: string,
   notes: string,
+  actor?: { uid: string; name: string },
+  prev?: { status?: string; actualAmount?: number | null },
 ): Promise<void> {
   const now = serverTimestamp();
-  await updateDoc(doc(db, 'commission_records', recordId), {
+  const ref = doc(db, 'commission_records', recordId);
+  const batch = writeBatch(db);
+  batch.update(ref, {
     status:            'paid' as CommissionRecordStatus,
     actualAmount,
     actualPayoutDate,
@@ -53,15 +60,28 @@ export async function markCommissionPaid(
     paidAt:            now,
     updatedAt:         now,
   });
+  if (actor) {
+    appendFieldHistory(batch, ref, 'status', prev?.status ?? 'pending', 'paid', actor, 'mark_paid');
+    appendFieldHistory(batch, ref, 'actualAmount', prev?.actualAmount ?? null, actualAmount, actor, 'mark_paid');
+  }
+  await batch.commit();
 }
 
 export async function markCommissionClawback(
   recordId: string,
   clawbackReason: string,
+  actor?: { uid: string; name: string },
+  prevStatus?: string,
 ): Promise<void> {
-  await updateDoc(doc(db, 'commission_records', recordId), {
+  const ref = doc(db, 'commission_records', recordId);
+  const batch = writeBatch(db);
+  batch.update(ref, {
     status:          'clawed_back' as CommissionRecordStatus,
     clawbackReason,
     updatedAt:       serverTimestamp(),
   });
+  if (actor) {
+    appendFieldHistory(batch, ref, 'status', prevStatus ?? 'paid', 'clawed_back', actor, 'clawback');
+  }
+  await batch.commit();
 }

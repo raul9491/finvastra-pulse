@@ -321,13 +321,15 @@ service cloud.firestore {
       allow get:  if isAdmin() ||
                      (hasCrmAccess() && resource.data.primaryOwnerId == request.auth.uid) ||
                      isManagerOf(resource.data.primaryOwnerId) ||
-                     resource.data.get('referredBy', null) == request.auth.uid;
+                     resource.data.get('referredBy', null) == request.auth.uid ||
+                     hasCrm2Perm('crm.leads.read');   // CRM 2.0 Pipeline readers
       allow list: if isAdmin() ||
                      (hasCrmAccess() && resource.data.primaryOwnerId == request.auth.uid) ||
                      // Manager team view — works for queries that pin primaryOwnerId
                      // to a single value (the client queries per direct report).
                      isManagerOf(resource.data.primaryOwnerId) ||
-                     resource.data.get('referredBy', null) == request.auth.uid;
+                     resource.data.get('referredBy', null) == request.auth.uid ||
+                     hasCrm2Perm('crm.leads.read');   // CRM 2.0 Pipeline readers
 
       // Admin always bypasses crmAccess — needed when the user doc was bootstrapped
       // with crmAccess:false on first emulator sign-in before admin role was set.
@@ -1294,6 +1296,41 @@ service cloud.firestore {
     // ID counters — server-only in both directions.
     match /counters/{counterId} {
       allow read, write: if false;
+    }
+
+    // Clients (Phase 2 convert output). PAN encrypted; last4 safe for readers.
+    match /clients/{clientId} {
+      allow read:  if isAdmin() || hasCrm2Perm('crm.leads.read') || hasCrm2Perm('crm.cases.read');
+      allow write: if false;   // server-only (convert + Phase 3 client CRUD)
+
+      match /vaultDocs/{vaultDocId} {
+        allow read:  if isAdmin() || hasCrm2Perm('crm.cases.read');
+        allow write: if false;
+      }
+    }
+
+    // Cases + subcollections (created by convert; full CRUD lands in Phase 3).
+    // The money mirror is doc-split into private/payout (PLAN.md decision 2).
+    match /cases/{caseId} {
+      allow read:  if isAdmin() || hasCrm2Perm('crm.cases.read');
+      allow write: if false;
+
+      match /private/{docId} {
+        allow read:  if isAdmin() || hasCrm2Perm('payout.amounts.read');
+        allow write: if false;
+      }
+      match /applicants/{applicantId} {
+        allow read:  if isAdmin() || hasCrm2Perm('crm.cases.read');
+        allow write: if false;
+      }
+      match /docTracker/{rowId} {
+        allow read:  if isAdmin() || hasCrm2Perm('crm.cases.read');
+        allow write: if false;
+      }
+      match /stageHistory/{entryId} {
+        allow read:  if isAdmin() || hasCrm2Perm('crm.cases.read');
+        allow write: if false;
+      }
     }
   }
 }

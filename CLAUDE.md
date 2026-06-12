@@ -269,17 +269,28 @@ AI features; all money/derived fields server-calculated; one transaction per bus
 mutation; mutations via Express only (`server/crm2.ts`); never break existing modules; do
 not deploy — maintainer deploys.
 
-**Progress**: Phase 0 ✅ (PLAN.md + decisions signed off) · **Phase 1 ✅ (2026-06-13, commit
-`a481532`, NOT yet deployed)** — `src/types/crm2.ts`, `src/lib/crm2/slab.ts` (+14 vitest
-tests, `npm run test`), `server/crm2.ts` (transactional counters, uid→FAPL audit,
-`requirePerm`, masters CRUD `/api/crm2/masters/:type`, mappings + slab add/end endpoints),
-sync-claims stamps `perms`, rules helpers `hasCrm2Perm`/`hasAnyCrm2Read` + 6 collection
-blocks (client writes denied), +10 composite indexes, `scripts/seed/seedCrm2Masters.ts`
-(DRY_RUN flag), Masters UI at `/crm/pipeline/masters` (Pipeline nav group; mapping editor
-with slab timeline). **Next: Phase 2** (leads extension, `POST /api/public/leads`, dedupe,
-convert transaction, lead migration script, Permission-Manager perms editor). Deploy order
-when the maintainer ships: `deploy:rules` → verify → `deploy:indexes` → Cloud Run
-(`--no-cpu-throttling`) → hosting → run seed script → grant perms via sync-claims.
+**Progress**: Phase 0 ✅ · Phase 1 ✅ (`a481532` + gate `a68e85d`: 12/12 emulator wiring test
+`.qa/crm2-phase1-gate.mjs`; claims-staleness fixed — sync-claims stamps `claimsRefreshedAt`,
+AuthContext force-refreshes the token, so perm REVOKES apply instantly) · **Phase 2 ✅
+(2026-06-13, NOT deployed)** — leads extension on the EXISTING collection (additive; legacy
+fields untouched), `POST /api/public/leads` (no-auth intake: rate-limited 20/h/IP via
+`/rate_limits`, honeypot `website` field, strict validation, UTM/formId/sourceUrl capture),
+dedupe (`buildDupeKeys` in `src/lib/crm2/dedupe.ts` + 7 tests; `duplicateOfLeadId` flags,
+never blocks), internal `POST/PATCH /api/crm2/leads[/:id]` (activity log arrayUnion,
+CONVERTED unsettable directly), `POST /api/crm2/leads/:id/convert` — ONE transaction (all
+reads incl. counters BEFORE writes — Firestore tx rule): client `CL-2026-#####` (dedupe-
+reuses an existing client by dupeKey) + case `FIN-CASE-2026-####` stage OPENED + PRIMARY
+applicant + idempotent docTracker expansion + stageHistory + lead links; `PARTNER_DSA` →
+`SDSA-###` subDsa instead. `POST /api/crm2/perms/:uid` + perms editor UI
+`/crm/pipeline/permissions`; leads UI `/crm/pipeline/leads` (funnel chips, overdue
+follow-up highlight, dup banner, activity drawer, convert dialog); rules: leads read +OR
+`hasCrm2Perm('crm.leads.read')`, new `clients` (+vaultDocs) and `cases` (+private/payout,
+applicants, docTracker, stageHistory) blocks — client writes all denied. Migration
+`scripts/migrate/normaliseCrm2Leads.ts` (DRY_RUN; legacy status/source maps; verified on
+emulator). Acceptance 15/15 (`.qa/crm2-phase2-gate.mjs`) + 21 unit tests. **Next: Phase 3**
+(cases CRUD, stage machine + doc gating, vault, case workspace UI). Deploy order when the
+maintainer ships: `deploy:rules` → verify → `deploy:indexes` → Cloud Run
+(`--no-cpu-throttling`) → hosting → seed script → grant perms.
 
 ## Phase 2 progress
 

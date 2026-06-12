@@ -80,6 +80,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/crm/targets':                        'Targets',
   '/crm/reports/aging':                  'Lead Aging',
   '/crm/pipeline/masters':               'Pipeline Masters',
+  '/crm/pipeline/leads':                 'Pipeline Leads',
+  '/crm/pipeline/permissions':           'Pipeline Permissions',
   '/crm/admin/commission-slabs':         'Commission Slabs',
   '/crm/admin/providers':                'Providers & SLA',
   '/crm/admin/document-types':           'Document Types',
@@ -310,15 +312,29 @@ export function CrmShell() {
             </>
           )}
 
-          {/* Pipeline (CRM 2.0 — PLAN.md). NOTHING LOCKED: shown only to holders. */}
-          {(isAdmin || (profile as { perms?: Record<string, boolean> } | null)?.perms?.['crm.masters.write'] === true) && (
-            <>
-              <div className="px-3 pt-4 pb-2">
-                <p className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: 'var(--shell-text-dim)' }}>Pipeline</p>
-              </div>
-              <NavItemLive entry={{ path: '/crm/pipeline/masters', label: 'Masters', icon: Settings, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/masters'} />
-            </>
-          )}
+          {/* Pipeline (CRM 2.0 — PLAN.md). NOTHING LOCKED: items appear only for holders. */}
+          {(() => {
+            const perms = (profile as { perms?: Record<string, boolean> } | null)?.perms ?? {};
+            const showLeads = isAdmin || perms['crm.leads.read'] === true;
+            const showMasters = isAdmin || perms['crm.masters.write'] === true;
+            if (!showLeads && !showMasters) return null;
+            return (
+              <>
+                <div className="px-3 pt-4 pb-2">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: 'var(--shell-text-dim)' }}>Pipeline</p>
+                </div>
+                {showLeads && (
+                  <NavItemLive entry={{ path: '/crm/pipeline/leads', label: 'Leads', icon: Inbox, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/leads'} />
+                )}
+                {showMasters && (
+                  <NavItemLive entry={{ path: '/crm/pipeline/masters', label: 'Masters', icon: Settings, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/masters'} />
+                )}
+                {isAdmin && (
+                  <NavItemLive entry={{ path: '/crm/pipeline/permissions', label: 'Permissions', icon: User, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/permissions'} />
+                )}
+              </>
+            );
+          })()}
 
           {/* Phase P — full-access user who ALSO holds shares (edge case) */}
           <SharedNavSection shares={crmShares} />

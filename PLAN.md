@@ -1,4 +1,18 @@
-# PLAN.md — CRM / Leads / Payout Cycle / MIS Build (Phase 0)
+# PLAN.md — CRM / Leads / Payout Cycle / MIS Build
+
+> **Progress**: Phase 0 ✅ · Phase 1 ✅ (`a481532` + gate fixes `a68e85d`, 12/12 wiring test)
+> · **Phase 2 ✅ (2026-06-13)** — leads extension live on the existing collection, public
+> intake `POST /api/public/leads` (rate-limited, honeypot, UTM), dedupe (`dupeKeys` +
+> `duplicateOfLeadId`, flag-never-block), `POST /api/crm2/leads` + `PATCH /api/crm2/leads/:id`
+> (activity log), `POST /api/crm2/leads/:id/convert` (ONE transaction → client CL- + case
+> FIN-CASE- OPENED + PRIMARY applicant + docTracker expansion; PARTNER_DSA → subDsa),
+> migration script `scripts/migrate/normaliseCrm2Leads.ts` (DRY_RUN verified on emulator),
+> perms editor `/crm/pipeline/permissions` (POST `/api/crm2/perms/:uid`, instant claim
+> refresh), leads UI `/crm/pipeline/leads` (funnel chips, SLA highlight, dup banner,
+> activity drawer, convert dialog). Acceptance 15/15 (`.qa/crm2-phase2-gate.mjs`) + 21 unit
+> tests. Internal lead routes use the `/api/crm2/` prefix (collision-free namespacing;
+> public path matches spec exactly). NOT deployed.
+> **Next: Phase 3** (cases CRUD, stage machine + doc gating, applicants, vault, case workspace UI).
 
 Maps the approved spec onto the actual `finvastra-pulse` repo. Implementation follows the
 spec's phases 1–5, one commit per phase. **Three blocking decisions at the bottom need

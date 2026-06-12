@@ -882,12 +882,14 @@ service cloud.firestore {
 
     // ─── Connectors (channel partners / DSAs) ─────────────────────────────────────
     // Managed in HRMS by admin/HR. The main record is also readable by CRM users so
-    // their name populates in the add-case picker. Sensitive PAN + bank live in a
-    // /private sub-doc readable only by admin/HR. Soft-delete only (deleted flag).
+    // their name populates in the add-case picker. CRM users may also CREATE a
+    // connector (quick-add when a partner walks in with a case) — main record only;
+    // edits stay admin/HR. Sensitive PAN + bank live in a /private sub-doc readable
+    // only by admin/HR. Soft-delete only (deleted flag).
     match /connectors/{connectorId} {
       allow read:   if isAdmin() || isHrmsManager() || hasCrmAccess();
-      allow create,
-            update: if isAdmin() || isHrmsManager();
+      allow create: if isAdmin() || isHrmsManager() || hasCrmAccess();
+      allow update: if isAdmin() || isHrmsManager();
       allow delete: if false;
 
       match /private/{docId} {

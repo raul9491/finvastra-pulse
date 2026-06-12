@@ -5,7 +5,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { appendFieldHistory } from '../../../lib/fieldHistory';
-import type { Opportunity, OpportunityTypeConfig, Provider, Activity, ActivityType, CrmRole, ConvertorVertical, LostDetails } from '../../../types';
+import type { Opportunity, OpportunityTypeConfig, Provider, Activity, ActivityType, CrmRole, ConvertorVertical, LostDetails, DsaCodeUsed } from '../../../types';
 import { LOST_REASON_LABELS } from '../../../types';
 import type { OpportunityFormValues } from '../leads/opportunitySchema';
 
@@ -173,7 +173,7 @@ export async function createOpportunity(
   values: OpportunityFormValues,
   userId: string,
   customFields?: Record<string, unknown>,
-  connector?: { id: string; code: string; name: string } | null,
+  connector?: { id: string; code: string; name: string; dsaCodeUsed?: DsaCodeUsed } | null,
 ): Promise<string> {
   const now = serverTimestamp();
   const ref = await addDoc(collection(db, 'leads', leadId, 'opportunities'), {
@@ -186,7 +186,10 @@ export async function createOpportunity(
     ...(values.expectedCloseDate ? { expectedCloseDate: values.expectedCloseDate } : {}),
     ...(values.notes              ? { notes: values.notes }                         : {}),
     ...(customFields && Object.keys(customFields).length > 0 ? { customFields } : {}),
-    ...(connector ? { connectorId: connector.id, connectorCode: connector.code, connectorName: connector.name } : {}),
+    ...(connector ? {
+      connectorId: connector.id, connectorCode: connector.code, connectorName: connector.name,
+      ...(connector.dsaCodeUsed ? { dsaCodeUsed: connector.dsaCodeUsed } : {}),
+    } : {}),
     createdAt: now,
     updatedAt: now,
   });

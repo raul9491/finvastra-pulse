@@ -39,7 +39,7 @@ const rupee = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 
 interface FormState {
   connectorCode: string; displayName: string; mobile: string; email: string;
-  address: string; firmName: string; verticals: ConnectorVertical[];
+  address: string; firmName: string; ownDsaCode: string; verticals: ConnectorVertical[];
   status: Connector['status']; notes: string;
   pan: string; accountHolderName: string; accountNumber: string; ifsc: string;
   bankName: string; branch: string;
@@ -48,7 +48,7 @@ interface FormState {
 function emptyForm(code: string): FormState {
   return {
     connectorCode: code, displayName: '', mobile: '', email: '', address: '',
-    firmName: '', verticals: [], status: 'active', notes: '',
+    firmName: '', ownDsaCode: '', verticals: [], status: 'active', notes: '',
     pan: '', accountHolderName: '', accountNumber: '', ifsc: '', bankName: '', branch: '',
   };
 }
@@ -63,7 +63,7 @@ function ConnectorFormModal({ connector, suggestedCode, uid, onClose }: {
     connector ? {
       connectorCode: connector.connectorCode, displayName: connector.displayName,
       mobile: connector.mobile, email: connector.email, address: connector.address,
-      firmName: connector.firmName ?? '', verticals: connector.verticals ?? [],
+      firmName: connector.firmName ?? '', ownDsaCode: connector.ownDsaCode ?? '', verticals: connector.verticals ?? [],
       status: connector.status, notes: connector.notes ?? '',
       pan: '', accountHolderName: '', accountNumber: '', ifsc: '', bankName: '', branch: '',
     } : emptyForm(suggestedCode));
@@ -119,6 +119,7 @@ function ConnectorFormModal({ connector, suggestedCode, uid, onClose }: {
         email: form.email.trim(),
         address: form.address.trim(),
         firmName: form.firmName.trim() || undefined,
+        ownDsaCode: form.ownDsaCode.trim() || undefined,
         verticals: form.verticals,
         status: form.status,
         notes: form.notes.trim() || undefined,
@@ -192,6 +193,11 @@ function ConnectorFormModal({ connector, suggestedCode, uid, onClose }: {
           <div>
             <label className={labelCls} style={{ color: 'var(--text-muted)' }}>Firm / DSA Name</label>
             <input value={form.firmName} onChange={(e) => set('firmName', e.target.value)} className={`${inp} border-(--shell-border)`} style={{ color: 'var(--text-primary)' }} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={labelCls} style={{ color: 'var(--text-muted)' }}>Their Own DSA Code</label>
+            <input value={form.ownDsaCode} onChange={(e) => set('ownDsaCode', e.target.value)} placeholder="optional — only if they hold their own bank DSA code" className={`${inp} border-(--shell-border)`} style={{ color: 'var(--text-primary)' }} />
+            <p className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>Cases can run under Finvastra's code (we receive &amp; pay them) or their own code (bank pays them directly) — chosen per case in CRM.</p>
           </div>
         </div>
 
@@ -364,6 +370,7 @@ function ConnectorDetailModal({ connector, uid, onEdit, onClose }: {
           {row('Mobile', connector.mobile)}
           {row('Email', connector.email)}
           {row('Firm / DSA', connector.firmName)}
+          {row('Own DSA Code', connector.ownDsaCode)}
           {row('Address', connector.address)}
           {connector.notes && row('Notes', connector.notes)}
         </div>

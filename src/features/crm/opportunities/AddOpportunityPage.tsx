@@ -8,8 +8,9 @@ import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { useOpportunityTypes, createOpportunity } from '../hooks/useOpportunities';
 import { useConnectors } from '../../hrms/hooks/useConnectors';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import { QuickAddConnectorModal } from '../components/QuickAddConnectorModal';
 import { opportunitySchema, type OpportunityFormValues } from '../leads/opportunitySchema';
-import type { OpportunityType, OpportunityTypeConfig, CustomFieldDefinition, ConditionalDocumentRule, Connector } from '../../../types';
+import type { OpportunityType, OpportunityTypeConfig, CustomFieldDefinition, ConditionalDocumentRule, Connector, DsaCodeUsed } from '../../../types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TYPE_META: Record<OpportunityType, { label: string; icon: React.ReactNode; desc: string; color: string }> = {
@@ -247,6 +248,9 @@ function Step3({
   connectors,
   connectorId,
   onConnectorChange,
+  onAddConnector,
+  dsaCodeUsed,
+  onDsaCodeUsedChange,
   defaultOwnerId,
   onBack,
   onSubmit,
@@ -260,6 +264,9 @@ function Step3({
   connectors: Connector[];
   connectorId: string;
   onConnectorChange: (id: string) => void;
+  onAddConnector: () => void;
+  dsaCodeUsed: DsaCodeUsed;
+  onDsaCodeUsedChange: (v: DsaCodeUsed) => void;
   defaultOwnerId: string;
   onBack: () => void;
   onSubmit: (v: OpportunityFormValues) => void;
@@ -335,24 +342,74 @@ function Step3({
           <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
             Sourced by Connector
           </label>
-          <SearchableSelect
-            options={[
-              { value: '', label: 'Direct / no connector' },
-              ...connectors.map((c) => ({
-                value: c.id,
-                label: `${c.displayName} · ${c.connectorCode}`,
-                description: c.firmName ?? undefined,
-                searchKeywords: [c.connectorCode, c.mobile],
-              })),
-            ]}
-            value={connectorId}
-            onChange={onConnectorChange}
-            placeholder="Direct / no connector"
-          />
+          <div className="flex items-start gap-2">
+            <div className="flex-1 min-w-0">
+              <SearchableSelect
+                options={[
+                  { value: '', label: 'Direct / no connector' },
+                  ...connectors.map((c) => ({
+                    value: c.id,
+                    label: `${c.displayName} · ${c.connectorCode}`,
+                    description: c.firmName ?? undefined,
+                    searchKeywords: [c.connectorCode, c.mobile],
+                  })),
+                ]}
+                value={connectorId}
+                onChange={onConnectorChange}
+                placeholder="Direct / no connector"
+              />
+            </div>
+            <button type="button" onClick={onAddConnector}
+              className="shrink-0 px-3 py-2.5 rounded-lg text-xs font-semibold border transition-opacity hover:opacity-80 whitespace-nowrap"
+              style={{ borderColor: 'rgba(201,169,97,0.35)', color: '#C9A961' }}>
+              + New
+            </button>
+          </div>
           <p className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
             The channel partner who brought this case (manage in HRMS → Connectors).
           </p>
         </div>
+
+        {/* DSA code routing — only meaningful when a connector sourced the case */}
+        {connectorId && (() => {
+          const conn = connectors.find((c) => c.id === connectorId);
+          return (
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                DSA Code for This Case
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button type="button" onClick={() => onDsaCodeUsedChange('finvastra')}
+                  className="text-left px-3.5 py-3 rounded-xl border transition-colors"
+                  style={dsaCodeUsed === 'finvastra'
+                    ? { backgroundColor: 'rgba(201,169,97,0.12)', borderColor: '#C9A961' }
+                    : { borderColor: 'var(--shell-border)' }}>
+                  <span className="block text-sm font-semibold"
+                    style={{ color: dsaCodeUsed === 'finvastra' ? '#C9A961' : 'var(--text-primary)' }}>
+                    {dsaCodeUsed === 'finvastra' ? '✓ ' : ''}Finvastra's DSA code
+                  </span>
+                  <span className="block text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    Bank pays Finvastra — we owe the connector a payout
+                  </span>
+                </button>
+                <button type="button" onClick={() => onDsaCodeUsedChange('connector_own')}
+                  className="text-left px-3.5 py-3 rounded-xl border transition-colors"
+                  style={dsaCodeUsed === 'connector_own'
+                    ? { backgroundColor: 'rgba(201,169,97,0.12)', borderColor: '#C9A961' }
+                    : { borderColor: 'var(--shell-border)' }}>
+                  <span className="block text-sm font-semibold"
+                    style={{ color: dsaCodeUsed === 'connector_own' ? '#C9A961' : 'var(--text-primary)' }}>
+                    {dsaCodeUsed === 'connector_own' ? '✓ ' : ''}Connector's own code
+                    {conn?.ownDsaCode ? <span className="font-mono font-normal text-xs"> · {conn.ownDsaCode}</span> : null}
+                  </span>
+                  <span className="block text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    Bank pays the connector directly under their code
+                  </span>
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
         <div>
           <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
@@ -426,6 +483,8 @@ export function AddOpportunityPage() {
   const [submitError, setSubmitError] = useState('');
   const [customFields, setCustomFields] = useState<Record<string, unknown>>({});
   const [connectorId, setConnectorId] = useState('');
+  const [showAddConnector, setShowAddConnector] = useState(false);
+  const [dsaCodeUsed, setDsaCodeUsed] = useState<DsaCodeUsed>('finvastra');
 
   // Active connectors that cover the chosen business line — for the source picker.
   const connectorOptions = useMemo(
@@ -458,7 +517,7 @@ export function AddOpportunityPage() {
         values,
         user.uid,
         customFields,
-        conn ? { id: conn.id, code: conn.connectorCode, name: conn.displayName } : null,
+        conn ? { id: conn.id, code: conn.connectorCode, name: conn.displayName, dsaCodeUsed } : null,
       );
       navigate(`/crm/leads/${leadId}/opportunities/${newId}`);
     } catch (e) {
@@ -525,6 +584,9 @@ export function AddOpportunityPage() {
           connectors={connectorOptions}
           connectorId={connectorId}
           onConnectorChange={setConnectorId}
+          onAddConnector={() => setShowAddConnector(true)}
+          dsaCodeUsed={dsaCodeUsed}
+          onDsaCodeUsedChange={setDsaCodeUsed}
           defaultOwnerId={profile?.userId ?? ''}
           onBack={() => setStep(2)}
           onSubmit={handleSubmit}
@@ -532,6 +594,18 @@ export function AddOpportunityPage() {
           submitError={submitError}
           customFields={customFields}
           onCustomFieldsChange={setCustomFields}
+        />
+      )}
+
+      {/* Quick-add a walk-in channel partner without leaving the wizard */}
+      {user && (
+        <QuickAddConnectorModal
+          open={showAddConnector}
+          onClose={() => setShowAddConnector(false)}
+          connectors={connectors}
+          defaultVertical={selectedType ?? undefined}
+          uid={user.uid}
+          onCreated={(id) => setConnectorId(id)}
         />
       )}
     </div>

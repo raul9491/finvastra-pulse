@@ -157,6 +157,9 @@ export async function setPrimarySubmission(
     const connectorId   = oppData.connectorId   ?? leadData.connectorId   ?? null;
     const connectorCode = oppData.connectorCode ?? leadData.connectorCode ?? null;
     const connectorName = oppData.connectorName ?? leadData.connectorName ?? null;
+    // Which DSA code the case ran under — set on the opportunity at creation.
+    // 'finvastra' (our code, we owe the connector) vs 'connector_own' (bank pays them).
+    const dsaCodeUsed   = oppData.dsaCodeUsed ?? null;
 
     if (subData.status !== 'disbursed') {
       throw new Error('Only a disbursed submission can be marked as primary.');
@@ -202,7 +205,7 @@ export async function setPrimarySubmission(
       status:            'pending',
       expectedPayoutDate: payoutDate.toISOString().slice(0, 10),
       notes:             noSlabMatch ? 'NO_SLAB_MATCH — admin review required' : null,
-      ...(connectorId ? { connectorId, connectorCode, connectorName } : {}),
+      ...(connectorId ? { connectorId, connectorCode, connectorName, ...(dsaCodeUsed ? { dsaCodeUsed } : {}) } : {}),
       createdAt:         serverTimestamp(),
     });
 

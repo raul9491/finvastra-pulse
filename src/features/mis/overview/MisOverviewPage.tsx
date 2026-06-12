@@ -250,7 +250,22 @@ export function MisOverviewPage() {
                       </td>
                       <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>
                         {rec.connectorName
-                          ? <span>{rec.connectorName}{rec.connectorCode ? <span style={{ color: 'var(--text-muted)' }}> · {rec.connectorCode}</span> : null}</span>
+                          ? (
+                            <span className="inline-flex items-center gap-1.5 flex-wrap">
+                              <span>{rec.connectorName}{rec.connectorCode ? <span style={{ color: 'var(--text-muted)' }}> · {rec.connectorCode}</span> : null}</span>
+                              {rec.dsaCodeUsed && (
+                                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                                  title={rec.dsaCodeUsed === 'finvastra'
+                                    ? 'Case ran under our DSA code — bank pays Finvastra; connector payout owed'
+                                    : "Case ran under the connector's own DSA code — bank pays them directly"}
+                                  style={rec.dsaCodeUsed === 'finvastra'
+                                    ? { backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961' }
+                                    : { backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-muted)' }}>
+                                  {rec.dsaCodeUsed === 'finvastra' ? 'Our DSA' : 'Own DSA'}
+                                </span>
+                              )}
+                            </span>
+                          )
                           : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                       </td>
                       <td className="px-4 py-3">

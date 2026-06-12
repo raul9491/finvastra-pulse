@@ -504,6 +504,7 @@ export interface Opportunity {
   connectorId?: string;
   connectorCode?: string;   // FAC-### — denormalised for display
   connectorName?: string;   // denormalised so CRM views show it without a lookup
+  dsaCodeUsed?: DsaCodeUsed; // which DSA code this case runs under at the bank
   createdAt: any;
   updatedAt: any;
 }
@@ -591,6 +592,7 @@ export interface CommissionRecord {
   connectorId?: string;
   connectorCode?: string;
   connectorName?: string;
+  dsaCodeUsed?: DsaCodeUsed;  // 'finvastra' = we receive + owe payout; 'connector_own' = bank pays them
   slabId: string | null;      // null when NO_SLAB_MATCH
   basisAmount: number;        // disbursedAmount or sanctionedAmount used
   calculatedCommission: number;
@@ -1078,6 +1080,11 @@ export interface Asset {
 export type ConnectorVertical = 'loan' | 'wealth' | 'insurance';
 export type ConnectorStatus = 'active' | 'inactive';
 
+// Which DSA code a connector-sourced case runs under at the bank:
+// 'finvastra'     → our code; the bank pays Finvastra and we owe the connector a payout
+// 'connector_own' → the connector's own code; the bank pays them directly
+export type DsaCodeUsed = 'finvastra' | 'connector_own';
+
 // Public-ish record — readable by CRM users (for the case picker) + admin/HR.
 // Sensitive PAN + bank live in /connectors/{id}/private/financial (admin/HR only).
 export interface Connector {
@@ -1088,6 +1095,7 @@ export interface Connector {
   email: string;                  // personal/business email — NOT a Workspace login
   address: string;
   firmName?: string;              // if they operate as a firm / DSA entity
+  ownDsaCode?: string | null;     // the connector's OWN bank DSA code, if they have one
   verticals: ConnectorVertical[]; // what they bring
   status: ConnectorStatus;
   notes?: string;

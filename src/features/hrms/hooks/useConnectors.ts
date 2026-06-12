@@ -53,6 +53,7 @@ export interface ConnectorInput {
   email: string;
   address: string;
   firmName?: string;
+  ownDsaCode?: string;          // the connector's OWN bank DSA code, if they have one
   verticals: ConnectorVertical[];
   status: Connector['status'];
   notes?: string;
@@ -65,8 +66,9 @@ export async function createConnector(
 ): Promise<string> {
   const ref = await addDoc(collection(db, 'connectors'), {
     ...input,
-    firmName: input.firmName || null,
-    notes:    input.notes || null,
+    firmName:   input.firmName || null,
+    ownDsaCode: input.ownDsaCode || null,
+    notes:      input.notes || null,
     deleted:  false,
     createdBy: uid,
     createdAt: serverTimestamp(),
@@ -87,8 +89,9 @@ export async function updateConnector(
 ): Promise<void> {
   await updateDoc(doc(db, 'connectors', id), {
     ...input,
-    firmName: input.firmName || null,
-    notes:    input.notes || null,
+    firmName:   input.firmName || null,
+    ownDsaCode: input.ownDsaCode || null,
+    notes:      input.notes || null,
     updatedAt: serverTimestamp(),
   });
   await setDoc(doc(db, 'connectors', id, 'private', 'financial'), {
@@ -96,6 +99,44 @@ export async function updateConnector(
     bank: financial.bank,
     updatedAt: serverTimestamp(),
   });
+}
+
+// ─── Quick-add from CRM ─────────────────────────────────────────────────────
+// CRM users can register a connector on the spot when a new channel partner
+// walks in with a case — main record only. PAN + bank details (the /private
+// financial sub-doc) stay admin/HR-only and are completed later in
+// HRMS → Connectors before any payout is made.
+export interface QuickConnectorInput {
+  displayName: string;
+  mobile: string;
+  email?: string;
+  firmName?: string;
+  ownDsaCode?: string;
+  verticals: ConnectorVertical[];
+}
+
+export async function quickAddConnector(
+  input: QuickConnectorInput,
+  connectorCode: string,
+  uid: string,
+): Promise<string> {
+  const ref = await addDoc(collection(db, 'connectors'), {
+    connectorCode,
+    displayName: input.displayName.trim(),
+    mobile:      input.mobile.trim(),
+    email:       input.email?.trim() || '',
+    address:     '',
+    firmName:    input.firmName?.trim() || null,
+    ownDsaCode:  input.ownDsaCode?.trim() || null,
+    verticals:   input.verticals,
+    status:      'active',
+    notes:       'Added from CRM — HR to complete PAN/bank details before payout.',
+    deleted:     false,
+    createdBy:   uid,
+    createdAt:   serverTimestamp(),
+    updatedAt:   serverTimestamp(),
+  });
+  return ref.id;
 }
 
 export async function getConnectorFinancial(id: string): Promise<ConnectorFinancial | null> {

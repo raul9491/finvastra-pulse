@@ -18,7 +18,7 @@ import type { Firestore, Transaction } from "firebase-admin/firestore";
 import type adminNs from "firebase-admin";
 import crypto from "crypto";
 import { encryptField } from "../src/lib/encryption.js";
-import { findSlabOverlaps, type SlabForResolution } from "../src/lib/crm2/slab.js";
+import { findSlabOverlaps, resolveSlab, SlabResolutionError, type SlabForResolution } from "../src/lib/crm2/slab.js";
 import type { Crm2PermKey } from "../src/types/crm2.js";
 
 interface Deps {
@@ -479,6 +479,49 @@ export function registerCrm2Routes(app: express.Express, { db, admin }: Deps): v
       at: FieldValue.serverTimestamp(),
     });
     res.json({ ok: true, slabId: newSlab.slabId });
+  }));
+
+  // Slab-resolution preview — the disburse dialog's "Slab: X × Y × Z — 1.40%
+  // w.e.f. … → expected ₹N" line, and the wiring smoke test's target. Returns the
+  // exact slab the disburse endpoint would freeze, or the typed resolution error.
+  // Money data → payout.amounts.read.
+  app.get("/api/crm2/mappings/:id/resolve-slab", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "payout.amounts.read");
+    if (!caller) return;
+    const productId = String(req.query.productId ?? "");
+    const dateStr = String(req.query.date ?? "");
+    if (!productId) throw new ApiError(400, "productId query param is required");
+    const date = new Date(dateStr);
+    if (!dateStr || isNaN(date.getTime())) throw new ApiError(400, "date query param must be an ISO date");
+
+    const snap = await db.collection("dsaCodeMappings").doc(req.params.id).get();
+    if (!snap.exists) throw new ApiError(404, `${req.params.id} not found`);
+    const m = snap.data()!;
+
+    const [agg, lender, product] = await Promise.all([
+      db.collection("aggregators").doc(m.connectorId).get(),
+      db.collection("lenders").doc(m.lenderId).get(),
+      db.collection("products").doc(productId).get(),
+    ]);
+    try {
+      const slab = resolveSlab(
+        (m.slabs ?? []).map(toResolution),
+        productId,
+        date.getTime(),
+        {
+          connectorName: agg.data()?.name ?? m.connectorId,
+          lenderName: lender.data()?.name ?? m.lenderId,
+          productName: product.data()?.shortCode ?? productId,
+        },
+      );
+      res.json({ ok: true, slab });
+    } catch (e) {
+      if (e instanceof SlabResolutionError) {
+        res.status(422).json({ error: e.message, kind: e.kind });
+        return;
+      }
+      throw e;
+    }
   }));
 
   app.post("/api/crm2/mappings/:id/slabs/:slabId/end", route(async (req, res) => {

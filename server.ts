@@ -991,6 +991,13 @@ async function startServer() {
         perms:          p.perms         ?? {},   // CRM 2.0 permission keys (PLAN.md decision 2)
       });
 
+      // Signal the target user's open sessions to force-refresh their ID token —
+      // without this, a REVOKED permission lingers in the stale claims for up to
+      // 1h (grants were already instant via the rules/API get() fallbacks).
+      await db.collection("users").doc(uid).update({
+        claimsRefreshedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }).catch(() => {});
+
       await db.collection("audit_logs").add({
         actor:      callerUid,
         action:     "sync_custom_claims",
@@ -1034,6 +1041,9 @@ async function startServer() {
             misAccess:     p.misAccess     ?? null,
             perms:         p.perms         ?? {},   // CRM 2.0 permission keys
           });
+          await docu.ref.update({
+            claimsRefreshedAt: admin.firestore.FieldValue.serverTimestamp(),
+          }).catch(() => {});
           synced++;
         } catch {
           // No Firebase Auth account yet (e.g. needsEmailSetup) — nothing to stamp.

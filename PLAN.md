@@ -91,6 +91,13 @@ until §13, when its records are offered a one-off migration into `subDsas`.
 (Masters / Leads / Cases / Payouts / MIS / Recon). Old CRM screens stay put until §13
 renames them "Archive". No fourth module shell.
 
+**Claims staleness (gate fix, 2026-06-13):** sync-claims (single + bulk) stamps
+`claimsRefreshedAt` on the user doc after `setCustomUserClaims`; AuthContext's live profile
+listener force-refreshes the ID token (`getIdToken(true)`) when that timestamp advances.
+Grants were already instant (rules/API fall back to the live user doc); this makes
+**revocations** instant too instead of waiting out the ≤1h token rotation. The perms editor
+relies on this — no re-login needed.
+
 **Minor conventions (also locked):** `*Enc` fields store the existing `EncryptedField`
 OBJECT (`{ciphertext, iv, tag, keyVersion}`), not a string; vitest for unit tests; job
 thresholds in `app_config/crm2_settings`; new server code in `server/crm2.ts` registered

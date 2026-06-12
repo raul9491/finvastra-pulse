@@ -190,10 +190,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Live profile listener — picks up any change to the user doc (photoURL,
         // role, permissions, etc.) without requiring a page reload.
+        let lastClaimsRefresh: number | null = null;
         profileUnsubRef.current = onSnapshot(ref, (docSnap) => {
           if (docSnap.exists()) {
+            const data = docSnap.data() as UserProfile & { claimsRefreshedAt?: { toMillis?: () => number } };
+            // Claims-staleness fix: sync-claims stamps claimsRefreshedAt after
+            // updating custom claims. Force-refresh the ID token when it changes
+            // so revoked roles/perms take effect immediately (not after the ≤1h
+            // token rotation). Baseline on first snapshot — no refresh loop.
+            const ts = data.claimsRefreshedAt?.toMillis?.() ?? null;
+            if (ts !== null) {
+              if (lastClaimsRefresh !== null && ts > lastClaimsRefresh) {
+                auth.currentUser?.getIdToken(true).catch(() => {});
+              }
+              lastClaimsRefresh = ts;
+            }
             setState((prev) =>
-              prev.user ? { ...prev, profile: docSnap.data() as UserProfile } : prev,
+              prev.user ? { ...prev, profile: data } : prev,
             );
           }
         }, () => { /* ignore listener errors — initial load already succeeded */ });

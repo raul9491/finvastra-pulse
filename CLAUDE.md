@@ -2493,6 +2493,14 @@ External partners who **source loan / insurance / wealth cases**. NOT employees 
 
 > **Connector now flows end-to-end (2026-06-10):** selected on the **New Customer** form (lead-level) → carried onto the **commission_record** when a bank submission is marked primary/disbursed (`setPrimarySubmission` reads `opportunity.connector` else falls back to `lead.connector`) → visible in **MIS → Disbursals** (Connector column), so each commission is traceable to its channel partner through to payout. `Lead` and `CommissionRecord` types gained `connectorId/connectorCode/connectorName`. The commission_records create rule has no `hasOnly`, so the extra fields write cleanly.
 
+### CRM quick-add + per-case DSA code (2026-06-12)
+
+| Part | Detail | Files |
+|---|---|---|
+| **Quick-add connector from CRM** | "+ New" button beside the Sourced-by-Connector picker on **NewLeadPage** and **AddOpportunityPage Step 3** opens `QuickAddConnectorModal` (name* / mobile* 10-digit / verticals* tick-pills / firm / email / own DSA code). Creates the **main `/connectors` record only** with the next FAC-### code (`quickAddConnector` in `useConnectors.ts`), notes "Added from CRM — HR to complete PAN/bank details before payout", and auto-selects it in the picker. PAN + bank (`/private/financial`) remain admin/HR-only. **Rules**: `/connectors` `allow create` now also `hasCrmAccess()`; `update` stays admin/HR. | `src/features/crm/components/QuickAddConnectorModal.tsx` (new), `useConnectors.ts`, `NewLeadPage.tsx`, `AddOpportunityPage.tsx`, `firestore.rules` |
+| **DSA code per case** | When a connector is selected on Add Opportunity, a two-card choice "DSA Code for This Case": **Finvastra's DSA code** (default — bank pays Finvastra, we owe the connector a payout) or **Connector's own code** (bank pays them directly; shows their code if on record). Stored as `Opportunity.dsaCodeUsed: 'finvastra' \| 'connector_own'` (`DsaCodeUsed` type). `Connector.ownDsaCode?` added — editable in the HRMS ConnectorsPage form + shown in detail view + quick-add modal. | `types/index.ts`, `AddOpportunityPage.tsx`, `useOpportunities.ts` (`createOpportunity` connector param gained `dsaCodeUsed`), `ConnectorsPage.tsx` |
+| **MIS linkage** | `setPrimarySubmission` stamps `dsaCodeUsed` onto the commission_record (from the opportunity). MIS Overview → Disbursals shows a **gold "Our DSA" / muted "Own DSA" badge** beside the connector name (tooltip explains payment direction) — finance can see at a glance which commissions arrive in Finvastra's statements and owe a connector payout vs which the bank pays the connector directly. | `useBankSubmissions.ts`, `MisOverviewPage.tsx` |
+
 ### Code scheme
 `FAC-###` (FAC-001, auto-incremented from the max existing via `nextConnectorCode`). Editable in the form.
 

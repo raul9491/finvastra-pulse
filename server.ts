@@ -214,7 +214,7 @@ interface ParsedRow {
 
 function validateRow(raw: string[], mapping: ColumnMapping, loanProducts: Set<string>): ParsedRow["errors"] {
   const errors: string[] = [];
-  const { displayName, phone, panRaw, loanProduct, dealSize, triagePriority } = extractCells(raw, mapping);
+  const { displayName, phone, panRaw, dealSize, triagePriority } = extractCells(raw, mapping);
 
   if (!displayName) errors.push("Name is required");
   if (!phone) {
@@ -225,12 +225,10 @@ function validateRow(raw: string[], mapping: ColumnMapping, loanProducts: Set<st
   if (panRaw && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panRaw)) {
     errors.push("PAN format invalid (expected ABCDE1234F)");
   }
-  if (loanProduct) {
-    const normalised = normaliseProduct(loanProduct, loanProducts);
-    if (loanProducts.size > 0 && !loanProducts.has(normalised)) {
-      errors.push(`Product '${loanProduct}' not recognised`);
-    }
-  }
+  // NOTE: an unrecognised product is deliberately NOT an error — the lead still
+  // imports (without an opportunity) and the raw value is kept in its notes.
+  // A hard product check once failed entire imports when a non-product column
+  // (e.g. a date) was mapped to Product.
   if (dealSize && isNaN(Number(dealSize))) errors.push("Deal size must be a number");
   if (triagePriority && !["high","medium","low",""].includes(triagePriority.toLowerCase())) {
     errors.push("Priority must be: high, medium, or low");
@@ -400,7 +398,7 @@ function extractCells(raw: string[], mapping: ColumnMapping): {
 async function processImportBatch(
   jobId: string,
   sheetId: string,
-  skipErrors: boolean,
+  _skipErrors: boolean,  // kept for signature compat; invalid rows are now always skipped
   triggerUserId: string,
   batchId: string,
   rows: string[][],
@@ -421,13 +419,24 @@ async function processImportBatch(
     const rowErrors = validateRow(raw, columnMapping, loanProducts);
 
     if (rowErrors.length > 0) {
+      // Invalid rows are ALWAYS skipped — never import bad data. The skipErrors
+      // flag only controls whether the UI lets an import start with known
+      // preview errors. (Previously skipErrors=true imported the bad rows.)
       errorCount++;
       if (errors.length < 1000) errors.push({ row: rowNum, data: rowData, reason: rowErrors.join("; ") });
-      if (!skipErrors) { processedRows++; continue; }
+      processedRows++;
+      continue;
     }
 
-    const { displayName, phone, email, panRaw, address, notes } = cells;
+    const { displayName, phone, email, panRaw, address } = cells;
     const loanProduct = normaliseProduct(cells.loanProduct, loanProducts);
+    const productValid = !!loanProduct && loanProducts.has(loanProduct);
+    // Unrecognised product values aren't lost — they ride along in the lead's
+    // notes (e.g. a misc column the user mapped to Product, or a typo'd product).
+    const notes = [
+      cells.notes,
+      cells.loanProduct && !productValid ? `Imported product value: ${cells.loanProduct}` : '',
+    ].filter(Boolean).join(' · ');
     const dealSizeRaw = cells.dealSize;
     const triagePriorityRaw = cells.triagePriority;
     const importHash = buildImportHash(phone, email, displayName);
@@ -461,6 +470,7 @@ async function processImportBatch(
       ...(email   ? { email   } : {}),
       ...(panRaw  ? { panRaw  } : {}),
       ...(address ? { address } : {}),
+      ...(notes   ? { notes   } : {}),  // survives even when no opportunity is created
       source:        "offline_bulk",
       tags:          [],
       primaryOwnerId: assignedOwner,
@@ -481,7 +491,7 @@ async function processImportBatch(
     });
 
     // Create opportunity if loanProduct is valid
-    if (loanProduct && loanProducts.has(loanProduct)) {
+    if (productValid) {
       const oppRef = leadRef.collection("opportunities").doc();
       batch.set(oppRef, {
         opportunityType: "loan",
@@ -520,7 +530,7 @@ async function processImportBatch(
     successCount,
     errorCount,
     errors,
-    status: errorCount > 0 && !skipErrors ? "partial" : errorCount === totalRows ? "failed" : "completed",
+    status: errorCount === totalRows && totalRows > 0 ? "failed" : errorCount > 0 ? "partial" : "completed",
     completedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 }

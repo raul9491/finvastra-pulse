@@ -41,7 +41,10 @@ const FIELD_LABELS: Record<string, string> = {
   notes:          'Notes',
 };
 
-const REQUIRED_FIELDS = ['displayName', 'phone', 'loanProduct'];
+// Only Name + Phone are truly required — a contact list with no product column
+// imports as raw leads (no opportunity). Forcing Product here once pushed users
+// to map unrelated columns (e.g. a date) into it, failing every row.
+const REQUIRED_FIELDS = ['displayName', 'phone'];
 
 // Convert 0-based index to spreadsheet column letter (0→A, 25→Z, 26→AA …)
 function colLetter(idx: number): string {

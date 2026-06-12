@@ -415,6 +415,7 @@ export interface Lead {
   };
   panMasked?: string;        // Pre-computed masked version (server writes this alongside panEncrypted)
   source: LeadSource;
+  notes?: string;          // bulk import: Notes column + unrecognised product values land here
   tags: string[];
   referrerName?: string;
   monthlyIncome?: number;      // ₹ per month — used for FOIR calculation

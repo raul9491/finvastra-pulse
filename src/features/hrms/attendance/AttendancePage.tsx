@@ -16,6 +16,7 @@ import { useAuth } from '../../auth/AuthContext';
 import type { UserProfile } from '../../../types';
 import { useMyAttendance, useTodayAttendance, checkIn, checkOut } from '../hooks/useAttendance';
 import { useGeofenceConfig, enforceGeofence } from '../../../lib/geo';
+import { isSuperAdmin } from '../../../config/hrmsConfig';
 import type { AttendanceStatus, Attendance } from '../../../types';
 import {
   useMyRegularizations, submitRegularization,
@@ -439,13 +440,20 @@ export function AttendancePage() {
             </div>
           )}
 
-          {geofence?.enabled && (
-            <p className="mb-3 text-[11px] flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
-              {(geofence.exemptUids ?? []).includes(userId)
-                ? '📍 Field mode — you can clock in/out from anywhere; your location is recorded.'
-                : `📍 Clock in/out works within ${geofence.radiusMeters} m of ${geofence.label || 'the office'}.`}
-            </p>
-          )}
+          {geofence?.enabled && (() => {
+            const isFieldWorker = (geofence.exemptUids ?? []).includes(userId);
+            // Location-recording detail is shown ONLY to super admins —
+            // employees just see a friendly field-mode note (or the radius rule).
+            const isSA = isSuperAdmin(userId, profile ?? undefined);
+            if (isFieldWorker && !isSA) return null;
+            return (
+              <p className="mb-3 text-[11px] flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
+                {isFieldWorker
+                  ? '📍 Field mode — you can clock in/out from anywhere; your location is recorded.'
+                  : `📍 Clock in/out works within ${geofence.radiusMeters} m of ${geofence.label || 'the office'}.`}
+              </p>
+            );
+          })()}
 
           {todayLoading && (
             <div className="h-14 rounded-2xl animate-pulse" style={{ backgroundColor: 'var(--glass-panel-bg)' }} />
@@ -498,10 +506,21 @@ export function AttendancePage() {
             </div>
           )}
 
-          {/* Done for the day */}
+          {/* Done for the day — animated draw-in check */}
           {!todayLoading && todayRecord?.checkOut && (
             <div className="rounded-xl px-5 py-4 flex items-center gap-4" style={{ backgroundColor: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.20)' }}>
-              <span style={{ fontSize: '2rem' }}>✓</span>
+              <span className="shrink-0" style={{ animation: 'fv-pop 0.5s ease-out both' }}>
+                <svg width="46" height="46" viewBox="0 0 52 52" aria-hidden="true">
+                  <circle cx="26" cy="26" r="23" fill="none" stroke="#C9A961" strokeWidth="2" opacity="0.45"
+                    strokeDasharray="145" strokeDashoffset="145"
+                    style={{ animation: 'fv-draw 0.7s ease-out 0.1s forwards' }} />
+                  <circle cx="26" cy="26" r="23" fill="rgba(52,211,153,0.10)" stroke="none" />
+                  <path d="M16 27l7 7 14-15" fill="none" stroke="#34d399" strokeWidth="3.5"
+                    strokeLinecap="round" strokeLinejoin="round"
+                    strokeDasharray="34" strokeDashoffset="34"
+                    style={{ animation: 'fv-draw 0.45s ease-out 0.5s forwards' }} />
+                </svg>
+              </span>
               <div>
                 <p className="text-sm font-semibold" style={{ color: '#34d399' }}>Present today</p>
                 <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>

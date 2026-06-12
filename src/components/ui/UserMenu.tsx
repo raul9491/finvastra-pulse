@@ -81,8 +81,10 @@ export function UserMenu({
       {/* ── Dropdown ── */}
       {open && (
         <div
-          className="absolute right-0 top-full mt-2 w-56 z-50 rounded-2xl overflow-hidden shadow-2xl glass-panel"
-          style={{ minWidth: 220 }}
+          className="absolute right-0 top-full mt-2 w-56 z-50 rounded-2xl overflow-hidden glass-panel"
+          // Solid surface — the translucent panel let page text bleed through,
+          // making the menu unreadable over busy content.
+          style={{ minWidth: 220, backgroundColor: 'var(--ss-bg)', boxShadow: '0 24px 64px rgba(0,0,0,0.45)' }}
         >
           {/* User identity header */}
           <div className="px-4 py-3.5" style={{ borderBottom: '1px solid var(--shell-border)' }}>

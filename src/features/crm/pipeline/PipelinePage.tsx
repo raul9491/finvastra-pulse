@@ -332,8 +332,8 @@ export function PipelinePage() {
           </div>
         </div>
 
-        {/* Summary cards */}
-        <div className="grid grid-cols-4 gap-3">
+        {/* Summary cards — 2×2 on phones, 4 across on desktop */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="glass-panel glass-card p-4">
             <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Total Pipeline</p>
             <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{fmt(totalValue)}</p>
@@ -404,46 +404,110 @@ export function PipelinePage() {
       </div>
 
       {/* ── BOARD VIEW ── */}
-      {viewMode === 'board' && (
-        <div className="overflow-x-auto pb-4" style={{ flex: 1, minHeight: 0 }}>
-          {loading ? (
-            <div className="flex gap-4">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div
-                  key={i}
-                  className="shrink-0 rounded-2xl animate-pulse"
-                  style={{ width: 270, height: 400, backgroundColor: 'var(--glass-panel-bg)' }}
-                />
+      {viewMode === 'board' && (() => {
+        // Only stages that actually hold deals get a column — a row of giant
+        // empty columns (especially on phones) read as broken UI.
+        const stagesWithCards = orderedStages.filter((s) => filtered.some((r) => r.stage === s));
+        const hiddenEmpty = orderedStages.length - stagesWithCards.length;
+
+        if (loading) {
+          return (
+            <div className="flex gap-4 overflow-x-auto pb-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="shrink-0 rounded-2xl animate-pulse"
+                  style={{ width: 270, height: 280, backgroundColor: 'var(--glass-panel-bg)' }} />
               ))}
             </div>
-          ) : orderedStages.length === 0 ? (
+          );
+        }
+
+        if (orderedStages.length === 0) {
+          return (
             <div className="glass-panel py-20 text-center">
               <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No stages configured yet.</p>
               <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>Run Seed CRM Config from the Dashboard first.</p>
             </div>
-          ) : (
-            <div className="flex gap-4" style={{ width: 'max-content', minWidth: '100%' }}>
-              {orderedStages.map((stage, idx) => {
-                const stageCards = filtered.filter((r) => r.stage === stage);
-                // Only show columns that have cards OR are part of the active type's stages
+          );
+        }
+
+        if (filtered.length === 0) {
+          return (
+            <div className="glass-panel py-16 text-center" style={{ borderStyle: 'dashed' }}>
+              <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                {rows.length === 0 ? 'No open deals yet.' : 'No deals match the current filters.'}
+              </p>
+              <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
+                Deals appear here as soon as opportunities are added to customers.
+              </p>
+            </div>
+          );
+        }
+
+        return (
+          <>
+            {/* Mobile: stages stack vertically — no sideways hunting */}
+            <div className="md:hidden space-y-4 pb-4">
+              {stagesWithCards.map((stage) => {
+                const idx = orderedStages.indexOf(stage);
                 const accentColor = STAGE_ACCENTS[idx % STAGE_ACCENTS.length];
+                const stageCards = filtered.filter((r) => r.stage === stage);
+                const totalValue = stageCards.reduce((s, r) => s + (r.dealSize ?? 0), 0);
                 return (
-                  <KanbanColumn
-                    key={stage}
-                    stage={stage}
-                    accentColor={accentColor}
-                    cards={stageCards}
-                    rmMap={rmMap}
-                    onCardClick={(leadId, oppId) =>
-                      navigate(`/crm/leads/${leadId}/opportunities/${oppId}`)
-                    }
-                  />
+                  <div key={stage} className="rounded-2xl overflow-hidden"
+                    style={{ backgroundColor: 'var(--shell-hover-soft)', border: '1px solid var(--shell-border)' }}>
+                    <div className="px-4 py-2.5 flex items-center justify-between" style={{ borderBottom: `2px solid ${accentColor}` }}>
+                      <p className="text-xs font-bold uppercase tracking-widest" style={{ color: accentColor }}>{stage}</p>
+                      <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
+                        {stageCards.length} · {fmt(totalValue)}
+                      </p>
+                    </div>
+                    <div className="p-3 space-y-2.5">
+                      {stageCards.map((row) => (
+                        <KanbanCard key={row.oppId} row={row}
+                          rmName={rmMap[row.ownerId] ?? row.ownerId.slice(0, 6)}
+                          onClick={() => navigate(`/crm/leads/${row.leadId}/opportunities/${row.oppId}`)} />
+                      ))}
+                    </div>
+                  </div>
                 );
               })}
+              {hiddenEmpty > 0 && (
+                <p className="text-xs text-center" style={{ color: 'var(--text-dim)' }}>
+                  {hiddenEmpty} empty stage{hiddenEmpty !== 1 ? 's' : ''} hidden
+                </p>
+              )}
             </div>
-          )}
-        </div>
-      )}
+
+            {/* Desktop: classic horizontal board, populated columns only */}
+            <div className="hidden md:block overflow-x-auto pb-4" style={{ flex: 1, minHeight: 0 }}>
+              <div className="flex gap-4" style={{ width: 'max-content', minWidth: '100%' }}>
+                {stagesWithCards.map((stage) => {
+                  const idx = orderedStages.indexOf(stage);
+                  const accentColor = STAGE_ACCENTS[idx % STAGE_ACCENTS.length];
+                  const stageCards = filtered.filter((r) => r.stage === stage);
+                  return (
+                    <KanbanColumn
+                      key={stage}
+                      stage={stage}
+                      accentColor={accentColor}
+                      cards={stageCards}
+                      rmMap={rmMap}
+                      onCardClick={(leadId, oppId) =>
+                        navigate(`/crm/leads/${leadId}/opportunities/${oppId}`)
+                      }
+                    />
+                  );
+                })}
+              </div>
+              {hiddenEmpty > 0 && (
+                <p className="text-xs mt-2" style={{ color: 'var(--text-dim)' }}>
+                  {hiddenEmpty} empty stage{hiddenEmpty !== 1 ? 's' : ''} hidden
+                </p>
+              )}
+            </div>
+          </>
+        );
+      })()}
 
       {/* ── TABLE VIEW ── */}
       {viewMode === 'table' && (

@@ -77,7 +77,8 @@ export function AppsMenu({ profile, currentModule }: AppsMenuProps) {
 
       {/* ── Dropdown ── */}
       {open && (
-        <div className="absolute left-0 top-full mt-2 z-50 glass-modal-panel p-3" style={{ width: 220 }}>
+        <div className="absolute left-0 top-full mt-2 z-50 glass-modal-panel p-3"
+          style={{ width: 220, backgroundColor: 'var(--ss-bg)', boxShadow: '0 24px 64px rgba(0,0,0,0.45)' }}>
 
           <p className="text-[9px] font-bold uppercase tracking-[0.25em] px-1 pb-2"
             style={{ color: 'var(--shell-text-dim)' }}>

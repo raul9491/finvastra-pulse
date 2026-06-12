@@ -226,7 +226,32 @@ function RmPerformanceTable({
   }
 
   return (
-    <div className="overflow-x-auto -mx-1">
+    <>
+    {/* Mobile: compact ranked list — the 6-column table was cut off sideways */}
+    <div className="md:hidden space-y-1">
+      {stats.map(({ uid, name, activeLeads, openOpps, pipelineValue, commissionMonth }, i) => (
+        <div key={uid} className="flex items-center gap-3 py-2" style={{ borderBottom: '1px solid var(--shell-border)' }}>
+          <span className="w-5 shrink-0 text-center">
+            {i === 0
+              ? <Medal size={14} style={{ color: '#C9A961' }} />
+              : <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{i + 1}</span>}
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{name}</p>
+            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              {activeLeads} leads · {openOpps} opps
+              {commissionMonth > 0 && <span style={{ color: 'var(--status-success)' }}> · {fmtRupees(commissionMonth)} MTD</span>}
+            </p>
+          </div>
+          <p className="shrink-0 text-sm font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>
+            {fmtRupees(pipelineValue)}
+          </p>
+        </div>
+      ))}
+    </div>
+
+    {/* Desktop table */}
+    <div className="hidden md:block overflow-x-auto -mx-1">
       <table className="w-full text-sm min-w-120">
         <thead>
           <tr style={{ borderBottom: '1px solid var(--shell-border)' }}>
@@ -262,6 +287,7 @@ function RmPerformanceTable({
         </tbody>
       </table>
     </div>
+    </>
   );
 }
 

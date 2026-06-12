@@ -3,7 +3,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { signInWithEmailAndPassword, type AuthError } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 import { useAuth, SESSION_EXPIRED_KEY } from './AuthContext';
-import { VideoLogo } from '../../components/ui/VideoLogo';
 import { MercuryBackground } from '../../components/ui/MercuryBackground';
 
 const AUTH_ERRORS: Record<string, string> = {
@@ -96,26 +95,9 @@ export function LoginPage() {
       {/* ── WebGL Mercury background ── */}
       <MercuryBackground />
 
-      {/* ── Finvastra logo — top-right ── */}
-      <div style={{
-        position:      'absolute',
-        top:           24, right: 32,
-        zIndex:        1,
-        pointerEvents: 'none',
-      }}>
-        <img
-          src="/images/logo-finvastra.png"
-          alt="Finvastra"
-          style={{ width: 180, opacity: 0.75, mixBlendMode: 'screen' }}
-        />
-      </div>
-
-      {/* ── Video logo — top-left ── */}
-      <div style={{ position: 'absolute', top: 24, left: 24, zIndex: 2 }}>
-        <VideoLogo size="sm" showText={true} />
-      </div>
-
-      {/* ── Login card ── */}
+      {/* ── Login card — single brand mark lives INSIDE the card (the page
+            previously stacked three logos: top-left wordmark, top-right
+            watermark, and the card icon — cluttered, worse on mobile) ── */}
       <div style={{ position: 'relative', zIndex: 2, width: '100%', maxWidth: 440, margin: '0 16px' }}>
         <div className="glass-login-card" style={{
           padding:   40,
@@ -123,9 +105,12 @@ export function LoginPage() {
           animation: 'fadeUp 0.6s ease 0.1s both',
         }}>
 
-          {/* Logo inside card */}
+          {/* Logo inside card — white chip because the brand wordmark is navy
+              (invisible directly on the dark glass) */}
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
-            <img src="/favicon.png" alt="Finvastra" style={{ width: 88, height: 88, objectFit: 'contain' }} />
+            <div style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: '14px 28px', boxShadow: '0 4px 24px rgba(0,0,0,0.25)' }}>
+              <img src="/images/logo-finvastra.png" alt="Finvastra" style={{ width: 170, display: 'block', objectFit: 'contain' }} />
+            </div>
           </div>
 
           {sessionExpired && (

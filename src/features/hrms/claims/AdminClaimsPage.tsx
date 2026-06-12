@@ -423,7 +423,51 @@ export function AdminClaimsPage() {
             <p className="text-sm text-(--text-muted)">No claims found for the selected filters.</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <>
+          {/* ── Mobile card list — the wide table was cut off on phones ── */}
+          <div className="md:hidden">
+            {claims.map((c) => {
+              const meta = CLAIM_TYPE_META[c.claimType];
+              const sty = STATUS_STYLES[c.status];
+              const Icon = meta.icon;
+              const submittedDate = toTs(c.submittedAt);
+              const isApproved = c.status === 'approved';
+              return (
+                <div key={c.id} onClick={() => setDetailClaim(c)}
+                  className="px-4 py-3.5 cursor-pointer active:bg-(--shell-hover-soft) transition-colors"
+                  style={{ borderBottom: '1px solid var(--shell-border)' }}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold truncate text-(--text-primary)">{c.employeeName}</p>
+                      <p className="text-xs mt-0.5 flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                        <Icon size={12} style={{ color: meta.color }} />
+                        {meta.label}
+                        {' · '}{submittedDate ? format(submittedDate, 'dd MMM') : '—'}
+                      </p>
+                      <p className="text-xs mt-1 truncate" style={{ color: 'var(--text-muted)' }}>{c.description}</p>
+                    </div>
+                    <div className="shrink-0 flex flex-col items-end gap-1.5">
+                      <p className="text-sm font-bold text-(--text-primary)">₹{c.amount.toLocaleString('en-IN')}</p>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
+                        style={{ backgroundColor: sty.bg, color: sty.color }}>
+                        {sty.label}
+                      </span>
+                      {isApproved && (
+                        <label className="flex items-center gap-1.5 text-[11px]" onClick={(e) => e.stopPropagation()}
+                          style={{ color: 'var(--text-muted)' }}>
+                          <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)} className="rounded" />
+                          Pay
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── Desktop table ── */}
+          <table className="w-full text-sm hidden md:table">
             <thead>
               <tr className="border-b border-(--shell-border)">
                 <th className="w-10 p-4" />
@@ -493,6 +537,7 @@ export function AdminClaimsPage() {
               })}
             </tbody>
           </table>
+          </>
         )}
       </div>
 

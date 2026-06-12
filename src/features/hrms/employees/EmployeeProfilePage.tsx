@@ -870,7 +870,9 @@ export function EmployeeProfilePage() {
           style={{ color: 'var(--shell-text-dim)' }}>
           <ArrowLeft size={18} />
         </button>
-        <div className="flex items-center gap-4 flex-1">
+        {/* flex-wrap: on phones the action buttons drop to their own row instead
+            of squeezing the name into one-word-per-line */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 flex-1 min-w-0">
           {displayProfile.photoURL ? (
             <img src={displayProfile.photoURL} alt={displayProfile.displayName}
               className="w-14 h-14 rounded-full object-cover shrink-0" />
@@ -880,8 +882,8 @@ export function EmployeeProfilePage() {
               {displayProfile.displayName?.[0]}
             </div>
           )}
-          <div className="flex-1">
-            <h2 className="text-2xl" style={{ fontFamily: '"Fraunces", Georgia, serif', fontWeight: 300, color: 'var(--text-primary)' }}>
+          <div className="flex-1 min-w-0" style={{ minWidth: 180 }}>
+            <h2 className="text-xl sm:text-2xl" style={{ fontFamily: '"Fraunces", Georgia, serif', fontWeight: 300, color: 'var(--text-primary)' }}>
               {displayProfile.displayName}
             </h2>
             <p className="text-sm" style={{ color: 'var(--shell-text-dim)' }}>
@@ -893,7 +895,7 @@ export function EmployeeProfilePage() {
               <button
                 onClick={() => setEditingMyDetails(true)}
                 className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg nav-item-hover transition-colors"
-                style={{ border: '1px solid #C9A961', color: '#0B1538' }}
+                style={{ border: '1px solid #C9A961', color: '#C9A961' }}
               >
                 <UserCircle size={14} />
                 Edit My Details

@@ -128,7 +128,13 @@ export function NotificationBell({ uid }: { uid: string }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 z-50 overflow-hidden glass-modal-panel">
+        // Mobile: fixed sheet below the header (the absolute-anchored panel used
+        // to hang off-screen left). Solid --ss-bg so page content never bleeds
+        // through (the translucent glass panel was hard to read over text).
+        <div
+          className="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 z-50 overflow-hidden glass-modal-panel"
+          style={{ backgroundColor: 'var(--ss-bg)', boxShadow: '0 24px 64px rgba(0,0,0,0.45)' }}
+        >
 
           {/* Header */}
           <div className="glass-modal-header flex items-center justify-between px-4 py-3">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  collection, query, where, orderBy, onSnapshot, doc,
+  collection, query, where, orderBy, onSnapshot, doc, limit,
 } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { auth } from '../../../lib/firebase';
@@ -20,7 +20,10 @@ export function useImportJob(jobId: string | null) {
   return job;
 }
 
-/** List of past import jobs for the history page. */
+/** List of past import jobs for the history page + progress dock.
+ *  Capped at the 25 most recent — job docs can carry up to 1,000 error rows
+ *  each, and this subscription is mounted in CrmShell on every CRM page, so
+ *  an uncapped query was re-downloading megabytes and slowing the whole app. */
 export function useImportHistory(isAdmin: boolean) {
   const [jobs, setJobs] = useState<ImportJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,8 +33,8 @@ export function useImportHistory(isAdmin: boolean) {
     if (!uid) return;
     const base = collection(db, 'import_jobs');
     const q = isAdmin
-      ? query(base, orderBy('startedAt', 'desc'))
-      : query(base, where('triggeredBy', '==', uid), orderBy('startedAt', 'desc'));
+      ? query(base, orderBy('startedAt', 'desc'), limit(25))
+      : query(base, where('triggeredBy', '==', uid), orderBy('startedAt', 'desc'), limit(25));
     return onSnapshot(q, (snap) => {
       setJobs(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ImportJob)));
       setLoading(false);

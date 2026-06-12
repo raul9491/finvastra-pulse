@@ -547,8 +547,11 @@ async function processImportBatch(
     successCount += chunkSuccess;
     processedRows += slice.length;
 
-    // 4. Live progress per chunk (drives the ImportProgressDock)
-    await jobRef.update({ processedRows, successCount, errorCount, errors });
+    // 4. Live progress per chunk (drives the ImportProgressDock).
+    // Counts ONLY — the errors array (up to 1000 entries with row data) is written
+    // once at the end. Including it here made every progress tick re-stream a huge
+    // doc to every subscribed client, visibly slowing the whole CRM during imports.
+    await jobRef.update({ processedRows, successCount, errorCount });
   }
 
   // Final update

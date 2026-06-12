@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ExternalLink, CheckCircle2, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
-import { useImportJob } from '../hooks/useImportJobs';
+import { useImportJob, downloadErrorCsv } from '../hooks/useImportJobs';
 import { auth } from '../../../lib/firebase';
 
 // ─── API helper ───────────────────────────────────────────────────────────────
@@ -447,6 +447,33 @@ export function ImportPage() {
               </div>
             ))}
           </div>
+          {/* Skipped-row breakdown — so the user can see WHAT didn't import and retry */}
+          {jobDone && (liveJob.errors?.length ?? 0) > 0 && (() => {
+            const reasonCounts = new Map<string, number>();
+            for (const e of liveJob.errors!) {
+              // Group duplicates / repeats / per-value product errors into readable buckets
+              const key = e.reason.startsWith('duplicate (hash')   ? 'Already in the system (imported earlier — no action needed)' :
+                          e.reason.startsWith('duplicate (repeat') ? 'Repeated within this sheet (only the first copy imports)' :
+                          e.reason;
+              reasonCounts.set(key, (reasonCounts.get(key) ?? 0) + 1);
+            }
+            return (
+              <div className="rounded-xl p-4 space-y-2" style={{ backgroundColor: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.25)' }}>
+                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fbbf24' }}>
+                  Why {liveJob.errorCount} rows were skipped
+                </p>
+                {[...reasonCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([reason, count]) => (
+                  <p key={reason} className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{count}×</span> {reason}
+                  </p>
+                ))}
+                <button onClick={() => downloadErrorCsv(liveJob)}
+                  className="mt-1 text-xs font-semibold hover:underline" style={{ color: '#C9A961' }}>
+                  ⬇ Download skipped rows (CSV) — fix &amp; re-import; already-imported rows skip automatically
+                </button>
+              </div>
+            );
+          })()}
           {jobDone && (
             <div className="flex gap-4">
               <button onClick={() => navigate('/crm/import/queue')}

@@ -2284,6 +2284,10 @@ Bulk lead import reworked from one-shot round-robin into a two-stage flow (impor
 
 > Also in this session: the import **preview table** is height-capped (`max-height` + sticky header) so a large sheet scrolls inside its panel instead of running down the whole page; and the agent-eligibility fix (include `lead_convertor` telecallers, exclude inactive staff) now lives on the Import Queue picker.
 
+### Import flexibility fix (2026-06-12)
+
+A 2,439-row contact sheet (Name/Number/Disbursement-date only) failed **every** row with "Product '29-Jun-21' not recognised": ImportPage's `REQUIRED_FIELDS` forced a Product column mapping, so the date column was mapped to Product and the server hard-rejected each row. Fixes: **(1)** `REQUIRED_FIELDS = ['displayName','phone']` — Product is optional; product-less sheets import as raw leads with no opportunity. **(2)** `validateRow` no longer errors on unrecognised products — the lead imports and the raw value is preserved in the lead's `notes` (`Imported product value: X`). **(3)** The lead doc now stores the Notes column directly (`Lead.notes?` added to types) — previously notes only existed on the opportunity and were lost when no product was given. **(4)** Rows with REAL validation errors (bad phone, bad PAN) are **always skipped** — previously `skipErrors=true` imported them with the bad data; job `status` now derives purely from counts (`all errors → failed · some → partial · none → completed`). Files: `ImportPage.tsx`, `server.ts` (`validateRow`, `processImportBatch`), `types/index.ts`. Cloud Run redeployed (rev `pulse-api-00037-dxb`).
+
 ### `ImportJob` schema additions (`src/types/index.ts`)
 ```
 importName: string                 // mandatory label set at import (tracks sheet source/quality)

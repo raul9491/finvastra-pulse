@@ -68,6 +68,7 @@ export interface UserProfile {
   joiningDate?: string;        // YYYY-MM-DD
   location?: string;
   reportingManagerName?: string;
+  reportingManagerUid?: string;  // HRMS reporting line — drives org chart + My Team scoping
   employeeStatus?: EmployeeStatus;
   // Module access flags. Absent field is treated as the safe default:
   // hrmsAccess absent → true (everyone gets HRMS self-service)

@@ -79,6 +79,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/crm/pipeline':                       'Pipeline',
   '/crm/targets':                        'Targets',
   '/crm/reports/aging':                  'Lead Aging',
+  '/crm/pipeline/masters':               'Pipeline Masters',
   '/crm/admin/commission-slabs':         'Commission Slabs',
   '/crm/admin/providers':                'Providers & SLA',
   '/crm/admin/document-types':           'Document Types',
@@ -306,6 +307,16 @@ export function CrmShell() {
                 <p className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: 'var(--shell-text-dim)' }}>Reports</p>
               </div>
               <NavItemLive entry={{ path: '/crm/reports/aging', label: 'Lead Aging', icon: BarChart3, live: true, end: true }} isActive={location.pathname === '/crm/reports/aging'} />
+            </>
+          )}
+
+          {/* Pipeline (CRM 2.0 — PLAN.md). NOTHING LOCKED: shown only to holders. */}
+          {(isAdmin || (profile as { perms?: Record<string, boolean> } | null)?.perms?.['crm.masters.write'] === true) && (
+            <>
+              <div className="px-3 pt-4 pb-2">
+                <p className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: 'var(--shell-text-dim)' }}>Pipeline</p>
+              </div>
+              <NavItemLive entry={{ path: '/crm/pipeline/masters', label: 'Masters', icon: Settings, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/masters'} />
             </>
           )}
 

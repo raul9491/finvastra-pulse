@@ -805,6 +805,158 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "assignedRm",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextFollowUpAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "source",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "receivedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "cases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "stage",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "handlingRm",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "cases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "connectorId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stage",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "payoutCycles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "connectorId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "disbursementDate",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "payoutCycles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "holdFlag",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "disbursementDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "misRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "reportingMonth",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "connectorId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "misRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "handlingRmId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "reportingMonth",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "rows",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "matched",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "importId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "dsaCodeMappings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "connectorId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lenderId",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [

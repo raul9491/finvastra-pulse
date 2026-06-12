@@ -148,6 +148,7 @@ const TargetsPage              = lazyPage(() => import('./features/crm/targets/T
 const LeadAgingPage            = lazyPage(() => import('./features/crm/reports/LeadAgingPage'), 'LeadAgingPage');
 const CommandCentrePage        = lazyPage(() => import('./features/crm/dashboard/CommandCentrePage'), 'CommandCentrePage');
 const TeamPerformancePage      = lazyPage(() => import('./features/crm/team/TeamPerformancePage'), 'TeamPerformancePage');
+const Crm2MastersPage          = lazyPage(() => import('./features/crm2/masters/MastersPage'), 'Crm2MastersPage');
 
 // ── MIS (lazy group) ─────────────────────────────────────────────────────────
 const MisShell                 = lazyPage(() => import('./components/layout/MisShell'), 'MisShell');
@@ -293,6 +294,8 @@ export const router = createBrowserRouter([
       { path: 'import/history',          element: s(<ImportHistoryPage />) },
       { path: 'targets',                     element: s(<TargetsPage />) },
       { path: 'reports/aging',               element: s(<LeadAgingPage />) },
+      // CRM 2.0 / Pipeline (PLAN.md) — coexists with the old CRM until migration
+      { path: 'pipeline/masters',            element: s(<Crm2MastersPage />) },
       // Employee referral pages — accessible to all HRMS employees (referral mode)
       { path: 'referrals',               element: s(<MyReferralsPage />) },
       { path: 'referrals/new',           element: s(<SubmitReferralPage />) },

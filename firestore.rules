@@ -29,6 +29,23 @@ service cloud.firestore {
              (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'employee') == 'admin'));
     }
+    // ─── CRM 2.0 / Pipeline permission keys (PLAN.md decision 2) ────────────────
+    // users/{uid}.perms map, mirrored into custom claims by sync-claims.
+    // Claims-first; the get() fallback covers tokens that predate the perms sync.
+    // Repeated get()s of the same doc within one evaluation are cached by Firestore.
+    function hasCrm2Perm(key) {
+      return isSignedIn() && (
+             request.auth.token.get('perms', {}).get(key, false) == true ||
+             isAdmin() ||
+             (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('perms', {}).get(key, false) == true));
+    }
+    // Any Pipeline read permission — used by master collections (pickers need names).
+    function hasAnyCrm2Read() {
+      return hasCrm2Perm('crm.leads.read') || hasCrm2Perm('crm.cases.read')
+          || hasCrm2Perm('crm.masters.write') || hasCrm2Perm('payout.read')
+          || hasCrm2Perm('mis.read') || hasCrm2Perm('recon.read');
+    }
     // Phase P: each module helper also accepts users holding ≥1 active page
     // share in that module ('crm'/'hrms'/'mis' in /users.sharedModules). A page
     // share therefore grants module-level DATA read; the UI restricts their
@@ -1239,6 +1256,44 @@ service cloud.firestore {
       allow read:   if isAdmin() || isManager();
       allow create: if isSignedIn() && incoming().changedBy == request.auth.uid;
       allow update, delete: if false;
+    }
+
+    // ═══ CRM 2.0 / Pipeline (PLAN.md) ═══════════════════════════════════════════
+    // ALL mutations go through Express (Admin SDK bypasses rules) — every client
+    // write below is denied. Reads are gated by the Pipeline permission keys.
+
+    // Masters — names/config needed by pickers across the module.
+    match /lenders/{lenderId} {
+      allow read:  if isAdmin() || hasAnyCrm2Read();
+      allow write: if false;   // server-only via /api/crm2/masters
+    }
+    match /products/{productId} {
+      allow read:  if isAdmin() || hasAnyCrm2Read();
+      allow write: if false;
+    }
+    // Upstream aggregators (spec "connectors" — renamed collection, PLAN.md decision 1).
+    match /aggregators/{aggregatorId} {
+      allow read:  if isAdmin() || hasAnyCrm2Read();
+      allow write: if false;
+    }
+    match /documentMaster/{docId} {
+      allow read:  if isAdmin() || hasAnyCrm2Read();
+      allow write: if false;
+    }
+    // Sub-DSAs — bank account + PAN stored encrypted (EncryptedField objects);
+    // last-4 display fields are safe for module readers.
+    match /subDsas/{subDsaId} {
+      allow read:  if isAdmin() || hasAnyCrm2Read();
+      allow write: if false;
+    }
+    // THE PAYOUT ENGINE — slab percentages are money data: payout.amounts.read only.
+    match /dsaCodeMappings/{mappingId} {
+      allow read:  if isAdmin() || hasCrm2Perm('payout.amounts.read');
+      allow write: if false;
+    }
+    // ID counters — server-only in both directions.
+    match /counters/{counterId} {
+      allow read, write: if false;
     }
   }
 }

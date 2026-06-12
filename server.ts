@@ -12,6 +12,7 @@ import { getStorage } from "firebase-admin/storage";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import { encryptField, decryptField } from "./src/lib/encryption.js";
+import { registerCrm2Routes } from "./server/crm2.js";
 
 dotenv.config();
 
@@ -987,6 +988,7 @@ async function startServer() {
         crmRole:        p.crmRole       ?? null,
         isHrmsManager:  p.isHrmsManager ?? false,
         misAccess:      p.misAccess     ?? null,
+        perms:          p.perms         ?? {},   // CRM 2.0 permission keys (PLAN.md decision 2)
       });
 
       await db.collection("audit_logs").add({
@@ -1030,6 +1032,7 @@ async function startServer() {
             crmRole:       p.crmRole       ?? null,
             isHrmsManager: p.isHrmsManager ?? false,
             misAccess:     p.misAccess     ?? null,
+            perms:         p.perms         ?? {},   // CRM 2.0 permission keys
           });
           synced++;
         } catch {
@@ -4286,6 +4289,9 @@ async function startServer() {
 
     return res.json({ logs });
   });
+
+  // ─── CRM 2.0 / Pipeline routes (server/crm2.ts — see PLAN.md) ─────────────────
+  registerCrm2Routes(app, { db, admin });
 
   // ─── Vite / static serving ───────────────────────────────────────────────────
   if (process.env.NODE_ENV !== "production") {

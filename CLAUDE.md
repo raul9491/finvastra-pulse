@@ -269,6 +269,18 @@ AI features; all money/derived fields server-calculated; one transaction per bus
 mutation; mutations via Express only (`server/crm2.ts`); never break existing modules; do
 not deploy — maintainer deploys.
 
+**Progress**: Phase 0 ✅ (PLAN.md + decisions signed off) · **Phase 1 ✅ (2026-06-13, commit
+`a481532`, NOT yet deployed)** — `src/types/crm2.ts`, `src/lib/crm2/slab.ts` (+14 vitest
+tests, `npm run test`), `server/crm2.ts` (transactional counters, uid→FAPL audit,
+`requirePerm`, masters CRUD `/api/crm2/masters/:type`, mappings + slab add/end endpoints),
+sync-claims stamps `perms`, rules helpers `hasCrm2Perm`/`hasAnyCrm2Read` + 6 collection
+blocks (client writes denied), +10 composite indexes, `scripts/seed/seedCrm2Masters.ts`
+(DRY_RUN flag), Masters UI at `/crm/pipeline/masters` (Pipeline nav group; mapping editor
+with slab timeline). **Next: Phase 2** (leads extension, `POST /api/public/leads`, dedupe,
+convert transaction, lead migration script, Permission-Manager perms editor). Deploy order
+when the maintainer ships: `deploy:rules` → verify → `deploy:indexes` → Cloud Run
+(`--no-cpu-throttling`) → hosting → run seed script → grant perms via sync-claims.
+
 ## Phase 2 progress
 
 | Sub-phase | Status | Notes |

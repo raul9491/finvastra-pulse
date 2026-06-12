@@ -60,38 +60,39 @@ sign-off before Phase 1 starts.**
 
 ---
 
-## E. ⚠️ BLOCKING DECISIONS — need sign-off before Phase 1
+## E. ✅ SIGNED-OFF DECISIONS (Rahul, 2026-06-13) — these OVERRIDE the original spec wording
 
-**1. `connectors` collection name collision.**
-The spec's `connectors` (upstream aggregators: Ruloans, Shraddha…) collides with the
-existing live `/connectors` (Phase Q channel partners FAC-###, who are conceptually the
-spec's *downstream* subDsas). Spec simultaneously says "do not break existing collections"
-and defines `connectors/{CONN-001}`. Options:
-- **(a) RECOMMENDED:** new collection **`aggregators/{CONN-xxx}`**, UI-labelled
-  "Connectors (Aggregators)". Spec interface unchanged; only the collection name differs.
-  Existing Phase Q `/connectors` continues serving the old CRM until §13, then its records
-  are offered a one-off migration into `subDsas`.
-- (b) Reuse `/connectors` for both shapes (discriminator field) — rejected: mixes upstream
-  and downstream, the exact thing §1 forbids.
-- (c) Migrate Phase Q connectors out first to free the name — rejected for v1: touches live
-  lead/opportunity/commission_records references mid-build.
+> Any later phase or fresh agent session implementing this spec MUST follow these three
+> resolutions. Do not drift back to the original spec's collection map / inline-mirror /
+> nav wording.
 
-**2. Permission model.** Pulse has role flags + custom claims, not granular keys. Proposal:
-- `users/{uid}.perms: { 'crm.leads.read': true, … }` map, edited in a new Permission Manager
-  section, synced into custom claims by the existing sync-claims endpoint (9 keys ≈ 300
-  bytes — well under the 1,000-byte claims limit). Super admins implicitly hold all keys.
-- **2b. Money split:** `payout.amounts.read` gates *documents*, not fields: `payoutCycles` and
-  `misRecords` (all-money docs) are readable only with the key; the **case money mirror**
-  moves to `cases/{id}/private/payout` (sub-doc, key-gated) while `payoutStatus` badge stays
-  on the case doc for everyone with `crm.cases.read`. This follows the existing
-  `/connectors/{id}/private/financial` split. *Deviation from spec's inline-mirror shape —
-  required for rule-enforceable field gating.*
+**1. Upstream aggregators live in `aggregators/{CONN-xxx}` — NOT `connectors/`.**
+The spec's `connectors` (upstream: Ruloans, Shraddha, Star Digiloans) collides with the
+EXISTING live `/connectors` collection (Phase Q channel partners FAC-###, conceptually the
+spec's *downstream* subDsas). Resolution: the spec's Connector interface is implemented
+unchanged but stored in a new **`aggregators`** collection (ids `CONN-001`…), UI-labelled
+"Connectors". Everywhere the spec says `connectorId` (cases, payoutCycles, misRecords,
+dsaCodeMappings, reconSnapshots ids) the field name stays `connectorId` but it references
+`aggregators/{id}`. The existing Phase Q `/connectors` keeps serving the old CRM untouched
+until §13, when its records are offered a one-off migration into `subDsas`.
 
-**3. Nav placement during coexistence.** New screens mount in CrmShell under a separate
-group **"Pipeline"** (Masters / Leads / Cases / Payouts / MIS / Recon), old screens stay where
-they are until §13 renames them "Archive". Alternative: a fourth module shell — rejected
-(spec says CRM module).
+**2. Permission keys = `users/{uid}.perms` map + custom claims; money gating = doc split.**
+- `perms: { 'crm.leads.read': true, … }` on the user doc, edited in a new Permission Manager
+  section, included in the existing sync-claims payload. Super admins and `role === 'admin'`
+  implicitly hold all keys.
+- **Money split (deviation from spec's inline shapes, required for rule-enforceable
+  gating):** `payoutCycles` and `misRecords` docs are readable ONLY with
+  `payout.amounts.read`. The Case's money mirror (pcts/expected/margin) lives in
+  **`cases/{id}/private/payout`** (key-gated subdoc, same pattern as the existing
+  `/connectors/{id}/private/financial`); the `payoutStatus` badge + `payoutCycleId` stay on
+  the main case doc for everyone with `crm.cases.read`.
 
-**Minor (will proceed as stated unless overridden):** `EncryptedField` object instead of
-string for `*Enc`; vitest added; thresholds in `app_config/crm2_settings`; new server code in
-`server/crm2.ts`; FAPL-xxx stored in new collections with uid→FAPL resolution middleware.
+**3. Nav: new screens mount in CrmShell under a "Pipeline" group**
+(Masters / Leads / Cases / Payouts / MIS / Recon). Old CRM screens stay put until §13
+renames them "Archive". No fourth module shell.
+
+**Minor conventions (also locked):** `*Enc` fields store the existing `EncryptedField`
+OBJECT (`{ciphertext, iv, tag, keyVersion}`), not a string; vitest for unit tests; job
+thresholds in `app_config/crm2_settings`; new server code in `server/crm2.ts` registered
+from server.ts; new collections store **FAPL-xxx** (not uids) in people fields, resolved by
+server middleware.

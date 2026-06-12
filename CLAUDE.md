@@ -250,6 +250,25 @@ Production target: **end of October 2026.** *(Phase 4 MIS may push this — revi
 | 4.5 Provider-specific statement parsers | ⬜ Pending | CSV/PDF parsers per bank/AMC/insurer format |
 | 4.6 Wealth AUM tracking + insurance renewal events | ⬜ Pending | Recurring revenue events that feed commission_records automatically |
 
+## CRM 2.0 / Pipeline build (in progress, started 2026-06-13) — READ PLAN.md FIRST
+
+A full approved spec (Leads → Clients → Cases 10-stage pipeline → Payout Cycles → MIS
+projection → Recon) is being implemented phase-by-phase. **`PLAN.md` at the repo root is the
+authoritative mapping of that spec onto this repo — read it before touching any `crm2`
+code.** Three signed-off decisions OVERRIDE the original spec wording (recorded in PLAN.md
+§E): **(1)** upstream aggregators live in the **`aggregators/{CONN-xxx}`** collection (NOT
+`connectors/` — that name belongs to the existing Phase Q channel partners) though field
+names stay `connectorId`; **(2)** permission keys are a `users/{uid}.perms` map synced into
+custom claims, and ALL money fields are doc-split — `payoutCycles` + `misRecords` readable
+only with `payout.amounts.read`, the case money mirror in `cases/{id}/private/payout`;
+**(3)** new screens mount in CrmShell under a **"Pipeline"** nav group; old CRM screens
+untouched until the migration step renames them "Archive". Hard guardrails: Firestore DB
+`pulse`; FAPL-xxx (not uids) in new collections' people fields; `EncryptedField` objects via
+`src/lib/encryption.ts` for PAN/bank; Aadhaar last-4 only (reject 12-digit input at API); no
+AI features; all money/derived fields server-calculated; one transaction per business
+mutation; mutations via Express only (`server/crm2.ts`); never break existing modules; do
+not deploy — maintainer deploys.
+
 ## Phase 2 progress
 
 | Sub-phase | Status | Notes |

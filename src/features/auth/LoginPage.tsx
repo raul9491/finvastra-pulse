@@ -4,6 +4,7 @@ import { signInWithEmailAndPassword, type AuthError } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 import { useAuth, SESSION_EXPIRED_KEY } from './AuthContext';
 import { MercuryBackground } from '../../components/ui/MercuryBackground';
+import { VideoLogo } from '../../components/ui/VideoLogo';
 
 const AUTH_ERRORS: Record<string, string> = {
   'auth/invalid-credential':     'Invalid email or password.',
@@ -105,12 +106,10 @@ export function LoginPage() {
           animation: 'fadeUp 0.6s ease 0.1s both',
         }}>
 
-          {/* Logo inside card — white chip because the brand wordmark is navy
-              (invisible directly on the dark glass) */}
+          {/* Brand — looping video mark with the Finvastra name beneath
+              (single logo on the page; light wordmark works on the dark glass) */}
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
-            <div style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: '14px 28px', boxShadow: '0 4px 24px rgba(0,0,0,0.25)' }}>
-              <img src="/images/logo-finvastra.png" alt="Finvastra" style={{ width: 170, display: 'block', objectFit: 'contain' }} />
-            </div>
+            <VideoLogo size="md" showText />
           </div>
 
           {sessionExpired && (

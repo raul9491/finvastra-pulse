@@ -95,7 +95,7 @@ const PAGE_TITLES: Record<string, string> = {
 function FullPageLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--navy-deep)' }}>
-      <VideoLogo size="sm" showText={false} />
+      <VideoLogo size="sm" showText />
     </div>
   );
 }

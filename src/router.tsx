@@ -9,14 +9,35 @@ import { ResetPasswordPage }      from './features/auth/ResetPasswordPage';
 import { AuthActionPage }         from './features/auth/AuthActionPage';
 import { RequestAccessPage }      from './features/auth/RequestAccessPage';
 import { LauncherPage }           from './features/home/LauncherPage';
+import { RouteErrorBoundary }     from './components/ui/RouteErrorBoundary';
+import { CHUNK_RELOAD_GUARD_KEY } from './lib/chunkReloadGuard';
 
 // ── Lazy-loading helpers ─────────────────────────────────────────────────────
 // Pages are named exports, so we map the chosen export onto `default` for React.lazy.
+// Stale-deploy recovery: when a hashed chunk 404s (the tab predates a deploy),
+// hard-refresh ONCE to pull the new index.html — guarded so it can never loop.
+// If the refresh doesn't fix it, the error propagates to RouteErrorBoundary.
 function lazyPage<M extends Record<string, unknown>, K extends keyof M>(
   loader: () => Promise<M>,
   key: K,
 ) {
-  return lazy(() => loader().then((m) => ({ default: m[key] as ComponentType<unknown> })));
+  return lazy(() =>
+    loader()
+      .then((m) => {
+        // Chunk loaded fine — re-arm the one-shot reload for the next deploy.
+        sessionStorage.removeItem(CHUNK_RELOAD_GUARD_KEY);
+        return { default: m[key] as ComponentType<unknown> };
+      })
+      .catch((err: unknown) => {
+        if (!sessionStorage.getItem(CHUNK_RELOAD_GUARD_KEY)) {
+          sessionStorage.setItem(CHUNK_RELOAD_GUARD_KEY, '1');
+          window.location.reload();
+          // Never resolves — the page is reloading; avoids an error flash.
+          return new Promise<{ default: ComponentType<unknown> }>(() => {});
+        }
+        throw err;
+      }),
+  );
 }
 
 /** Spinner shown while a route chunk downloads — gold ring on a transparent bg. */
@@ -144,37 +165,45 @@ export const router = createBrowserRouter([
   {
     path: '/track/:token',
     element: <CustomerTrackerPage />,
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/login',
     element: <LoginPage />,
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/reset-password',
     element: <ResetPasswordPage />,
+    errorElement: <RouteErrorBoundary />,
   },
   {
     // Handles branded password-reset links: /auth-action?mode=resetPassword&oobCode=xxx
     // DOB verification → new password form → success
     path: '/auth-action',
     element: <AuthActionPage />,
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/request-access',
     element: <RequestAccessPage />,
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/',
     element: <LauncherPage />,
+    errorElement: <RouteErrorBoundary />,
   },
   {
     // Phase P — super-admin console for page shares (standalone, no module shell)
     path: '/admin/shares',
     element: s(<ManageSharesPage />),
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/hrms',
     element: s(<HrmsShell />),
+    errorElement: <RouteErrorBoundary />,
     children: [
       { index: true,        element: <Navigate to="/hrms/dashboard" replace /> },
       { path: 'dashboard',  element: s(<HrmsDashboardPage />) },
@@ -230,6 +259,7 @@ export const router = createBrowserRouter([
   {
     path: '/crm',
     element: s(<CrmShell />),
+    errorElement: <RouteErrorBoundary />,
     children: [
       { index: true,       element: <Navigate to="/crm/dashboard" replace /> },
       { path: 'command-centre', element: s(<CommandCentrePage />) },
@@ -270,6 +300,7 @@ export const router = createBrowserRouter([
   {
     path: '/mis',
     element: s(<MisShell />),
+    errorElement: <RouteErrorBoundary />,
     children: [
       { index: true,                  element: <Navigate to="/mis/overview" replace /> },
       { path: 'overview',             element: s(<MisOverviewPage />) },

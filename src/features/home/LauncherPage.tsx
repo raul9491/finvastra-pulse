@@ -11,7 +11,7 @@ import { InstallPrompt } from '../../components/ui/InstallPrompt';
 function FullPageLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--navy-deep)' }}>
-      <VideoLogo size="sm" showText={false} />
+      <VideoLogo size="sm" showText />
     </div>
   );
 }
@@ -72,7 +72,7 @@ export function LauncherPage() {
   if (!profile && profileLoadFailed) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center" style={{ backgroundColor: 'var(--navy-deep)' }}>
-        <VideoLogo size="sm" showText={false} />
+        <VideoLogo size="sm" showText />
         <h1 className="text-2xl mt-8 mb-2" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
           We couldn't load your account
         </h1>
@@ -116,7 +116,7 @@ export function LauncherPage() {
 
       {/* Top bar */}
       <header className="h-16 glass-header flex items-center justify-between px-8 shrink-0">
-        <img src="/images/logo-finvastra.png" alt="Finvastra" style={{ height: 44, objectFit: 'contain', filter: 'brightness(0) invert(1)', opacity: 0.75 }} />
+        <VideoLogo size="xs" showText />
         <div className="flex items-center gap-4">
           {profile?.photoURL ? (
             <img src={profile.photoURL} alt={profile.displayName} className="w-8 h-8 rounded-full object-cover" />
@@ -147,9 +147,9 @@ export function LauncherPage() {
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-16">
         <div className="w-full max-w-3xl">
 
-          {/* Brand video — animation only, no text */}
+          {/* Brand video — looping animation with the Finvastra name beneath */}
           <div className="flex justify-center mb-8">
-            <VideoLogo size="md" showText={false} />
+            <VideoLogo size="md" showText />
           </div>
 
           {/* Greeting */}

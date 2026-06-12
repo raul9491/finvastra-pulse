@@ -62,6 +62,19 @@ export function RouteErrorBoundary() {
 
   const home = moduleHome(window.location.pathname);
 
+  // True hard refresh: drop the service worker + all caches first, so even a
+  // corrupted/stale SW state (the usual cause of persistent chunk failures)
+  // is fully reset before reloading. All steps are best-effort.
+  const handleHardRefresh = async () => {
+    try {
+      const regs = (await navigator.serviceWorker?.getRegistrations?.()) ?? [];
+      await Promise.all(regs.map((r) => r.unregister()));
+      const keys = (await window.caches?.keys?.()) ?? [];
+      await Promise.all(keys.map((k) => window.caches.delete(k)));
+    } catch { /* reload regardless */ }
+    window.location.reload();
+  };
+
   const handleSignOut = async () => {
     try { await signOut(auth); } catch { /* proceed to login regardless */ }
     // Hard navigation — guarantees a fresh index.html + clean app state.
@@ -85,7 +98,7 @@ export function RouteErrorBoundary() {
       </p>
 
       <div className="flex flex-col sm:flex-row gap-3">
-        <button onClick={() => window.location.reload()}
+        <button onClick={handleHardRefresh}
           className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
           style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
           <RefreshCw size={15} /> Refresh now

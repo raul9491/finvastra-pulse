@@ -10,7 +10,7 @@ import { AuthActionPage }         from './features/auth/AuthActionPage';
 import { RequestAccessPage }      from './features/auth/RequestAccessPage';
 import { LauncherPage }           from './features/home/LauncherPage';
 import { RouteErrorBoundary }     from './components/ui/RouteErrorBoundary';
-import { CHUNK_RELOAD_GUARD_KEY } from './lib/chunkReloadGuard';
+import { CHUNK_RELOAD_GUARD_KEY, scheduleGuardRearm } from './lib/chunkReloadGuard';
 
 // ── Lazy-loading helpers ─────────────────────────────────────────────────────
 // Pages are named exports, so we map the chosen export onto `default` for React.lazy.
@@ -24,8 +24,10 @@ function lazyPage<M extends Record<string, unknown>, K extends keyof M>(
   return lazy(() =>
     loader()
       .then((m) => {
-        // Chunk loaded fine — re-arm the one-shot reload for the next deploy.
-        sessionStorage.removeItem(CHUNK_RELOAD_GUARD_KEY);
+        // Chunk loaded fine — re-arm the one-shot reload AFTER 15s of stable
+        // running (clearing immediately here caused a reload loop when one
+        // chunk kept failing while others loaded from the SW cache).
+        scheduleGuardRearm();
         return { default: m[key] as ComponentType<unknown> };
       })
       .catch((err: unknown) => {

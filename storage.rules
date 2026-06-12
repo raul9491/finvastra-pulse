@@ -85,6 +85,18 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*|application/pdf');
     }
 
+    // ─── Profile photos (avatars) ─────────────────────────────────────────────
+    // Employee uploads their OWN avatar. Compressed client-side to a ~256px JPEG
+    // (~15-30 KB) before upload; the 300 KB cap is a hard backstop. Readable by
+    // all signed-in users — avatars render across shells, org chart and presence.
+    match /profile-photos/{employeeId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.auth.uid == employeeId
+        && request.resource.size < 300 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
     // ─── Data Import audit files ──────────────────────────────────────────────
     // Original uploaded files stored as audit trail. Admin-write, Admin-read only.
     match /imports/{importType}/{userId}/{fileName} {

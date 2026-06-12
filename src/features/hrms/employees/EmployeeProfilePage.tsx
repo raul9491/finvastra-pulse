@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, CheckCircle2, Clock, Pencil, X, Check, Laptop, Smartphone, Wifi, CreditCard, Package, Download, Mouse, CreditCard as IdCardIcon, UserCircle, FileText } from 'lucide-react';
+import { ArrowLeft, ExternalLink, CheckCircle2, Clock, Pencil, X, Check, Laptop, Smartphone, Wifi, CreditCard, Package, Download, Mouse, CreditCard as IdCardIcon, UserCircle, FileText, Camera } from 'lucide-react';
 import { doc, getDoc, updateDoc, setDoc, addDoc, serverTimestamp, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { format } from 'date-fns';
-import { db } from '../../../lib/firebase';
+import { db, storage } from '../../../lib/firebase';
+import { compressImage } from '../../../lib/imageCompression';
 import { useAuth } from '../../auth/AuthContext';
 import { FieldHistory } from '../../crm/components/FieldHistory';
 import { CrmPerformanceWidget } from './CrmPerformanceWidget';
@@ -159,9 +161,11 @@ function useUserDetails(userId: string | undefined) {
 function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start gap-4 py-3 last:border-0" style={{ borderBottom: '1px solid var(--shell-border)' }}>
-      <span className="text-xs font-semibold uppercase tracking-widest w-44 shrink-0 pt-0.5"
+      {/* Narrower label on phones + min-w-0/anywhere on the value — long emails
+          were forcing the whole page into horizontal scroll */}
+      <span className="text-xs font-semibold uppercase tracking-widest w-32 sm:w-44 shrink-0 pt-0.5"
         style={{ color: 'var(--shell-text-dim)' }}>{label}</span>
-      <span className="text-sm flex-1" style={{ color: 'var(--text-primary)' }}>
+      <span className="text-sm flex-1 min-w-0" style={{ color: 'var(--text-primary)', overflowWrap: 'anywhere' }}>
         {value ?? <span style={{ color: 'var(--shell-text-dim)' }}>—</span>}
       </span>
     </div>
@@ -624,8 +628,10 @@ function EditProfileModal({ profile, userId, userDetails, sensitiveData, onSave,
 // ─── Profile completion indicator ────────────────────────────────────────────
 
 function ProfileCompletionBanner({
+  onUploadPhoto,
   profile, details, onEdit,
 }: {
+  onUploadPhoto?: () => void;
   profile: UserProfile;
   details: UserDetails | null;
   onEdit: () => void;
@@ -658,7 +664,9 @@ function ProfileCompletionBanner({
       </div>
       <div className="flex flex-wrap gap-2">
         {missing.map(({ label }) => (
-          <button key={label} onClick={onEdit}
+          <button key={label}
+            // The photo chip opens the file picker directly — the edit modal has no photo field
+            onClick={label === 'Upload profile photo' && onUploadPhoto ? onUploadPhoto : onEdit}
             className="text-[11px] px-2.5 py-1 rounded-full border border-dashed hover:border-navy transition-colors"
             style={{ borderColor: 'var(--shell-border)', color: 'var(--shell-text-secondary)' }}>
             + {label}
@@ -845,6 +853,38 @@ export function EmployeeProfilePage() {
     setEpDoc((prev) => prev ? { ...prev, ...updated } : null);
   };
 
+  // ── Profile photo upload ────────────────────────────────────────────────────
+  // Compressed in-browser to a ~256px JPEG (~15-30 KB) BEFORE upload, stored at
+  // a FIXED path (profile-photos/{uid}/avatar.jpg) so re-uploads replace the old
+  // file — Storage never grows, and Firestore only holds the URL string.
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState('');
+
+  const handlePhotoSelected = async (file: File | null) => {
+    if (!file || !userId || !isOwnProfile) return;
+    if (!file.type.startsWith('image/')) {
+      setPhotoError('Please choose an image file.');
+      return;
+    }
+    setUploadingPhoto(true);
+    setPhotoError('');
+    try {
+      const small = await compressImage(file, { maxDim: 256, quality: 0.75 });
+      if (small.size > 300 * 1024) throw new Error('Image could not be compressed enough. Try a different photo.');
+      const dest = storageRef(storage, `profile-photos/${userId}/avatar.jpg`);
+      await uploadBytes(dest, small, { contentType: small.type, cacheControl: 'public,max-age=86400' });
+      const url = await getDownloadURL(dest);
+      await updateDoc(doc(db, 'users', userId), { photoURL: url });
+      setLocalProfile((prev) => ({ ...(prev ?? profile!), photoURL: url }));
+    } catch (e) {
+      setPhotoError(e instanceof Error ? e.message : 'Upload failed. Please try again.');
+    } finally {
+      setUploadingPhoto(false);
+      if (photoInputRef.current) photoInputRef.current.value = '';
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-8 animate-pulse space-y-4">
@@ -873,15 +913,38 @@ export function EmployeeProfilePage() {
         {/* flex-wrap: on phones the action buttons drop to their own row instead
             of squeezing the name into one-word-per-line */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3 flex-1 min-w-0">
-          {displayProfile.photoURL ? (
-            <img src={displayProfile.photoURL} alt={displayProfile.displayName}
-              className="w-14 h-14 rounded-full object-cover shrink-0" />
-          ) : (
-            <div className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold shrink-0"
-              style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
-              {displayProfile.displayName?.[0]}
-            </div>
-          )}
+          <div className="relative shrink-0">
+            {displayProfile.photoURL ? (
+              <img src={displayProfile.photoURL} alt={displayProfile.displayName}
+                className="w-14 h-14 rounded-full object-cover" style={{ opacity: uploadingPhoto ? 0.4 : 1 }} />
+            ) : (
+              <div className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold"
+                style={{ backgroundColor: '#0B1538', color: '#C9A961', opacity: uploadingPhoto ? 0.4 : 1 }}>
+                {displayProfile.displayName?.[0]}
+              </div>
+            )}
+            {isOwnProfile && (
+              <>
+                <button
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={uploadingPhoto}
+                  title="Change profile photo"
+                  aria-label="Change profile photo"
+                  className="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full flex items-center justify-center transition-transform hover:scale-110"
+                  style={{ backgroundColor: '#C9A961', color: '#0B1538', border: '2px solid var(--ss-bg)' }}
+                >
+                  <Camera size={12} />
+                </button>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handlePhotoSelected(e.target.files?.[0] ?? null)}
+                />
+              </>
+            )}
+          </div>
           <div className="flex-1 min-w-0" style={{ minWidth: 180 }}>
             <h2 className="text-xl sm:text-2xl" style={{ fontFamily: '"Fraunces", Georgia, serif', fontWeight: 300, color: 'var(--text-primary)' }}>
               {displayProfile.displayName}
@@ -915,12 +978,17 @@ export function EmployeeProfilePage() {
         </div>
       </div>
 
+      {photoError && (
+        <p className="text-xs px-1" style={{ color: '#f87171' }}>{photoError}</p>
+      )}
+
       {/* Profile completion — own profile only */}
       {isOwnProfile && !detLoading && (
         <ProfileCompletionBanner
           profile={displayProfile}
           details={details}
           onEdit={() => setEditingProfile(true)}
+          onUploadPhoto={() => photoInputRef.current?.click()}
         />
       )}
 

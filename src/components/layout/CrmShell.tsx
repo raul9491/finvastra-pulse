@@ -434,7 +434,7 @@ export function CrmShell() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto" style={{ backgroundColor: 'transparent' }}>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden" style={{ backgroundColor: 'transparent' }}>
           {/* Referral mode info banner */}
           {isReferralOnly && (
             <div className="px-4 sm:px-8 pt-4">

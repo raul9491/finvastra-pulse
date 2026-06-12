@@ -808,7 +808,7 @@ export function HrmsShell() {
         </header>
 
         {/* Page content — fades in on route change */}
-        <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-8" style={{ backgroundColor: 'transparent' }}>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-24 md:p-8" style={{ backgroundColor: 'transparent' }}>
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}

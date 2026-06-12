@@ -8,6 +8,19 @@
   to { transform: rotate(360deg); }
 }
 
+/* ── Global mobile-overflow guards ─────────────────────────────────────────
+   Long unbroken values (emails, URLs, reference IDs) must wrap instead of
+   pushing the page into horizontal scroll; form controls must never exceed
+   their container. Inner overflow-x-auto scrollers (tables, kanban) are
+   unaffected — these guards only stop PAGE-level sideways scrolling. */
+body {
+  overflow-wrap: break-word;
+}
+input, select, textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+
 /* Attendance success check — SVG stroke draw-in + gentle pop */
 @keyframes fv-draw {
   to { stroke-dashoffset: 0; }

@@ -20,6 +20,7 @@ import crypto from "crypto";
 import { encryptField } from "../src/lib/encryption.js";
 import { findSlabOverlaps, resolveSlab, SlabResolutionError, type SlabForResolution } from "../src/lib/crm2/slab.js";
 import { buildDupeKeys, normaliseMobile } from "../src/lib/crm2/dedupe.js";
+import { extractClientIp } from "../src/lib/crm2/http.js";
 import type { Crm2PermKey } from "../src/types/crm2.js";
 
 interface Deps {
@@ -605,7 +606,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin }: Deps): v
     // Honeypot: bots fill the hidden "website" field — pretend success, write nothing.
     if (isStr(b.website)) { res.json({ ok: true }); return; }
 
-    const ip = (String(req.headers["x-forwarded-for"] ?? "").split(",")[0].trim()) || req.ip || "unknown";
+    // Real client IP: Cloud Run appends it as the LAST X-Forwarded-For entry
+    // (first-entry parsing is client-spoofable). req.ip agrees via trust proxy=1.
+    const ip = extractClientIp(req.headers["x-forwarded-for"], req.ip);
     if (!(await rateLimit(`crm2pub:${ip}`, 20, 60 * 60 * 1000))) {
       throw new ApiError(429, "Too many submissions — try again later");
     }

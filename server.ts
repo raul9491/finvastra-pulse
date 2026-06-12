@@ -754,6 +754,12 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 8080;
 
+  // Cloud Run sits behind exactly ONE Google front-end proxy hop: trust it so
+  // req.ip resolves to the real client (the right-most X-Forwarded-For entry,
+  // which the front end appends) instead of the proxy address, and
+  // req.protocol reflects X-Forwarded-Proto. Required for per-IP rate limits.
+  app.set("trust proxy", 1);
+
   // ─── CORS ─────────────────────────────────────────────────────────────────
   const ALLOWED_ORIGINS = process.env.NODE_ENV === "production"
     ? ["https://pulse.finvastra.com", "https://finvastra.com"]

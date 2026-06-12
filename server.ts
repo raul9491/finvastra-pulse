@@ -411,117 +411,144 @@ async function processImportBatch(
   let processedRows = 0, successCount = 0, errorCount = 0;
   const errors: Array<{ row: number; data: Record<string, string>; reason: string }> = [];
 
-  for (let i = 0; i < rows.length; i++) {
-    const raw = rows[i];
-    const rowNum = i + 2; // 1=header, data starts at 2
-    const cells = extractCells(raw, columnMapping);
-    const rowData: Record<string, string> = cells as unknown as Record<string, string>;
-    const rowErrors = validateRow(raw, columnMapping, loanProducts);
+  // PERFORMANCE: rows are processed in chunks of 30 — one `in` duplicate query
+  // + one WriteBatch commit + one progress update per chunk (3 round-trips per
+  // 30 rows). The previous per-row read+commit design made ~2 sequential
+  // round-trips per row, which on large sheets took tens of minutes.
+  const CHUNK = 30; // Firestore `in` filter limit
+  const seenHashes = new Set<string>(); // intra-sheet duplicate detection
 
-    if (rowErrors.length > 0) {
-      // Invalid rows are ALWAYS skipped — never import bad data. The skipErrors
-      // flag only controls whether the UI lets an import start with known
-      // preview errors. (Previously skipErrors=true imported the bad rows.)
-      errorCount++;
-      if (errors.length < 1000) errors.push({ row: rowNum, data: rowData, reason: rowErrors.join("; ") });
-      processedRows++;
-      continue;
-    }
+  for (let start = 0; start < rows.length; start += CHUNK) {
+    const slice = rows.slice(start, start + CHUNK);
 
-    const { displayName, phone, email, panRaw, address } = cells;
-    const loanProduct = normaliseProduct(cells.loanProduct, loanProducts);
-    const productValid = !!loanProduct && loanProducts.has(loanProduct);
-    // Unrecognised product values aren't lost — they ride along in the lead's
-    // notes (e.g. a misc column the user mapped to Product, or a typo'd product).
-    const notes = [
-      cells.notes,
-      cells.loanProduct && !productValid ? `Imported product value: ${cells.loanProduct}` : '',
-    ].filter(Boolean).join(' · ');
-    const dealSizeRaw = cells.dealSize;
-    const triagePriorityRaw = cells.triagePriority;
-    const importHash = buildImportHash(phone, email, displayName);
+    // 1. Validate the chunk in memory
+    type Entry = {
+      rowNum: number; cells: ReturnType<typeof extractCells>;
+      rowData: Record<string, string>; importHash: string;
+    };
+    const entries: Entry[] = [];
+    for (let j = 0; j < slice.length; j++) {
+      const raw = slice[j];
+      const rowNum = start + j + 2; // 1=header, data starts at 2
+      const cells = extractCells(raw, columnMapping);
+      const rowData: Record<string, string> = cells as unknown as Record<string, string>;
+      const rowErrors = validateRow(raw, columnMapping, loanProducts);
 
-    // Idempotency check
-    const existing = await db.collection("leads").where("importHash", "==", importHash).limit(1).get();
-    if (!existing.empty) {
-      if (errors.length < 1000) errors.push({ row: rowNum, data: rowData, reason: "duplicate (hash matched existing lead)" });
-      errorCount++; processedRows++;
-      if ((i + 1) % 100 === 0) {
-        await jobRef.update({ processedRows, successCount, errorCount, errors });
+      if (rowErrors.length > 0) {
+        // Invalid rows are ALWAYS skipped — never import bad data. The skipErrors
+        // flag only controls whether the UI lets an import start with known
+        // preview errors.
+        errorCount++;
+        if (errors.length < 1000) errors.push({ row: rowNum, data: rowData, reason: rowErrors.join("; ") });
+        continue;
       }
-      continue;
+
+      const importHash = buildImportHash(cells.phone, cells.email, cells.displayName);
+      if (seenHashes.has(importHash)) {
+        errorCount++;
+        if (errors.length < 1000) errors.push({ row: rowNum, data: rowData, reason: "duplicate (repeated within this sheet)" });
+        continue;
+      }
+      seenHashes.add(importHash);
+      entries.push({ rowNum, cells, rowData, importHash });
     }
 
-    // Two-stage flow: imported leads are held UNASSIGNED until distributed from the queue.
-    const assignedOwner = "UNASSIGNED";
+    // 2. One duplicate-check query for the whole chunk
+    let existingHashes = new Set<string>();
+    if (entries.length > 0) {
+      const dupSnap = await db.collection("leads")
+        .where("importHash", "in", entries.map((e) => e.importHash))
+        .get();
+      existingHashes = new Set(dupSnap.docs.map((d) => d.data().importHash as string));
+    }
 
-    // SLA deadline: offline_bulk = +24 calendar hours
-    const slaDeadline = new Date();
-    slaDeadline.setHours(slaDeadline.getHours() + 24);
-
-    const leadRef = db.collection("leads").doc();
-
-    // Firestore batch for lead + opportunity + activity (atomic)
+    // 3. One WriteBatch for the whole chunk (≤30 leads × ≤3 docs = ≤90 ops, well under 500)
     const batch = db.batch();
+    let chunkSuccess = 0;
 
-    batch.set(leadRef, {
-      displayName,
-      phone,
-      ...(email   ? { email   } : {}),
-      ...(panRaw  ? { panRaw  } : {}),
-      ...(address ? { address } : {}),
-      ...(notes   ? { notes   } : {}),  // survives even when no opportunity is created
-      source:        "offline_bulk",
-      tags:          [],
-      primaryOwnerId: assignedOwner,
-      consentGiven:       true,
-      consentTimestamp:   admin.firestore.FieldValue.serverTimestamp(),
-      consentMethod:      "offline_collection",
-      slaDeadline:        admin.firestore.Timestamp.fromDate(slaDeadline),
-      triagePriority:     (triagePriorityRaw || "low").toLowerCase(),
-      importBatchId:      batchId,
-      importName,
-      importHash,
-      importedBy:         triggerUserId,
-      importedAt:         admin.firestore.FieldValue.serverTimestamp(),
-      createdAt:          admin.firestore.FieldValue.serverTimestamp(),
-      createdBy:          triggerUserId,
-      updatedAt:          admin.firestore.FieldValue.serverTimestamp(),
-      deleted:            false,
-    });
+    for (const e of entries) {
+      if (existingHashes.has(e.importHash)) {
+        errorCount++;
+        if (errors.length < 1000) errors.push({ row: e.rowNum, data: e.rowData, reason: "duplicate (hash matched existing lead)" });
+        continue;
+      }
 
-    // Create opportunity if loanProduct is valid
-    if (productValid) {
-      const oppRef = leadRef.collection("opportunities").doc();
-      batch.set(oppRef, {
-        opportunityType: "loan",
-        product:         loanProduct,
-        dealSize:        dealSizeRaw ? Number(dealSizeRaw) : 0,
-        stage:           "New",
-        ownerId:         assignedOwner,
-        status:          "open",
-        ...(notes ? { notes } : {}),
-        createdAt:       admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt:       admin.firestore.FieldValue.serverTimestamp(),
+      const { displayName, phone, email, panRaw, address } = e.cells;
+      const loanProduct = normaliseProduct(e.cells.loanProduct, loanProducts);
+      const productValid = !!loanProduct && loanProducts.has(loanProduct);
+      // Unrecognised product values aren't lost — they ride along in the lead's
+      // notes (e.g. a misc column the user mapped to Product, or a typo'd product).
+      const notes = [
+        e.cells.notes,
+        e.cells.loanProduct && !productValid ? `Imported product value: ${e.cells.loanProduct}` : '',
+      ].filter(Boolean).join(' · ');
+
+      // Two-stage flow: imported leads are held UNASSIGNED until distributed from the queue.
+      const assignedOwner = "UNASSIGNED";
+
+      // SLA deadline: offline_bulk = +24 calendar hours
+      const slaDeadline = new Date();
+      slaDeadline.setHours(slaDeadline.getHours() + 24);
+
+      const leadRef = db.collection("leads").doc();
+      batch.set(leadRef, {
+        displayName,
+        phone,
+        ...(email   ? { email   } : {}),
+        ...(panRaw  ? { panRaw  } : {}),
+        ...(address ? { address } : {}),
+        ...(notes   ? { notes   } : {}),  // survives even when no opportunity is created
+        source:        "offline_bulk",
+        tags:          [],
+        primaryOwnerId: assignedOwner,
+        consentGiven:       true,
+        consentTimestamp:   admin.firestore.FieldValue.serverTimestamp(),
+        consentMethod:      "offline_collection",
+        slaDeadline:        admin.firestore.Timestamp.fromDate(slaDeadline),
+        triagePriority:     (e.cells.triagePriority || "low").toLowerCase(),
+        importBatchId:      batchId,
+        importName,
+        importHash:         e.importHash,
+        importedBy:         triggerUserId,
+        importedAt:         admin.firestore.FieldValue.serverTimestamp(),
+        createdAt:          admin.firestore.FieldValue.serverTimestamp(),
+        createdBy:          triggerUserId,
+        updatedAt:          admin.firestore.FieldValue.serverTimestamp(),
+        deleted:            false,
       });
-      // Creation activity
-      const actRef = oppRef.collection("activities").doc();
-      batch.set(actRef, {
-        type:    "note",
-        content: `Lead imported from offline_bulk batch ${batchId}`,
-        by:  triggerUserId,
-        at:  admin.firestore.FieldValue.serverTimestamp(),
-      });
+
+      // Create opportunity if loanProduct is valid
+      if (productValid) {
+        const oppRef = leadRef.collection("opportunities").doc();
+        batch.set(oppRef, {
+          opportunityType: "loan",
+          product:         loanProduct,
+          dealSize:        e.cells.dealSize ? Number(e.cells.dealSize) : 0,
+          stage:           "New",
+          ownerId:         assignedOwner,
+          status:          "open",
+          ...(notes ? { notes } : {}),
+          createdAt:       admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt:       admin.firestore.FieldValue.serverTimestamp(),
+        });
+        // Creation activity
+        const actRef = oppRef.collection("activities").doc();
+        batch.set(actRef, {
+          type:    "note",
+          content: `Lead imported from offline_bulk batch ${batchId}`,
+          by:  triggerUserId,
+          at:  admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+      chunkSuccess++;
     }
 
-    await batch.commit();
-    successCount++;
-    processedRows++;
+    if (chunkSuccess > 0) await batch.commit();
+    successCount += chunkSuccess;
+    processedRows += slice.length;
 
-    // Write progress every 100 rows
-    if ((i + 1) % 100 === 0) {
-      await jobRef.update({ processedRows, successCount, errorCount, errors });
-    }
+    // 4. Live progress per chunk (drives the ImportProgressDock)
+    await jobRef.update({ processedRows, successCount, errorCount, errors });
   }
 
   // Final update

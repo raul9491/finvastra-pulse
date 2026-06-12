@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp, addDoc, updateDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, addDoc, updateDoc, collection, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 import type { UserProfile } from '../../types';
 
@@ -91,6 +91,9 @@ async function recordLoginEvent(userId: string, user: User): Promise<void> {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ user: null, profile: null, loading: true, authError: '' });
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Holds the onSnapshot unsubscribe for the logged-in user's profile doc.
+  // Cancelled whenever the user signs out or a new auth event fires.
+  const profileUnsubRef = useRef<(() => void) | null>(null);
 
   // ── Idle session timeout ──────────────────────────────────────────────────
   useEffect(() => {
@@ -116,7 +119,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [state.user]);
 
   useEffect(() => {
-    return onAuthStateChanged(auth, async (user) => {
+    const unsubAuth = onAuthStateChanged(auth, async (user) => {
+      // Cancel any previous profile listener from a prior sign-in.
+      if (profileUnsubRef.current) {
+        profileUnsubRef.current();
+        profileUnsubRef.current = null;
+      }
+
       if (!user) {
         setState({ user: null, profile: null, loading: false, authError: '' });
         return;
@@ -178,6 +187,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setState({ user, profile: existing, loading: false, authError: '' });
           }
         }
+
+        // Live profile listener — picks up any change to the user doc (photoURL,
+        // role, permissions, etc.) without requiring a page reload.
+        profileUnsubRef.current = onSnapshot(ref, (docSnap) => {
+          if (docSnap.exists()) {
+            setState((prev) =>
+              prev.user ? { ...prev, profile: docSnap.data() as UserProfile } : prev,
+            );
+          }
+        }, () => { /* ignore listener errors — initial load already succeeded */ });
+
       } catch {
         // Firestore read/write failed after retries (offline, transient network, a
         // DB/rules outage). The user IS authenticated — never strand them on a blank
@@ -190,6 +210,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Failures here must never interrupt the auth flow.
       recordLoginEvent(user.uid, user).catch(() => {});
     });
+
+    return () => {
+      unsubAuth();
+      if (profileUnsubRef.current) {
+        profileUnsubRef.current();
+        profileUnsubRef.current = null;
+      }
+    };
   }, []);
 
   return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>;

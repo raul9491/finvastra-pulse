@@ -390,6 +390,11 @@ Run (`--no-cpu-throttling`) → hosting → seed script (documentMaster + master
 Scheduler jobs (run-payout-reminders + run-vault-expiry daily, run-recon-snapshots monthly) →
 grant perms via Permission Manager → load real DSA-code mappings + slabs.
 
+### CRM 2.0 — DEPLOYED TO PRODUCTION ✅ (2026-06-13)
+Staged deploy run in the safe order: `deploy:rules` (released to `cloud.firestore`) → `deploy:indexes` (deployed for **pulse** database; **66/66 composite indexes READY**) → `firebase deploy --only storage` (vault rules released) → `gcloud run deploy pulse-api --source . --region asia-south1 --no-cpu-throttling` (**revision `pulse-api-00040-2rp`**, 100% traffic) → `npm run deploy` (build:prod tsc-gated + `target:apply hosting pulse` + hosting release). **`npm run verify:deploy` 3/3 green**: app shell `pulse.finvastra.com` 200, API+DB deep-health 200 (real Firestore read), rules bound to `pulse` with real content (ruleset `c67c5bb7…`). HEAD at deploy: `c59bc2a`.
+
+**⏳ Post-deploy config still required before the pipeline is usable for real disbursements** (deferred, not yet done): (1) **seed** document master + masters — `npx tsx scripts/seed/seedCrm2Masters.ts` (prod creds; there is no `seed:crm2` npm script); (2) **register 3 Cloud Scheduler jobs** — `run-payout-reminders` + `run-vault-expiry` daily, `run-recon-snapshots` monthly (asia-south1, OIDC SA, hitting pulse-api); (3) **grant CRM 2.0 perm keys** via Permission Manager; (4) **load real DSA-code mappings + slabs** (disbursement hard-fails with no slab, so nothing breaks silently until then). Until slabs are loaded, no payout cycle can be created.
+
 ## Phase 2 progress
 
 | Sub-phase | Status | Notes |

@@ -68,6 +68,11 @@
 > fields now included only when the caller holds payout.amounts.read (else just
 > {ok, cycleId}; read via GET /api/crm2/payout-cycles/:id). phase4 gate 22→24. All 5 gates
 > green (12/15/14/24/12).
+> · **DEPLOYED TO PRODUCTION ✅ (2026-06-13)** — safe staged order (rules → indexes → storage →
+> Cloud Run `pulse-api-00040-2rp` `--no-cpu-throttling` → hosting via `npm run deploy`).
+> `verify:deploy` 3/3 green (app 200, deep-health 200, rules bound to `pulse` ruleset
+> `c67c5bb7…`); 66/66 composite indexes READY. **Still pending (deferred):** seed masters,
+> register 3 Cloud Scheduler jobs, grant perms, load real DSA-code mappings + slabs.
 
 Maps the approved spec onto the actual `finvastra-pulse` repo. Implementation follows the
 spec's phases 1–5, one commit per phase. **Three blocking decisions at the bottom need

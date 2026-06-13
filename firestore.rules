@@ -1352,5 +1352,23 @@ service cloud.firestore {
       allow read:  if isAdmin() || hasCrm2Perm('payout.amounts.read');
       allow write: if false;
     }
+
+    // ─── Phase 5 — Reconciliation + snapshots ────────────────────────────────
+    // Bank-MIS dumps + matched rows carry the dump amounts (money). Read gated by
+    // recon.read; all client writes denied (import/match/unmatch via Express).
+    match /bankMisImports/{importId} {
+      allow read:  if isAdmin() || hasCrm2Perm('recon.read');
+      allow write: if false;
+
+      match /rows/{rowId} {
+        allow read:  if isAdmin() || hasCrm2Perm('recon.read');
+        allow write: if false;
+      }
+    }
+    // Monthly recon snapshots contain money totals → payout.amounts.read.
+    match /reconSnapshots/{snapId} {
+      allow read:  if isAdmin() || hasCrm2Perm('payout.amounts.read');
+      allow write: if false;
+    }
   }
 }

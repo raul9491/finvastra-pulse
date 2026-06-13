@@ -29,6 +29,9 @@ import {
   computeAmountVariance, computeNetMarginRealised, canClose, validateMilestoneOrder,
   MILESTONE_STEPS, type MilestoneStep, type PayoutCycleStatus,
 } from "../src/lib/crm2/payout.js";
+import {
+  matchDumpRow, computeSnapshot, type DumpRow, type MisLite, type CycleLite,
+} from "../src/lib/crm2/recon.js";
 import type { Crm2PermKey } from "../src/types/crm2.js";
 
 type CaseStageT =
@@ -2187,5 +2190,397 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       }
     }
     res.json({ ok: true, expiredVaultDocs: expiredDocs, expiredTrackerRows: expiredRows });
+  }));
+
+  // ═══ Phase 5 — Reconciliation, snapshots, dashboards ══════════════════════════
+
+  // Column auto-detection on the dump header row (loanAccountNo / bankApplicationNo
+  // / dsaCode / amount / date). Tolerant of common header variants.
+  const COL_HINTS: Record<string, string[]> = {
+    loanAccountNo:     ["loan account", "loan a/c", "loan acc", "account no", "loan no", "lan"],
+    bankApplicationNo: ["application no", "app no", "application", "appl no"],
+    dsaCode:           ["dsa code", "dsa", "code", "channel code"],
+    amount:            ["disbursed", "disbursal", "amount", "loan amount", "sanction amount"],
+    date:              ["disbursement date", "disb date", "date", "disbursal date"],
+  };
+  function detectReconCols(headers: string[]): Record<string, number> {
+    const map: Record<string, number> = {};
+    headers.forEach((h, i) => {
+      const hl = String(h).toLowerCase().trim();
+      for (const [field, hints] of Object.entries(COL_HINTS)) {
+        if (map[field] === undefined && hints.some((kw) => hl.includes(kw))) map[field] = i;
+      }
+    });
+    return map;
+  }
+  const cellNum = (v: unknown): number | null => {
+    if (v == null || v === "") return null;
+    const n = Number(String(v).replace(/[,\s₹]/g, ""));
+    return isNaN(n) ? null : n;
+  };
+  const cellDate = (v: unknown): number | null => {
+    if (v == null || v === "") return null;
+    if (typeof v === "number") {
+      // xlsx serial date (days since 1899-12-30)
+      if (v > 20000 && v < 60000) return Math.round((v - 25569) * 86400000);
+    }
+    const d = new Date(String(v));
+    return isNaN(d.getTime()) ? null : d.getTime();
+  };
+
+  // ─── POST /api/crm2/recon/imports — upload dump → bankMisImports + rows + match ─
+  app.post("/api/crm2/recon/imports", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "recon.read");
+    if (!caller) return;
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const connectorId = reqStr(b, "connectorId");
+    const reportingMonth = reqStr(b, "reportingMonth");   // YYYY-MM
+    const fileBase64 = reqStr(b, "fileBase64");
+    const fileName = optStr(b, "fileName") ?? "dump.xlsx";
+
+    // Parse via the xlsx library (handles xlsx AND csv) — reuses the existing dep.
+    const XLSX = await import("xlsx");
+    const wb = XLSX.read(Buffer.from(fileBase64, "base64"), { type: "buffer" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false }) as unknown[][];
+    if (grid.length < 2) throw new ApiError(400, "Dump has no data rows");
+    const headers = (grid[0] as unknown[]).map((h) => String(h ?? ""));
+    const cols = detectReconCols(headers);
+    if (cols.loanAccountNo === undefined && cols.bankApplicationNo === undefined && cols.dsaCode === undefined) {
+      throw new ApiError(400, "Could not detect any of loan account / application no / DSA code columns in the dump header");
+    }
+
+    // misRecords for this connector + month (the candidate set to match against).
+    const misSnap = await db.collection("misRecords")
+      .where("connectorId", "==", connectorId).where("reportingMonth", "==", reportingMonth).get();
+    const misBook: MisLite[] = misSnap.docs.map((d) => {
+      const m = d.data();
+      return {
+        caseId: d.id,
+        loanAccountNo: (m.loanAccountNo as string | null) ?? null,
+        bankApplicationNo: (m.bankApplicationNo as string | null) ?? null,
+        dsaCode: (m.dsaCode as string) ?? "",
+        disbursedAmount: Number(m.disbursedAmount ?? 0),
+        disbursementDateMs: tsToMs(m.disbursementDate) ?? 0,
+      };
+    });
+
+    const importRef = db.collection("bankMisImports").doc();
+    const dataRows = grid.slice(1);
+    const get = (r: unknown[], f: string) => cols[f] !== undefined ? r[cols[f]] : null;
+
+    let matched = 0, unmatched = 0;
+    const matchedCaseIds = new Set<string>();
+    // Batch the row writes (chunks of 400 to stay under the 500-op limit).
+    let batch = db.batch(); let ops = 0;
+    const flush = async () => { if (ops > 0) { await batch.commit(); batch = db.batch(); ops = 0; } };
+
+    for (let i = 0; i < dataRows.length; i++) {
+      const r = dataRows[i];
+      const dump: DumpRow = {
+        rowIndex: i + 2,
+        loanAccountNo: get(r, "loanAccountNo") != null ? String(get(r, "loanAccountNo")).trim() : null,
+        bankApplicationNo: get(r, "bankApplicationNo") != null ? String(get(r, "bankApplicationNo")).trim() : null,
+        dsaCode: get(r, "dsaCode") != null ? String(get(r, "dsaCode")).trim() : null,
+        amount: cellNum(get(r, "amount")),
+        dateMs: cellDate(get(r, "date")),
+      };
+      const m = matchDumpRow(dump, misBook);
+      if (m.matchType !== "none") { matched++; matchedCaseIds.add(m.caseId!); } else unmatched++;
+
+      const rowRef = importRef.collection("rows").doc();
+      batch.set(rowRef, {
+        rowIndex: dump.rowIndex,
+        loanAccountNo: dump.loanAccountNo, bankApplicationNo: dump.bankApplicationNo,
+        dsaCode: dump.dsaCode, amount: dump.amount,
+        dateMs: dump.dateMs, dateIso: dump.dateMs ? new Date(dump.dateMs).toISOString().slice(0, 10) : null,
+        matched: m.matchType !== "none", matchType: m.matchType,
+        matchedCaseId: m.caseId, amountVariance: m.amountVariance,
+        manualOverride: false,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      ops++;
+      if (ops >= 400) await flush();
+    }
+    await flush();
+
+    // Cases in our MIS for this month/connector that the dump did NOT match.
+    const missingCaseIds = misBook.map((m) => m.caseId).filter((id) => !matchedCaseIds.has(id));
+
+    await importRef.set({
+      connectorId, reportingMonth, fileName,
+      totalRows: dataRows.length, matchedRows: matched, unmatchedRows: unmatched,
+      misCaseCount: misBook.length, missingCaseIds,
+      detectedColumns: cols,
+      importedBy: caller.fapl, importedAt: FieldValue.serverTimestamp(),
+      ...createAudit(caller.fapl),
+    });
+    res.json({ ok: true, importId: importRef.id, totalRows: dataRows.length, matched, unmatched, missingCaseIds });
+  }));
+
+  // ─── GET /api/crm2/recon/imports/:id — import + its rows ─────────────────────
+  app.get("/api/crm2/recon/imports/:id", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "recon.read");
+    if (!caller) return;
+    const imp = await db.collection("bankMisImports").doc(req.params.id).get();
+    if (!imp.exists) throw new ApiError(404, "Import not found");
+    const rowsSnap = await db.collection("bankMisImports").doc(req.params.id).collection("rows").orderBy("rowIndex").get();
+    const showMoney = await callerHasPerm(caller.uid, "payout.amounts.read");
+    const rows = rowsSnap.docs.map((d) => {
+      const r: Record<string, unknown> = { id: d.id, ...(d.data() as Record<string, unknown>) };
+      if (!showMoney) { r.amount = null; r.amountVariance = null; }
+      return r;
+    });
+    res.json({ ok: true, import: { id: imp.id, ...imp.data() }, rows });
+  }));
+
+  // ─── PATCH /api/crm2/recon/imports/:id/rows/:rowId — manual match/unmatch ─────
+  app.patch("/api/crm2/recon/imports/:id/rows/:rowId", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "recon.read");
+    if (!caller) return;
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const ref = db.collection("bankMisImports").doc(req.params.id).collection("rows").doc(req.params.rowId);
+    const snap = await ref.get();
+    if (!snap.exists) throw new ApiError(404, "Row not found");
+
+    if (b.action === "match") {
+      const caseId = reqStr(b, "caseId");
+      const mis = await db.collection("misRecords").doc(caseId).get();
+      if (!mis.exists) throw new ApiError(400, `misRecord ${caseId} not found`);
+      const amount = snap.data()!.amount as number | null;
+      const variance = amount != null ? Math.round(amount - Number(mis.data()!.disbursedAmount ?? 0)) : null;
+      await ref.update({ matched: true, matchType: "manual", matchedCaseId: caseId, amountVariance: variance, manualOverride: true, updatedAt: FieldValue.serverTimestamp() });
+    } else if (b.action === "unmatch") {
+      await ref.update({ matched: false, matchType: "none", matchedCaseId: null, amountVariance: null, manualOverride: true, updatedAt: FieldValue.serverTimestamp() });
+    } else {
+      throw new ApiError(400, "action must be 'match' or 'unmatch'");
+    }
+    res.json({ ok: true });
+  }));
+
+  // ─── POST /api/crm2/recon/dispute — flag a case missing from the dump ────────
+  // Sets disputeFlag on the payout cycle ("missing in connector's bank MIS dump").
+  app.post("/api/crm2/recon/dispute", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "payout.write");
+    if (!caller) return;
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const caseId = reqStr(b, "caseId");
+    const note = optStr(b, "note") ?? "Missing in connector's bank MIS dump";
+
+    const caseSnap = await db.collection("cases").doc(caseId).get();
+    if (!caseSnap.exists) throw new ApiError(404, `${caseId} not found`);
+    const cycleId = caseSnap.data()!.payoutCycleId as string | undefined;
+    if (!cycleId) throw new ApiError(400, "Case has no payout cycle (not disbursed)");
+    const cycleRef = db.collection("payoutCycles").doc(cycleId);
+
+    await db.runTransaction(async (tx) => {
+      const cy = await tx.get(cycleRef);
+      if (!cy.exists) throw new ApiError(404, "Cycle not found");
+      const merged = { ...cy.data()!, disputeFlag: true, disputeNotes: note };
+      const derived = deriveCycleFields(merged);
+      tx.update(cycleRef, { disputeFlag: true, disputeNotes: note, status: derived.status, ...updateAudit(caller.fapl) });
+      tx.update(db.collection("cases").doc(caseId), { payoutStatus: derived.status, ...updateAudit(caller.fapl) });
+      tx.set(db.collection("misRecords").doc(caseId), { cycleStatus: derived.status, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    });
+    await db.collection("audit_logs").add({ actor: caller.uid, actorFapl: caller.fapl, action: "crm2_recon_dispute", targetPath: `/payoutCycles/${cycleId}`, at: FieldValue.serverTimestamp() });
+    res.json({ ok: true, cycleId });
+  }));
+
+  // ─── POST /api/crm2/jobs/run-recon-snapshots — monthly, idempotent ──────────
+  // Builds reconSnapshots/{YYYY-MM_connectorId} (deterministic id → re-running
+  // OVERWRITES, never duplicates). Body { month } or defaults to last month.
+  app.post("/api/crm2/jobs/run-recon-snapshots", route(async (req, res) => {
+    const caller = await requireSchedulerOrAdmin(req, res);
+    if (!caller) return;
+    const month = isStr((req.body ?? {}).month) ? String((req.body as Record<string, unknown>).month) : (() => {
+      const d = new Date(); d.setMonth(d.getMonth() - 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    })();
+    const now = Date.now();
+
+    // All cycles whose reporting month == this month (reportingMonth on the MIS;
+    // the cycle stores disbursementDate — group by its YYYY-MM).
+    const misSnap = await db.collection("misRecords").where("reportingMonth", "==", month).get();
+    const byConnector = new Map<string, string[]>();  // connectorId → caseIds
+    for (const d of misSnap.docs) {
+      const conn = d.data().connectorId as string;
+      if (!byConnector.has(conn)) byConnector.set(conn, []);
+      byConnector.get(conn)!.push(d.id);
+    }
+
+    let snapshots = 0;
+    for (const [connectorId, caseIds] of byConnector) {
+      const cycles: CycleLite[] = [];
+      for (const caseId of caseIds) {
+        const cySnap = await db.collection("payoutCycles").doc(caseId.replace("FIN-CASE", "PC")).get();
+        if (!cySnap.exists) continue;
+        const c = cySnap.data()!;
+        cycles.push({
+          caseId,
+          status: c.status as string,
+          disbursedAmount: Number(c.disbursedAmount ?? 0),
+          expectedGross: Number(c.expectedGross ?? 0),
+          billGross: c.billGross != null ? Number(c.billGross) : null,
+          receivedNet: c.receivedNet != null ? Number(c.receivedNet) : null,
+          tdsDeducted: c.tdsDeducted != null ? Number(c.tdsDeducted) : null,
+          subDsaExpected: c.subDsaExpected != null ? Number(c.subDsaExpected) : null,
+          subDsaPaidAmount: c.subDsaPaidAmount != null ? Number(c.subDsaPaidAmount) : null,
+          netMarginRealised: c.netMarginRealised != null ? Number(c.netMarginRealised) : null,
+          disputeFlag: c.disputeFlag === true,
+          bankerConfirmedAt: tsToMs(c.bankerConfirmedAt),
+          confirmationRaisedAt: tsToMs(c.confirmationRaisedAt),
+        });
+      }
+      const snap = computeSnapshot(cycles, now);
+      // Deterministic id → idempotent overwrite.
+      await db.collection("reconSnapshots").doc(`${month}_${connectorId}`).set({
+        month, connectorId, ...snap,
+        tdsCertificateStatus: "pending",   // certificate-status field (spec §7.2)
+        generatedAt: FieldValue.serverTimestamp(), generatedBy: caller.fapl,
+      });
+      snapshots++;
+    }
+    res.json({ ok: true, month, snapshots });
+  }));
+
+  // ─── GET /api/crm2/dashboards?period=YYYY-MM — all Pipeline dashboards ───────
+  // Money sections are stripped server-side unless the caller holds
+  // payout.amounts.read. Figures are computed by reading the period's
+  // misRecords/cycles and aggregating in-process (no rollups are stored on any
+  // master doc); the receivables totals are the direct sums over misRecords, so
+  // they tie out to an independent sum for the same month + connector.
+  app.get("/api/crm2/dashboards", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "crm.cases.read");
+    if (!caller) return;
+    const period = isStr(req.query.period) ? String(req.query.period)
+      : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+    const showMoney = await callerHasPerm(caller.uid, "payout.amounts.read");
+    const now = Date.now();
+
+    const [leadsSnap, casesSnap, misSnap, cyclesSnap] = await Promise.all([
+      db.collection("leads").get(),
+      db.collection("cases").get(),
+      db.collection("misRecords").where("reportingMonth", "==", period).get(),
+      db.collection("payoutCycles").get(),
+    ]);
+
+    // ── Leads funnel (new-model leads carry `category`) ──
+    const inc = (o: Record<string, number>, k: string) => { o[k] = (o[k] ?? 0) + 1; };
+    const funnel = { byStatus: {} as Record<string, number>, bySource: {} as Record<string, number>, byCategory: {} as Record<string, number> };
+    const rmLeads: Record<string, { handled: number; converted: number }> = {};
+    let totalLeads = 0, qualified = 0, converted = 0;
+    for (const d of leadsSnap.docs) {
+      const l = d.data();
+      if (l.category === undefined || l.receivedAt === undefined) continue;  // legacy lead — skip
+      totalLeads++;
+      inc(funnel.byStatus, String(l.status ?? "NEW"));
+      inc(funnel.bySource, String(l.source ?? "—"));
+      inc(funnel.byCategory, String(l.category ?? "GENERAL"));
+      if (l.status === "QUALIFIED") qualified++;
+      if (l.converted === true) converted++;
+      const rm = (l.assignedRm as string | null) ?? "unassigned";
+      rmLeads[rm] ??= { handled: 0, converted: 0 };
+      rmLeads[rm].handled++; if (l.converted === true) rmLeads[rm].converted++;
+    }
+
+    // ── Pipeline by stage (count + requested value, with ageing) ──
+    const STAGES = ["OPENED", "ELIGIBILITY", "DOC_COLLECTION", "CODE_ASSIGNMENT", "LOGIN", "UNDER_PROCESS", "SANCTIONED", "DISBURSED", "PDD_OTC", "CLOSED"];
+    const pipeline = STAGES.map((s) => ({ stage: s, count: 0, value: 0, ageSumDays: 0 }));
+    const pIdx = Object.fromEntries(STAGES.map((s, i) => [s, i]));
+    for (const d of casesSnap.docs) {
+      const c = d.data();
+      const i = pIdx[c.stage as string]; if (i === undefined) continue;
+      pipeline[i].count++;
+      pipeline[i].value += Number(c.amountRequested ?? 0);
+      const openedMs = tsToMs(c.keyDates?.opened) ?? null;
+      if (openedMs) pipeline[i].ageSumDays += Math.floor((now - openedMs) / 86400000);
+    }
+    const pipelineOut = pipeline.map((p) => ({ stage: p.stage, count: p.count, value: p.value, avgAgeDays: p.count ? Math.round(p.ageSumDays / p.count) : 0 }));
+
+    // ── Disbursement / receivables / margin from the period's misRecords ──
+    const groupSum = () => ({ count: 0, disbursed: 0, expected: 0, billed: 0, received: 0, margin: 0 });
+    const byConnector: Record<string, ReturnType<typeof groupSum>> = {};
+    const byLender: Record<string, ReturnType<typeof groupSum>> = {};
+    const byProduct: Record<string, ReturnType<typeof groupSum>> = {};
+    const byRm: Record<string, ReturnType<typeof groupSum>> = {};
+    const bySubDsa: Record<string, ReturnType<typeof groupSum> & { name: string }> = {};
+    let totDisbursed = 0, totExpected = 0, totBilled = 0, totReceived = 0, totMargin = 0;
+    const add = (g: Record<string, ReturnType<typeof groupSum>>, k: string, m: Record<string, unknown>) => {
+      g[k] ??= groupSum(); const x = g[k];
+      x.count++; x.disbursed += Number(m.disbursedAmount ?? 0); x.expected += Number(m.expectedGross ?? 0);
+      x.billed += Number(m.billGross ?? 0); x.received += Number(m.receivedNet ?? 0); x.margin += Number(m.netMargin ?? 0);
+    };
+    for (const d of misSnap.docs) {
+      const m = d.data();
+      totDisbursed += Number(m.disbursedAmount ?? 0); totExpected += Number(m.expectedGross ?? 0);
+      totBilled += Number(m.billGross ?? 0); totReceived += Number(m.receivedNet ?? 0); totMargin += Number(m.netMargin ?? 0);
+      add(byConnector, String(m.connectorName ?? m.connectorId), m);
+      add(byLender, String(m.lenderName ?? m.lenderId), m);
+      add(byProduct, String(m.productCode ?? "—"), m);
+      add(byRm, String(m.handlingRmName ?? m.handlingRmId), m);
+      if (m.subDsaId) {
+        const k = String(m.subDsaId);
+        bySubDsa[k] ??= { ...groupSum(), name: String(m.subDsaName ?? k) };
+        const x = bySubDsa[k]; x.count++; x.disbursed += Number(m.disbursedAmount ?? 0);
+        x.received += Number(m.receivedNet ?? 0); x.margin += Number(m.netMargin ?? 0);
+      }
+      // RM performance disbursed value (period)
+      const rm = String(m.handlingRmId ?? "—");
+      rmLeads[rm] ??= { handled: 0, converted: 0 };
+      (rmLeads[rm] as Record<string, number>).disbursed = ((rmLeads[rm] as Record<string, number>).disbursed ?? 0) + Number(m.disbursedAmount ?? 0);
+      (rmLeads[rm] as Record<string, number>).revenue = ((rmLeads[rm] as Record<string, number>).revenue ?? 0) + Number(m.expectedGross ?? 0);
+    }
+    const receivables = Object.entries(byConnector).map(([connector, g]) => ({
+      connector, expected: g.expected, billed: g.billed, received: g.received, pendingReceivable: g.expected - g.received,
+    }));
+
+    // ── Payout health (all cycles) ──
+    const cycleStatusCount: Record<string, number> = {};
+    let disbToRecSum = 0, disbToRecN = 0; const stuck: Array<{ caseId: string; status: string; ageDays: number }> = [];
+    const STUCK_DAYS = 21;
+    for (const d of cyclesSnap.docs) {
+      const c = d.data();
+      inc(cycleStatusCount, String(c.status));
+      const disb = tsToMs(c.disbursementDate); const rec = tsToMs(c.receivedAt);
+      if (disb && rec) { disbToRecSum += Math.floor((rec - disb) / 86400000); disbToRecN++; }
+      if (disb && !rec && c.status !== "CLOSED" && c.status !== "SUBDSA_PAID" && (now - disb) / 86400000 > STUCK_DAYS) {
+        stuck.push({ caseId: c.caseId as string, status: c.status as string, ageDays: Math.floor((now - disb) / 86400000) });
+      }
+    }
+
+    // RM performance + sub-DSA scorecard (rejection rate from cases would need a
+    // wider read; expose conversion + disbursed + revenue which are well-defined).
+    const rmPerformance = Object.entries(rmLeads).map(([rm, v]) => {
+      const vv = v as Record<string, number>;
+      return { rm, leadsHandled: vv.handled ?? 0, conversionPct: vv.handled ? Math.round(((vv.converted ?? 0) / vv.handled) * 100) : 0,
+               disbursedValue: vv.disbursed ?? 0, revenue: vv.revenue ?? 0 };
+    });
+    const subDsaScorecard = Object.entries(bySubDsa).map(([id, g]) => ({
+      subDsaId: id, name: g.name, casesSourced: g.count, disbursedValue: g.disbursed, payoutMargin: g.margin,
+    }));
+
+    // Strip money for callers without payout.amounts.read.
+    const stripGroup = (g: Record<string, ReturnType<typeof groupSum>>) =>
+      Object.fromEntries(Object.entries(g).map(([k, v]) => [k, { count: v.count }]));
+
+    const out: Record<string, unknown> = {
+      period,
+      funnel: { ...funnel, totalLeads, qualified, converted, conversionPct: totalLeads ? Math.round((converted / totalLeads) * 100) : 0 },
+      pipeline: showMoney ? pipelineOut : pipelineOut.map((p) => ({ stage: p.stage, count: p.count, avgAgeDays: p.avgAgeDays })),
+      payoutHealth: { byStatus: cycleStatusCount, avgDisbToReceivedDays: disbToRecN ? Math.round(disbToRecSum / disbToRecN) : null, stuck },
+    };
+    if (showMoney) {
+      out.disbursement = { total: { count: misSnap.size, disbursed: totDisbursed, expected: totExpected, billed: totBilled, received: totReceived },
+        byConnector, byLender, byProduct, byRm };
+      out.receivables = { total: { expected: totExpected, billed: totBilled, received: totReceived, pendingReceivable: totExpected - totReceived }, byConnector: receivables };
+      out.margin = { total: totMargin, byConnector: Object.fromEntries(Object.entries(byConnector).map(([k, v]) => [k, v.margin])),
+        byProduct: Object.fromEntries(Object.entries(byProduct).map(([k, v]) => [k, v.margin])), byRm: Object.fromEntries(Object.entries(byRm).map(([k, v]) => [k, v.margin])) };
+      out.rmPerformance = rmPerformance;
+      out.subDsaScorecard = subDsaScorecard;
+    } else {
+      out.disbursement = { total: { count: misSnap.size }, byConnector: stripGroup(byConnector), byLender: stripGroup(byLender), byProduct: stripGroup(byProduct), byRm: stripGroup(byRm) };
+      out.rmPerformance = rmPerformance.map((r) => ({ rm: r.rm, leadsHandled: r.leadsHandled, conversionPct: r.conversionPct }));
+      out.subDsaScorecard = subDsaScorecard.map((s) => ({ subDsaId: s.subDsaId, name: s.name, casesSourced: s.casesSourced }));
+    }
+    res.json({ ok: true, ...out });
   }));
 }

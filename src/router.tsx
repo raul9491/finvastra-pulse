@@ -154,6 +154,8 @@ const Crm2CasesPage            = lazyPage(() => import('./features/crm2/cases/Cr
 const CaseWorkspacePage        = lazyPage(() => import('./features/crm2/cases/CaseWorkspacePage'), 'CaseWorkspacePage');
 const PayoutBoardPage          = lazyPage(() => import('./features/crm2/payouts/PayoutBoardPage'), 'PayoutBoardPage');
 const MisGridPage              = lazyPage(() => import('./features/crm2/mis/MisGridPage'), 'MisGridPage');
+const ReconPage                = lazyPage(() => import('./features/crm2/recon/ReconPage'), 'ReconPage');
+const DashboardsPage           = lazyPage(() => import('./features/crm2/dashboards/DashboardsPage'), 'DashboardsPage');
 const Crm2PermissionsPage      = lazyPage(() => import('./features/crm2/admin/Crm2PermissionsPage'), 'Crm2PermissionsPage');
 
 // ── MIS (lazy group) ─────────────────────────────────────────────────────────
@@ -307,6 +309,8 @@ export const router = createBrowserRouter([
       { path: 'pipeline/cases/:caseId',      element: s(<CaseWorkspacePage />) },
       { path: 'pipeline/payouts',            element: s(<PayoutBoardPage />) },
       { path: 'pipeline/mis',                element: s(<MisGridPage />) },
+      { path: 'pipeline/recon',              element: s(<ReconPage />) },
+      { path: 'pipeline/dashboards',         element: s(<DashboardsPage />) },
       { path: 'pipeline/permissions',        element: s(<Crm2PermissionsPage />) },
       // Employee referral pages — accessible to all HRMS employees (referral mode)
       { path: 'referrals',               element: s(<MyReferralsPage />) },

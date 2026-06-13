@@ -312,11 +312,40 @@ History tabs; vault picker references existing files; money mirror from
 `cases/{id}/private/payout` shown only with payout.amounts.read). Acceptance 14/14
 (`.qa/crm2-phase3-gate.mjs`: LOGIN gate proven at API, docsCompletePct live, one vault doc
 on two cases, stageHistory with actors, idempotent re-expansion, Aadhaar reject, protected-
-field reject, PDD-clear gate) + 40 unit tests. **Next: Phase 4** (disburse endpoint,
-payoutCycles + milestone endpoint, status/ageing/variance pure fns, misRecords, business-
-sheet export, reminder/expiry jobs). Deploy order when the maintainer ships: `deploy:rules`
-→ verify → `deploy:indexes` → `firebase deploy --only storage` → Cloud Run
-(`--no-cpu-throttling`) → hosting → seed script → grant perms.
+field reject, PDD-clear gate) + 40 unit tests. · **Phase 4 ✅ (2026-06-13, NOT deployed)** —
+THE money pipeline. `src/lib/crm2/payout.ts` pure fns (`deriveCycleStatus` full precedence
+DISPUTED→CLOSED→SUBDSA_PAID→RECEIVED→BILLED→PAYOUT_CONFIRMED→PDD_OTC_HOLD→BANKER_CONFIRMED→
+CONFIRMATION_RAISED→AWAITING_DATA_SHARE — status is DERIVED, never client-set; `computeAgeing`,
+`computeBankerMismatch`/`PctVariance`/`AmountVariance`=(billGross−tds)−receivedNet,
+`computeNetMarginRealised`=receivedNet−subDsaPaid, `canClose`, `validateMilestoneOrder`; +16
+tests). `POST /api/crm2/cases/:id/disburse` — ONE tx: validate SANCTIONED + DISBURSEMENT docs
+VERIFIED + connector/lender/mapping; `resolveSlab` hard-fail on 0/>1 with the typed human
+message (never 0%); FREEZE mappingId/slabId/percentages onto the case + money mirror
+`cases/{id}/private/payout`; create `payoutCycles/{PC-YYYY-NNNN}` (same seq as the case) +
+`misRecords/{caseId}` (id==caseId, denormalised) + stageHistory; re-reads stage in-tx to block
+double-disburse. `PATCH /api/crm2/payout-cycles/:id/milestone {step:2..10,payload,override?}`
+— step-order validated (out-of-order → 409 unless `override.reason`, logged in `milestoneLog`),
+per-step writes, recompute status/variance/ageing/margin, ONE batch updates cycle + case
+payout badge + misRecord; closure enforces `canClose`. Reads: `GET /api/crm2/payout-cycles[/:id]`,
+`/api/crm2/mis`, `/api/crm2/mis/business-sheet` (xlsx server-side via `xlsx`; `share=1` stamps
+`dataSharedAt/dataSharedTo/reportingMonth` on each cycle in one batch) — ALL money-stripped
+without `payout.amounts.read`. `GET .../disburse-preview` powers the dialog's slab preview.
+Jobs `POST /api/crm2/jobs/run-payout-reminders` (thresholds in `app_config/crm2_settings`:
+reminderDataShareDays 7 / reminderBankerConfirmDays 10) + `run-vault-expiry` (validUntil<now →
+vaultDoc + linked tracker rows EXPIRED) — scheduler-OIDC or admin (new `verifyScheduler` dep on
+`registerCrm2Routes`). Rules: `payoutCycles` + `misRecords` read=admin||payout.amounts.read,
+write=false. Indexes: `vaultDocs(status,validUntil)` CG + `docTracker.vaultDocId` override
+(payoutCycles/misRecords composites front-loaded in Phase 1). UI: disburse dialog (live slab
+preview), case Payout tab (10-step vertical timeline + milestone forms, money-gated, out-of-
+order prompts for a reason), Payout board `/crm/pipeline/payouts` (stuck>21d / hold / dispute
+filters), MIS grid `/crm/pipeline/mis` (month/connector/RM filters, xlsx export, Share action).
+Pipeline nav gains Payouts + MIS. Acceptance 18/18 (`.qa/crm2-phase4-gate.mjs`: atomic
+cycle+MIS, missing-slab block + no partial write, FROZEN economics, out-of-order milestone
+±override, Step-8 one-batch cycle+badge+MIS, sub-DSA math, share-stamp) + 56 unit tests; all
+4 gates green; jobs smoke-tested. **Next: Phase 5** (recon imports + matching, reconSnapshots,
+dashboards). Deploy order when the maintainer ships: `deploy:rules` → verify → `deploy:indexes`
+→ `firebase deploy --only storage` → Cloud Run (`--no-cpu-throttling`) → hosting → seed script
+→ register Cloud Scheduler jobs (run-payout-reminders daily, run-vault-expiry daily) → grant perms.
 
 ## Phase 2 progress
 

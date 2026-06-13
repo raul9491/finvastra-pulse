@@ -26,8 +26,22 @@
 > badge, Details/Applicants/Documents/Payout/History tabs, vault picker, money mirror gated
 > by payout.amounts.read from `cases/{id}/private/payout`). Acceptance 14/14
 > (`.qa/crm2-phase3-gate.mjs`) + 40 unit tests. NOT deployed.
-> **Next: Phase 4** (disburse endpoint, payoutCycles, milestone endpoint, status/ageing/
-> variance pure fns, misRecords, business-sheet export, reminder/expiry jobs).
+> · Phase 3 gate ✅ (trust-proxy real-IP verified; storage vault rule confirmed).
+> · **Phase 4 ✅ (2026-06-13)** — `src/lib/crm2/payout.ts` (deriveCycleStatus full precedence,
+> ageing, banker/pct/amount variance, netMarginRealised, canClose, validateMilestoneOrder;
+> +16 tests). Server: `POST /api/crm2/cases/:id/disburse` (ONE tx: validate SANCTIONED +
+> DISBURSEMENT docs + mapping; resolveSlab hard-fail; freeze economics; create
+> payoutCycles/{PC-…} + misRecords/{caseId} + private/payout mirror + stageHistory),
+> `GET .../disburse-preview`, `PATCH /api/crm2/payout-cycles/:id/milestone` (step-order +
+> override-logged, derive status/variance/ageing, ONE batch cycle+case-badge+MIS),
+> `GET /api/crm2/payout-cycles[/:id]`, `GET /api/crm2/mis`, `GET /api/crm2/mis/business-sheet`
+> (xlsx; share=1 stamps dataSharedAt), jobs `run-payout-reminders` + `run-vault-expiry`.
+> Rules: payoutCycles + misRecords read=admin||payout.amounts.read, write false. Indexes:
+> vaultDocs(status,validUntil) CG + docTracker.vaultDocId override. UI: disburse dialog
+> (slab preview), Payout tab (10-step timeline), Payout board (/crm/pipeline/payouts,
+> stuck/hold/dispute), MIS grid (/crm/pipeline/mis, xlsx + share). Acceptance 18/18
+> (`.qa/crm2-phase4-gate.mjs`) + 56 unit tests. NOT deployed.
+> **Next: Phase 5** (recon imports + matching, reconSnapshots job, dashboards).
 
 Maps the approved spec onto the actual `finvastra-pulse` repo. Implementation follows the
 spec's phases 1–5, one commit per phase. **Three blocking decisions at the bottom need

@@ -605,6 +605,8 @@ async function distributeBatch(
         const batch = db.batch();
         batch.update(leadDoc.ref, {
           primaryOwnerId: owner,
+          // Anchors "time with current owner" for the team view (informational).
+          assignedToCurrentOwnerAt: admin.firestore.FieldValue.serverTimestamp(),
           slaDeadline:    admin.firestore.Timestamp.fromDate(slaDeadline),
           distributedAt:  admin.firestore.FieldValue.serverTimestamp(),
           updatedAt:      admin.firestore.FieldValue.serverTimestamp(),
@@ -1464,6 +1466,29 @@ async function startServer() {
     return google.gmail({ version: "v1", auth: authClient });
   }
 
+  // ─── Calendar helper ──────────────────────────────────────────────────────────
+  // Builds a Google Calendar client via the SAME domain-wide-delegation service
+  // account as Gmail, but impersonating the RM (subjectEmail) so the event lands on
+  // THAT rep's own Workspace calendar. Requires the Workspace admin to authorise the
+  // scope https://www.googleapis.com/auth/calendar.events for the SA's client id.
+  function getCalendarClient(subjectEmail: string) {
+    let keyData: { client_email: string; private_key: string };
+    if (process.env.GOOGLE_SA_JSON_BASE64) {
+      keyData = JSON.parse(Buffer.from(process.env.GOOGLE_SA_JSON_BASE64, "base64").toString("utf-8"));
+    } else {
+      const keyFile = getServiceAccountPath();
+      if (!keyFile) throw new Error("No service-account key available for Calendar DWD");
+      keyData = JSON.parse(fs.readFileSync(keyFile, "utf-8"));
+    }
+    const authClient = new JWT({
+      email:   keyData.client_email,
+      key:     keyData.private_key,
+      scopes:  ["https://www.googleapis.com/auth/calendar.events"],
+      subject: subjectEmail,
+    });
+    return google.calendar({ version: "v3", auth: authClient });
+  }
+
   // Sends an HTML email via the Gmail API (domain-wide delegation).
   // Falls back to console.log when the SA key is not configured (emulator mode).
   // RFC 2047-encode the Subject header so non-ASCII (em-dash, emoji, accents) is
@@ -2176,6 +2201,10 @@ async function startServer() {
       uid: m.uid, name: m.displayName ?? "—", designation: m.designation ?? "",
       leads: 0, newLeads: 0, openOpps: 0, pipelineValue: 0, disbursalAmount: 0, commission: 0,
       target: 0, achievementPct: 0, overdueSla: 0, dueCallbacks: 0,
+      // Per-member lead-status breakdown — what each rep's customers answered, so
+      // a manager can see status at a glance before deciding any manual reassign.
+      status: { new: 0, interested: 0, callback: 0, not_interested: 0, no_response: 0, wrong_number: 0, converted: 0 } as Record<string, number>,
+      lastActivityMs: 0,
     });
 
     const callbacks: any[] = [];
@@ -2186,6 +2215,10 @@ async function startServer() {
       const l: any = d.data();
       const a = acc.get(l.primaryOwnerId); if (!a) return;
       a.leads++;
+      const st = (typeof l.leadStatus === "string" && l.leadStatus) ? l.leadStatus : "new";
+      a.status[st] = (a.status[st] ?? 0) + 1;
+      const uMs = l.updatedAt?.toMillis ? l.updatedAt.toMillis() : 0;
+      if (uMs > a.lastActivityMs) a.lastActivityMs = uMs;
       const cms = l.createdAt?.toMillis ? l.createdAt.toMillis() : 0;
       if (cms >= startMs) a.newLeads++;
       if (l.leadStatus === "callback" && typeof l.callbackAt === "string" && new Date(l.callbackAt).getTime() <= nowMs) {
@@ -2227,15 +2260,189 @@ async function startServer() {
     return { members: rows, totals, actionNeeded: { callbacks, slaBreaches }, period };
   }
 
-  // GET /api/crm/team/performance?period=YYYY-MM — caller's OWN downline only.
-  // Any signed-in user may call it; non-managers simply get an empty team.
+  // GET /api/crm/team/performance?period=YYYY-MM[&managerUid=UID]
+  // Default: the caller's OWN downline. An admin/super-admin may pass ?managerUid
+  // to view ANY manager's team (so a super admin sees all teams via the picker).
+  // A non-admin's managerUid param is ignored — they only ever see their own reports.
   app.get("/api/crm/team/performance", async (req, res) => {
     try {
       const uid = await verifyFirebaseToken(req);
       if (!uid) return res.status(401).json({ error: "Unauthorized" });
       const q = req.query.period;
       const period = typeof q === "string" && /^\d{4}-\d{2}$/.test(q) ? q : new Date().toISOString().slice(0, 7);
-      return res.json(await computeTeamSummary(uid, period));
+      const callerDoc = await db.collection("users").doc(uid).get();
+      const callerIsAdmin = callerDoc.data()?.role === "admin";
+      const reqMgr = req.query.managerUid;
+      const targetUid = (callerIsAdmin && typeof reqMgr === "string" && reqMgr) ? reqMgr : uid;
+      return res.json(await computeTeamSummary(targetUid, period));
+    } catch (e) { return res.status(500).json({ error: String(e) }); }
+  });
+
+  // GET /api/crm/team/all — admin/super-admin only. Lists every manager (a user
+  // with ≥1 direct report) so the super admin can pick any team to inspect.
+  app.get("/api/crm/team/all", async (req, res) => {
+    try {
+      const uid = await verifyFirebaseToken(req);
+      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+      const callerDoc = await db.collection("users").doc(uid).get();
+      if (callerDoc.data()?.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+      const usersSnap = await db.collection("users").get();
+      const users = usersSnap.docs.map((d) => ({ uid: d.id, ...(d.data() as any) }));
+      const byUid = new Map(users.map((u) => [u.uid, u]));
+      const directCount = new Map<string, number>();
+      for (const u of users) {
+        if (u.employeeStatus === "inactive") continue;
+        const mgr = u.reportingManagerUid;
+        if (mgr) directCount.set(mgr, (directCount.get(mgr) ?? 0) + 1);
+      }
+      const managers = [...directCount.entries()]
+        .map(([mgrUid, count]) => ({ uid: mgrUid, name: byUid.get(mgrUid)?.displayName ?? "—", memberCount: count }))
+        .filter((m) => byUid.has(m.uid))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      return res.json({ managers });
+    } catch (e) { return res.status(500).json({ error: String(e) }); }
+  });
+
+  // ─── CRM Meetings → RM's own Google Calendar ─────────────────────────────────
+  // POST /api/crm/meetings — schedule a meeting against a lead. Writes /crm_meetings,
+  // a 'meeting' activity, and inserts the event onto the RM's OWN Workspace calendar
+  // (impersonated via DWD). Calendar sync is non-fatal: the meeting saves regardless.
+  app.post("/api/crm/meetings", async (req, res) => {
+    try {
+      const uid = await verifyFirebaseToken(req);
+      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+      const { leadId, title, startAt, durationMins, location, notes } = req.body ?? {};
+      if (typeof leadId !== "string" || !leadId) return res.status(400).json({ error: "leadId required" });
+      if (typeof startAt !== "string" || isNaN(Date.parse(startAt))) return res.status(400).json({ error: "valid startAt (ISO) required" });
+
+      const leadSnap = await db.collection("leads").doc(leadId).get();
+      if (!leadSnap.exists) return res.status(404).json({ error: "Lead not found" });
+      const lead: any = leadSnap.data();
+      const ownerId = lead.primaryOwnerId;
+
+      // Authz: admin, the lead's own RM, or the RM's reporting manager.
+      const callerDoc = await db.collection("users").doc(uid).get();
+      const callerIsAdmin = callerDoc.data()?.role === "admin";
+      let allowed = callerIsAdmin || uid === ownerId;
+      if (!allowed && ownerId) {
+        const ownerDoc = await db.collection("users").doc(ownerId).get();
+        allowed = ownerDoc.data()?.reportingManagerUid === uid;
+      }
+      if (!allowed) return res.status(403).json({ error: "Not allowed to schedule for this customer" });
+      if (!ownerId || ownerId === "UNASSIGNED") return res.status(400).json({ error: "Lead has no assigned RM" });
+
+      const dur = Number.isFinite(durationMins) && durationMins > 0 ? Math.min(480, durationMins) : 30;
+      const startMs = Date.parse(startAt);
+      const endAt = new Date(startMs + dur * 60000).toISOString();
+      const ownerAuth = await admin.auth().getUser(ownerId).catch(() => null);
+      const ownerEmail = ownerAuth?.email ?? null;
+      const meetingTitle = (typeof title === "string" && title.trim()) ? title.trim().slice(0, 200) : `Meeting · ${lead.displayName ?? "Customer"}`;
+
+      // Try the calendar insert (non-fatal).
+      let calendarEventId: string | null = null;
+      let calendarSyncStatus: "synced" | "failed" | "skipped" = "skipped";
+      if (ownerEmail && !useEmulator) {
+        try {
+          const calendar = getCalendarClient(ownerEmail);
+          const ev = await calendar.events.insert({
+            calendarId: "primary",
+            requestBody: {
+              summary: meetingTitle,
+              description: `Customer: ${lead.displayName ?? "-"}\nPhone: ${lead.phone ?? "-"}\n${notes ? `Notes: ${notes}\n` : ""}\nOpen in Pulse: https://pulse.finvastra.com/crm/leads/${leadId}\n\n— Scheduled via Finvastra Pulse`,
+              start: { dateTime: startAt, timeZone: "Asia/Kolkata" },
+              end:   { dateTime: endAt,   timeZone: "Asia/Kolkata" },
+              ...(typeof location === "string" && location ? { location } : {}),
+              reminders: { useDefault: false, overrides: [{ method: "popup", minutes: 30 }, { method: "email", minutes: 30 }] },
+            },
+          });
+          calendarEventId = ev.data.id ?? null;
+          calendarSyncStatus = calendarEventId ? "synced" : "failed";
+        } catch (e) {
+          console.error("[meetings] calendar insert failed", String(e));
+          calendarSyncStatus = "failed";
+        }
+      }
+
+      const meetingRef = db.collection("crm_meetings").doc();
+      await meetingRef.set({
+        leadId, leadName: lead.displayName ?? "", ownerId, ownerEmail,
+        title: meetingTitle, startAt, endAt,
+        ...(typeof location === "string" && location ? { location } : { location: null }),
+        ...(typeof notes === "string" && notes ? { notes: notes.slice(0, 2000) } : { notes: null }),
+        status: "scheduled",
+        calendarEventId, calendarSyncStatus, reminderSent: false,
+        createdBy: uid, createdByName: callerDoc.data()?.displayName ?? "",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Activity trail on the lead + a bell to the RM (both best-effort).
+      db.collection("leads").doc(leadId).collection("activities").add({
+        type: "meeting",
+        content: `📅 Meeting scheduled for ${new Date(startMs).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}${meetingTitle ? ` — ${meetingTitle}` : ""}`,
+        by: uid, byName: callerDoc.data()?.displayName ?? "", at: admin.firestore.FieldValue.serverTimestamp(),
+      }).catch(() => {});
+      db.collection("notifications").doc(ownerId).collection("items").add({
+        type: "follow_up_needed",
+        title: `Meeting scheduled — ${lead.displayName ?? "Customer"}`,
+        body: `${new Date(startMs).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}${calendarSyncStatus === "synced" ? " · added to your Google Calendar" : ""}`,
+        link: `/crm/leads/${leadId}`, read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      }).catch(() => {});
+
+      return res.json({ ok: true, id: meetingRef.id, calendarSyncStatus });
+    } catch (e) { return res.status(500).json({ error: String(e) }); }
+  });
+
+  // PATCH /api/crm/meetings/:id — reschedule / mark done / cancel (+ sync the event).
+  app.patch("/api/crm/meetings/:id", async (req, res) => {
+    try {
+      const uid = await verifyFirebaseToken(req);
+      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+      const ref = db.collection("crm_meetings").doc(req.params.id);
+      const snap = await ref.get();
+      if (!snap.exists) return res.status(404).json({ error: "Meeting not found" });
+      const m: any = snap.data();
+      const callerDoc = await db.collection("users").doc(uid).get();
+      const callerIsAdmin = callerDoc.data()?.role === "admin";
+      let allowed = callerIsAdmin || uid === m.ownerId || uid === m.createdBy;
+      if (!allowed && m.ownerId) {
+        const ownerDoc = await db.collection("users").doc(m.ownerId).get();
+        allowed = ownerDoc.data()?.reportingManagerUid === uid;
+      }
+      if (!allowed) return res.status(403).json({ error: "Not allowed" });
+
+      const { startAt, durationMins, status, location, notes } = req.body ?? {};
+      const update: any = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+      let newStart = m.startAt, newEnd = m.endAt;
+      if (typeof startAt === "string" && !isNaN(Date.parse(startAt))) {
+        newStart = startAt;
+        const dur = Number.isFinite(durationMins) && durationMins > 0 ? durationMins : Math.max(15, Math.round((Date.parse(m.endAt) - Date.parse(m.startAt)) / 60000) || 30);
+        newEnd = new Date(Date.parse(startAt) + dur * 60000).toISOString();
+        update.startAt = newStart; update.endAt = newEnd;
+      }
+      if (status === "scheduled" || status === "done" || status === "cancelled") update.status = status;
+      if (typeof location === "string") update.location = location || null;
+      if (typeof notes === "string") update.notes = notes.slice(0, 2000) || null;
+
+      // Mirror to the calendar (best-effort).
+      if (m.ownerEmail && m.calendarEventId && !useEmulator) {
+        try {
+          const calendar = getCalendarClient(m.ownerEmail);
+          if (update.status === "cancelled") {
+            await calendar.events.delete({ calendarId: "primary", eventId: m.calendarEventId });
+            update.calendarEventId = null; update.calendarSyncStatus = "skipped";
+          } else if (update.startAt) {
+            await calendar.events.patch({
+              calendarId: "primary", eventId: m.calendarEventId,
+              requestBody: { start: { dateTime: newStart, timeZone: "Asia/Kolkata" }, end: { dateTime: newEnd, timeZone: "Asia/Kolkata" } },
+            });
+          }
+        } catch (e) { console.error("[meetings] calendar patch failed", String(e)); }
+      }
+
+      await ref.update(update);
+      return res.json({ ok: true });
     } catch (e) { return res.status(500).json({ error: String(e) }); }
   });
 
@@ -2399,6 +2606,58 @@ async function startServer() {
         }
 
         await d.ref.update({ callbackReminderSent: true });
+        notified++;
+      }
+      return res.json({ checked: snap.size, notified });
+    } catch (e) { return res.status(500).json({ error: String(e) }); }
+  });
+
+  // ─── Meeting reminders — fire ~30 min before a scheduled CRM meeting ──────────
+  // POST /api/admin/run-meeting-reminders (OIDC or admin). Run every ~15 min.
+  // Bell + email to the RM. The Google Calendar event carries its own native
+  // reminders too; this is the in-app/Pulse channel. Deduped via reminderSent.
+  app.post("/api/admin/run-meeting-reminders", async (req, res) => {
+    if (!(await requireAdminOrScheduler(req, res))) return;
+    try {
+      const nowMs = Date.now();
+      const LEAD_MS = 30 * 60000;   // fire when start is within the next 30 min
+      const GRACE_MS = 60 * 60000;  // don't fire for meetings already >1h past
+      // Single equality filter (status) → auto-indexed; time/reminderSent filtered in memory.
+      const snap = await db.collection("crm_meetings").where("status", "==", "scheduled").get();
+      let notified = 0;
+      for (const d of snap.docs) {
+        const mt: any = d.data();
+        if (mt.reminderSent === true) continue;
+        const startMs = typeof mt.startAt === "string" ? Date.parse(mt.startAt) : 0;
+        if (!startMs) continue;
+        if (startMs - nowMs > LEAD_MS) continue;   // too early
+        if (startMs < nowMs - GRACE_MS) { await d.ref.update({ reminderSent: true }); continue; } // stale — close it out
+        const rm = mt.ownerId;
+        if (!rm) continue;
+
+        db.collection("notifications").doc(rm).collection("items").add({
+          type: "follow_up_needed",
+          title: `Meeting soon — ${mt.leadName ?? "Customer"}`,
+          body: `Starts ${new Date(startMs).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}`,
+          link: `/crm/leads/${mt.leadId}`, read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        }).catch(() => {});
+
+        const email = mt.ownerEmail ?? (await admin.auth().getUser(rm).catch(() => null))?.email;
+        if (email) {
+          const html = buildBrandEmail({
+            title: "Meeting reminder",
+            intro: `Your meeting with ${mt.leadName ?? "a customer"} starts soon.`,
+            rows: [
+              { label: "Customer", value: mt.leadName ?? "-" },
+              { label: "When", value: new Date(startMs).toLocaleString("en-IN", { dateStyle: "full", timeStyle: "short" }) },
+              ...(mt.location ? [{ label: "Location", value: String(mt.location) }] : []),
+            ],
+            ctaLabel: "Open customer", ctaLink: `https://pulse.finvastra.com/crm/leads/${mt.leadId}`,
+          });
+          await sendGmailMessage(email, `Meeting soon — ${mt.leadName ?? "Customer"}`, html).catch(() => {});
+        }
+        await d.ref.update({ reminderSent: true });
         notified++;
       }
       return res.json({ checked: snap.size, notified });

@@ -1,11 +1,12 @@
-import { useState, useEffect, type ElementType } from 'react';
+import { useState, useEffect, type ElementType, type ReactNode } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   LayoutDashboard, TrendingUp, GitBranch, IndianRupee,
-  Upload, Settings, LogOut, LayoutGrid, Inbox, Clock, Bookmark, Plus, Webhook, User,
+  Upload, Settings, Inbox, Clock, Bookmark, Plus, Webhook, User,
   Menu, X, PackageOpen, Target, BarChart3, Command, UsersRound, Briefcase,
+  ChevronDown, CalendarClock,
 } from 'lucide-react';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
@@ -25,19 +26,6 @@ import { useMyShares } from '../../features/auth/hooks/useMyShares';
 import { resolvePageKey } from '../../config/shareablePages';
 
 type NavEntry = { path: string; label: string; icon: ElementType; live: boolean; end?: boolean; badge?: number };
-
-const NAV: NavEntry[] = [
-  { path: '/crm/command-centre', label: 'Command Centre', icon: Command, live: true, end: true },
-  { path: '/crm/team',        label: 'My Team',     icon: UsersRound,      live: true,  end: true  },
-  { path: '/crm/dashboard',   label: 'Dashboard',   icon: LayoutDashboard, live: true,  end: true  },
-  { path: '/crm/my-queue',    label: 'My Queue',    icon: Inbox,           live: true,  end: true  },
-  { path: '/crm/leads',       label: 'Customers',   icon: TrendingUp,      live: true,  end: false },
-  { path: '/crm/import',      label: 'Import',      icon: Upload,          live: true,  end: true  },
-  { path: '/crm/import/queue',label: 'Import Queue',icon: PackageOpen,     live: true,  end: true  },
-  { path: '/crm/commissions', label: 'Commissions', icon: IndianRupee,      live: true,  end: true  },
-  { path: '/crm/pipeline',    label: 'Pipeline',    icon: GitBranch,       live: true,  end: true  },
-  { path: '/crm/targets',     label: 'Targets',     icon: Target,          live: true,  end: true  },
-];
 
 const ADMIN_NAV: NavEntry[] = [
   { path: '/crm/import/history',                label: 'Import History',      icon: Clock,    live: true, end: true },
@@ -77,6 +65,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/crm/import':                         'Bulk Import',
   '/crm/import/queue':                   'Import Queue',
   '/crm/pipeline':                       'Pipeline',
+  '/crm/meetings':                       'Meetings',
   '/crm/targets':                        'Targets',
   '/crm/reports/aging':                  'Lead Aging',
   '/crm/pipeline/masters':               'Pipeline Masters',
@@ -136,14 +125,24 @@ function NavItemLive({ entry, isActive }: { entry: NavEntry; isActive: boolean }
   );
 }
 
-function NavItemSoon({ entry }: { entry: NavEntry }) {
-  const { icon: Icon, label } = entry;
+// Collapsible nav group — section header that toggles its children. Keeps the
+// CRM sidebar tidy: daily Workspace open, Admin & Config collapsed by default.
+function NavGroup({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="flex items-center gap-3 pl-3 py-2.5 rounded-lg" style={{ opacity: 0.35, cursor: 'not-allowed' }}>
-      <Icon size={17} className="shrink-0" style={{ color: 'var(--shell-text-secondary)' }} />
-      <span className="text-sm flex-1" style={{ color: 'var(--shell-text-secondary)' }}>{label}</span>
-      <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded mr-1"
-        style={{ color: '#C9A961', backgroundColor: 'rgba(201,169,97,0.15)' }}>Soon</span>
+    <div>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-3 pt-4 pb-2 nav-item-hover rounded-lg"
+      >
+        <span className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: 'var(--shell-text-dim)' }}>{title}</span>
+        <ChevronDown
+          size={12}
+          className="shrink-0 transition-transform"
+          style={{ color: 'var(--shell-text-dim)', transform: open ? 'none' : 'rotate(-90deg)' }}
+        />
+      </button>
+      {open && <div className="space-y-0.5">{children}</div>}
     </div>
   );
 }
@@ -268,56 +267,23 @@ export function CrmShell() {
           />
         </>
       ) : (
-        /* Full CRM nav */
+        /* Full CRM nav — regrouped: Dashboard · Workspace · Pipeline · Team · Admin */
         <>
-          {NAV
-            // Hide Import from viewers and from users without import access
-            .filter((entry) => {
-              if (entry.path === '/crm/command-centre') return isAdmin || profile?.commandCentreAccess === true;
-              if (entry.path === '/crm/team') return isManager || isAdmin;
-              if (entry.path === '/crm/import') return canImport;
-              if (entry.path === '/crm/import/queue') return canImport;
-              if (entry.path === '/crm/my-queue') return isGenerator || isAdmin;
-              return true;
-            })
-            .map((entry) => {
-              let enriched: NavEntry = entry;
-              if (entry.path === '/crm/my-queue' && isGenerator) enriched = { ...entry, badge: queueOverdue };
-              else if (entry.path === '/crm/import/queue')       enriched = { ...entry, badge: queueAwaiting };
-              else if (entry.path === '/crm/targets')            enriched = { ...entry, badge: targetMissing ? 1 : 0 };
-              else if (entry.path === '/crm/command-centre')     enriched = { ...entry, badge: pendingApprovals };
-              // Exact match for /crm/import so it doesn't also light up on /crm/import/queue
-              const isActive = entry.path === '/crm/import'
-                ? location.pathname === '/crm/import'
-                : location.pathname.startsWith(entry.path);
-              return enriched.live
-                ? <NavItemLive key={enriched.path} entry={enriched} isActive={isActive} />
-                : <NavItemSoon key={enriched.path} entry={enriched} />;
-            })}
+          {/* Dashboard — always at the top, ungrouped */}
+          <NavItemLive entry={{ path: '/crm/dashboard', label: 'Dashboard', icon: LayoutDashboard, live: true, end: true }} isActive={location.pathname === '/crm/dashboard'} />
 
-          {/* Admin-only section */}
-          {isAdmin && (
-            <>
-              <div className="px-3 pt-4 pb-2">
-                <p className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: 'var(--shell-text-dim)' }}>Admin</p>
-              </div>
-              {ADMIN_NAV.map((entry) => (
-                <NavItemLive key={entry.path} entry={entry} isActive={location.pathname === entry.path} />
-              ))}
-            </>
-          )}
+          {/* WORKSPACE — what an individual RM works with daily */}
+          <NavGroup title="Workspace">
+            {(isGenerator || isAdmin) && (
+              <NavItemLive entry={{ path: '/crm/my-queue', label: 'My Queue', icon: Inbox, live: true, end: true, badge: isGenerator ? queueOverdue : 0 }} isActive={location.pathname === '/crm/my-queue'} />
+            )}
+            <NavItemLive entry={{ path: '/crm/leads', label: 'Customers', icon: TrendingUp, live: true, end: false }} isActive={location.pathname.startsWith('/crm/leads')} />
+            <NavItemLive entry={{ path: '/crm/meetings', label: 'Meetings', icon: CalendarClock, live: true, end: true }} isActive={location.pathname === '/crm/meetings'} />
+            <NavItemLive entry={{ path: '/crm/commissions', label: 'Commissions', icon: IndianRupee, live: true, end: true }} isActive={location.pathname === '/crm/commissions'} />
+            <NavItemLive entry={{ path: '/crm/targets', label: 'Targets', icon: Target, live: true, end: true, badge: targetMissing ? 1 : 0 }} isActive={location.pathname === '/crm/targets'} />
+          </NavGroup>
 
-          {/* Reports — admin + manager */}
-          {(isAdmin || isManager) && (
-            <>
-              <div className="px-3 pt-4 pb-2">
-                <p className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: 'var(--shell-text-dim)' }}>Reports</p>
-              </div>
-              <NavItemLive entry={{ path: '/crm/reports/aging', label: 'Lead Aging', icon: BarChart3, live: true, end: true }} isActive={location.pathname === '/crm/reports/aging'} />
-            </>
-          )}
-
-          {/* Pipeline (CRM 2.0 — PLAN.md). NOTHING LOCKED: items appear only for holders. */}
+          {/* PIPELINE (CRM 2.0 — PLAN.md). NOTHING LOCKED: items appear only for holders. */}
           {(() => {
             const perms = (profile as { perms?: Record<string, boolean> } | null)?.perms ?? {};
             const showLeads = isAdmin || perms['crm.leads.read'] === true;
@@ -329,10 +295,7 @@ export function CrmShell() {
             const showDash = isAdmin || perms['crm.cases.read'] === true;
             if (!showLeads && !showCases && !showMasters && !showPayouts && !showMis && !showRecon) return null;
             return (
-              <>
-                <div className="px-3 pt-4 pb-2">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: 'var(--shell-text-dim)' }}>Pipeline</p>
-                </div>
+              <NavGroup title="Pipeline (CRM 2.0)">
                 {showLeads && (
                   <NavItemLive entry={{ path: '/crm/pipeline/leads', label: 'Leads', icon: Inbox, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/leads'} />
                 )}
@@ -357,9 +320,39 @@ export function CrmShell() {
                 {isAdmin && (
                   <NavItemLive entry={{ path: '/crm/pipeline/permissions', label: 'Permissions', icon: User, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/permissions'} />
                 )}
-              </>
+              </NavGroup>
             );
           })()}
+
+          {/* TEAM — management & oversight (managers / admins) */}
+          {(isAdmin || isManager || profile?.commandCentreAccess === true || canImport) && (
+            <NavGroup title="Team">
+              {(isAdmin || profile?.commandCentreAccess === true) && (
+                <NavItemLive entry={{ path: '/crm/command-centre', label: 'Command Centre', icon: Command, live: true, end: true, badge: pendingApprovals }} isActive={location.pathname === '/crm/command-centre'} />
+              )}
+              {(isManager || isAdmin) && (
+                <NavItemLive entry={{ path: '/crm/team', label: 'My Team', icon: UsersRound, live: true, end: true }} isActive={location.pathname === '/crm/team'} />
+              )}
+              {(isAdmin || isManager) && (
+                <NavItemLive entry={{ path: '/crm/reports/aging', label: 'Lead Aging', icon: BarChart3, live: true, end: true }} isActive={location.pathname === '/crm/reports/aging'} />
+              )}
+              {canImport && (
+                <NavItemLive entry={{ path: '/crm/import', label: 'Import', icon: Upload, live: true, end: true }} isActive={location.pathname === '/crm/import'} />
+              )}
+              {canImport && (
+                <NavItemLive entry={{ path: '/crm/import/queue', label: 'Import Queue', icon: PackageOpen, live: true, end: true, badge: queueAwaiting }} isActive={location.pathname === '/crm/import/queue'} />
+              )}
+            </NavGroup>
+          )}
+
+          {/* ADMIN & CONFIG — collapsed by default to cut clutter (admin only) */}
+          {isAdmin && (
+            <NavGroup title="Admin & Config" defaultOpen={false}>
+              {ADMIN_NAV.map((entry) => (
+                <NavItemLive key={entry.path} entry={entry} isActive={location.pathname === entry.path} />
+              ))}
+            </NavGroup>
+          )}
 
           {/* Phase P — full-access user who ALSO holds shares (edge case) */}
           <SharedNavSection shares={crmShares} />

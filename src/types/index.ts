@@ -421,6 +421,10 @@ export interface Lead {
   monthlyIncome?: number;      // ₹ per month — used for FOIR calculation
   existingEmis?: number;       // ₹ per month total of all existing EMIs
   primaryOwnerId: string;
+  // When the CURRENT primaryOwnerId took the lead — set on every ownership change
+  // (create, single/bulk reassign, import distribute). Informational only: drives
+  // the "Nd with owner" column in the manager team view. No automatic action.
+  assignedToCurrentOwnerAt?: any;
   // Connector (channel partner / DSA) who sourced this customer. Selected on the
   // New Customer form; flows to the commission record → MIS. See Connector type.
   connectorId?: string;
@@ -456,6 +460,32 @@ export interface Lead {
   updatedAt?: any;
   deleted: boolean;
   deletedAt?: any;
+}
+
+// ─── CRM: Meetings (scheduled against a customer, synced to RM's Google Calendar) ──
+
+export type CrmMeetingStatus = 'scheduled' | 'done' | 'cancelled';
+export type CalendarSyncStatus = 'synced' | 'failed' | 'skipped';
+
+export interface CrmMeeting {
+  id: string;
+  leadId: string;
+  leadName: string;
+  ownerId: string;            // the RM whose calendar the event lands on
+  ownerEmail: string | null;
+  title: string;
+  startAt: string;            // ISO datetime
+  endAt: string;              // ISO datetime
+  location?: string | null;
+  notes?: string | null;
+  status: CrmMeetingStatus;
+  calendarEventId?: string | null;
+  calendarSyncStatus: CalendarSyncStatus;
+  reminderSent?: boolean;
+  createdBy: string;
+  createdByName?: string;
+  createdAt: any;
+  updatedAt?: any;
 }
 
 // ─── CRM: Opportunities (deal record) ────────────────────────────────────────

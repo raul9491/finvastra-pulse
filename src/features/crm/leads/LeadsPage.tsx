@@ -225,6 +225,7 @@ export function LeadsPage() {
         for (const lead of chunk) {
           batch.update(doc(db, 'leads', lead.id), {
             primaryOwnerId: rmId,
+            assignedToCurrentOwnerAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           });
         }

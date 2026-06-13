@@ -1828,6 +1828,35 @@ Every self-service update is logged to `/profile_update_logs/{id}` for audit.
 
 ---
 
+## Phase S — CRM Meetings→Calendar, Team Status + Manual Remap, Sidebar Cleanup (2026-06-13)
+
+Client-feedback build. Branch `feature/crm-meetings-team-view-nav` — **emulator-tested, NOT deployed** (maintainer deploys; one Workspace-admin config step required for Part A, below). All deterministic — no AI.
+
+### Part A — Meetings on a customer → the RM's own Google Calendar
+RMs schedule client meetings ("Wed/Fri meeting") on a lead; the server pushes each to **that RM's own Google Workspace calendar** (and phone).
+- **New collection `/crm_meetings/{id}`**: `leadId, leadName, ownerId (RM), ownerEmail, title, startAt (ISO), endAt, location?, notes?, status: scheduled|done|cancelled, calendarEventId?, calendarSyncStatus: synced|failed|skipped, reminderSent?, createdBy/Name, createdAt, updatedAt`. Rules: read = admin || ownerId/createdBy self || `isManagerOf(ownerId)`; **write = false** (server-only via Admin SDK, so the doc and the calendar event stay in lockstep).
+- **Calendar write** reuses the existing **Gmail domain-wide-delegation SA** — new `getCalendarClient(subjectEmail)` in `server.ts` builds a `JWT` with scope `calendar.events` impersonating the RM's email → `calendar.events.insert` on their `primary` calendar (`Asia/Kolkata`, 30-min popup+email reminders). **Non-fatal**: meeting always saves; on failure `calendarSyncStatus:'failed'` and the UI shows "not synced". Mirrors the leave→calendar pattern.
+- **Endpoints** (`server.ts`): `POST /api/crm/meetings` (authz: admin || lead's RM || RM's manager; writes doc + `meeting` activity on the lead + bell to the RM + calendar insert), `PATCH /api/crm/meetings/:id` (reschedule/done/cancel + mirror event patch/delete). **Reminder job** `POST /api/admin/run-meeting-reminders` (admin/scheduler) fires bell+email ~30 min before `startAt`, deduped via `reminderSent` — new Cloud Scheduler job **`crm-meeting-reminders`** every 15 min (not yet registered — see deploy notes).
+- **Indexes**: `crm_meetings (ownerId ASC, startAt ASC)` + `(leadId ASC, startAt DESC)`.
+- **UI**: `MeetingsSection` on `LeadDetailPage` (schedule form + upcoming/past list + sync chip + done/cancel); **`/crm/meetings`** "My Meetings" page (`MyMeetingsPage`, grouped Today/Tomorrow/This week/Later); hook `src/features/crm/hooks/useMeetings.ts` (`useLeadMeetings`, `useMyMeetings`, `scheduleMeeting`, `updateMeeting`). Types `CrmMeeting`/`CrmMeetingStatus`/`CalendarSyncStatus`.
+- **⚠️ One-time Workspace-admin prerequisite before calendar sync works in prod**: in Google Workspace Admin → Security → API Controls → **Domain-wide Delegation**, add the scope **`https://www.googleapis.com/auth/calendar.events`** to the SAME service-account client ID already authorised for Gmail (`gmail.send`). Until then meetings save in Pulse with `calendarSyncStatus:'failed'` (graceful).
+
+### Part B — Team Status View + manual reassignment (managers + super admins)
+A place for managers (own team) and super admins (all teams) to **see each rep's lead statuses** and **manually** reassign — nothing automatic.
+- **Server** (`server.ts`): `computeTeamSummary` now adds a per-member **status breakdown** (counts by `leadStatus`) + `lastActivityMs`. `GET /api/crm/team/performance` gains optional `?managerUid=` (honoured **only for admins** → super admin views any team). New `GET /api/crm/team/all` (admin-only) lists managers (≥1 direct report) for the team picker.
+- **UI** (`TeamPerformancePage`, `/crm/team`): admin/super-admin **team picker** (all teams); member table gains a **"Status of their leads"** chip column + last-activity; per-row **Manage** → `MemberLeadsModal` loads that rep's leads (status, callback, "Nd with owner") with multi-select + **Reassign to teammate**. Reassign is a chunked `writeBatch` (≤150 leads/batch): `primaryOwnerId` + `assignedToCurrentOwnerAt` + field_history(`primaryOwnerId`) + a `status_change` activity per lead, then one aggregated bell to the new owner. Rules already permit it: `isManagerOf(currentOwner)` (manager) or `isAdmin()` (super admin) — a manager can only move his own reports' leads.
+- **New informational field `Lead.assignedToCurrentOwnerAt`** — set on **every** ownership change (createLead, single reassign `LeadDetailPage`, bulk reassign `LeadsPage`, import `distributeBatch`). Drives the "Nd with owner" column. **No automatic action keyed off it.** Added to the leads `update` rule `hasOnly` key list.
+
+### Part C — CRM sidebar regroup + collapse (`CrmShell.tsx`)
+Cut clutter: a collapsible `NavGroup` component; nav reorganised into **Dashboard** (top) · **Workspace** (My Queue, Customers, Meetings, Commissions, Targets) · **Pipeline (CRM 2.0)** (perm-gated, unchanged) · **Team** (Command Centre, My Team, Lead Aging, Import, Import Queue — managers/admins) · **Admin & Config** (the 12 admin pages, **collapsed by default**, admin only). No features removed; routes/permissions unchanged; "NOTHING LOCKED" preserved. HRMS/MIS sidebars untouched this round.
+
+### Deploy notes (when maintainer ships this branch)
+Standard order: `deploy:rules` → verify → `deploy:indexes` (2 new `crm_meetings` composites) → Cloud Run `gcloud run deploy pulse-api --source . --region asia-south1 --no-cpu-throttling` (Part A/B server changes) → `npm run deploy` (hosting) → `npm run verify:deploy`. Then: **(1)** grant the Workspace DWD Calendar scope (Part A prereq above); **(2)** register Cloud Scheduler `crm-meeting-reminders` (every 15 min → `/api/admin/run-meeting-reminders`, asia-south1, OIDC SA, like the other jobs).
+
+**New collection**: `crm_meetings`. **New routes**: `/crm/meetings`. **New endpoints**: `POST/PATCH /api/crm/meetings[/:id]`, `GET /api/crm/team/all`, `POST /api/admin/run-meeting-reminders`; `GET /api/crm/team/performance` gained `?managerUid`.
+
+---
+
 ## Authentication rules
 
 - **Only `@finvastra.com` Google Workspace accounts** may log in. Enforced in `onAuthStateChanged` (hard block) — not just the Google picker hint. Personal Gmail addresses are blocked even if they somehow reach the auth flow.

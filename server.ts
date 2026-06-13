@@ -4307,7 +4307,7 @@ async function startServer() {
   });
 
   // ─── CRM 2.0 / Pipeline routes (server/crm2.ts — see PLAN.md) ─────────────────
-  registerCrm2Routes(app, { db, admin });
+  registerCrm2Routes(app, { db, admin, verifyScheduler: verifySchedulerOIDC });
 
   // ─── Vite / static serving ───────────────────────────────────────────────────
   if (process.env.NODE_ENV !== "production") {

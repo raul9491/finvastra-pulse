@@ -1332,5 +1332,19 @@ service cloud.firestore {
         allow write: if false;
       }
     }
+
+    // ─── Phase 4 — Payout cycles + MIS projection ────────────────────────────
+    // Both docs carry money, so direct SDK reads require payout.amounts.read.
+    // payout.read / mis.read users get money-STRIPPED data via the Express APIs
+    // (GET /api/crm2/payout-cycles[/:id], /api/crm2/mis) which run through the
+    // Admin SDK. All client writes denied — mutations only via disburse/milestone.
+    match /payoutCycles/{cycleId} {
+      allow read:  if isAdmin() || hasCrm2Perm('payout.amounts.read');
+      allow write: if false;
+    }
+    match /misRecords/{caseId} {
+      allow read:  if isAdmin() || hasCrm2Perm('payout.amounts.read');
+      allow write: if false;
+    }
   }
 }

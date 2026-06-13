@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { collection, doc, onSnapshot, orderBy, query as fsQuery } from 'firebase/firestore';
-import { ArrowLeft, Plus, X, Check, AlertTriangle, FileText, Upload } from 'lucide-react';
+import { ArrowLeft, Plus, X, Check, AlertTriangle, FileText, Upload, IndianRupee } from 'lucide-react';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
@@ -17,6 +17,7 @@ import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
 import { FLabel, inp } from '../masters/MastersPage';
 import { STAGE_LABEL } from './Crm2CasesPage';
+import { PayoutTab, DisburseDialog } from './PayoutTab';
 import {
   CASE_STAGE_ORDER,
   type Crm2Case, type CaseStage, type Applicant, type DocTrackerRow,
@@ -50,6 +51,7 @@ export function CaseWorkspacePage() {
   const [client, setClient] = useState<(Client & { id: string }) | null>(null);
   const [mirror, setMirror] = useState<CasePayoutMirror | null>(null);
   const [tab, setTab] = useState<'details' | 'applicants' | 'documents' | 'payout' | 'history'>('details');
+  const [showDisburse, setShowDisburse] = useState(false);
 
   const applicants = useSubcollection<Applicant>(['cases', caseId!, 'applicants']);
   const tracker = useSubcollection<DocTrackerRow>(['cases', caseId!, 'docTracker']);
@@ -174,10 +176,12 @@ export function CaseWorkspacePage() {
                 Advance → {STAGE_LABEL[nextStage]}
               </button>
             )}
-            {caseDoc.stage === 'SANCTIONED' && (
-              <span className="px-4 py-2 rounded-lg text-sm border" style={{ borderColor: 'var(--shell-border)', color: 'var(--text-muted)' }}>
-                Disbursement is recorded via the Disburse dialog (Phase 4)
-              </span>
+            {caseDoc.stage === 'SANCTIONED' && hasCrm2Perm(profile, 'payout.write') && (
+              <button onClick={() => setShowDisburse(true)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold inline-flex items-center gap-1.5"
+                style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
+                <IndianRupee size={14} /> Record Disbursement
+              </button>
             )}
             {caseDoc.stage !== 'PDD_OTC' && (
               <button onClick={() => { const r = prompt('Close early — reason (recorded):'); if (r !== null) advance('CLOSED', r.toLowerCase().includes('withdraw') ? 'WITHDRAWN' : 'REJECTED'); }}
@@ -215,12 +219,7 @@ export function CaseWorkspacePage() {
           clientId={caseDoc.clientId} defName={defName} applicantName={applicantName}
           docDefs={docDefs} applicants={applicants} canWrite={canWrite} />
       )}
-      {tab === 'payout' && (
-        <div className="glass-panel p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-          The Payout Cycle timeline lands here in Phase 4 — after disbursement this tab shows
-          the 10 milestone steps with dates{canSeeMoney ? ' and amounts' : ''}.
-        </div>
-      )}
+      {tab === 'payout' && <PayoutTab caseDoc={caseDoc} />}
       {tab === 'history' && (
         <div className="glass-panel p-5 space-y-2">
           {history.length === 0 ? (
@@ -235,6 +234,10 @@ export function CaseWorkspacePage() {
             </div>
           ))}
         </div>
+      )}
+
+      {showDisburse && (
+        <DisburseDialog caseDoc={caseDoc} onClose={() => setShowDisburse(false)} onDone={() => setTab('payout')} />
       )}
     </div>
   );

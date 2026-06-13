@@ -82,6 +82,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/crm/pipeline/masters':               'Pipeline Masters',
   '/crm/pipeline/leads':                 'Pipeline Leads',
   '/crm/pipeline/cases':                 'Pipeline Cases',
+  '/crm/pipeline/payouts':               'Payout Cycles',
+  '/crm/pipeline/mis':                   'MIS',
   '/crm/pipeline/permissions':           'Pipeline Permissions',
   '/crm/admin/commission-slabs':         'Commission Slabs',
   '/crm/admin/providers':                'Providers & SLA',
@@ -319,7 +321,9 @@ export function CrmShell() {
             const showLeads = isAdmin || perms['crm.leads.read'] === true;
             const showCases = isAdmin || perms['crm.cases.read'] === true;
             const showMasters = isAdmin || perms['crm.masters.write'] === true;
-            if (!showLeads && !showCases && !showMasters) return null;
+            const showPayouts = isAdmin || perms['payout.read'] === true;
+            const showMis = isAdmin || perms['mis.read'] === true;
+            if (!showLeads && !showCases && !showMasters && !showPayouts && !showMis) return null;
             return (
               <>
                 <div className="px-3 pt-4 pb-2">
@@ -330,6 +334,12 @@ export function CrmShell() {
                 )}
                 {showCases && (
                   <NavItemLive entry={{ path: '/crm/pipeline/cases', label: 'Cases', icon: Briefcase, live: true, end: true }} isActive={location.pathname.startsWith('/crm/pipeline/cases')} />
+                )}
+                {showPayouts && (
+                  <NavItemLive entry={{ path: '/crm/pipeline/payouts', label: 'Payouts', icon: IndianRupee, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/payouts'} />
+                )}
+                {showMis && (
+                  <NavItemLive entry={{ path: '/crm/pipeline/mis', label: 'MIS', icon: BarChart3, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/mis'} />
                 )}
                 {showMasters && (
                   <NavItemLive entry={{ path: '/crm/pipeline/masters', label: 'Masters', icon: Settings, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/masters'} />

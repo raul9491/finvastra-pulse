@@ -18,12 +18,17 @@ import type { Firestore, Transaction } from "firebase-admin/firestore";
 import type adminNs from "firebase-admin";
 import crypto from "crypto";
 import { encryptField } from "../src/lib/encryption.js";
-import { findSlabOverlaps, resolveSlab, SlabResolutionError, type SlabForResolution } from "../src/lib/crm2/slab.js";
+import { findSlabOverlaps, resolveSlab, computeExpectedAmounts, SlabResolutionError, type SlabForResolution } from "../src/lib/crm2/slab.js";
 import { buildDupeKeys, normaliseMobile } from "../src/lib/crm2/dedupe.js";
 import { extractClientIp } from "../src/lib/crm2/http.js";
 import {
   validateTransition, gateForStage, keyDateForStage,
 } from "../src/lib/crm2/stages.js";
+import {
+  deriveCycleStatus, computeAgeing, computeBankerMismatch, computePctVariance,
+  computeAmountVariance, computeNetMarginRealised, canClose, validateMilestoneOrder,
+  MILESTONE_STEPS, type MilestoneStep, type PayoutCycleStatus,
+} from "../src/lib/crm2/payout.js";
 import type { Crm2PermKey } from "../src/types/crm2.js";
 
 type CaseStageT =
@@ -40,6 +45,9 @@ interface StageTrackerRow {
 interface Deps {
   db: Firestore;
   admin: typeof adminNs;
+  /** Verifies a Cloud Scheduler OIDC token (from server.ts). Used by the
+   *  daily reminder + vault-expiry job endpoints. */
+  verifyScheduler: (req: express.Request) => Promise<boolean>;
 }
 
 /** Typed 4xx error — handlers throw it; the wrapper maps it to a JSON response. */
@@ -52,7 +60,7 @@ class ApiError extends Error {
 const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 const MOBILE_RE = /^[6-9]\d{9}$/;
 
-export function registerCrm2Routes(app: express.Express, { db, admin }: Deps): void {
+export function registerCrm2Routes(app: express.Express, { db, admin, verifyScheduler }: Deps): void {
   const { FieldValue, Timestamp } = admin.firestore;
 
   // ─── Auth + permissions ──────────────────────────────────────────────────────
@@ -1501,5 +1509,662 @@ export function registerCrm2Routes(app: express.Express, { db, admin }: Deps): v
     });
     await batch.commit();
     res.json({ ok: true, vaultDocId: vaultRef.id, storagePath, downloadUrl });
+  }));
+
+  // ═══ Phase 4 — Disburse, Payout Cycles, MIS projection ════════════════════════
+  // THE money pipeline. Disbursement freezes economics and atomically creates the
+  // payout cycle + MIS record. Milestones derive status/variance/ageing (never
+  // client-set) and keep case mirror + MIS in lock-step in one batch.
+
+  const tsToMs = (v: unknown): number | null => {
+    if (!v) return null;
+    if (typeof (v as { toMillis?: () => number }).toMillis === "function") return (v as { toMillis: () => number }).toMillis();
+    return null;
+  };
+  const monthOf = (ms: number): string => {
+    const d = new Date(ms);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  };
+  /** users/{*}.employeeId == fapl → displayName (best-effort; falls back to the code). */
+  async function faplDisplayName(fapl: string): Promise<string> {
+    if (!fapl) return "—";
+    const snap = await db.collection("users").where("employeeId", "==", fapl).limit(1).get();
+    return (snap.docs[0]?.data()?.displayName as string | undefined) ?? fapl;
+  }
+
+  // ─── POST /api/crm2/cases/:id/disburse — atomic case + cycle + MIS ───────────
+  app.post("/api/crm2/cases/:id/disburse", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "payout.write");
+    if (!caller) return;
+    const b = (req.body ?? {}) as Record<string, unknown>;
+
+    const disbursedAmount = optNum(b, "disbursedAmount");
+    if (disbursedAmount == null || disbursedAmount <= 0) throw new ApiError(400, "disbursedAmount must be a positive number");
+    const disbDate = optTs(b, "disbursementDate");
+    if (!disbDate) throw new ApiError(400, "disbursementDate is required (ISO date)");
+    const loanAccountNo = reqStr(b, "loanAccountNo");
+    const city = reqStr(b, "city");
+    const state = reqStr(b, "state");
+    const roiPct = optNum(b, "roiPct");
+    const processingFee = optNum(b, "processingFee");
+    const subDsaPctOverride = optNum(b, "subDsaPayoutPct");
+
+    const caseRef = db.collection("cases").doc(req.params.id);
+    const caseSnap = await caseRef.get();
+    if (!caseSnap.exists) throw new ApiError(404, `${req.params.id} not found`);
+    const c = caseSnap.data()!;
+
+    // Pre-tx validation + slab resolution (hard-fail BEFORE opening the tx).
+    if (c.stage !== "SANCTIONED") throw new ApiError(400, `Case must be SANCTIONED to disburse (current: ${c.stage})`);
+    if (!c.connectorId || !c.lenderId) throw new ApiError(400, "Case needs connectorId and lenderId set before disbursement");
+    const productId = c.productId as string;
+    const subDsaId = (c.subDsaId as string | null) ?? null;
+
+    // Mandatory DISBURSEMENT docs must be VERIFIED.
+    const trackerSnap = await caseRef.collection("docTracker").get();
+    const pendingDisb = trackerSnap.docs
+      .map((d) => ({
+        rowId: d.id,
+        documentDefId: d.data().documentDefId as string,
+        requiredByStage: d.data().requiredByStage as string,
+        status: d.data().status as string,
+      }))
+      .filter((r) => r.requiredByStage === "DISBURSEMENT" && r.status !== "VERIFIED");
+    if (pendingDisb.length > 0) {
+      throw new ApiError(422, `${pendingDisb.length} mandatory DISBURSEMENT document(s) not VERIFIED`,
+        pendingDisb.map((p) => ({ rowId: p.rowId, documentDefId: p.documentDefId, status: p.status })));
+    }
+
+    // Find the mapping for this connector × lender; resolve the slab.
+    const mapSnap = await db.collection("dsaCodeMappings")
+      .where("connectorId", "==", c.connectorId).where("lenderId", "==", c.lenderId).limit(1).get();
+    if (mapSnap.empty) throw new ApiError(400, `No DSA code mapping for this connector × lender — create one in Masters first`);
+    const mapping = mapSnap.docs[0];
+    const m = mapping.data();
+    if (!m.dsaCode) throw new ApiError(400, "Mapping has no dsaCode set");
+
+    const [aggSnap, lenderSnap, productSnap, clientSnap, subDsaSnap] = await Promise.all([
+      db.collection("aggregators").doc(c.connectorId as string).get(),
+      db.collection("lenders").doc(c.lenderId as string).get(),
+      db.collection("products").doc(productId).get(),
+      db.collection("clients").doc(c.clientId as string).get(),
+      subDsaId ? db.collection("subDsas").doc(subDsaId).get() : Promise.resolve(null),
+    ]);
+
+    // resolveSlab — hard-fail on 0 or >1 matches with the typed readable error.
+    const slabResolution = (m.slabs ?? []).map(toResolution);
+    let slab;
+    try {
+      slab = resolveSlab(slabResolution, productId, disbDate.toMillis(), {
+        connectorName: (aggSnap.data()?.name as string) ?? (c.connectorId as string),
+        lenderName: (lenderSnap.data()?.name as string) ?? (c.lenderId as string),
+        productName: (productSnap.data()?.shortCode as string) ?? productId,
+      });
+    } catch (e) {
+      if (e instanceof SlabResolutionError) throw new ApiError(422, e.message, { kind: e.kind });
+      throw e;
+    }
+
+    // Case-level sub-DSA % override: explicit payload, else the sub-DSA's own
+    // product-matching payoutSlab, else the mapping slab default (in computeExpected).
+    let caseSubDsaPct: number | null = subDsaPctOverride;
+    if (caseSubDsaPct == null && subDsaSnap?.exists) {
+      const slabs = (subDsaSnap.data()!.payoutSlabs as Array<{ productIds: string[]; payoutPct: number }>) ?? [];
+      caseSubDsaPct = slabs.find((s) => s.productIds.includes(productId))?.payoutPct ?? null;
+    }
+    const amounts = computeExpectedAmounts(slab, disbursedAmount, caseSubDsaPct, !!subDsaId);
+    const expectedTdsPct = (slab.tdsPct ?? (aggSnap.data()?.standardTdsPct as number | undefined)) ?? 0;
+
+    // Derive ids: PC shares the case's sequence (FIN-CASE-2026-0312 → PC-2026-0312).
+    const idMatch = /^FIN-CASE-(\d{4})-(\d+)$/.exec(req.params.id);
+    if (!idMatch) throw new ApiError(400, `Case id '${req.params.id}' is not a CRM 2.0 case`);
+    const cycleId = `PC-${idMatch[1]}-${idMatch[2]}`;
+    const reportingMonth = monthOf(disbDate.toMillis());
+    const handlingRmName = await faplDisplayName(c.handlingRm as string);
+
+    await db.runTransaction(async (tx) => {
+      // Re-read the case INSIDE the tx to prevent a double-disburse race.
+      const fresh = await tx.get(caseRef);
+      if (!fresh.exists) throw new ApiError(404, "Case vanished");
+      if (fresh.data()!.stage !== "SANCTIONED") throw new ApiError(409, "Case is no longer SANCTIONED (already disbursed?)");
+
+      const now = FieldValue.serverTimestamp();
+      const cycleRef = db.collection("payoutCycles").doc(cycleId);
+      const misRef = db.collection("misRecords").doc(req.params.id);
+      const mirrorRef = caseRef.collection("private").doc("payout");
+
+      // 1. Case: stage DISBURSED, freeze economics, payout badge.
+      tx.update(caseRef, {
+        stage: "DISBURSED",
+        mappingId: mapping.id, slabId: slab.slabId, dsaCode: m.dsaCode,
+        amountDisbursed: disbursedAmount, disbursalCity: city, disbursalState: state,
+        ...(roiPct != null ? { roiPct } : {}), ...(processingFee != null ? { processingFee } : {}),
+        loanAccountNo,
+        "keyDates.disbursement": now,
+        payoutStatus: "AWAITING_DATA_SHARE", payoutCycleId: cycleId,
+        ...updateAudit(caller.fapl),
+      });
+
+      // 2. Money mirror — key-gated subdoc (payout.amounts.read).
+      tx.set(mirrorRef, {
+        finvastraPayoutPct: slab.finvastraPayoutPct, finvastraPayoutExpected: amounts.expectedGross,
+        subDsaPayoutPct: amounts.subDsaPayoutPct, subDsaPayoutExpected: amounts.subDsaExpected,
+        netMarginExpected: amounts.netMarginExpected,
+        updatedAt: now,
+      });
+
+      // 3. Payout cycle (source of truth) — frozen economics + empty milestones.
+      tx.set(cycleRef, {
+        caseId: req.params.id, clientId: c.clientId,
+        connectorId: c.connectorId, lenderId: c.lenderId, subDsaId,
+        dsaCode: m.dsaCode, bankApplicationNo: c.bankApplicationNo ?? null, loanAccountNo,
+        slabId: slab.slabId,
+        disbursedAmount, disbursementDate: disbDate,
+        finvastraPayoutPct: slab.finvastraPayoutPct, expectedGross: amounts.expectedGross,
+        subDsaPayoutPct: amounts.subDsaPayoutPct, subDsaExpected: amounts.subDsaExpected,
+        expectedTdsPct,
+        status: "AWAITING_DATA_SHARE",
+        dataSharedAt: null, dataSharedTo: null, reportingMonth: null, sharingMode: null,
+        confirmationRaisedAt: null, confirmationRaisedFrom: null, bankSmAddressed: null, connectorCaseRef: c.connectorCaseRef ?? null,
+        bankerConfirmedAt: null, bankerConfirmedBy: null, confirmedAmount: null, confirmedDsaCode: null,
+        pddStatusAtConfirmation: null, bankerMismatch: false,
+        pddOtcClearedMonth: null, holdFlag: false, holdReason: null,
+        payoutConfirmedAt: null, confirmedPayoutPct: null, confirmedGross: null, pctVariance: false,
+        billNo: null, billDate: null, billGross: null, billGst: null, billGstin: null, billedToEntity: null,
+        billSentAt: null, billMode: null, billStoragePath: null,
+        receivedAt: null, receivedNet: null, tdsDeducted: null, utr: null, receivedInAccount: null,
+        amountVariance: null, varianceReason: null,
+        subDsaBillNo: null, subDsaBillDate: null, subDsaBillAmount: null, subDsaApprovedBy: null,
+        subDsaPaidAt: null, subDsaPaidAmount: null, subDsaTds: null, subDsaUtr: null,
+        closedAt: null, netMarginRealised: null,
+        ageing: { disbToDataShare: null, disbToBankerConfirm: null, disbToBilled: null, disbToReceived: null },
+        disputeFlag: false, disputeNotes: null,
+        milestoneLog: [],
+        ...createAudit(caller.fapl),
+      });
+
+      // 4. MIS projection — doc id == case id; denormalised display strings.
+      tx.set(misRef, {
+        reportingMonth, caseId: req.params.id, payoutCycleId: cycleId,
+        partyName: (clientSnap.data()?.name as string) ?? c.clientId, city, state,
+        productCode: (productSnap.data()?.shortCode as string) ?? productId,
+        lenderName: (lenderSnap.data()?.name as string) ?? c.lenderId,
+        connectorName: (aggSnap.data()?.name as string) ?? c.connectorId,
+        dsaCode: m.dsaCode,
+        subDsaId, subDsaName: subDsaSnap?.exists ? (subDsaSnap.data()!.name as string) : null,
+        handlingRmId: c.handlingRm, handlingRmName,
+        connectorId: c.connectorId, lenderId: c.lenderId,
+        bankApplicationNo: c.bankApplicationNo ?? null, loanAccountNo,
+        disbursedAmount, disbursementDate: disbDate,
+        roiPct: roiPct ?? c.roiPct ?? null, processingFee: processingFee ?? c.processingFee ?? null,
+        finvastraPayoutPct: slab.finvastraPayoutPct, expectedGross: amounts.expectedGross,
+        bankerConfirmedAt: null, pddOtcClearedMonth: null,
+        billNo: null, billDate: null, billGross: null,
+        receivedAt: null, receivedNet: null, tdsDeducted: null, utr: null,
+        subDsaPayoutPct: amounts.subDsaPayoutPct, subDsaPaidAmount: null, subDsaPaidAt: null, subDsaUtr: null,
+        netMargin: null, cycleStatus: "AWAITING_DATA_SHARE", ageingDays: null,
+        updatedAt: now,
+      });
+
+      // 5. Stage history.
+      tx.set(caseRef.collection("stageHistory").doc(), {
+        from: "SANCTIONED", to: "DISBURSED", at: now, by: caller.fapl,
+        note: `Disbursed ₹${disbursedAmount.toLocaleString("en-IN")} · slab ${slab.finvastraPayoutPct}% → expected ₹${amounts.expectedGross.toLocaleString("en-IN")}`,
+      });
+    });
+
+    await db.collection("audit_logs").add({
+      actor: caller.uid, actorFapl: caller.fapl, action: "crm2_disburse",
+      targetPath: `/cases/${req.params.id}`, after: { cycleId, expectedGross: amounts.expectedGross }, at: FieldValue.serverTimestamp(),
+    });
+    res.json({ ok: true, cycleId, expectedGross: amounts.expectedGross, finvastraPayoutPct: slab.finvastraPayoutPct, subDsaExpected: amounts.subDsaExpected });
+  }));
+
+  // ─── GET /api/crm2/cases/:id/disburse-preview?amount&date — slab preview ─────
+  // Powers the disburse dialog's "Slab: X × Y × Z — 1.40% w.e.f. … → ₹N" line.
+  app.get("/api/crm2/cases/:id/disburse-preview", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "payout.amounts.read");
+    if (!caller) return;
+    const amount = Number(req.query.amount);
+    const date = new Date(String(req.query.date ?? ""));
+    if (isNaN(date.getTime())) throw new ApiError(400, "date query param must be an ISO date");
+
+    const cSnap = await db.collection("cases").doc(req.params.id).get();
+    if (!cSnap.exists) throw new ApiError(404, `${req.params.id} not found`);
+    const c = cSnap.data()!;
+    if (!c.connectorId || !c.lenderId) throw new ApiError(400, "Set connector and lender on the case first");
+
+    const mapSnap = await db.collection("dsaCodeMappings")
+      .where("connectorId", "==", c.connectorId).where("lenderId", "==", c.lenderId).limit(1).get();
+    if (mapSnap.empty) throw new ApiError(400, "No DSA code mapping for this connector × lender");
+    const m = mapSnap.docs[0].data();
+    const [agg, lender, product] = await Promise.all([
+      db.collection("aggregators").doc(c.connectorId as string).get(),
+      db.collection("lenders").doc(c.lenderId as string).get(),
+      db.collection("products").doc(c.productId as string).get(),
+    ]);
+    try {
+      const slab = resolveSlab((m.slabs ?? []).map(toResolution), c.productId as string, date.getTime(), {
+        connectorName: (agg.data()?.name as string) ?? (c.connectorId as string),
+        lenderName: (lender.data()?.name as string) ?? (c.lenderId as string),
+        productName: (product.data()?.shortCode as string) ?? (c.productId as string),
+      });
+      const amounts = !isNaN(amount) && amount > 0 ? computeExpectedAmounts(slab, amount, null, !!c.subDsaId) : null;
+      res.json({ ok: true, connectorName: agg.data()?.name, lenderName: lender.data()?.name,
+        productCode: product.data()?.shortCode, dsaCode: m.dsaCode, slab, expected: amounts });
+    } catch (e) {
+      if (e instanceof SlabResolutionError) { res.status(422).json({ error: e.message, kind: e.kind }); return; }
+      throw e;
+    }
+  }));
+
+  // ─── Recompute all derived fields from a merged cycle + write cycle/case/MIS ──
+  // Pure-function driven: status, ageing, variance flags, margin. Returns the
+  // derived patch applied to the cycle, and mirrors the relevant bits to MIS.
+  function deriveCycleFields(cy: Record<string, unknown>): Record<string, unknown> {
+    const ms = (k: string) => tsToMs(cy[k]);
+    const status = deriveCycleStatus({
+      disputeFlag: cy.disputeFlag === true, closedAt: ms("closedAt"), subDsaPaidAt: ms("subDsaPaidAt"),
+      receivedAt: ms("receivedAt"), billSentAt: ms("billSentAt"), billDate: ms("billDate"),
+      payoutConfirmedAt: ms("payoutConfirmedAt"), holdFlag: cy.holdFlag === true,
+      bankerConfirmedAt: ms("bankerConfirmedAt"), confirmationRaisedAt: ms("confirmationRaisedAt"),
+    });
+    const disbMs = tsToMs(cy.disbursementDate) ?? 0;
+    const ageing = computeAgeing({
+      disbursementDate: disbMs, dataSharedAt: ms("dataSharedAt"), bankerConfirmedAt: ms("bankerConfirmedAt"),
+      billedAt: ms("billSentAt") ?? ms("billDate"), receivedAt: ms("receivedAt"),
+    });
+    const bankerMismatch = computeBankerMismatch(
+      ms("bankerConfirmedAt"), cy.confirmedAmount as number | null, cy.disbursedAmount as number,
+      cy.confirmedDsaCode as string | null, cy.dsaCode as string);
+    const pctVariance = computePctVariance(cy.confirmedPayoutPct as number | null, cy.finvastraPayoutPct as number);
+    const amountVariance = computeAmountVariance(
+      ms("receivedAt"), cy.billGross as number | null, cy.tdsDeducted as number | null, cy.receivedNet as number | null);
+    const netMarginRealised = computeNetMarginRealised(cy.receivedNet as number | null, cy.subDsaPaidAmount as number | null);
+    return { status, ageing, bankerMismatch, pctVariance, amountVariance, netMarginRealised };
+  }
+
+  // ─── PATCH /api/crm2/payout-cycles/:id/milestone ─────────────────────────────
+  app.patch("/api/crm2/payout-cycles/:id/milestone", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "payout.write");
+    if (!caller) return;
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const step = Number(b.step) as MilestoneStep;
+    if (!MILESTONE_STEPS[step]) throw new ApiError(400, "step must be 2..10");
+    const payload = (b.payload ?? {}) as Record<string, unknown>;
+    const override = (b.override ?? null) as { reason?: unknown } | null;
+
+    const cycleRef = db.collection("payoutCycles").doc(req.params.id);
+
+    const result = await db.runTransaction(async (tx) => {
+      const cySnap = await tx.get(cycleRef);
+      if (!cySnap.exists) throw new ApiError(404, `${req.params.id} not found`);
+      const cy = cySnap.data()!;
+      const caseRef = db.collection("cases").doc(cy.caseId as string);
+      const misRef = db.collection("misRecords").doc(cy.caseId as string);
+
+      // Step-order validation against current anchors (override bypasses + logs).
+      const anchors: Record<string, number | string | null> = {
+        dataSharedAt: tsToMs(cy.dataSharedAt), confirmationRaisedAt: tsToMs(cy.confirmationRaisedAt),
+        bankerConfirmedAt: tsToMs(cy.bankerConfirmedAt), payoutConfirmedAt: tsToMs(cy.payoutConfirmedAt),
+        billSentAt: tsToMs(cy.billSentAt), receivedAt: tsToMs(cy.receivedAt),
+      };
+      const order = validateMilestoneOrder(step, anchors);
+      let overrideApplied = false;
+      if (!order.ok) {
+        if (!override || !isStr(override.reason)) {
+          throw new ApiError(409, `${order.reason}. Supply override.reason to proceed out of order.`, { prereq: order.prereq });
+        }
+        overrideApplied = true;
+      }
+
+      const now = FieldValue.serverTimestamp();
+      const patch: Record<string, unknown> = {};
+      const setTsOrNow = (field: string, key: string) => {
+        const t = optTs(payload, key);
+        patch[field] = t ?? Timestamp.now();
+      };
+
+      // Per-step field writes (only the step's own fields).
+      switch (step) {
+        case 2:
+          setTsOrNow("dataSharedAt", "dataSharedAt");
+          patch.dataSharedTo = optStr(payload, "dataSharedTo");
+          patch.reportingMonth = optStr(payload, "reportingMonth") ?? cy.reportingMonth ?? monthOf(tsToMs(cy.disbursementDate) ?? Date.now());
+          patch.sharingMode = payload.sharingMode === "PORTAL" ? "PORTAL" : "MAIL";
+          break;
+        case 3:
+          setTsOrNow("confirmationRaisedAt", "confirmationRaisedAt");
+          patch.confirmationRaisedFrom = optStr(payload, "confirmationRaisedFrom");
+          patch.bankSmAddressed = optStr(payload, "bankSmAddressed");
+          if (payload.connectorCaseRef !== undefined) patch.connectorCaseRef = optStr(payload, "connectorCaseRef");
+          break;
+        case 4:
+          setTsOrNow("bankerConfirmedAt", "bankerConfirmedAt");
+          { const by = payload.bankerConfirmedBy as Record<string, unknown> | null;
+            patch.bankerConfirmedBy = by && isStr(by.name) ? { name: String(by.name).trim(), email: String(by.email ?? "").trim() } : null; }
+          patch.confirmedAmount = optNum(payload, "confirmedAmount");
+          patch.confirmedDsaCode = optStr(payload, "confirmedDsaCode");
+          patch.pddStatusAtConfirmation = optStr(payload, "pddStatusAtConfirmation");
+          break;
+        case 5:
+          patch.pddOtcClearedMonth = optStr(payload, "pddOtcClearedMonth");
+          patch.holdFlag = payload.holdFlag === true;
+          patch.holdReason = payload.holdFlag === true ? optStr(payload, "holdReason") : null;
+          break;
+        case 6:
+          setTsOrNow("payoutConfirmedAt", "payoutConfirmedAt");
+          patch.confirmedPayoutPct = optNum(payload, "confirmedPayoutPct");
+          patch.confirmedGross = optNum(payload, "confirmedGross");
+          break;
+        case 7:
+          patch.billNo = optStr(payload, "billNo");
+          patch.billDate = optTs(payload, "billDate") ?? Timestamp.now();
+          patch.billGross = optNum(payload, "billGross");
+          patch.billGst = optNum(payload, "billGst");
+          patch.billGstin = optStr(payload, "billGstin");
+          patch.billedToEntity = optStr(payload, "billedToEntity");
+          setTsOrNow("billSentAt", "billSentAt");
+          patch.billMode = payload.billMode === "PORTAL" ? "PORTAL" : "MAIL";
+          patch.billStoragePath = optStr(payload, "billStoragePath");
+          break;
+        case 8:
+          setTsOrNow("receivedAt", "receivedAt");
+          patch.receivedNet = optNum(payload, "receivedNet");
+          patch.tdsDeducted = optNum(payload, "tdsDeducted");
+          patch.utr = optStr(payload, "utr");
+          patch.receivedInAccount = optStr(payload, "receivedInAccount");
+          if (payload.varianceReason !== undefined) patch.varianceReason = optStr(payload, "varianceReason");
+          break;
+        case 9:
+          patch.subDsaBillNo = optStr(payload, "subDsaBillNo");
+          patch.subDsaBillDate = optTs(payload, "subDsaBillDate");
+          patch.subDsaBillAmount = optNum(payload, "subDsaBillAmount");
+          patch.subDsaApprovedBy = optStr(payload, "subDsaApprovedBy") ?? caller.fapl;
+          setTsOrNow("subDsaPaidAt", "subDsaPaidAt");
+          patch.subDsaPaidAmount = optNum(payload, "subDsaPaidAmount");
+          patch.subDsaTds = optNum(payload, "subDsaTds");
+          patch.subDsaUtr = optStr(payload, "subDsaUtr");
+          break;
+        case 10: {
+          const merged0 = { ...cy, ...patch };
+          const close = canClose(!!cy.subDsaId, tsToMs(merged0.receivedAt), tsToMs(merged0.subDsaPaidAt));
+          if (!close.ok) throw new ApiError(422, close.reason!);
+          patch.closedAt = optTs(payload, "closedAt") ?? Timestamp.now();
+          break;
+        }
+      }
+
+      // Dispute toggle is allowed alongside any step (or alone via step with disputeFlag).
+      if (payload.disputeFlag !== undefined) {
+        patch.disputeFlag = payload.disputeFlag === true;
+        patch.disputeNotes = payload.disputeFlag === true ? optStr(payload, "disputeNotes") : null;
+      }
+
+      // Recompute ALL derived fields from the merged cycle (pure functions).
+      const merged = { ...cy, ...patch };
+      const derived = deriveCycleFields(merged);
+      Object.assign(patch, derived);
+
+      // Milestone log (append-only; records overrides with reason + actor).
+      patch.milestoneLog = FieldValue.arrayUnion({
+        step, by: caller.fapl, at: Timestamp.now(),
+        override: overrideApplied, reason: overrideApplied ? String(override!.reason).slice(0, 500) : null,
+      });
+
+      // ── ONE batch: cycle + case mirror + case badge + MIS ──
+      tx.update(cycleRef, { ...patch, ...updateAudit(caller.fapl) });
+      tx.update(caseRef, { payoutStatus: derived.status, ...updateAudit(caller.fapl) });
+
+      // MIS mirror of the cycle's reportable fields.
+      const ageingDays = (derived.ageing as { disbToReceived: number | null }).disbToReceived;
+      tx.set(misRef, {
+        cycleStatus: derived.status,
+        bankerConfirmedAt: merged.bankerConfirmedAt ?? null,
+        pddOtcClearedMonth: merged.pddOtcClearedMonth ?? null,
+        billNo: merged.billNo ?? null, billDate: merged.billDate ?? null, billGross: merged.billGross ?? null,
+        receivedAt: merged.receivedAt ?? null, receivedNet: merged.receivedNet ?? null,
+        tdsDeducted: merged.tdsDeducted ?? null, utr: merged.utr ?? null,
+        subDsaPaidAmount: merged.subDsaPaidAmount ?? null, subDsaPaidAt: merged.subDsaPaidAt ?? null, subDsaUtr: merged.subDsaUtr ?? null,
+        netMargin: derived.netMarginRealised, ageingDays,
+        updatedAt: now,
+      }, { merge: true });
+
+      return { status: derived.status, overrideApplied };
+    });
+
+    await db.collection("audit_logs").add({
+      actor: caller.uid, actorFapl: caller.fapl, action: `crm2_milestone_step${step}`,
+      targetPath: `/payoutCycles/${req.params.id}`, after: result, at: FieldValue.serverTimestamp(),
+    });
+    res.json({ ok: true, ...result });
+  }));
+
+  // ─── GET /api/crm2/payout-cycles?status&connectorId&stuckDays ────────────────
+  app.get("/api/crm2/payout-cycles", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "payout.read");
+    if (!caller) return;
+    let q: FirebaseFirestore.Query = db.collection("payoutCycles");
+    if (isStr(req.query.status)) q = q.where("status", "==", req.query.status);
+    if (isStr(req.query.connectorId)) q = q.where("connectorId", "==", req.query.connectorId);
+    const snap = await q.limit(500).get();
+    const showMoney = await callerHasPerm(caller.uid, "payout.amounts.read");
+    let rows = snap.docs.map((d) => sanitizeCycle({ id: d.id, ...(d.data() as Record<string, unknown>) }, showMoney));
+    const stuckDays = Number(req.query.stuckDays);
+    if (!isNaN(stuckDays) && stuckDays > 0) {
+      const cutoff = Date.now() - stuckDays * 86400000;
+      rows = rows.filter((r) => {
+        const disb = tsToMs((r as Record<string, unknown>).disbursementDate);
+        const received = tsToMs((r as Record<string, unknown>).receivedAt);
+        return disb != null && received == null && disb < cutoff;
+      });
+    }
+    res.json({ ok: true, cycles: rows });
+  }));
+
+  // Strip money fields from a cycle for callers lacking payout.amounts.read.
+  const MONEY_CYCLE_FIELDS = [
+    "disbursedAmount", "finvastraPayoutPct", "expectedGross", "subDsaPayoutPct", "subDsaExpected",
+    "expectedTdsPct", "confirmedAmount", "confirmedPayoutPct", "confirmedGross", "billGross", "billGst",
+    "receivedNet", "tdsDeducted", "subDsaBillAmount", "subDsaPaidAmount", "subDsaTds", "amountVariance", "netMarginRealised",
+  ];
+  function sanitizeCycle(cy: Record<string, unknown>, showMoney: boolean): Record<string, unknown> {
+    if (showMoney) return cy;
+    const out = { ...cy };
+    for (const f of MONEY_CYCLE_FIELDS) if (f in out) out[f] = null;
+    return out;
+  }
+  async function callerHasPerm(uid: string, key: string): Promise<boolean> {
+    const snap = await db.collection("users").doc(uid).get();
+    const u = snap.data();
+    return u?.role === "admin" || u?.perms?.[key] === true;
+  }
+
+  // ─── GET /api/crm2/payout-cycles/:id — single cycle (money-stripped per perm) ─
+  // The Payout tab uses this so payout.read users see milestone dates + status
+  // without money, while payout.amounts.read users get the full cycle.
+  app.get("/api/crm2/payout-cycles/:id", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "payout.read");
+    if (!caller) return;
+    const snap = await db.collection("payoutCycles").doc(req.params.id).get();
+    if (!snap.exists) throw new ApiError(404, `${req.params.id} not found`);
+    const showMoney = await callerHasPerm(caller.uid, "payout.amounts.read");
+    res.json({ ok: true, cycle: sanitizeCycle({ id: snap.id, ...(snap.data() as Record<string, unknown>) }, showMoney) });
+  }));
+
+  // ─── GET /api/crm2/mis?month&connectorId&rmId — grid feed ────────────────────
+  app.get("/api/crm2/mis", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "mis.read");
+    if (!caller) return;
+    let q: FirebaseFirestore.Query = db.collection("misRecords");
+    if (isStr(req.query.month)) q = q.where("reportingMonth", "==", req.query.month);
+    if (isStr(req.query.connectorId)) q = q.where("connectorId", "==", req.query.connectorId);
+    if (isStr(req.query.rmId)) q = q.where("handlingRmId", "==", req.query.rmId);
+    const snap = await q.limit(1000).get();
+    const showMoney = await callerHasPerm(caller.uid, "payout.amounts.read");
+    const MONEY_MIS = ["disbursedAmount", "expectedGross", "finvastraPayoutPct", "billGross", "receivedNet", "tdsDeducted", "subDsaPayoutPct", "subDsaPaidAmount", "netMargin"];
+    const rows = snap.docs.map((d) => {
+      const r = { id: d.id, ...(d.data() as Record<string, unknown>) };
+      if (!showMoney) for (const f of MONEY_MIS) if (f in r) r[f] = null;
+      return r;
+    });
+    res.json({ ok: true, records: rows });
+  }));
+
+  // ─── GET /api/crm2/mis/business-sheet?month&connectorId[&share=1] ────────────
+  app.get("/api/crm2/mis/business-sheet", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "mis.read");
+    if (!caller) return;
+    const month = reqStr(req.query as Record<string, unknown>, "month");
+    const connectorId = isStr(req.query.connectorId) ? String(req.query.connectorId) : null;
+    let q: FirebaseFirestore.Query = db.collection("misRecords").where("reportingMonth", "==", month);
+    if (connectorId) q = q.where("connectorId", "==", connectorId);
+    const snap = await q.get();
+    const records = snap.docs.map((d) => d.data() as Record<string, unknown>);
+
+    // Build xlsx server-side.
+    const XLSX = await import("xlsx");
+    const rows = records.map((r) => ({
+      "Case ID": r.caseId, "Party": r.partyName, "City": r.city, "State": r.state,
+      "Product": r.productCode, "Lender": r.lenderName, "Connector": r.connectorName, "DSA Code": r.dsaCode,
+      "Sub-DSA": r.subDsaName ?? "", "RM": r.handlingRmName,
+      "Loan A/C": r.loanAccountNo ?? "", "App No": r.bankApplicationNo ?? "",
+      "Disbursed": r.disbursedAmount, "Disb Date": r.disbursementDate ? new Date(tsToMs(r.disbursementDate)!).toISOString().slice(0, 10) : "",
+      "Payout %": r.finvastraPayoutPct, "Expected Gross": r.expectedGross,
+      "Bill No": r.billNo ?? "", "Bill Gross": r.billGross ?? "",
+      "Received Net": r.receivedNet ?? "", "TDS": r.tdsDeducted ?? "", "UTR": r.utr ?? "",
+      "Net Margin": r.netMargin ?? "", "Status": r.cycleStatus, "Ageing (d)": r.ageingDays ?? "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `MIS ${month}`);
+    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+
+    // "Share" → stamp dataSharedAt/dataSharedTo/reportingMonth on each included
+    // cycle in ONE batch (and advance its status via the milestone path would be
+    // heavier; here we set the data-share anchor directly + re-derive status).
+    if (req.query.share === "1" || req.query.share === "true") {
+      const dataSharedTo = isStr(req.query.dataSharedTo) ? String(req.query.dataSharedTo) : (connectorId ?? "aggregator");
+      const batch = db.batch();
+      let stamped = 0;
+      for (const r of records) {
+        const cycleId = r.payoutCycleId as string | undefined;
+        if (!cycleId) continue;
+        const cRef = db.collection("payoutCycles").doc(cycleId);
+        batch.update(cRef, {
+          dataSharedAt: FieldValue.serverTimestamp(), dataSharedTo, reportingMonth: month, sharingMode: "MAIL",
+          ...updateAudit(caller.fapl),
+        });
+        stamped++;
+      }
+      if (stamped > 0) await batch.commit();
+      // Note: status re-derivation for shared cycles happens on their next
+      // milestone write; data-share alone doesn't change the derived status rung
+      // (AWAITING_DATA_SHARE → CONFIRMATION_RAISED needs confirmationRaisedAt).
+      res.json({ ok: true, shared: stamped, month, base64: buf.toString("base64") });
+      return;
+    }
+
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="MIS-${month}${connectorId ? "-" + connectorId : ""}.xlsx"`);
+    res.send(buf);
+  }));
+
+  // ═══ Phase 4 — Scheduled jobs (Cloud Scheduler → OIDC, or admin) ══════════════
+  // Config-driven thresholds in app_config/crm2_settings:
+  //   { reminderDataShareDays: 7, reminderBankerConfirmDays: 10 }
+
+  async function requireSchedulerOrAdmin(req: express.Request, res: express.Response): Promise<{ fapl: string } | null> {
+    if (await verifyScheduler(req)) return { fapl: "scheduler" };
+    const decoded = await decodeToken(req);
+    if (!decoded) { res.status(401).json({ error: "Unauthorized" }); return null; }
+    const u = (await db.collection("users").doc(decoded.uid).get()).data();
+    if (decoded.role !== "admin" && u?.role !== "admin") { res.status(403).json({ error: "Admin or scheduler only" }); return null; }
+    return { fapl: await resolveFapl(decoded.uid) };
+  }
+
+  async function crm2Settings(): Promise<{ reminderDataShareDays: number; reminderBankerConfirmDays: number }> {
+    const snap = await db.collection("app_config").doc("crm2_settings").get();
+    const d = snap.data() ?? {};
+    return {
+      reminderDataShareDays: (d.reminderDataShareDays as number | undefined) ?? 7,
+      reminderBankerConfirmDays: (d.reminderBankerConfirmDays as number | undefined) ?? 10,
+    };
+  }
+
+  /** Resolve a FAPL code → uid for notification targeting (best-effort). */
+  async function faplToUid(fapl: string): Promise<string | null> {
+    const snap = await db.collection("users").where("employeeId", "==", fapl).limit(1).get();
+    return snap.empty ? null : snap.docs[0].id;
+  }
+  async function notify(uid: string, payload: Record<string, unknown>): Promise<void> {
+    await db.collection("notifications").doc(uid).collection("items").add({
+      ...payload, read: false, createdAt: FieldValue.serverTimestamp(),
+    }).catch(() => {});
+  }
+
+  // ─── POST /api/crm2/jobs/run-payout-reminders ────────────────────────────────
+  app.post("/api/crm2/jobs/run-payout-reminders", route(async (req, res) => {
+    const caller = await requireSchedulerOrAdmin(req, res);
+    if (!caller) return;
+    const cfg = await crm2Settings();
+    const now = Date.now();
+
+    // Open cycles only (not received/closed/disputed).
+    const snap = await db.collection("payoutCycles")
+      .where("status", "in", ["AWAITING_DATA_SHARE", "CONFIRMATION_RAISED", "BANKER_CONFIRMED", "PDD_OTC_HOLD", "PAYOUT_CONFIRMED", "BILLED"]).get();
+
+    let dataShareDue = 0, bankerDue = 0;
+    const uidCache = new Map<string, string | null>();
+    for (const d of snap.docs) {
+      const cy = d.data();
+      const disbMs = tsToMs(cy.disbursementDate);
+      const caseId = cy.caseId as string;
+      // Find the handling RM via the MIS record (denormalised FAPL).
+      const mis = (await db.collection("misRecords").doc(caseId).get()).data();
+      const fapl = (mis?.handlingRmId as string | undefined) ?? null;
+      if (!fapl) continue;
+      if (!uidCache.has(fapl)) uidCache.set(fapl, await faplToUid(fapl));
+      const uid = uidCache.get(fapl);
+      if (!uid) continue;
+
+      // (a) data not shared > X days after disbursement
+      if (cy.dataSharedAt == null && disbMs != null && now - disbMs > cfg.reminderDataShareDays * 86400000) {
+        await notify(uid, { type: "follow_up_needed", title: "Payout: share case data",
+          body: `${caseId} disbursed ${Math.floor((now - disbMs) / 86400000)}d ago — not yet shared with the aggregator`, link: `/crm/pipeline/cases/${caseId}` });
+        dataShareDue++;
+      }
+      // (b) banker confirmation pending > Y days after confirmation raised
+      const crMs = tsToMs(cy.confirmationRaisedAt);
+      if (cy.bankerConfirmedAt == null && crMs != null && now - crMs > cfg.reminderBankerConfirmDays * 86400000) {
+        await notify(uid, { type: "follow_up_needed", title: "Payout: chase banker confirmation",
+          body: `${caseId} — confirmation raised ${Math.floor((now - crMs) / 86400000)}d ago, banker not yet confirmed`, link: `/crm/pipeline/cases/${caseId}` });
+        bankerDue++;
+      }
+    }
+    res.json({ ok: true, dataShareReminders: dataShareDue, bankerReminders: bankerDue, scanned: snap.size });
+  }));
+
+  // ─── POST /api/crm2/jobs/run-vault-expiry ────────────────────────────────────
+  // validUntil < now → vaultDoc EXPIRED + any linked tracker rows EXPIRED.
+  app.post("/api/crm2/jobs/run-vault-expiry", route(async (req, res) => {
+    const caller = await requireSchedulerOrAdmin(req, res);
+    if (!caller) return;
+    const nowTs = Timestamp.now();
+    const snap = await db.collectionGroup("vaultDocs")
+      .where("status", "==", "VALID").where("validUntil", "<", nowTs).get();
+
+    let expiredDocs = 0, expiredRows = 0;
+    for (const d of snap.docs) {
+      await d.ref.update({ status: "EXPIRED", updatedAt: FieldValue.serverTimestamp() }).catch(() => {});
+      expiredDocs++;
+      // Expire any docTracker row across all cases that references this vault doc.
+      const rows = await db.collectionGroup("docTracker").where("vaultDocId", "==", d.id).get();
+      for (const r of rows.docs) {
+        await r.ref.update({ status: "EXPIRED", updatedAt: FieldValue.serverTimestamp() }).catch(() => {});
+        expiredRows++;
+      }
+    }
+    res.json({ ok: true, expiredVaultDocs: expiredDocs, expiredTrackerRows: expiredRows });
   }));
 }

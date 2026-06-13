@@ -62,6 +62,12 @@
 > ties out to direct misRecords sums; dashboard/recon money invisible without
 > payout.amounts.read. 68 unit tests, all 5 gates green (12/15/14/22/12). NOT deployed —
 > single staged deploy after real slab data is loaded.
+> · **Pre-deploy audit fix ✅ (`f719d16`)** — the final whole-system audit found one HIGH:
+> the disburse response echoed expectedGross/finvastraPayoutPct/subDsaExpected to a
+> payout.write-only caller (same class as the Phase 4 business-sheet leak). Fixed — money
+> fields now included only when the caller holds payout.amounts.read (else just
+> {ok, cycleId}; read via GET /api/crm2/payout-cycles/:id). phase4 gate 22→24. All 5 gates
+> green (12/15/14/24/12).
 
 Maps the approved spec onto the actual `finvastra-pulse` repo. Implementation follows the
 spec's phases 1–5, one commit per phase. **Three blocking decisions at the bottom need

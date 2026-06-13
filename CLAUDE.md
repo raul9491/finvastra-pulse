@@ -377,7 +377,14 @@ Acceptance 12/12 (`.qa/crm2-phase5-gate.mjs`): dump auto-matches by loan a/c; ou
 case → dispute list → cycle DISPUTED; snapshot idempotent (ran twice → exactly 1 doc);
 receivables dashboard **per-connector ties out** to direct misRecords sums (₹1,40,000); both
 dashboard and recon-row money invisible without payout.amounts.read (server-side). 68 unit
-tests; all 5 gates green (12/15/14/22/12); tsc + build clean. Deploy order when the maintainer
+tests; all 5 gates green (12/15/14/22/12); tsc + build clean. · **Pre-deploy audit fix ✅
+(`f719d16`)** — a whole-system audit found one HIGH: `POST /api/crm2/cases/:id/disburse`
+echoed `expectedGross`/`finvastraPayoutPct`/`subDsaExpected` in its response to a
+`payout.write`-only caller (same leak class as the Phase 4 business-sheet). Fixed — those
+money fields are returned only when the caller also holds `payout.amounts.read` (else just
+`{ok, cycleId}`; the figures are readable via the money-stripped `GET /api/crm2/
+payout-cycles/:id`), mirroring the milestone endpoint. phase4 gate 22→24 (with + without
+amounts); all 5 gates green (12/15/14/**24**/12). Deploy order when the maintainer
 ships: `deploy:rules` → verify → `deploy:indexes` → `firebase deploy --only storage` → Cloud
 Run (`--no-cpu-throttling`) → hosting → seed script (documentMaster + masters) → register Cloud
 Scheduler jobs (run-payout-reminders + run-vault-expiry daily, run-recon-snapshots monthly) →

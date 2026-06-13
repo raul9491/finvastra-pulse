@@ -47,7 +47,21 @@
 > `run-payout-reminders` now idempotent via atomic create-if-absent markers
 > `crm2_reminder_logs/{cycleId}_{kind}_{YYYY-MM-DD}` (new rules block, read=admin/write=false).
 > Gate extended 18→22 (export 403 for mis.read-only download+share; reminders run-twice→0).
-> **Next: Phase 5** (recon imports + matching, reconSnapshots job, dashboards).
+> · **Phase 5 ✅ (2026-06-13) — CRM 2.0 FEATURE-COMPLETE** — `src/lib/crm2/recon.ts`
+> (`matchDumpRow` three-tier: loanAccountNo → bankApplicationNo → fuzzy dsaCode+amount±1%+
+> date±7d; `computeSnapshot`; +12 tests). Server: `POST /api/crm2/recon/imports` (xlsx/csv via
+> existing xlsx dep → bankMisImports + rows + auto-match + missingCaseIds), `GET .../:id`,
+> `PATCH .../rows/:rowId` (manual match/unmatch), `POST /api/crm2/recon/dispute` (missing case
+> → cycle DISPUTED, one tx), `POST /api/crm2/jobs/run-recon-snapshots` (idempotent
+> `reconSnapshots/{YYYY-MM_connectorId}`), `GET /api/crm2/dashboards?period` (funnel/pipeline/
+> disbursement/payout-health/receivables/margin/RM/sub-DSA, in-process aggregation, money
+> server-stripped without payout.amounts.read). Rules: bankMisImports(+rows) read=recon.read,
+> reconSnapshots read=payout.amounts.read, all write=false. UI `/crm/pipeline/recon` +
+> `/crm/pipeline/dashboards`. Acceptance 12/12 (`.qa/crm2-phase5-gate.mjs`): dump auto-matches
+> by loan a/c; missing case→dispute→DISPUTED; snapshot idempotent; receivables PER-CONNECTOR
+> ties out to direct misRecords sums; dashboard/recon money invisible without
+> payout.amounts.read. 68 unit tests, all 5 gates green (12/15/14/22/12). NOT deployed —
+> single staged deploy after real slab data is loaded.
 
 Maps the approved spec onto the actual `finvastra-pulse` repo. Implementation follows the
 spec's phases 1–5, one commit per phase. **Three blocking decisions at the bottom need

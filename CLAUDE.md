@@ -351,10 +351,37 @@ artifact). (2) MEDIUM — `run-payout-reminders` re-fired on same-day re-runs; e
 claims a per-cycle-per-kind-per-day marker via atomic create-if-absent on
 **`crm2_reminder_logs/{cycleId}_{kind}_{YYYY-MM-DD}`** (new server-only collection;
 rules read=admin, write=false — matches `/follow_up_logs`). phase4 gate extended 18→22.
-New collection in the index: `crm2_reminder_logs`. Deploy order when the maintainer ships:
-`deploy:rules` → verify → `deploy:indexes` → `firebase deploy --only storage` → Cloud Run
-(`--no-cpu-throttling`) → hosting → seed script → register Cloud Scheduler jobs
-(run-payout-reminders daily, run-vault-expiry daily) → grant perms.
+New collection in the index: `crm2_reminder_logs`. · **Phase 5 ✅ (2026-06-13) — CRM 2.0
+FEATURE-COMPLETE (Phases 0–5)** — reconciliation + snapshots + dashboards. `src/lib/crm2/
+recon.ts` (`matchDumpRow` three-tier: loanAccountNo exact → bankApplicationNo exact → fuzzy
+`dsaCode` + amount ±1% + date ±7d, inclusive boundaries, tie→smallest delta; `computeSnapshot`
+period aggregation; +12 tests). Endpoints: `POST /api/crm2/recon/imports` (xlsx/csv parsed via
+the existing `xlsx` dep → `bankMisImports/{id}` + `rows` subcoll, auto-match each dump row
+against the connector+month misRecords, returns matched/unmatched + `missingCaseIds` = our
+cases absent from the dump), `GET /api/crm2/recon/imports/:id` (rows; amounts stripped without
+payout.amounts.read), `PATCH …/rows/:rowId` (manual match/unmatch), `POST /api/crm2/recon/
+dispute` (sets `disputeFlag` on the missing case's cycle → status re-derived DISPUTED + case
+badge + MIS, one tx), `POST /api/crm2/jobs/run-recon-snapshots` (monthly; deterministic
+`reconSnapshots/{YYYY-MM_connectorId}` id → idempotent overwrite; `tdsCertificateStatus`
+field), `GET /api/crm2/dashboards?period` (funnel by source/category/RM · pipeline by stage
+count+value+ageing · disbursement/receivables/margin by connector/lender/product/RM/sub-DSA ·
+payout health: status mix, avg disb→received, stuck>21d list · RM performance · sub-DSA
+scorecard — in-process aggregation over the period's misRecords/cycles, **no rollups stored on
+masters**; money sections omitted server-side without payout.amounts.read). New collections:
+`bankMisImports`(+`rows`), `reconSnapshots`. Rules: bankMisImports(+rows) read=recon.read;
+reconSnapshots read=payout.amounts.read; all write=false. No new composite index (the
+misRecords `(reportingMonth,connectorId)` index covers the recon candidate query). UI:
+`/crm/pipeline/recon` (upload dump, match table, manual unmatch, missing-cases dispute) +
+`/crm/pipeline/dashboards` (all sections, money-gated); Pipeline nav gains Recon + Dashboards.
+Acceptance 12/12 (`.qa/crm2-phase5-gate.mjs`): dump auto-matches by loan a/c; our missing
+case → dispute list → cycle DISPUTED; snapshot idempotent (ran twice → exactly 1 doc);
+receivables dashboard **per-connector ties out** to direct misRecords sums (₹1,40,000); both
+dashboard and recon-row money invisible without payout.amounts.read (server-side). 68 unit
+tests; all 5 gates green (12/15/14/22/12); tsc + build clean. Deploy order when the maintainer
+ships: `deploy:rules` → verify → `deploy:indexes` → `firebase deploy --only storage` → Cloud
+Run (`--no-cpu-throttling`) → hosting → seed script (documentMaster + masters) → register Cloud
+Scheduler jobs (run-payout-reminders + run-vault-expiry daily, run-recon-snapshots monthly) →
+grant perms via Permission Manager → load real DSA-code mappings + slabs.
 
 ## Phase 2 progress
 

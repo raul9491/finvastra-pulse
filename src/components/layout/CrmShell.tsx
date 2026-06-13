@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import {
   LayoutDashboard, TrendingUp, GitBranch, IndianRupee,
   Upload, Settings, LogOut, LayoutGrid, Inbox, Clock, Bookmark, Plus, Webhook, User,
-  Menu, X, PackageOpen, Target, BarChart3, Command, UsersRound,
+  Menu, X, PackageOpen, Target, BarChart3, Command, UsersRound, Briefcase,
 } from 'lucide-react';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
@@ -81,6 +81,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/crm/reports/aging':                  'Lead Aging',
   '/crm/pipeline/masters':               'Pipeline Masters',
   '/crm/pipeline/leads':                 'Pipeline Leads',
+  '/crm/pipeline/cases':                 'Pipeline Cases',
   '/crm/pipeline/permissions':           'Pipeline Permissions',
   '/crm/admin/commission-slabs':         'Commission Slabs',
   '/crm/admin/providers':                'Providers & SLA',
@@ -316,8 +317,9 @@ export function CrmShell() {
           {(() => {
             const perms = (profile as { perms?: Record<string, boolean> } | null)?.perms ?? {};
             const showLeads = isAdmin || perms['crm.leads.read'] === true;
+            const showCases = isAdmin || perms['crm.cases.read'] === true;
             const showMasters = isAdmin || perms['crm.masters.write'] === true;
-            if (!showLeads && !showMasters) return null;
+            if (!showLeads && !showCases && !showMasters) return null;
             return (
               <>
                 <div className="px-3 pt-4 pb-2">
@@ -325,6 +327,9 @@ export function CrmShell() {
                 </div>
                 {showLeads && (
                   <NavItemLive entry={{ path: '/crm/pipeline/leads', label: 'Leads', icon: Inbox, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/leads'} />
+                )}
+                {showCases && (
+                  <NavItemLive entry={{ path: '/crm/pipeline/cases', label: 'Cases', icon: Briefcase, live: true, end: true }} isActive={location.pathname.startsWith('/crm/pipeline/cases')} />
                 )}
                 {showMasters && (
                   <NavItemLive entry={{ path: '/crm/pipeline/masters', label: 'Masters', icon: Settings, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/masters'} />

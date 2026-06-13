@@ -12,7 +12,22 @@
 > activity drawer, convert dialog). Acceptance 15/15 (`.qa/crm2-phase2-gate.mjs`) + 21 unit
 > tests. Internal lead routes use the `/api/crm2/` prefix (collision-free namespacing;
 > public path matches spec exactly). NOT deployed.
-> **Next: Phase 3** (cases CRUD, stage machine + doc gating, applicants, vault, case workspace UI).
+> · Phase 2 gate ✅ (`8ad2ebe`): real-client-IP fix (`app.set("trust proxy", 1)` +
+> `extractClientIp` last-XFF-entry, spoof-resistant, 5 tests).
+> · **Phase 3 ✅ (2026-06-13)** — `src/lib/crm2/stages.ts` (transition validation, LOGIN/PDD
+> doc gating, docsCompletePct, keyDate stamping; +15 tests); server: `POST /api/crm2/cases`
+> (walk-in open), `PATCH /api/crm2/cases/:id` (non-derived only — protected/derived rejected
+> by name), `POST /api/crm2/cases/:id/stage` (order + doc-gate, keyDates, stageHistory;
+> DISBURSED reserved for Phase 4), applicants CRUD (PAN-encrypt + Aadhaar 12-digit reject,
+> idempotent docTracker re-expansion, never deletes rows with files), doc-tracker PATCH
+> (recompute docsCompletePct, stamp docsComplete), `POST /api/crm2/clients/:id/vault`
+> (Storage upload, validUntil from validityDays, REPLACED chain). storage.rules vault block;
+> UI `/crm/pipeline/cases` + `/crm/pipeline/cases/:id` workspace (10-stage stepper, payout
+> badge, Details/Applicants/Documents/Payout/History tabs, vault picker, money mirror gated
+> by payout.amounts.read from `cases/{id}/private/payout`). Acceptance 14/14
+> (`.qa/crm2-phase3-gate.mjs`) + 40 unit tests. NOT deployed.
+> **Next: Phase 4** (disburse endpoint, payoutCycles, milestone endpoint, status/ageing/
+> variance pure fns, misRecords, business-sheet export, reminder/expiry jobs).
 
 Maps the approved spec onto the actual `finvastra-pulse` repo. Implementation follows the
 spec's phases 1–5, one commit per phase. **Three blocking decisions at the bottom need

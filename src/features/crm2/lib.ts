@@ -9,7 +9,7 @@ import type { UserProfile } from '../../types';
 import type { Crm2PermKey } from '../../types/crm2';
 
 export async function apiCrm2<T = { ok: boolean; id?: string }>(
-  method: 'POST' | 'PATCH',
+  method: 'POST' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown,
 ): Promise<T> {

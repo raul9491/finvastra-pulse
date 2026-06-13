@@ -104,6 +104,20 @@ service firebase.storage {
       allow write: if request.auth != null && request.auth.token.role == 'admin';
     }
 
+    // ─── CRM 2.0 client vault (PLAN.md Phase 3) ──────────────────────────────
+    // Upload-once-reference-everywhere: case docTracker rows point at these
+    // files by vaultDocId. Uploads go through POST /api/crm2/clients/:id/vault
+    // (Admin SDK) — direct client writes denied. Reads: admins or holders of a
+    // Pipeline case/lead read key (perms custom claim, synced by sync-claims).
+    match /clients/{clientId}/vault/{vaultDocId} {
+      allow read: if request.auth != null && (
+        request.auth.token.role == 'admin'
+        || request.auth.token.get('perms', {}).get('crm.cases.read', false) == true
+        || request.auth.token.get('perms', {}).get('crm.leads.read', false) == true
+      );
+      allow write: if false; // server-only (Admin SDK)
+    }
+
     // ─── Default deny ─────────────────────────────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;

@@ -287,9 +287,35 @@ follow-up highlight, dup banner, activity drawer, convert dialog); rules: leads 
 `hasCrm2Perm('crm.leads.read')`, new `clients` (+vaultDocs) and `cases` (+private/payout,
 applicants, docTracker, stageHistory) blocks — client writes all denied. Migration
 `scripts/migrate/normaliseCrm2Leads.ts` (DRY_RUN; legacy status/source maps; verified on
-emulator). Acceptance 15/15 (`.qa/crm2-phase2-gate.mjs`) + 21 unit tests. **Next: Phase 3**
-(cases CRUD, stage machine + doc gating, vault, case workspace UI). Deploy order when the
-maintainer ships: `deploy:rules` → verify → `deploy:indexes` → Cloud Run
+emulator). Acceptance 15/15 (`.qa/crm2-phase2-gate.mjs`) + 21 unit tests. · Phase 2 gate ✅
+(`8ad2ebe`): public-leads rate limiter now reads the REAL client IP — `app.set("trust
+proxy", 1)` (one Cloud Run hop) + `extractClientIp` takes the LAST X-Forwarded-For entry
+(first-entry parsing is spoofable; Cloud Run appends the real IP last); 5 tests. · **Phase 3
+✅ (2026-06-13, NOT deployed)** — `src/lib/crm2/stages.ts` pure fns (`validateTransition`
+forward-by-one + early-CLOSED rules + DISBURSED reserved for Phase 4; `gateForStage` LOGIN
+doc gate; `gatePddClear`; `computeDocsCompletePct`; +15 tests). Server endpoints: `POST
+/api/crm2/cases` (walk-in open — all-reads-before-writes tx), `PATCH /api/crm2/cases/:id`
+(CASE_EDITABLE_FIELDS allowlist; CASE_PROTECTED_FIELDS — stage/keyDates/docsCompletePct/
+payout mirror/frozen — rejected BY NAME with 400; pddStatus→CLEARED gated), `POST
+/api/crm2/cases/:id/stage` (transition + doc gate → 422 with pending list, keyDates stamp,
+stageHistory append), applicants `POST/PATCH/DELETE` (PAN→EncryptedField, `aadhaarLast4`
+4-digit-only + 12-digit reject, idempotent docTracker re-expansion keyed docDefId_applicantId,
+DELETE keeps rows with files), `PATCH /api/crm2/cases/:id/doc-tracker/:rowId` (status +
+vaultDocId reference [never copies], verifiedBy stamp, recompute docsCompletePct, stamp
+keyDates.docsComplete when LOGIN docs first all VERIFIED), `POST /api/crm2/clients/:id/vault`
+(base64→Storage `clients/{id}/vault/{vid}`, token URL, validUntil = now+validityDays,
+REPLACED chain supersedes prior VALID). `storage.rules`: vault block read = admin or
+crm.cases.read/crm.leads.read perm, write server-only. UI: `/crm/pipeline/cases` (list +
+walk-in open) + `/crm/pipeline/cases/:id` workspace (10-stage stepper, read-only payout
+badge, Details/Applicants/Documents[grouped by stage w/ gating]/Payout[Phase-4 placeholder]/
+History tabs; vault picker references existing files; money mirror from
+`cases/{id}/private/payout` shown only with payout.amounts.read). Acceptance 14/14
+(`.qa/crm2-phase3-gate.mjs`: LOGIN gate proven at API, docsCompletePct live, one vault doc
+on two cases, stageHistory with actors, idempotent re-expansion, Aadhaar reject, protected-
+field reject, PDD-clear gate) + 40 unit tests. **Next: Phase 4** (disburse endpoint,
+payoutCycles + milestone endpoint, status/ageing/variance pure fns, misRecords, business-
+sheet export, reminder/expiry jobs). Deploy order when the maintainer ships: `deploy:rules`
+→ verify → `deploy:indexes` → `firebase deploy --only storage` → Cloud Run
 (`--no-cpu-throttling`) → hosting → seed script → grant perms.
 
 ## Phase 2 progress

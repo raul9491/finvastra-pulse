@@ -150,6 +150,8 @@ const CommandCentrePage        = lazyPage(() => import('./features/crm/dashboard
 const TeamPerformancePage      = lazyPage(() => import('./features/crm/team/TeamPerformancePage'), 'TeamPerformancePage');
 const Crm2MastersPage          = lazyPage(() => import('./features/crm2/masters/MastersPage'), 'Crm2MastersPage');
 const Crm2LeadsPage            = lazyPage(() => import('./features/crm2/leads/Crm2LeadsPage'), 'Crm2LeadsPage');
+const Crm2CasesPage            = lazyPage(() => import('./features/crm2/cases/Crm2CasesPage'), 'Crm2CasesPage');
+const CaseWorkspacePage        = lazyPage(() => import('./features/crm2/cases/CaseWorkspacePage'), 'CaseWorkspacePage');
 const Crm2PermissionsPage      = lazyPage(() => import('./features/crm2/admin/Crm2PermissionsPage'), 'Crm2PermissionsPage');
 
 // ── MIS (lazy group) ─────────────────────────────────────────────────────────
@@ -299,6 +301,8 @@ export const router = createBrowserRouter([
       // CRM 2.0 / Pipeline (PLAN.md) — coexists with the old CRM until migration
       { path: 'pipeline/masters',            element: s(<Crm2MastersPage />) },
       { path: 'pipeline/leads',              element: s(<Crm2LeadsPage />) },
+      { path: 'pipeline/cases',              element: s(<Crm2CasesPage />) },
+      { path: 'pipeline/cases/:caseId',      element: s(<CaseWorkspacePage />) },
       { path: 'pipeline/permissions',        element: s(<Crm2PermissionsPage />) },
       // Employee referral pages — accessible to all HRMS employees (referral mode)
       { path: 'referrals',               element: s(<MyReferralsPage />) },

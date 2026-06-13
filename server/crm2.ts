@@ -2012,8 +2012,12 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   }));
 
   // ─── GET /api/crm2/mis/business-sheet?month&connectorId[&share=1] ────────────
+  // The business sheet inherently contains money (Disbursed / Bill Gross /
+  // Received Net / TDS / Net Margin), so the whole export — including the
+  // share action that stamps dataSharedAt — is gated on payout.amounts.read
+  // (spec §12). mis.read alone is NOT sufficient.
   app.get("/api/crm2/mis/business-sheet", route(async (req, res) => {
-    const caller = await requirePerm(req, res, "mis.read");
+    const caller = await requirePerm(req, res, "payout.amounts.read");
     if (!caller) return;
     const month = reqStr(req.query as Record<string, unknown>, "month");
     const connectorId = isStr(req.query.connectorId) ? String(req.query.connectorId) : null;
@@ -2114,6 +2118,21 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const snap = await db.collection("payoutCycles")
       .where("status", "in", ["AWAITING_DATA_SHARE", "CONFIRMATION_RAISED", "BANKER_CONFIRMED", "PDD_OTC_HOLD", "PAYOUT_CONFIRMED", "BILLED"]).get();
 
+    // Idempotency: claim a per-cycle-per-kind-per-day marker via an atomic
+    // create-if-absent (deterministic doc id). A second run the same day finds
+    // the marker already present and skips the notify — re-running yields 0 new
+    // tasks. (Matches the /follow_up_logs dedup pattern.)
+    const dayStr = new Date(now).toISOString().slice(0, 10);
+    const claimReminder = async (cycleId: string, kind: "datashare" | "banker"): Promise<boolean> => {
+      const ref = db.collection("crm2_reminder_logs").doc(`${cycleId}_${kind}_${dayStr}`);
+      try {
+        await ref.create({ cycleId, kind, day: dayStr, sentAt: FieldValue.serverTimestamp() });
+        return true;
+      } catch {
+        return false; // ALREADY_EXISTS → already sent today
+      }
+    };
+
     let dataShareDue = 0, bankerDue = 0;
     const uidCache = new Map<string, string | null>();
     for (const d of snap.docs) {
@@ -2129,14 +2148,16 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       if (!uid) continue;
 
       // (a) data not shared > X days after disbursement
-      if (cy.dataSharedAt == null && disbMs != null && now - disbMs > cfg.reminderDataShareDays * 86400000) {
+      if (cy.dataSharedAt == null && disbMs != null && now - disbMs > cfg.reminderDataShareDays * 86400000
+          && await claimReminder(d.id, "datashare")) {
         await notify(uid, { type: "follow_up_needed", title: "Payout: share case data",
           body: `${caseId} disbursed ${Math.floor((now - disbMs) / 86400000)}d ago — not yet shared with the aggregator`, link: `/crm/pipeline/cases/${caseId}` });
         dataShareDue++;
       }
       // (b) banker confirmation pending > Y days after confirmation raised
       const crMs = tsToMs(cy.confirmationRaisedAt);
-      if (cy.bankerConfirmedAt == null && crMs != null && now - crMs > cfg.reminderBankerConfirmDays * 86400000) {
+      if (cy.bankerConfirmedAt == null && crMs != null && now - crMs > cfg.reminderBankerConfirmDays * 86400000
+          && await claimReminder(d.id, "banker")) {
         await notify(uid, { type: "follow_up_needed", title: "Payout: chase banker confirmation",
           body: `${caseId} — confirmation raised ${Math.floor((now - crMs) / 86400000)}d ago, banker not yet confirmed`, link: `/crm/pipeline/cases/${caseId}` });
         bankerDue++;

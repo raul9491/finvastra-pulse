@@ -1186,6 +1186,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // CRM 2.0 payout-reminder idempotency markers — server (Admin SDK) only; admin read.
+    match /crm2_reminder_logs/{logId} {
+      allow read:  if isAdmin();
+      allow write: if false;
+    }
+
     // Bank commission-statement parsing templates (MIS). Admin-managed.
     match /commission_statement_templates/{bankId} {
       allow read:   if isAdmin() || hasMisAccess();

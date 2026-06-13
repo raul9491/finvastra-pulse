@@ -34,6 +34,22 @@ async function makeAdmin() {
   });
   return s.idToken;
 }
+// Non-privileged user: has mis.read but NOT payout.amounts.read (audit fix 1).
+async function makePoorUser() {
+  const email = `p4-poor-${Date.now()}@finvastra.com`;
+  const s = await fetch(`http://${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password: 'Gate@12345', returnSecureToken: true }),
+  }).then((r) => r.json());
+  await fetch(`http://${FS}/v1/projects/${PROJECT}/databases/(default)/documents/users/${s.localId}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
+    body: JSON.stringify({ fields: {
+      userId: { stringValue: s.localId }, email: { stringValue: email }, displayName: { stringValue: 'Poor' },
+      perms: { mapValue: { fields: { 'mis.read': { booleanValue: true }, 'payout.read': { booleanValue: true } } } },
+    } }),
+  });
+  return s.idToken;
+}
 async function api(method, path, token, body) {
   const res = await fetch(`${API}${path}`, {
     method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -181,6 +197,25 @@ async function main() {
   const grid = await api('GET', `/api/crm2/mis?month=2026-05`, token);
   grid.status === 200 && Array.isArray(grid.data.records) && grid.data.records.some((r) => r.caseId === s1.caseId)
     ? ok('MIS grid feed returns the disbursed case') : bad('mis grid', JSON.stringify(grid.data?.records?.length));
+
+  // ── 7. AUDIT FIX 1: business-sheet export gated by payout.amounts.read ────
+  const poor = await makePoorUser(); // mis.read + payout.read, NO payout.amounts.read
+  const dlPoor = await api('GET', `/api/crm2/mis/business-sheet?month=2026-05`, poor);
+  dlPoor.status === 403
+    ? ok('business-sheet download → 403 for mis.read-only user (no money leak)') : bad('export leak (download)', `status=${dlPoor.status}`);
+  const sharePoor = await api('GET', `/api/crm2/mis/business-sheet?month=2026-05&share=1`, poor);
+  sharePoor.status === 403
+    ? ok('business-sheet share action → 403 for mis.read-only user') : bad('export leak (share)', `status=${sharePoor.status}`);
+  // sanity: an admin (has all perms) still gets the sheet
+  const dlAdmin = await api('GET', `/api/crm2/mis/business-sheet?month=2026-05`, token);
+  dlAdmin.status === 200 ? ok('business-sheet still works for payout.amounts.read holder (admin)') : bad('export admin', dlAdmin.status);
+
+  // ── 8. AUDIT FIX 2: payout reminders are idempotent within a day ─────────
+  const r1 = await api('POST', '/api/crm2/jobs/run-payout-reminders', token, {});
+  const r2 = await api('POST', '/api/crm2/jobs/run-payout-reminders', token, {});
+  r1.status === 200 && r2.status === 200 && (r2.data.dataShareReminders + r2.data.bankerReminders) === 0
+    ? ok(`reminders idempotent — run1 fired ${r1.data.dataShareReminders + r1.data.bankerReminders}, run2 fired 0`)
+    : bad('reminder idempotency', `run1=${r1.data.dataShareReminders + r1.data.bankerReminders} run2=${r2.data.dataShareReminders + r2.data.bankerReminders}`);
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail > 0 ? 1 : 0);

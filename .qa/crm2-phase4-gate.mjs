@@ -50,6 +50,22 @@ async function makePoorUser() {
   });
   return s.idToken;
 }
+// payout.write but NOT payout.amounts.read (audit pre-deploy fix).
+async function makeWriteOnlyUser() {
+  const email = `p4-wo-${Date.now()}@finvastra.com`;
+  const s = await fetch(`http://${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password: 'Gate@12345', returnSecureToken: true }),
+  }).then((r) => r.json());
+  await fetch(`http://${FS}/v1/projects/${PROJECT}/databases/(default)/documents/users/${s.localId}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
+    body: JSON.stringify({ fields: {
+      userId: { stringValue: s.localId }, email: { stringValue: email }, displayName: { stringValue: 'WO' },
+      perms: { mapValue: { fields: { 'payout.write': { booleanValue: true }, 'payout.read': { booleanValue: true } } } },
+    } }),
+  });
+  return s.idToken;
+}
 async function api(method, path, token, body) {
   const res = await fetch(`${API}${path}`, {
     method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -216,6 +232,24 @@ async function main() {
   r1.status === 200 && r2.status === 200 && (r2.data.dataShareReminders + r2.data.bankerReminders) === 0
     ? ok(`reminders idempotent — run1 fired ${r1.data.dataShareReminders + r1.data.bankerReminders}, run2 fired 0`)
     : bad('reminder idempotency', `run1=${r1.data.dataShareReminders + r1.data.bankerReminders} run2=${r2.data.dataShareReminders + r2.data.bankerReminders}`);
+
+  // ── 9. AUDIT FIX 3: disburse response money gated on payout.amounts.read ──
+  // payout.write-only caller disburses → response has cycleId but NO money fields.
+  const wo = await makeWriteOnlyUser();
+  const s9 = await setupSanctionedCase(token, stamp + 9);          // admin sets up SANCTIONED
+  const dwo = await api('POST', `/api/crm2/cases/${s9.caseId}/disburse`, wo, {
+    disbursedAmount: 5000000, disbursementDate: '2026-05-12', loanAccountNo: 'L9', city: 'C', state: 'S' });
+  dwo.status === 200 && dwo.data.cycleId
+    && dwo.data.expectedGross === undefined && dwo.data.finvastraPayoutPct === undefined && dwo.data.subDsaExpected === undefined
+    ? ok('disburse response money-gated — payout.write-only caller gets cycleId but NO money fields')
+    : bad('disburse money echo', `body=${JSON.stringify(dwo.data)}`);
+  // admin (has payout.amounts.read) still gets the money fields
+  const s9b = await setupSanctionedCase(token, stamp + 19);
+  const dadm = await api('POST', `/api/crm2/cases/${s9b.caseId}/disburse`, token, {
+    disbursedAmount: 5000000, disbursementDate: '2026-05-12', loanAccountNo: 'L9b', city: 'C', state: 'S' });
+  dadm.status === 200 && dadm.data.expectedGross === 70000 && dadm.data.finvastraPayoutPct === 1.4
+    ? ok('disburse response still returns money to payout.amounts.read holder (admin)')
+    : bad('disburse admin money', JSON.stringify(dadm.data));
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail > 0 ? 1 : 0);

@@ -1720,7 +1720,13 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       actor: caller.uid, actorFapl: caller.fapl, action: "crm2_disburse",
       targetPath: `/cases/${req.params.id}`, after: { cycleId, expectedGross: amounts.expectedGross }, at: FieldValue.serverTimestamp(),
     });
-    res.json({ ok: true, cycleId, expectedGross: amounts.expectedGross, finvastraPayoutPct: slab.finvastraPayoutPct, subDsaExpected: amounts.subDsaExpected });
+    // Money figures (slab %, expected payout) are gated on payout.amounts.read like
+    // every other path — a payout.write-only caller gets just {ok, cycleId} and can
+    // read the figures via GET /api/crm2/payout-cycles/:id (also money-stripped).
+    const showMoney = await callerHasPerm(caller.uid, "payout.amounts.read");
+    res.json({ ok: true, cycleId, ...(showMoney
+      ? { expectedGross: amounts.expectedGross, finvastraPayoutPct: slab.finvastraPayoutPct, subDsaExpected: amounts.subDsaExpected }
+      : {}) });
   }));
 
   // ─── GET /api/crm2/cases/:id/disburse-preview?amount&date — slab preview ─────

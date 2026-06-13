@@ -343,9 +343,18 @@ Pipeline nav gains Payouts + MIS. Acceptance 18/18 (`.qa/crm2-phase4-gate.mjs`: 
 cycle+MIS, missing-slab block + no partial write, FROZEN economics, out-of-order milestone
 ±override, Step-8 one-batch cycle+badge+MIS, sub-DSA math, share-stamp) + 56 unit tests; all
 4 gates green; jobs smoke-tested. **Next: Phase 5** (recon imports + matching, reconSnapshots,
-dashboards). Deploy order when the maintainer ships: `deploy:rules` → verify → `deploy:indexes`
-→ `firebase deploy --only storage` → Cloud Run (`--no-cpu-throttling`) → hosting → seed script
-→ register Cloud Scheduler jobs (run-payout-reminders daily, run-vault-expiry daily) → grant perms.
+dashboards). · **Phase 4 audit fixes ✅ (`7b973ba`)** — an independent audit caught 2 issues,
+both fixed: (1) CRITICAL money leak — `GET /api/crm2/mis/business-sheet` was gated only by
+`mis.read` while the xlsx carries Disbursed/Bill Gross/Received Net/TDS/Net Margin; the whole
+export (download + the share action) now requires **`payout.amounts.read`** (spec §12, money
+artifact). (2) MEDIUM — `run-payout-reminders` re-fired on same-day re-runs; each notify now
+claims a per-cycle-per-kind-per-day marker via atomic create-if-absent on
+**`crm2_reminder_logs/{cycleId}_{kind}_{YYYY-MM-DD}`** (new server-only collection;
+rules read=admin, write=false — matches `/follow_up_logs`). phase4 gate extended 18→22.
+New collection in the index: `crm2_reminder_logs`. Deploy order when the maintainer ships:
+`deploy:rules` → verify → `deploy:indexes` → `firebase deploy --only storage` → Cloud Run
+(`--no-cpu-throttling`) → hosting → seed script → register Cloud Scheduler jobs
+(run-payout-reminders daily, run-vault-expiry daily) → grant perms.
 
 ## Phase 2 progress
 

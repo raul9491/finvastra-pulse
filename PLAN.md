@@ -41,6 +41,12 @@
 > (slab preview), Payout tab (10-step timeline), Payout board (/crm/pipeline/payouts,
 > stuck/hold/dispute), MIS grid (/crm/pipeline/mis, xlsx + share). Acceptance 18/18
 > (`.qa/crm2-phase4-gate.mjs`) + 56 unit tests. NOT deployed.
+> · **Phase 4 audit fixes ✅ (`7b973ba`)** — independent audit found 2 issues, both fixed:
+> (1) CRITICAL — business-sheet export now requires `payout.amounts.read` (was `mis.read`;
+> the xlsx carries money so the whole endpoint incl. share is gated, spec §12); (2) MEDIUM —
+> `run-payout-reminders` now idempotent via atomic create-if-absent markers
+> `crm2_reminder_logs/{cycleId}_{kind}_{YYYY-MM-DD}` (new rules block, read=admin/write=false).
+> Gate extended 18→22 (export 403 for mis.read-only download+share; reminders run-twice→0).
 > **Next: Phase 5** (recon imports + matching, reconSnapshots job, dashboards).
 
 Maps the approved spec onto the actual `finvastra-pulse` repo. Implementation follows the

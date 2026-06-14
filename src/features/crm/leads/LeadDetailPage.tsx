@@ -19,6 +19,7 @@ import { writeNotification } from '../../../lib/notifications';
 import { PresenceChips } from '../components/PresenceChips';
 import { QuickLogBar } from '../components/QuickLogBar';
 import { LeadActivityFeed } from '../components/LeadActivityFeed';
+import { MeetingsSection } from './MeetingsSection';
 import { updateWithHistory } from '../../../lib/fieldHistory';
 import { FieldHistory } from '../components/FieldHistory';
 import type { Opportunity, OpportunityType, OpportunityStatus, LeadStatus } from '../../../types';
@@ -272,7 +273,7 @@ export function LeadDetailPage() {
         { primaryOwnerId: { old: lead?.primaryOwnerId ?? null, new: reassignTo } },
         { uid: user.uid, name: profile?.displayName ?? '' },
         'reassign',
-        { updatedAt: serverTimestamp() },
+        { updatedAt: serverTimestamp(), assignedToCurrentOwnerAt: serverTimestamp() },
       );
       // Activity trail + tell the new owner (both fire-and-forget).
       addDoc(collection(db, 'leads', leadId, 'activities'), {
@@ -694,6 +695,11 @@ export function LeadDetailPage() {
             })}
           </div>
         )}
+      </div>
+
+      {/* Meetings → RM's Google Calendar */}
+      <div className="mt-4">
+        <MeetingsSection leadId={lead.id} leadName={lead.displayName} canSchedule={canWorkLead} />
       </div>
 
       {/* Phase P — lead-level activity feed (filters + day grouping + 5-min edit) */}

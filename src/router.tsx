@@ -148,6 +148,7 @@ const TargetsPage              = lazyPage(() => import('./features/crm/targets/T
 const LeadAgingPage            = lazyPage(() => import('./features/crm/reports/LeadAgingPage'), 'LeadAgingPage');
 const CommandCentrePage        = lazyPage(() => import('./features/crm/dashboard/CommandCentrePage'), 'CommandCentrePage');
 const TeamPerformancePage      = lazyPage(() => import('./features/crm/team/TeamPerformancePage'), 'TeamPerformancePage');
+const MyMeetingsPage           = lazyPage(() => import('./features/crm/meetings/MyMeetingsPage'), 'MyMeetingsPage');
 const Crm2MastersPage          = lazyPage(() => import('./features/crm2/masters/MastersPage'), 'Crm2MastersPage');
 const Crm2LeadsPage            = lazyPage(() => import('./features/crm2/leads/Crm2LeadsPage'), 'Crm2LeadsPage');
 const Crm2CasesPage            = lazyPage(() => import('./features/crm2/cases/Crm2CasesPage'), 'Crm2CasesPage');
@@ -301,6 +302,7 @@ export const router = createBrowserRouter([
       { path: 'import/queue',                element: s(<ImportQueuePage />) },
       { path: 'import/history',          element: s(<ImportHistoryPage />) },
       { path: 'targets',                     element: s(<TargetsPage />) },
+      { path: 'meetings',                    element: s(<MyMeetingsPage />) },
       { path: 'reports/aging',               element: s(<LeadAgingPage />) },
       // CRM 2.0 / Pipeline (PLAN.md) — coexists with the old CRM until migration
       { path: 'pipeline/masters',            element: s(<Crm2MastersPage />) },

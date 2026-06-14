@@ -126,6 +126,7 @@ export async function createLead(
       : {}),
     tags:             [],
     primaryOwnerId:   values.primaryOwnerId,
+    assignedToCurrentOwnerAt: now,   // anchors "time with owner" for the team view
     consentGiven:     true,
     consentTimestamp: now,
     consentMethod:    values.consentMethod,

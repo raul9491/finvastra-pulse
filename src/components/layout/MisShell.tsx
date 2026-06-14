@@ -4,9 +4,10 @@ import { signOut } from 'firebase/auth';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   LayoutDashboard, FileText, GitMerge, IndianRupee, Settings, LogOut, LayoutGrid, BarChart3,
-  Menu, X, User, AlertTriangle,
+  Menu, X, User, AlertTriangle, GraduationCap,
 } from 'lucide-react';
 import { useOpenDisputeCount } from '../../features/mis/hooks/useDisputes';
+import { useAutoStartTour } from '../../features/learn/useTour';
 import { MobileTabBar } from '../ui/MobileTabBar';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -19,14 +20,15 @@ import { SharedNavSection, locationCoveredByShares } from './SharedNavSection';
 import { useMyShares } from '../../features/auth/hooks/useMyShares';
 import { resolvePageKey } from '../../config/shareablePages';
 
-type NavEntry = { path: string; label: string; icon: ElementType; adminOnly: boolean };
+type NavEntry = { path: string; label: string; icon: ElementType; adminOnly: boolean; dataTour?: string };
 
 const NAV: NavEntry[] = [
-  { path: '/mis/overview',            label: 'Dashboard',      icon: BarChart3,       adminOnly: false },
-  { path: '/mis/statements',          label: 'Statements',     icon: FileText,        adminOnly: false },
-  { path: '/mis/reconciliation',      label: 'Reconciliation', icon: GitMerge,        adminOnly: false },
-  { path: '/mis/disputes',            label: 'Disputes',       icon: AlertTriangle,   adminOnly: false },
-  { path: '/mis/payouts',             label: 'RM Payouts',     icon: IndianRupee,      adminOnly: false },
+  { path: '/mis/overview',            label: 'Dashboard',      icon: BarChart3,       adminOnly: false, dataTour: 'mis-overview' },
+  { path: '/mis/statements',          label: 'Statements',     icon: FileText,        adminOnly: false, dataTour: 'mis-statements' },
+  { path: '/mis/reconciliation',      label: 'Reconciliation', icon: GitMerge,        adminOnly: false, dataTour: 'mis-reconciliation' },
+  { path: '/mis/disputes',            label: 'Disputes',       icon: AlertTriangle,   adminOnly: false, dataTour: 'mis-disputes' },
+  { path: '/mis/payouts',             label: 'RM Payouts',     icon: IndianRupee,      adminOnly: false, dataTour: 'mis-payouts' },
+  { path: '/mis/learn',               label: 'Learn',          icon: GraduationCap,   adminOnly: false, dataTour: 'learn' },
   { path: '/mis/admin/payout-slabs',  label: 'Payout Slabs',   icon: Settings,        adminOnly: true  },
   { path: '/mis/admin/statement-templates', label: 'Statement Templates', icon: Settings, adminOnly: true },
 ];
@@ -44,6 +46,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/mis/statements/upload':  'Upload Statement',
   '/mis/reconciliation':     'Reconciliation',
   '/mis/disputes':           'Commission Disputes',
+  '/mis/learn':              'Learn MIS',
   '/mis/payouts':            'RM Payouts',
   '/mis/payouts/generate':   'Generate Payouts',
   '/mis/admin/payout-slabs': 'Payout Slabs',
@@ -68,6 +71,9 @@ export function MisShell() {
 
   // Phase P — active page shares (exception grants for users without misAccess).
   const myShares = useMyShares(user?.uid);
+
+  // First-run guided tour for MIS (auto-shows once, then remembered per user).
+  useAutoStartTour('mis');
 
   // Phase P — red badge: open commission disputes.
   const openDisputes = useOpenDisputeCount(
@@ -124,10 +130,11 @@ export function MisShell() {
         <SharedNavSection shares={misShares} />
       ) : (
         <>
-          {visibleNav.map(({ path, label, icon: Icon }) => (
+          {visibleNav.map(({ path, label, icon: Icon, dataTour }) => (
             <NavLink
               key={path}
               to={path}
+              data-tour={dataTour}
               end
               className={({ isActive }) =>
                 `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3 nav-item-hover'}`

@@ -149,6 +149,7 @@ const LeadAgingPage            = lazyPage(() => import('./features/crm/reports/L
 const CommandCentrePage        = lazyPage(() => import('./features/crm/dashboard/CommandCentrePage'), 'CommandCentrePage');
 const TeamPerformancePage      = lazyPage(() => import('./features/crm/team/TeamPerformancePage'), 'TeamPerformancePage');
 const MyMeetingsPage           = lazyPage(() => import('./features/crm/meetings/MyMeetingsPage'), 'MyMeetingsPage');
+const CrmLearnPage             = lazyPage(() => import('./features/crm/learn/CrmLearnPage'), 'CrmLearnPage');
 const Crm2MastersPage          = lazyPage(() => import('./features/crm2/masters/MastersPage'), 'Crm2MastersPage');
 const Crm2LeadsPage            = lazyPage(() => import('./features/crm2/leads/Crm2LeadsPage'), 'Crm2LeadsPage');
 const Crm2CasesPage            = lazyPage(() => import('./features/crm2/cases/Crm2CasesPage'), 'Crm2CasesPage');
@@ -163,6 +164,7 @@ const Crm2PermissionsPage      = lazyPage(() => import('./features/crm2/admin/Cr
 const MisShell                 = lazyPage(() => import('./components/layout/MisShell'), 'MisShell');
 const MisOverviewPage          = lazyPage(() => import('./features/mis/overview/MisOverviewPage'), 'MisOverviewPage');
 const DisputesPage             = lazyPage(() => import('./features/mis/disputes/DisputesPage'), 'DisputesPage');
+const MisLearnPage             = lazyPage(() => import('./features/mis/learn/MisLearnPage'), 'MisLearnPage');
 const StatementsPage           = lazyPage(() => import('./features/mis/statements/StatementsPage'), 'StatementsPage');
 const UploadStatementPage      = lazyPage(() => import('./features/mis/statements/UploadStatementPage'), 'UploadStatementPage');
 const StatementDetailPage      = lazyPage(() => import('./features/mis/statements/StatementDetailPage'), 'StatementDetailPage');
@@ -303,6 +305,7 @@ export const router = createBrowserRouter([
       { path: 'import/history',          element: s(<ImportHistoryPage />) },
       { path: 'targets',                     element: s(<TargetsPage />) },
       { path: 'meetings',                    element: s(<MyMeetingsPage />) },
+      { path: 'learn',                       element: s(<CrmLearnPage />) },
       { path: 'reports/aging',               element: s(<LeadAgingPage />) },
       // CRM 2.0 / Pipeline (PLAN.md) — coexists with the old CRM until migration
       { path: 'pipeline/masters',            element: s(<Crm2MastersPage />) },
@@ -332,6 +335,7 @@ export const router = createBrowserRouter([
       { path: 'statements/:statementId', element: s(<StatementDetailPage />) },
       { path: 'reconciliation',       element: s(<ReconciliationPage />) },
       { path: 'disputes',             element: s(<DisputesPage />) },
+      { path: 'learn',                element: s(<MisLearnPage />) },
       { path: 'payouts',              element: s(<PayoutsPage />) },
       { path: 'payouts/generate',     element: s(<GeneratePayoutsPage />) },
       { path: 'payouts/:payoutId',    element: s(<PayoutDetailPage />) },

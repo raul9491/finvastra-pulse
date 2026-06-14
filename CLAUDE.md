@@ -1857,6 +1857,29 @@ Standard order: `deploy:rules` → verify → `deploy:indexes` (2 new `crm_meeti
 
 ---
 
+## Phase T — Learning & First-Run Guided Tours (HRMS · CRM · MIS) (2026-06-14)
+
+OS-style onboarding: the first time a user opens a module, a **spotlight coachmark tour** dims the screen and highlights the real sidebar items one at a time (skippable); afterwards it never auto-shows again (remembered **per user, cross-device**), and every module has a **"Learn" tab** to replay the tour and browse a full reference of what each tool does. Custom-built on `motion` (no tour library); all deterministic, no AI. Branch `feature/learn-tours` — **NOT deployed** (frontend + a one-key rules change; no server change).
+
+### Engine — `src/features/learn/`
+- **`TourProvider.tsx`** — context (`startTour/next/back/end`), mounted in `App.tsx` inside `AuthProvider` (wrapping `ToastProvider`); renders `<TourOverlay/>` over everything. Writes the seen-flag on finish/skip. Exposes `stepMode(step)` (`'card'|'skip'|'spotlight'`).
+- **`TourOverlay.tsx`** — the spotlight: box-shadow-cutout highlight on the target element (`[data-tour="…"]`) + a tooltip card (title/body/Back/Next/Skip + progress dots). Recomputes rect on scroll/resize; Esc/✕ = skip, ←/→/Enter navigate. **Graceful degradation**: target **not in DOM** (a tool the user lacks access to — shells omit it) → **step skipped**; target in DOM but **hidden** (desktop sidebar on a phone) → **centered card**; no target → centered card (welcome/closing). One step list is therefore role-aware + mobile-safe.
+- **`tourSteps.ts`** — `TOURS: Record<'hrms'|'crm'|'mis', TourStep[]>` (the drafted copy). **`useTour.ts`** — `useTour()` + `useAutoStartTour(module)` (each shell calls it; auto-starts ~700 ms after paint when `profile.onboarding[module]` is falsy, useRef + localStorage guard).
+- **`LearnView.tsx`** — generalised from `PulseGuidePage` (accordion + search) + a prominent **"▶ Take the guided tour"** button. Sections can carry an optional `show(ctx)` gate (hides admin-only sections). Content in **`content/{crm,mis}.tsx`** (HRMS reuses `PulseGuidePage`'s existing `SECTIONS`).
+
+### Persistence (cross-device)
+- **`UserProfile.onboarding?: { hrms?, crm?, mis? }`** (`types/index.ts`) + new `LearnModule` type. On finish/skip: `updateDoc(users/{uid}, { onboarding: {…, [m]: true} })` (fire-and-forget; live profile listener reflects it) + a `fv_tour_{module}_{uid}` localStorage fast-path.
+- **`firestore.rules`** — added `'onboarding'` to the `/users/{uid}` **self-update** `hasOnly([...])` allow-list (the only rule change; users can mark their own tour done, nothing else).
+
+### Pages / nav / routes
+- **Routes**: `/crm/learn` (`CrmLearnPage`), `/mis/learn` (`MisLearnPage`); HRMS keeps `/hrms/guide` (now powered by `LearnView`). Nav: "Learn" item added to CRM **Workspace** group + MIS `NAV`; HRMS "Pulse Guide" stays. Each Learn nav item carries `data-tour="learn"` (the tour's closing step points there).
+- **`data-tour` anchors** added to nav items in all 3 shells (e.g. `crm-customers`, `crm-meetings`, `hrms-attendance`, `mis-reconciliation`). Pure attributes — no behaviour change. `NavItemLive`/`navLink`/MIS `NavLink` gained an optional `dataTour`.
+
+### Files
+**New** `src/features/learn/`: `TourProvider.tsx`, `TourOverlay.tsx`, `useTour.ts`, `tourSteps.ts`, `LearnView.tsx`, `types.ts`, `content/{crm,mis}.tsx`; `src/features/crm/learn/CrmLearnPage.tsx`; `src/features/mis/learn/MisLearnPage.tsx`. **Modified**: `App.tsx`, `types/index.ts`, `firestore.rules`, `router.tsx`, `PulseGuidePage.tsx` (→ `LearnView`), the 3 shells. tsc + build clean; rules compile (emulator). **Deploy (when approved): rules + hosting only** (no server/index change).
+
+---
+
 ## Authentication rules
 
 - **Only `@finvastra.com` Google Workspace accounts** may log in. Enforced in `onAuthStateChanged` (hard block) — not just the Google picker hint. Personal Gmail addresses are blocked even if they somehow reach the auth flow.

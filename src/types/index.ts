@@ -94,8 +94,14 @@ export interface UserProfile {
   // Phase P — true when promoted to super admin from the UI (recognised
   // client-side via isSuperAdmin(uid, profile) without a redeploy).
   superAdmin?: boolean;
+  // First-run product tours — true once the user has seen/skipped a module's
+  // guided tour. Self-writable (rules) so it persists per-user across devices;
+  // the Learn tab can always replay regardless of this flag.
+  onboarding?: { hrms?: boolean; crm?: boolean; mis?: boolean };
   createdAt?: import('firebase/firestore').Timestamp;
 }
+
+export type LearnModule = 'hrms' | 'crm' | 'mis';
 
 // Stored in /user_details/{userId} — readable only by admin, HRMS manager, or the employee themselves.
 // Keeps personal contact info and HR data out of the world-readable /users collection.

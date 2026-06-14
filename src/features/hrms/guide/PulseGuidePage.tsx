@@ -1,11 +1,8 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Clock, CalendarOff, ReceiptText, Receipt, FileSearch2,
-  FolderOpen, Megaphone, Users, TrendingUp, BookOpen, LifeBuoy,
-  ChevronDown, ChevronRight, ExternalLink, Shield,
+  FolderOpen, Megaphone, Users, TrendingUp, BookOpen, LifeBuoy, Shield,
 } from 'lucide-react';
-import { useAuth } from '../../auth/AuthContext';
+import { LearnView } from '../../learn/LearnView';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -332,168 +329,21 @@ const SECTIONS: Section[] = [
   },
 ];
 
-// ─── AccordionSection ─────────────────────────────────────────────────────────
-
-function AccordionSection({ section }: { section: Section }) {
-  const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
-  const [openItems, setOpenItems] = useState<Set<number>>(new Set());
-
-  const toggle = (i: number) => {
-    setOpenItems((prev) => {
-      const next = new Set(prev);
-      if (next.has(i)) next.delete(i); else next.add(i);
-      return next;
-    });
-  };
-
-  return (
-    <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl overflow-hidden">
-      {/* Section header */}
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between p-5 hover:bg-(--glass-panel-bg)/60 transition-colors">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ backgroundColor: section.color + '15', color: section.color }}>
-            {section.icon}
-          </div>
-          <span className="text-sm font-semibold text-(--text-primary)">{section.title}</span>
-          <span className="text-xs text-(--text-muted)">{section.items.length} topic{section.items.length !== 1 ? 's' : ''}</span>
-        </div>
-        {open
-          ? <ChevronDown size={16} className="text-(--text-muted)" />
-          : <ChevronRight size={16} className="text-(--text-muted)" />
-        }
-      </button>
-
-      {/* Items */}
-      {open && (
-        <div className="border-t border-(--shell-border) divide-y divide-(--shell-border)">
-          {section.items.map((item, i) => (
-            <div key={i} className="px-5">
-              <button
-                onClick={() => toggle(i)}
-                className="w-full flex items-center justify-between py-3.5 text-left gap-3">
-                <span className="text-sm text-(--text-primary) font-medium flex-1">{item.q}</span>
-                {openItems.has(i)
-                  ? <ChevronDown size={14} className="text-(--text-muted) shrink-0" />
-                  : <ChevronRight size={14} className="text-(--text-muted) shrink-0" />
-                }
-              </button>
-              {openItems.has(i) && (
-                <div className="pb-4 space-y-3">
-                  <div className="text-sm text-(--text-primary) leading-relaxed">{item.a}</div>
-                  {item.link && (
-                    <button
-                      onClick={() => navigate(item.link!)}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-                      style={{ backgroundColor: section.color + '12', color: section.color }}>
-                      <ExternalLink size={12} />
-                      {item.linkLabel}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── QuickLink ────────────────────────────────────────────────────────────────
-
-function QuickLink({ label, href, color }: { label: string; href: string; color: string }) {
-  const navigate = useNavigate();
-  return (
-    <button onClick={() => navigate(href)}
-      className="px-3 py-3 text-xs font-semibold rounded-xl border transition-all hover:shadow-sm text-center"
-      style={{ borderColor: color + '30', color, backgroundColor: color + '08' }}>
-      {label}
-    </button>
-  );
-}
-
-// ─── PulseGuidePage ───────────────────────────────────────────────────────────
+// ─── PulseGuidePage — HRMS "Learn" tab (powered by the shared LearnView) ──────
 
 export function PulseGuidePage() {
-  const { profile } = useAuth();
-  const [search, setSearch] = useState('');
-
-  const query = search.toLowerCase().trim();
-  const filtered = query
-    ? SECTIONS.map((s) => ({
-        ...s,
-        items: s.items.filter(
-          (item) =>
-            item.q.toLowerCase().includes(query) ||
-            (typeof item.a === 'string' && item.a.toLowerCase().includes(query)),
-        ),
-      })).filter((s) => s.items.length > 0)
-    : SECTIONS;
-
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-
-      {/* Header */}
-      <div>
-        <h2 className="text-3xl mb-1 text-(--text-primary)"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300 }}>
-          Pulse Guide
-        </h2>
-        <p className="text-sm text-(--text-muted)">
-          Everything you need to know about using Finvastra Pulse.
-          {profile?.displayName && ` Hi, ${profile.displayName.split(' ')[0]}!`}
-        </p>
-      </div>
-
-      {/* Quick links */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {(
-          [
-            { label: 'Clock In / Out',   href: '/hrms/attendance',  color: 'var(--text-primary)' },
-            { label: 'Apply Leave',       href: '/hrms/leave/apply', color: '#C9A961' },
-            { label: 'Submit Claim',      href: '/hrms/claims',      color: '#7C3AED' },
-            { label: 'Raise HR Ticket',   href: '/hrms/hr-helpdesk', color: '#BE185D' },
-          ] as const
-        ).map(({ label, href, color }) => (
-          <QuickLink key={href} label={label} href={href} color={color} />
-        ))}
-      </div>
-
-      {/* Search */}
-      <div>
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={'Search topics… (e.g. "leave balance", "payslip", "claim")'}
-          className="w-full px-4 py-3 text-sm border border-(--shell-border) rounded-xl outline-none focus:ring-2 bg-(--glass-panel-bg)"
-        />
-      </div>
-
-      {/* Sections */}
-      <div className="space-y-3">
-        {filtered.length === 0 ? (
-          <p className="text-sm text-(--text-muted) text-center py-8">No topics match "{search}". Try a different keyword.</p>
-        ) : (
-          filtered.map((section) => (
-            <AccordionSection key={section.id} section={section} />
-          ))
-        )}
-      </div>
-
-      {/* Footer note */}
-      <div className="text-center py-4">
-        <p className="text-xs text-(--text-muted)">
-          Couldn't find your answer? Raise an{' '}
-          <a href="/hrms/hr-helpdesk" className="underline">HR Helpdesk ticket</a>
-          {' '}or email{' '}
-          <a href="mailto:support@finvastra.com" className="underline">support@finvastra.com</a>
-        </p>
-      </div>
-    </div>
+    <LearnView
+      module="hrms"
+      title="Pulse Guide"
+      intro="Everything you need to know about using Finvastra Pulse."
+      quickLinks={[
+        { label: 'Clock In / Out', href: '/hrms/attendance',  color: 'var(--text-primary)' },
+        { label: 'Apply Leave',    href: '/hrms/leave/apply',  color: '#C9A961' },
+        { label: 'Submit Claim',   href: '/hrms/claims',       color: '#7C3AED' },
+        { label: 'Raise HR Ticket',href: '/hrms/hr-helpdesk',  color: '#BE185D' },
+      ]}
+      sections={SECTIONS}
+    />
   );
 }

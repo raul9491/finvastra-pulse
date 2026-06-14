@@ -6,7 +6,7 @@ import {
   LayoutDashboard, TrendingUp, GitBranch, IndianRupee,
   Upload, Settings, Inbox, Clock, Bookmark, Plus, Webhook, User,
   Menu, X, PackageOpen, Target, BarChart3, Command, UsersRound, Briefcase,
-  ChevronDown, CalendarClock,
+  ChevronDown, CalendarClock, GraduationCap,
 } from 'lucide-react';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
@@ -24,8 +24,9 @@ import { MobileTabBar, type MobileTab } from '../ui/MobileTabBar';
 import { SharedNavSection, locationCoveredByShares } from './SharedNavSection';
 import { useMyShares } from '../../features/auth/hooks/useMyShares';
 import { resolvePageKey } from '../../config/shareablePages';
+import { useAutoStartTour } from '../../features/learn/useTour';
 
-type NavEntry = { path: string; label: string; icon: ElementType; live: boolean; end?: boolean; badge?: number };
+type NavEntry = { path: string; label: string; icon: ElementType; live: boolean; end?: boolean; badge?: number; dataTour?: string };
 
 const ADMIN_NAV: NavEntry[] = [
   { path: '/crm/import/history',                label: 'Import History',      icon: Clock,    live: true, end: true },
@@ -102,6 +103,7 @@ function NavItemLive({ entry, isActive }: { entry: NavEntry; isActive: boolean }
   return (
     <NavLink
       to={path}
+      data-tour={entry.dataTour}
       end={end ?? true}
       className={({ isActive: a }) =>
         `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${a ? 'pl-2.5 border-l-2' : 'pl-3 nav-item-hover'}`
@@ -168,6 +170,9 @@ export function CrmShell() {
 
   // Phase P — active page shares (exception grants for users without crmAccess).
   const myShares = useMyShares(user?.uid);
+
+  // First-run guided tour for CRM (auto-shows once, then remembered per user).
+  useAutoStartTour('crm');
 
   // Targets badge — is the current month's target unset for this user?
   useEffect(() => {
@@ -270,17 +275,18 @@ export function CrmShell() {
         /* Full CRM nav — regrouped: Dashboard · Workspace · Pipeline · Team · Admin */
         <>
           {/* Dashboard — always at the top, ungrouped */}
-          <NavItemLive entry={{ path: '/crm/dashboard', label: 'Dashboard', icon: LayoutDashboard, live: true, end: true }} isActive={location.pathname === '/crm/dashboard'} />
+          <NavItemLive entry={{ path: '/crm/dashboard', label: 'Dashboard', icon: LayoutDashboard, live: true, end: true, dataTour: 'crm-dashboard' }} isActive={location.pathname === '/crm/dashboard'} />
 
           {/* WORKSPACE — what an individual RM works with daily */}
           <NavGroup title="Workspace">
             {(isGenerator || isAdmin) && (
-              <NavItemLive entry={{ path: '/crm/my-queue', label: 'My Queue', icon: Inbox, live: true, end: true, badge: isGenerator ? queueOverdue : 0 }} isActive={location.pathname === '/crm/my-queue'} />
+              <NavItemLive entry={{ path: '/crm/my-queue', label: 'My Queue', icon: Inbox, live: true, end: true, badge: isGenerator ? queueOverdue : 0, dataTour: 'crm-myqueue' }} isActive={location.pathname === '/crm/my-queue'} />
             )}
-            <NavItemLive entry={{ path: '/crm/leads', label: 'Customers', icon: TrendingUp, live: true, end: false }} isActive={location.pathname.startsWith('/crm/leads')} />
-            <NavItemLive entry={{ path: '/crm/meetings', label: 'Meetings', icon: CalendarClock, live: true, end: true }} isActive={location.pathname === '/crm/meetings'} />
+            <NavItemLive entry={{ path: '/crm/leads', label: 'Customers', icon: TrendingUp, live: true, end: false, dataTour: 'crm-customers' }} isActive={location.pathname.startsWith('/crm/leads')} />
+            <NavItemLive entry={{ path: '/crm/meetings', label: 'Meetings', icon: CalendarClock, live: true, end: true, dataTour: 'crm-meetings' }} isActive={location.pathname === '/crm/meetings'} />
             <NavItemLive entry={{ path: '/crm/commissions', label: 'Commissions', icon: IndianRupee, live: true, end: true }} isActive={location.pathname === '/crm/commissions'} />
-            <NavItemLive entry={{ path: '/crm/targets', label: 'Targets', icon: Target, live: true, end: true, badge: targetMissing ? 1 : 0 }} isActive={location.pathname === '/crm/targets'} />
+            <NavItemLive entry={{ path: '/crm/targets', label: 'Targets', icon: Target, live: true, end: true, badge: targetMissing ? 1 : 0, dataTour: 'crm-targets' }} isActive={location.pathname === '/crm/targets'} />
+            <NavItemLive entry={{ path: '/crm/learn', label: 'Learn', icon: GraduationCap, live: true, end: true, dataTour: 'learn' }} isActive={location.pathname === '/crm/learn'} />
           </NavGroup>
 
           {/* PIPELINE (CRM 2.0 — PLAN.md). NOTHING LOCKED: items appear only for holders. */}
@@ -331,7 +337,7 @@ export function CrmShell() {
                 <NavItemLive entry={{ path: '/crm/command-centre', label: 'Command Centre', icon: Command, live: true, end: true, badge: pendingApprovals }} isActive={location.pathname === '/crm/command-centre'} />
               )}
               {(isManager || isAdmin) && (
-                <NavItemLive entry={{ path: '/crm/team', label: 'My Team', icon: UsersRound, live: true, end: true }} isActive={location.pathname === '/crm/team'} />
+                <NavItemLive entry={{ path: '/crm/team', label: 'My Team', icon: UsersRound, live: true, end: true, dataTour: 'crm-team' }} isActive={location.pathname === '/crm/team'} />
               )}
               {(isAdmin || isManager) && (
                 <NavItemLive entry={{ path: '/crm/reports/aging', label: 'Lead Aging', icon: BarChart3, live: true, end: true }} isActive={location.pathname === '/crm/reports/aging'} />

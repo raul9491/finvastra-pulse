@@ -232,7 +232,8 @@ service cloud.firestore {
         (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly([
           'displayName', 'photoURL', 'location',
           'leaveBalance', 'hasCalendarAccess',
-          'mustResetPassword'   // employee clears this after setting their own password
+          'mustResetPassword',  // employee clears this after setting their own password
+          'onboarding'          // first-run tour-seen flags (self-marked per module)
         ])) ||
         // Admin can update any user field, but:
         // (a) crmRole/convertorVertical must be a valid pair

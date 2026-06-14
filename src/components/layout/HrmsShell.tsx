@@ -25,6 +25,7 @@ import { MobileTabBar } from '../ui/MobileTabBar';
 import { SharedNavSection, locationCoveredByShares } from './SharedNavSection';
 import { useMyShares } from '../../features/auth/hooks/useMyShares';
 import { resolvePageKey } from '../../config/shareablePages';
+import { useAutoStartTour } from '../../features/learn/useTour';
 import { useUnreadAnnouncementCount, getUnseenHolidayCount } from '../../features/hrms/hooks/useAnnouncements';
 import { useHolidays } from '../../features/hrms/hooks/useHolidays';
 import { useMyItDeclaration, usePendingItDeclarationCount, currentFinancialYear } from '../../features/hrms/hooks/useItDeclarations';
@@ -431,6 +432,9 @@ export function HrmsShell() {
   // Phase P — active page shares (exception grants for users without hrmsAccess).
   const myShares = useMyShares(user?.uid);
 
+  // First-run guided tour for HRMS (auto-shows once, then remembered per user).
+  useAutoStartTour('hrms');
+
   // Close mobile drawer automatically when the user navigates to a different page
   useEffect(() => { setMobileNavOpen(false); setNavSearch(''); }, [location.pathname]);
 
@@ -493,12 +497,12 @@ export function HrmsShell() {
   // ── Reusable nav link renderer ────────────────────────────────────────────────
   const navLink = (
     path: string, label: string, Icon: ElementType, badge = 0,
-    badgeColor: 'gold' | 'red' | 'amber' = 'gold',
+    badgeColor: 'gold' | 'red' | 'amber' = 'gold', dataTour?: string,
   ) => {
     const badgeBg = badgeColor === 'red' ? 'rgba(248,113,113,0.20)' : badgeColor === 'amber' ? 'rgba(217,119,6,0.20)' : 'rgba(201,169,97,0.20)';
     const badgeFg = badgeColor === 'red' ? '#f87171' : badgeColor === 'amber' ? '#fbbf24' : '#C9A961';
     return (
-      <NavLink key={path} to={path} end
+      <NavLink key={path} to={path} end data-tour={dataTour}
         className={({ isActive }) =>
           `flex items-center gap-3 py-2 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3 nav-item-hover'}`
         }
@@ -583,16 +587,16 @@ export function HrmsShell() {
 
       {/* ── Employee self-service groups ─────────────────────────── */}
       <NavSection label="My Work" badge={pendingRegularizations} isOpen={openSections.has('My Work')} onToggle={() => toggleSection('My Work')}>
-        {navLink('/hrms/attendance',     'Attendance',    Clock)}
-        {navLink('/hrms/leave',          'Leave',         CalendarOff)}
-        {navLink('/hrms/payslips',       'Payslips',      Receipt)}
-        {navLink('/hrms/claims',         'My Claims',     ReceiptText)}
+        {navLink('/hrms/attendance',     'Attendance',    Clock,       0, 'gold', 'hrms-attendance')}
+        {navLink('/hrms/leave',          'Leave',         CalendarOff, 0, 'gold', 'hrms-leave')}
+        {navLink('/hrms/payslips',       'Payslips',      Receipt,     0, 'gold', 'hrms-payslips')}
+        {navLink('/hrms/claims',         'My Claims',     ReceiptText, 0, 'gold', 'hrms-claims')}
       </NavSection>
 
       <NavSection label="Company" badge={unreadAnnouncements + holidayBadge + pendingAckCount} isOpen={openSections.has('Company')} onToggle={() => toggleSection('Company')}>
-        {navLink('/hrms/directory',      'Directory',          BookUser)}
+        {navLink('/hrms/directory',      'Directory',          BookUser, 0, 'gold', 'hrms-directory')}
         {navLink('/hrms/documents',      'Documents',          FolderOpen,  pendingAckCount)}
-        {navLink('/hrms/announcements',  'Announcements',      Megaphone,   unreadAnnouncements + holidayBadge)}
+        {navLink('/hrms/announcements',  'Announcements',      Megaphone,   unreadAnnouncements + holidayBadge, 'gold', 'hrms-announcements')}
         {navLink('/hrms/org-chart',      'Organisation Chart', Network)}
       </NavSection>
 
@@ -604,7 +608,7 @@ export function HrmsShell() {
 
       <NavSection label="Support" badge={myOpenTickets} isOpen={openSections.has('Support')} onToggle={() => toggleSection('Support')}>
         {navLink('/hrms/hr-helpdesk', 'HR Helpdesk', LifeBuoy, myOpenTickets)}
-        {navLink('/hrms/guide',       'Pulse Guide', HelpCircle)}
+        {navLink('/hrms/guide',       'Pulse Guide', HelpCircle, 0, 'gold', 'learn')}
         {navLink('/hrms/settings',    'Settings',    Settings)}
       </NavSection>
 

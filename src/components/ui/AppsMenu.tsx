@@ -1,12 +1,13 @@
 /**
  * AppsMenu — module switcher dropdown that opens from the "Apps" button in all shells.
- * Shows only modules the current user has access to.
- * Current module is highlighted with a gold accent.
+ * Shows only modules the current user has access to. Each module carries its own
+ * accent; the current module gets the full accent treatment (tint + ring + ACTIVE pill).
  */
 
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, TrendingUp, BarChart3, LayoutGrid } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { Users, TrendingUp, BarChart3, LayoutGrid, ChevronRight, Check } from 'lucide-react';
 import type { UserProfile } from '../../types';
 
 interface AppsMenuProps {
@@ -16,31 +17,31 @@ interface AppsMenuProps {
 
 const MODULES = [
   {
-    key:     'hrms'  as const,
-    name:    'HR & Operations',
-    short:   'HRMS',
-    icon:    Users,
-    path:    '/hrms/dashboard',
-    desc:    'Employees, leave, payslips',
-    check:   (p: UserProfile | null) => p?.role === 'admin' || p?.hrmsAccess !== false,
+    key:    'hrms' as const,
+    name:   'HR & Operations',
+    icon:   Users,
+    path:   '/hrms/dashboard',
+    desc:   'Employees · leave · payslips',
+    accent: '#C9A961',
+    check:  (p: UserProfile | null) => p?.role === 'admin' || p?.hrmsAccess !== false,
   },
   {
-    key:     'crm'   as const,
-    name:    'CRM & Leads',
-    short:   'CRM',
-    icon:    TrendingUp,
-    path:    '/crm/dashboard',
-    desc:    'Pipeline & commissions',
-    check:   (p: UserProfile | null) => p?.role === 'admin' || p?.crmAccess === true,
+    key:    'crm' as const,
+    name:   'CRM & Leads',
+    icon:   TrendingUp,
+    path:   '/crm/dashboard',
+    desc:   'Pipeline · commissions',
+    accent: '#5B9BD5',
+    check:  (p: UserProfile | null) => p?.role === 'admin' || p?.crmAccess === true,
   },
   {
-    key:     'mis'   as const,
-    name:    'MIS',
-    short:   'MIS',
-    icon:    BarChart3,
-    path:    '/mis/overview',
-    desc:    'Reconciliation & payouts',
-    check:   (p: UserProfile | null) => p?.role === 'admin' || p?.misAccess != null,
+    key:    'mis' as const,
+    name:   'MIS',
+    icon:   BarChart3,
+    path:   '/mis/overview',
+    desc:   'Reconciliation · payouts',
+    accent: '#4FB286',
+    check:  (p: UserProfile | null) => p?.role === 'admin' || p?.misAccess != null,
   },
 ];
 
@@ -56,8 +57,10 @@ export function AppsMenu({ profile, currentModule }: AppsMenuProps) {
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('keydown', onKey); };
   }, [open]);
 
   return (
@@ -66,7 +69,7 @@ export function AppsMenu({ profile, currentModule }: AppsMenuProps) {
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors hover:bg-(--shell-hover-hard)"
-        style={{ color: 'var(--shell-text-secondary)' }}
+        style={{ color: open ? '#C9A961' : 'var(--shell-text-secondary)' }}
         title="Switch module"
         aria-haspopup="true"
         aria-expanded={open}
@@ -76,57 +79,81 @@ export function AppsMenu({ profile, currentModule }: AppsMenuProps) {
       </button>
 
       {/* ── Dropdown ── */}
-      {open && (
-        <div className="absolute left-0 top-full mt-2 z-50 glass-modal-panel p-3"
-          style={{ width: 220, backgroundColor: 'var(--ss-bg)', boxShadow: '0 24px 64px rgba(0,0,0,0.45)' }}>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.98 }}
+            transition={{ duration: 0.14, ease: 'easeOut' }}
+            className="absolute left-0 top-full mt-2 z-50 rounded-2xl overflow-hidden"
+            style={{
+              width: 312, maxWidth: 'calc(100vw - 2rem)', transformOrigin: 'top left',
+              backgroundColor: 'var(--ss-bg)',
+              border: '1px solid var(--shell-border)',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.45)',
+            }}
+          >
+            {/* Header */}
+            <div className="px-4 pt-3.5 pb-2.5" style={{ borderBottom: '1px solid var(--shell-border)' }}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.28em]" style={{ color: 'var(--shell-text-dim)' }}>
+                Switch module
+              </p>
+            </div>
 
-          <p className="text-[9px] font-bold uppercase tracking-[0.25em] px-1 pb-2"
-            style={{ color: 'var(--shell-text-dim)' }}>
-            Modules
-          </p>
-
-            <div className="flex flex-col gap-1.5">
-            {visible.map(({ key, name, short, icon: Icon, path, desc }) => {
-              const isActive = key === currentModule;
-              return (
-                <button
-                  key={key}
-                  onClick={() => { navigate(path); setOpen(false); }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left w-full"
-                  style={{
-                    backgroundColor: isActive ? 'rgba(201,169,97,0.14)' : 'transparent',
-                    border: isActive ? '1px solid rgba(201,169,97,0.35)' : '1px solid transparent',
-                  }}
-                >
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+            <div className="p-2 flex flex-col gap-1">
+              {visible.map(({ key, name, icon: Icon, path, desc, accent }) => {
+                const isActive = key === currentModule;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => { navigate(path); setOpen(false); }}
+                    className="group flex items-center gap-3 px-2.5 py-2.5 rounded-xl transition-colors text-left w-full"
                     style={{
-                      backgroundColor: isActive ? 'rgba(201,169,97,0.20)' : 'var(--glass-panel-bg)',
-                      color: isActive ? '#C9A961' : 'var(--shell-text-secondary)',
-                    }}>
-                    <Icon size={16} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold leading-tight"
-                      style={{ color: isActive ? '#C9A961' : 'var(--text-primary)' }}>
-                      {name}
-                    </p>
-                    <p className="text-[10px] leading-tight mt-0.5"
-                      style={{ color: 'var(--shell-text-dim)' }}>
-                      {desc}
-                    </p>
-                  </div>
-                  {isActive && (
-                    <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full shrink-0"
-                      style={{ backgroundColor: 'rgba(201,169,97,0.20)', color: '#C9A961' }}>
-                      Active
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                      backgroundColor: isActive ? accent + '14' : 'transparent',
+                      border: `1px solid ${isActive ? accent + '4D' : 'transparent'}`,
+                    }}
+                    onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = 'var(--shell-hover-soft)'; }}
+                    onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  >
+                    {/* Icon tile */}
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                      style={{
+                        backgroundColor: accent + (isActive ? '26' : '1A'),
+                        color: accent,
+                        boxShadow: isActive ? `inset 0 0 0 1px ${accent}55` : 'none',
+                      }}>
+                      <Icon size={18} />
+                    </div>
+
+                    {/* Text */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold leading-tight truncate"
+                        style={{ color: isActive ? accent : 'var(--text-primary)' }}>
+                        {name}
+                      </p>
+                      <p className="text-[11px] leading-tight mt-0.5 truncate" style={{ color: 'var(--shell-text-dim)' }}>
+                        {desc}
+                      </p>
+                    </div>
+
+                    {/* Right affordance */}
+                    {isActive ? (
+                      <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-full shrink-0"
+                        style={{ backgroundColor: accent + '26', color: accent }}>
+                        <Check size={10} /> Active
+                      </span>
+                    ) : (
+                      <ChevronRight size={16} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ color: 'var(--shell-text-dim)' }} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

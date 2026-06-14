@@ -697,9 +697,9 @@ export function LeadDetailPage() {
         )}
       </div>
 
-      {/* Meetings → RM's Google Calendar */}
+      {/* Meetings → the scheduler's own Google Calendar (any CRM user can schedule) */}
       <div className="mt-4">
-        <MeetingsSection leadId={lead.id} leadName={lead.displayName} canSchedule={canWorkLead} />
+        <MeetingsSection leadId={lead.id} leadName={lead.displayName} canSchedule={isAdmin || profile?.crmAccess === true || canWorkLead} currentUid={user?.uid} isAdmin={isAdmin} />
       </div>
 
       {/* Phase P — lead-level activity feed (filters + day grouping + 5-min edit) */}

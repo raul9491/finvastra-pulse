@@ -10,10 +10,10 @@ const DURATIONS = [
   { value: 90, label: '1.5 hours' },
 ];
 
-function syncChip(m: CrmMeeting) {
+function syncChip(m: CrmMeeting, mine: boolean) {
   if (m.status === 'cancelled') return null;
   if (m.calendarSyncStatus === 'synced')
-    return <span className="text-[10px] font-semibold inline-flex items-center gap-1" style={{ color: '#34d399' }}><CalendarCheck size={11} /> On your Google Calendar</span>;
+    return <span className="text-[10px] font-semibold inline-flex items-center gap-1" style={{ color: '#34d399' }}><CalendarCheck size={11} /> {mine ? 'On your Google Calendar' : 'On Google Calendar'}</span>;
   return <span className="text-[10px] font-semibold inline-flex items-center gap-1" style={{ color: '#fbbf24' }}><AlertCircle size={11} /> Not synced to calendar</span>;
 }
 
@@ -26,7 +26,8 @@ const fmtWhen = (iso: string) =>
  * the owner's manager, or an admin (canSchedule). Non-fatal calendar sync: the
  * meeting is always saved in Pulse even if the calendar push fails.
  */
-export function MeetingsSection({ leadId, leadName, canSchedule }: { leadId: string; leadName: string; canSchedule: boolean }) {
+export function MeetingsSection({ leadId, leadName, canSchedule, currentUid, isAdmin }: { leadId: string; leadName: string; canSchedule: boolean; currentUid?: string; isAdmin?: boolean }) {
+  const canModify = (m: CrmMeeting) => isAdmin === true || m.ownerId === currentUid || m.createdBy === currentUid;
   const { meetings, loading } = useLeadMeetings(leadId);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -135,9 +136,12 @@ export function MeetingsSection({ leadId, leadName, canSchedule }: { leadId: str
                   <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{m.title}</p>
                   <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>{fmtWhen(m.startAt)}</p>
                   {m.location && <p className="text-[10px] mt-0.5 inline-flex items-center gap-1" style={{ color: 'var(--text-muted)' }}><MapPin size={10} /> {m.location}</p>}
-                  <div className="mt-1">{syncChip(m)}</div>
+                  {m.ownerId !== currentUid && m.createdByName && (
+                    <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>Scheduled by {m.createdByName}</p>
+                  )}
+                  <div className="mt-1">{syncChip(m, m.ownerId === currentUid)}</div>
                 </div>
-                {canSchedule && (
+                {canModify(m) && (
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => markDone(m.id)} title="Mark done" className="p-1.5 rounded-lg hover:bg-(--shell-hover-soft)"><Check size={14} style={{ color: '#34d399' }} /></button>
                     <button onClick={() => cancelMeeting(m.id)} title="Cancel" className="p-1.5 rounded-lg hover:bg-(--shell-hover-soft)"><X size={14} style={{ color: '#f87171' }} /></button>

@@ -357,15 +357,13 @@ service cloud.firestore {
       allow delete: if false;  // soft delete only — set deleted:true via admin update
     }
 
-    // ─── CRM: Meetings (scheduled customer meetings → RM's Google Calendar) ───────
-    // Writes go through Express (Admin SDK), which also does the calendar sync; the
-    // client only READS its own / its team's meetings. read = admin, the meeting's
-    // RM, the meeting's creator, or the RM's reporting manager.
+    // ─── CRM: Meetings (scheduled customer meetings → scheduler's Google Calendar) ─
+    // Writes go through Express (Admin SDK), which also does the calendar sync.
+    // Company-wide: any CRM user may schedule + read meetings (non-sensitive — a
+    // customer reference + a time), so the customer's meeting list shows to whoever
+    // is working it. Admin always; managers via the team relationship too.
     match /crm_meetings/{meetingId} {
-      allow read: if isAdmin()
-                     || (hasCrmAccess() && (resource.data.ownerId == request.auth.uid
-                                            || resource.data.createdBy == request.auth.uid))
-                     || isManagerOf(resource.data.ownerId);
+      allow read: if isAdmin() || hasCrmAccess() || isManagerOf(resource.data.ownerId);
       allow write: if false;  // server-only (Admin SDK) — keeps calendar + doc in lockstep
     }
 

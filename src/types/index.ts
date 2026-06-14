@@ -471,8 +471,9 @@ export interface CrmMeeting {
   id: string;
   leadId: string;
   leadName: string;
-  ownerId: string;            // the RM whose calendar the event lands on
+  ownerId: string;            // the SCHEDULER — whose calendar the event lands on (== createdBy)
   ownerEmail: string | null;
+  leadOwnerId?: string | null; // the customer's RM (added as a calendar guest), for traceability
   title: string;
   startAt: string;            // ISO datetime
   endAt: string;              // ISO datetime

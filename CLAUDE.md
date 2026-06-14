@@ -111,7 +111,7 @@ src/
 │       ├── MultiSearchableSelect.tsx re-export shim
 │       ├── ThemeProvider.tsx        dark/light mode context + ThemeToggle button (Sun/Moon)
 │       ├── NotificationBell.tsx     in-app notification dropdown (bell icon)
-│       ├── AppsMenu.tsx             ⊞ module switcher dropdown (HRMS/CRM/MIS → launcher)
+│       ├── AppsMenu.tsx             ⊞ module switcher dropdown (HRMS/CRM/MIS → launcher); redesigned 2026-06-14 (312px, per-module accent gold/blue/green, "✓ Active" pill, hover chevron, motion open anim)
 │       ├── UserMenu.tsx             avatar dropdown — profile links + sign out (all 3 shells)
 │       ├── VideoLogo.tsx            animated logo
 │       ├── VastraLogo.tsx           brand mark (size/light/iconOnly props)

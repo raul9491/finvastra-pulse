@@ -1859,7 +1859,7 @@ Standard order: `deploy:rules` → verify → `deploy:indexes` (2 new `crm_meeti
 
 ## Phase T — Learning & First-Run Guided Tours (HRMS · CRM · MIS) (2026-06-14)
 
-OS-style onboarding: the first time a user opens a module, a **spotlight coachmark tour** dims the screen and highlights the real sidebar items one at a time (skippable); afterwards it never auto-shows again (remembered **per user, cross-device**), and every module has a **"Learn" tab** to replay the tour and browse a full reference of what each tool does. Custom-built on `motion` (no tour library); all deterministic, no AI. Branch `feature/learn-tours` — **NOT deployed** (frontend + a one-key rules change; no server change).
+OS-style onboarding: the first time a user opens a module, a **spotlight coachmark tour** dims the screen and highlights the real sidebar items one at a time (skippable); afterwards it never auto-shows again (remembered **per user, cross-device**), and every module has a **"Learn" tab** to replay the tour and browse a full reference of what each tool does. Custom-built on `motion` (no tour library); all deterministic, no AI. **DEPLOYED TO PRODUCTION ✅ (2026-06-14)** — merged to main (`5dc57d5`); `deploy:rules` (ruleset `1f4d2819`, the `onboarding` self-write key) → `verify:deploy` → `npm run deploy` (hosting) → `verify:deploy` 3/3 green. No server/index/Cloud Run change.
 
 ### Engine — `src/features/learn/`
 - **`TourProvider.tsx`** — context (`startTour/next/back/end`), mounted in `App.tsx` inside `AuthProvider` (wrapping `ToastProvider`); renders `<TourOverlay/>` over everything. Writes the seen-flag on finish/skip. Exposes `stepMode(step)` (`'card'|'skip'|'spotlight'`).
@@ -1876,7 +1876,7 @@ OS-style onboarding: the first time a user opens a module, a **spotlight coachma
 - **`data-tour` anchors** added to nav items in all 3 shells (e.g. `crm-customers`, `crm-meetings`, `hrms-attendance`, `mis-reconciliation`). Pure attributes — no behaviour change. `NavItemLive`/`navLink`/MIS `NavLink` gained an optional `dataTour`.
 
 ### Files
-**New** `src/features/learn/`: `TourProvider.tsx`, `TourOverlay.tsx`, `useTour.ts`, `tourSteps.ts`, `LearnView.tsx`, `types.ts`, `content/{crm,mis}.tsx`; `src/features/crm/learn/CrmLearnPage.tsx`; `src/features/mis/learn/MisLearnPage.tsx`. **Modified**: `App.tsx`, `types/index.ts`, `firestore.rules`, `router.tsx`, `PulseGuidePage.tsx` (→ `LearnView`), the 3 shells. tsc + build clean; rules compile (emulator). **Deploy (when approved): rules + hosting only** (no server/index change).
+**New** `src/features/learn/`: `TourProvider.tsx`, `TourOverlay.tsx`, `useTour.ts`, `tourSteps.ts`, `LearnView.tsx`, `types.ts`, `content/{crm,mis}.tsx`; `src/features/crm/learn/CrmLearnPage.tsx`; `src/features/mis/learn/MisLearnPage.tsx`. **Modified**: `App.tsx`, `types/index.ts`, `firestore.rules`, `router.tsx`, `PulseGuidePage.tsx` (→ `LearnView`), the 3 shells. tsc + build clean; rules compile. **Deployed 2026-06-14 (rules + hosting only).**
 
 ---
 

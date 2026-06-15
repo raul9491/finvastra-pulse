@@ -3,12 +3,12 @@ import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-route
 import { signOut } from 'firebase/auth';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  LayoutDashboard, TrendingUp, GitBranch, IndianRupee,
+  LayoutDashboard, TrendingUp,
   Upload, Settings, Inbox, Clock, Bookmark, Plus, Webhook, User,
-  Menu, X, PackageOpen, Target, BarChart3, Command, UsersRound, Briefcase,
-  ChevronDown, CalendarClock, GraduationCap,
+  Menu, X, PackageOpen, Target, BarChart3, UsersRound, Briefcase,
+  ChevronDown, ListChecks, Building2,
 } from 'lucide-react';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { useMyLeads } from '../../features/crm/hooks/useMyLeads';
@@ -70,7 +70,9 @@ const PAGE_TITLES: Record<string, string> = {
   '/crm/targets':                        'Targets',
   '/crm/reports/aging':                  'Lead Aging',
   '/crm/pipeline/masters':               'Pipeline Masters',
-  '/crm/pipeline/leads':                 'Pipeline Leads',
+  '/crm/tasks':                          'Tasks',
+  '/crm/pipeline/leads':                 'Leads',
+  '/crm/pipeline/clients':               'Clients',
   '/crm/pipeline/cases':                 'Pipeline Cases',
   '/crm/pipeline/payouts':               'Payout Cycles',
   '/crm/pipeline/mis':                   'MIS',
@@ -157,7 +159,6 @@ export function CrmShell() {
   // Mobile nav drawer state
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [targetMissing, setTargetMissing] = useState(false);
-  const [pendingApprovals, setPendingApprovals] = useState(0);
 
   // Only subscribe to the queue when the user is a lead_generator — keeps
   // the hook call unconditional (Rules of Hooks) while skipping the Firestore
@@ -183,21 +184,8 @@ export function CrmShell() {
       .catch(() => setTargetMissing(false));
   }, [user?.uid]);
 
-  // Command Centre badge — total pending approvals (admin/manager only)
-  useEffect(() => {
-    const can = profile?.role === 'admin' || profile?.commandCentreAccess === true;
-    if (!can) return;
-    (async () => {
-      const snaps = await Promise.all([
-        getDocs(query(collection(db, 'leave_applications'), where('status', '==', 'pending'))),
-        getDocs(query(collection(db, 'claims'), where('status', '==', 'pending'))),
-        getDocs(query(collection(db, 'it_declarations'), where('status', '==', 'submitted'))),
-        getDocs(query(collection(db, 'attendance_regularizations'), where('status', '==', 'pending'))),
-        getDocs(query(collection(db, 'leave_encashment_requests'), where('status', '==', 'pending'))),
-      ]);
-      setPendingApprovals(snaps.reduce((s, c) => s + c.size, 0));
-    })().catch(() => setPendingApprovals(0));
-  }, [profile?.role, profile?.commandCentreAccess]);
+  // (Command Centre — with its pending-approvals badge — moved to the new
+  // Command & Compliance Center module; its badge logic lives there now.)
 
   // Close mobile drawer on route change
   useEffect(() => { setMobileNavOpen(false); }, [location.pathname]);
@@ -274,73 +262,49 @@ export function CrmShell() {
       ) : (
         /* Full CRM nav — regrouped: Dashboard · Workspace · Pipeline · Team · Admin */
         <>
-          {/* Dashboard — always at the top, ungrouped */}
+          {/* Dashboard — top, ungrouped (existing CRM dashboard; merge with CRM 2.0
+              Dashboards is a Phase-2+ content task per business doc) */}
           <NavItemLive entry={{ path: '/crm/dashboard', label: 'Dashboard', icon: LayoutDashboard, live: true, end: true, dataTour: 'crm-dashboard' }} isActive={location.pathname === '/crm/dashboard'} />
 
-          {/* WORKSPACE — what an individual RM works with daily */}
+          {/* WORKSPACE — Tasks (My Queue + Meetings) + Targets */}
           <NavGroup title="Workspace">
-            {(isGenerator || isAdmin) && (
-              <NavItemLive entry={{ path: '/crm/my-queue', label: 'My Queue', icon: Inbox, live: true, end: true, badge: isGenerator ? queueOverdue : 0, dataTour: 'crm-myqueue' }} isActive={location.pathname === '/crm/my-queue'} />
-            )}
-            <NavItemLive entry={{ path: '/crm/leads', label: 'Customers', icon: TrendingUp, live: true, end: false, dataTour: 'crm-customers' }} isActive={location.pathname.startsWith('/crm/leads')} />
-            <NavItemLive entry={{ path: '/crm/meetings', label: 'Meetings', icon: CalendarClock, live: true, end: true, dataTour: 'crm-meetings' }} isActive={location.pathname === '/crm/meetings'} />
-            <NavItemLive entry={{ path: '/crm/commissions', label: 'Commissions', icon: IndianRupee, live: true, end: true }} isActive={location.pathname === '/crm/commissions'} />
+            <NavItemLive entry={{ path: '/crm/tasks', label: 'Tasks', icon: ListChecks, live: true, end: true, badge: isGenerator ? queueOverdue : 0 }} isActive={location.pathname === '/crm/tasks'} />
             <NavItemLive entry={{ path: '/crm/targets', label: 'Targets', icon: Target, live: true, end: true, badge: targetMissing ? 1 : 0, dataTour: 'crm-targets' }} isActive={location.pathname === '/crm/targets'} />
-            <NavItemLive entry={{ path: '/crm/learn', label: 'Learn', icon: GraduationCap, live: true, end: true, dataTour: 'learn' }} isActive={location.pathname === '/crm/learn'} />
           </NavGroup>
 
-          {/* PIPELINE (CRM 2.0 — PLAN.md). NOTHING LOCKED: items appear only for holders. */}
+          {/* Customers — cold-lead dump (manual + social/website auto-route) */}
+          <NavItemLive entry={{ path: '/crm/leads', label: 'Customers', icon: TrendingUp, live: true, end: false, dataTour: 'crm-customers' }} isActive={location.pathname.startsWith('/crm/leads')} />
+
+          {/* PIPELINE (CRM 2.0): Leads · Clients · Cases. NOTHING LOCKED. */}
           {(() => {
             const perms = (profile as { perms?: Record<string, boolean> } | null)?.perms ?? {};
             const showLeads = isAdmin || perms['crm.leads.read'] === true;
+            const showClients = isAdmin || perms['crm.leads.read'] === true || perms['crm.cases.read'] === true;
             const showCases = isAdmin || perms['crm.cases.read'] === true;
-            const showMasters = isAdmin || perms['crm.masters.write'] === true;
-            const showPayouts = isAdmin || perms['payout.read'] === true;
-            const showMis = isAdmin || perms['mis.read'] === true;
-            const showRecon = isAdmin || perms['recon.read'] === true;
-            const showDash = isAdmin || perms['crm.cases.read'] === true;
-            if (!showLeads && !showCases && !showMasters && !showPayouts && !showMis && !showRecon) return null;
+            if (!showLeads && !showClients && !showCases) return null;
             return (
-              <NavGroup title="Pipeline (CRM 2.0)">
+              <NavGroup title="Pipeline">
                 {showLeads && (
                   <NavItemLive entry={{ path: '/crm/pipeline/leads', label: 'Leads', icon: Inbox, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/leads'} />
                 )}
+                {showClients && (
+                  <NavItemLive entry={{ path: '/crm/pipeline/clients', label: 'Clients', icon: Building2, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/clients'} />
+                )}
                 {showCases && (
                   <NavItemLive entry={{ path: '/crm/pipeline/cases', label: 'Cases', icon: Briefcase, live: true, end: true }} isActive={location.pathname.startsWith('/crm/pipeline/cases')} />
-                )}
-                {showPayouts && (
-                  <NavItemLive entry={{ path: '/crm/pipeline/payouts', label: 'Payouts', icon: IndianRupee, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/payouts'} />
-                )}
-                {showMis && (
-                  <NavItemLive entry={{ path: '/crm/pipeline/mis', label: 'MIS', icon: BarChart3, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/mis'} />
-                )}
-                {showRecon && (
-                  <NavItemLive entry={{ path: '/crm/pipeline/recon', label: 'Recon', icon: GitBranch, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/recon'} />
-                )}
-                {showDash && (
-                  <NavItemLive entry={{ path: '/crm/pipeline/dashboards', label: 'Dashboards', icon: LayoutDashboard, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/dashboards'} />
-                )}
-                {showMasters && (
-                  <NavItemLive entry={{ path: '/crm/pipeline/masters', label: 'Masters', icon: Settings, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/masters'} />
-                )}
-                {isAdmin && (
-                  <NavItemLive entry={{ path: '/crm/pipeline/permissions', label: 'Permissions', icon: User, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/permissions'} />
                 )}
               </NavGroup>
             );
           })()}
 
-          {/* TEAM — management & oversight (managers / admins) */}
-          {(isAdmin || isManager || profile?.commandCentreAccess === true || canImport) && (
-            <NavGroup title="Team">
-              {(isAdmin || profile?.commandCentreAccess === true) && (
-                <NavItemLive entry={{ path: '/crm/command-centre', label: 'Command Centre', icon: Command, live: true, end: true, badge: pendingApprovals }} isActive={location.pathname === '/crm/command-centre'} />
-              )}
+          {/* TEAMS — managers / admins */}
+          {(isAdmin || isManager || canImport) && (
+            <NavGroup title="Teams">
               {(isManager || isAdmin) && (
                 <NavItemLive entry={{ path: '/crm/team', label: 'My Team', icon: UsersRound, live: true, end: true, dataTour: 'crm-team' }} isActive={location.pathname === '/crm/team'} />
               )}
               {(isAdmin || isManager) && (
-                <NavItemLive entry={{ path: '/crm/reports/aging', label: 'Lead Aging', icon: BarChart3, live: true, end: true }} isActive={location.pathname === '/crm/reports/aging'} />
+                <NavItemLive entry={{ path: '/crm/reports/aging', label: 'Reports', icon: BarChart3, live: true, end: true }} isActive={location.pathname === '/crm/reports/aging'} />
               )}
               {canImport && (
                 <NavItemLive entry={{ path: '/crm/import', label: 'Import', icon: Upload, live: true, end: true }} isActive={location.pathname === '/crm/import'} />
@@ -351,9 +315,12 @@ export function CrmShell() {
             </NavGroup>
           )}
 
-          {/* ADMIN & CONFIG — collapsed by default to cut clutter (admin only) */}
+          {/* ADMIN — Masters + Permissions + config (admin only, collapsed) */}
           {isAdmin && (
-            <NavGroup title="Admin & Config" defaultOpen={false}>
+            <NavGroup title="Admin" defaultOpen={false}>
+              <NavItemLive entry={{ path: '/crm/pipeline/masters', label: 'Masters', icon: Settings, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/masters'} />
+              <NavItemLive entry={{ path: '/crm/pipeline/permissions', label: 'Permissions', icon: User, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/permissions'} />
+              <NavItemLive entry={{ path: '/crm/pipeline/dashboards', label: 'CRM 2.0 Dashboards', icon: LayoutDashboard, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/dashboards'} />
               {ADMIN_NAV.map((entry) => (
                 <NavItemLive key={entry.path} entry={entry} isActive={location.pathname === entry.path} />
               ))}
@@ -533,9 +500,9 @@ export function CrmShell() {
                 ] as MobileTab[])
               : ([
                   { label: 'Dashboard', path: '/crm/dashboard', Icon: LayoutDashboard, end: true },
+                  { label: 'Tasks',     path: '/crm/tasks',     Icon: ListChecks, end: true },
                   { label: 'Customers', path: '/crm/leads',     Icon: Inbox },
-                  { label: 'My Queue',  path: '/crm/my-queue',  Icon: Clock, end: true },
-                  { label: 'Pipeline',  path: '/crm/pipeline',  Icon: GitBranch, end: true },
+                  { label: 'Cases',     path: '/crm/pipeline/cases', Icon: Briefcase },
                 ] as MobileTab[])
           }
           onMenu={() => setMobileNavOpen(true)}

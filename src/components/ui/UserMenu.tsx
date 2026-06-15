@@ -8,7 +8,8 @@
 
 import { useState, useRef, useEffect, type ElementType } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, LogOut, type LucideProps } from 'lucide-react';
+import { ChevronDown, LogOut, Download, type LucideProps } from 'lucide-react';
+import { canInstall, subscribeInstall } from '../../lib/pwaInstall';
 
 export interface UserMenuLink {
   label:    string;
@@ -33,6 +34,10 @@ export function UserMenu({
   const [open, setOpen] = useState(false);
   const ref   = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  // Show "Install app" only when the browser can install (or iOS) and not already installed.
+  const [installable, setInstallable] = useState(canInstall());
+  useEffect(() => subscribeInstall(() => setInstallable(canInstall())), []);
 
   // Close on outside click
   useEffect(() => {
@@ -116,6 +121,20 @@ export function UserMenu({
               </button>
             ))}
           </div>
+
+          {/* Install app (PWA) — only when installable */}
+          {installable && (
+            <div style={{ borderTop: '1px solid var(--shell-border)' }} className="py-1.5">
+              <button
+                onClick={() => { window.dispatchEvent(new Event('fv:install')); setOpen(false); }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors nav-item-hover text-left"
+                style={{ color: '#C9A961' }}
+              >
+                <Download size={15} className="shrink-0" />
+                Install app
+              </button>
+            </div>
+          )}
 
           {/* Sign out */}
           <div style={{ borderTop: '1px solid var(--shell-border)' }} className="py-1.5">

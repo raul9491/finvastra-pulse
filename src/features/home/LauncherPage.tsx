@@ -6,7 +6,6 @@ import { useAuth } from '../auth/AuthContext';
 import { VideoLogo } from '../../components/ui/VideoLogo';
 import { useMyShares } from '../auth/hooks/useMyShares';
 import { isSuperAdmin } from '../../config/hrmsConfig';
-import { InstallPrompt } from '../../components/ui/InstallPrompt';
 
 function FullPageLoader() {
   return (
@@ -215,9 +214,6 @@ export function LauncherPage() {
               No modules assigned yet. Contact your admin.
             </p>
           )}
-
-          {/* Phase P — PWA install nudge (after 3rd open, dismissible forever) */}
-          <InstallPrompt />
 
           {/* Phase P — super-admin console for page shares */}
           {isSA && (

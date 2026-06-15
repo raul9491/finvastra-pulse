@@ -28,16 +28,15 @@ import { useAutoStartTour } from '../../features/learn/useTour';
 
 type NavEntry = { path: string; label: string; icon: ElementType; live: boolean; end?: boolean; badge?: number; dataTour?: string };
 
+// Admin nav (super-admin / admin). Legacy old-CRM config pages (Commission Slabs,
+// Providers & SLA, Document Types, Eligibility Rules, Rate Memory) were removed
+// from the sidebar 2026-06-15 per the business doc — CRM 2.0 Masters supersedes
+// them. Their routes remain (old CRM still reads that config) but are unlisted.
 const ADMIN_NAV: NavEntry[] = [
   { path: '/crm/import/history',                label: 'Import History',      icon: Clock,    live: true, end: true },
-  { path: '/crm/admin/commission-slabs',       label: 'Commission Slabs',    icon: Settings, live: true, end: true },
-  { path: '/crm/admin/providers',              label: 'Providers & SLA',     icon: Settings, live: true, end: true },
-  { path: '/crm/admin/document-types',         label: 'Document Types',      icon: Settings, live: true, end: true },
-  { path: '/crm/admin/eligibility-rules',      label: 'Eligibility Rules',   icon: Settings, live: true, end: true },
   { path: '/crm/admin/commission-leakage',     label: 'Commission Leakage',  icon: Settings, live: true, end: true },
   { path: '/crm/admin/competitor-intelligence',label: 'Competitor Intel',    icon: Settings, live: true, end: true },
   { path: '/crm/admin/referrers',              label: 'Referral Intel',      icon: Settings, live: true, end: true },
-  { path: '/crm/admin/rate-memory',            label: 'Rate Memory',         icon: Settings, live: true, end: true },
   { path: '/crm/admin/access-logs',            label: 'Access Logs',         icon: Settings, live: true, end: true },
   { path: '/crm/admin/right-to-be-forgotten',  label: 'Right to Erasure',    icon: Settings, live: true, end: true },
   { path: '/crm/admin/webhooks',               label: 'Webhooks',            icon: Webhook,  live: true, end: true },

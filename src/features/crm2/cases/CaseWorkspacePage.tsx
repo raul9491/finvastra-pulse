@@ -276,17 +276,17 @@ function DetailsTab({ caseDoc, lenders, aggregators, canWrite, canSeeMoney, mirr
               options={[{ value: '', label: '—' }, ...lenders.filter((l) => l.status === 'ACTIVE').map((l) => ({ value: l.id, label: l.name }))]} />
           ) : (lenders.find((l) => l.id === caseDoc.lenderId)?.name ?? '—')}
         </Row>
-        <Row label="Connector (Routed Via)">
+        <Row label="Aggregator (Routed Via)">
           {canWrite ? (
             <SearchableSelect value={caseDoc.connectorId ?? ''} placeholder="—"
-              onChange={(v) => patchCase({ connectorId: v || null }, 'Connector saved')}
+              onChange={(v) => patchCase({ connectorId: v || null }, 'Aggregator saved')}
               options={[{ value: '', label: '—' }, ...aggregators.filter((a) => a.status === 'ACTIVE').map((a) => ({ value: a.id, label: a.name }))]} />
           ) : (aggregators.find((a) => a.id === caseDoc.connectorId)?.name ?? '—')}
         </Row>
         <Row label="DSA Code (frozen)"><span className="font-mono text-xs">{caseDoc.dsaCode ?? '— set at disbursement'}</span></Row>
         <Row label="Bank Application No">{editStr('bankApplicationNo', caseDoc.bankApplicationNo, 'App no')}</Row>
         <Row label="Loan Account No">{editStr('loanAccountNo', caseDoc.loanAccountNo, 'Loan a/c')}</Row>
-        <Row label="Connector Case Ref">{editStr('connectorCaseRef', caseDoc.connectorCaseRef, 'Ref')}</Row>
+        <Row label="Aggregator Case Ref">{editStr('connectorCaseRef', caseDoc.connectorCaseRef, 'Ref')}</Row>
       </div>
 
       <div className="glass-panel p-5">
@@ -327,7 +327,7 @@ function DetailsTab({ caseDoc, lenders, aggregators, canWrite, canSeeMoney, mirr
           <>
             <Row label="Finvastra %"><span>{mirror?.finvastraPayoutPct != null ? `${mirror.finvastraPayoutPct}%` : '—'}</span></Row>
             <Row label="Expected Gross"><span>{inr(mirror?.finvastraPayoutExpected)}</span></Row>
-            <Row label="Sub-DSA Expected"><span>{inr(mirror?.subDsaPayoutExpected)}</span></Row>
+            <Row label="Connector Expected"><span>{inr(mirror?.subDsaPayoutExpected)}</span></Row>
             <Row label="Net Margin Expected"><span style={{ color: '#34d399' }}>{inr(mirror?.netMarginExpected)}</span></Row>
             {!mirror && <p className="text-[11px] mt-2" style={{ color: 'var(--text-muted)' }}>Populated at disbursement (Phase 4).</p>}
           </>

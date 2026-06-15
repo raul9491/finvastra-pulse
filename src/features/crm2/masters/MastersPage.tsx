@@ -1,7 +1,10 @@
 /**
  * Pipeline → Masters — CRUD screens for the CRM 2.0 master collections:
- * Lenders · Products · Connectors (the `aggregators` collection — PLAN.md
- * decision 1) · Sub-DSAs · Documents · DSA Code Mappings (slab timeline).
+ * Lenders · Products · Aggregators (the `aggregators` collection — PLAN.md
+ * decision 1; UI relabelled "Aggregators" 2026-06-15) · Connectors (the
+ * `subDsas` collection — relabelled "Connectors") · Documents · DSA Code
+ * Mappings (slab timeline). NOTE: collection keys/field names (`aggregators`,
+ * `subDsas`, `connectorId`) are unchanged — only the user-facing labels moved.
  *
  * Reads are live Firestore subscriptions; every mutation goes through
  * /api/crm2/* (clients can never write these collections — rules deny).
@@ -259,9 +262,9 @@ function MasterTab<T extends { id: string; name: string; status: string }>({
 const TABS = [
   { key: 'lenders',        label: 'Lenders',    Icon: Landmark },
   { key: 'products',       label: 'Products',   Icon: Package },
-  { key: 'aggregators',    label: 'Connectors', Icon: Network },
+  { key: 'aggregators',    label: 'Aggregators', Icon: Network },
   { key: 'mappings',       label: 'DSA Codes',  Icon: GitBranch },
-  { key: 'subDsas',        label: 'Sub-DSAs',   Icon: Users2 },
+  { key: 'subDsas',        label: 'Connectors', Icon: Users2 },
   { key: 'documentMaster', label: 'Documents',  Icon: FileText },
 ] as const;
 
@@ -346,14 +349,14 @@ export function Crm2MastersPage() {
 
       {tab === 'aggregators' && (
         <MasterTab<WithId<Aggregator>>
-          type="aggregators" label="Connectors"
+          type="aggregators" label="Aggregators"
           columns={[
             { header: 'Type', render: (r) => r.type === 'MASTER_AGGREGATOR' ? 'Master' : 'Sub' },
             { header: 'TDS %', render: (r) => r.standardTdsPct ?? '—' },
             { header: 'Payout', render: (r) => r.payoutFrequency },
           ]}
           fields={[
-            { key: 'name', label: 'Connector Name', kind: 'text', required: true, placeholder: 'Ruloans' },
+            { key: 'name', label: 'Aggregator Name', kind: 'text', required: true, placeholder: 'Ruloans' },
             { key: 'type', label: 'Type', kind: 'select', required: true,
               options: [{ value: 'MASTER_AGGREGATOR', label: 'Master Aggregator' }, { value: 'SUB_AGGREGATOR', label: 'Sub Aggregator' }] },
             { key: 'empanelmentDate', label: 'Empanelment Date', kind: 'date' },
@@ -373,7 +376,7 @@ export function Crm2MastersPage() {
 
       {tab === 'subDsas' && (
         <MasterTab<WithId<SubDsa>>
-          type="subDsas" label="Sub-DSAs"
+          type="subDsas" label="Connectors"
           columns={[
             { header: 'Type', render: (r) => r.type.replace('_', ' ') },
             { header: 'Mobile', render: (r) => r.mobile },

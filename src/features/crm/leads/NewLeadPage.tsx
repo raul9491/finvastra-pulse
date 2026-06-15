@@ -191,12 +191,12 @@ export function NewLeadPage() {
             </Field>
           )}
 
-          <Field label="Sourced by Connector" hint="Channel partner who brought this customer. Carries through to the commission record &amp; MIS.">
+          <Field label="Sourced by Sub DSA" hint="Channel partner who brought this customer. Carries through to the commission record &amp; MIS.">
             <div className="flex items-start gap-2">
               <div className="flex-1 min-w-0">
                 <SearchableSelect
                   options={[
-                    { value: '', label: 'Direct / no connector' },
+                    { value: '', label: 'Direct / no Sub DSA' },
                     ...activeConnectors.map((c) => ({
                       value: c.id,
                       label: `${c.displayName} · ${c.connectorCode}`,
@@ -206,7 +206,7 @@ export function NewLeadPage() {
                   ]}
                   value={connectorId}
                   onChange={setConnectorId}
-                  placeholder="Direct / no connector"
+                  placeholder="Direct / no Sub DSA"
                 />
               </div>
               <button type="button" onClick={() => setShowAddConnector(true)}

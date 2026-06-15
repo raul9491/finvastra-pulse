@@ -1291,7 +1291,7 @@ export function OpportunityDetailPage() {
           </div>
           {opportunity.connectorName && (
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Sourced by Connector</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Sourced by Sub DSA</p>
               <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
                 {opportunity.connectorName}
                 {opportunity.connectorCode && <span style={{ color: 'var(--text-muted)' }}> · {opportunity.connectorCode}</span>}

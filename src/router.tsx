@@ -96,6 +96,8 @@ const PfTrackerPage            = lazyPage(() => import('./features/hrms/complian
 const AssetsPage               = lazyPage(() => import('./features/hrms/assets/AssetsPage'), 'AssetsPage');
 const ConnectorsPage           = lazyPage(() => import('./features/hrms/connectors/ConnectorsPage'), 'ConnectorsPage');
 const ManageSharesPage         = lazyPage(() => import('./features/admin/ManageSharesPage'), 'ManageSharesPage');
+const CommandCompliancePage    = lazyPage(() => import('./features/command/CommandCompliancePage'), 'CommandCompliancePage');
+const LmsPage                  = lazyPage(() => import('./features/lms/LmsPage'), 'LmsPage');
 const OnboardingPage           = lazyPage(() => import('./features/hrms/onboarding/OnboardingPage'), 'OnboardingPage');
 const OffboardingPage          = lazyPage(() => import('./features/hrms/offboarding/OffboardingPage'), 'OffboardingPage');
 const ItDeclarationPage        = lazyPage(() => import('./features/hrms/itdeclaration/ItDeclarationPage'), 'ItDeclarationPage');
@@ -214,6 +216,17 @@ export const router = createBrowserRouter([
     // Phase P — super-admin console for page shares (standalone, no module shell)
     path: '/admin/shares',
     element: s(<ManageSharesPage />),
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    // Module landings (standalone) — Command & Compliance Center + LMS
+    path: '/command',
+    element: s(<CommandCompliancePage />),
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: '/lms',
+    element: s(<LmsPage />),
     errorElement: <RouteErrorBoundary />,
   },
   {

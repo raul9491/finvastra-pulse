@@ -109,6 +109,14 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     return { uid: decoded.uid, fapl: await resolveFapl(decoded.uid) };
   }
 
+  /** Caller's platform role + CRM role — for ownership/assign-RM access on clients. */
+  async function getCallerMeta(uid: string): Promise<{ isAdmin: boolean; isManager: boolean }> {
+    const snap = await db.collection("users").doc(uid).get();
+    const u = snap.data() ?? {};
+    const isAdmin = u.role === "admin";
+    return { isAdmin, isManager: isAdmin || u.crmRole === "manager" };
+  }
+
   // ─── Audit fields ────────────────────────────────────────────────────────────
 
   const createAudit = (fapl: string) => ({
@@ -321,6 +329,73 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     return out;
   };
 
+  // ─── Client (§4.1 Client/Account template) ──────────────────────────────────
+  // Dedicated sanitizer (NOT a generic master): FCL-#### ids, RM ownership,
+  // encrypted PAN, nested addresses/contact/relationships. dupeKeys recomputed
+  // from primaryContact.mobile+email whenever the contact is set.
+  const CONSTITUTIONS = ["INDIVIDUAL", "PROPRIETORSHIP", "PARTNERSHIP", "LLP", "PVT_LTD", "HUF"] as const;
+
+  function sanitizeAddress(v: unknown): Record<string, string> {
+    const a = (v ?? {}) as Record<string, unknown>;
+    return {
+      line: String(a.line ?? "").trim(), city: String(a.city ?? "").trim(),
+      state: String(a.state ?? "").trim(), pincode: String(a.pincode ?? "").trim(),
+    };
+  }
+
+  const sanitizeClient: Sanitizer = (b, isCreate) => {
+    rejectFullAadhaar(b);
+    const out: Record<string, unknown> = {};
+    if (isCreate || b.constitution !== undefined) out.constitution = reqEnum(b, "constitution", CONSTITUTIONS);
+    if (isCreate || b.name !== undefined) out.name = reqStr(b, "name");
+    if (isCreate || b.industry !== undefined) out.industry = optStr(b, "industry");
+    // PAN arrives raw over HTTPS; stored only encrypted + last4.
+    if (b.pan !== undefined) {
+      const pan = String(b.pan ?? "").trim().toUpperCase();
+      if (pan) {
+        if (!PAN_RE.test(pan)) throw new ApiError(400, "pan format invalid (expected ABCDE1234F)");
+        out.panEnc = encryptField(pan); out.panLast4 = pan.slice(-4);
+      } else if (!isCreate) { out.panEnc = null; out.panLast4 = null; }
+    } else if (isCreate) { out.panEnc = null; out.panLast4 = null; }
+    if (isCreate || b.gstin !== undefined) out.gstin = optStr(b, "gstin");
+    if (isCreate || b.udyam !== undefined) out.udyam = optStr(b, "udyam");
+    if (isCreate || b.cin !== undefined) out.cin = optStr(b, "cin");
+    if (isCreate || b.incorporationDate !== undefined) out.incorporationDate = optTs(b, "incorporationDate");
+    if (isCreate || b.regAddress !== undefined) out.regAddress = sanitizeAddress(b.regAddress);
+    if (isCreate || b.commAddress !== undefined) out.commAddress = sanitizeAddress(b.commAddress);
+    if (isCreate || b.primaryContact !== undefined) {
+      const pc = (b.primaryContact ?? {}) as Record<string, unknown>;
+      const mobile = String(pc.mobile ?? "").replace(/[\s-]/g, "").replace(/^\+91/, "");
+      if (isCreate && !MOBILE_RE.test(mobile)) throw new ApiError(400, "primaryContact.mobile must be a 10-digit Indian mobile");
+      if (mobile && !MOBILE_RE.test(mobile)) throw new ApiError(400, "primaryContact.mobile must be a 10-digit Indian mobile");
+      const email = isStr(pc.email) ? String(pc.email).trim() : null;
+      const name = isStr(pc.name) ? String(pc.name).trim() : ((out.name as string | undefined) ?? "");
+      out.primaryContact = { name, mobile, email };
+      out.dupeKeys = buildDupeKeys(mobile || null, email);
+    }
+    if (isCreate || b.latestCibil !== undefined) {
+      const c = (b.latestCibil ?? null) as Record<string, unknown> | null;
+      if (c && c.score !== undefined && c.score !== null && c.score !== "") {
+        const score = Number(c.score);
+        if (isNaN(score)) throw new ApiError(400, "latestCibil.score must be a number");
+        out.latestCibil = { score, pulledAt: optTs(c, "pulledAt") ?? Timestamp.now() };
+      } else { out.latestCibil = null; }
+    }
+    if (isCreate || b.existingRelationships !== undefined) {
+      const arr = Array.isArray(b.existingRelationships) ? b.existingRelationships : [];
+      out.existingRelationships = arr
+        .filter((r: Record<string, unknown>) => isStr(r.bank) || isStr(r.facility))
+        .map((r: Record<string, unknown>) => ({
+          bank: String(r.bank ?? "").trim(), facility: String(r.facility ?? "").trim(),
+          outstanding: Number(r.outstanding) || 0, emi: Number(r.emi) || 0,
+        }));
+    }
+    if (isCreate || b.sourcedById !== undefined) out.sourcedById = optStr(b, "sourcedById");
+    if (isCreate || b.kycStatus !== undefined) out.kycStatus = reqEnum({ kycStatus: b.kycStatus ?? "PENDING" }, "kycStatus", ["PENDING", "PARTIAL", "COMPLETE"] as const);
+    if (isCreate || b.status !== undefined) out.status = reqEnum({ status: b.status ?? "ACTIVE" }, "status", ["ACTIVE", "INACTIVE", "BLACKLISTED"] as const);
+    return out;
+  };
+
   const MASTERS: Record<string, { collection: string; counterId: string; prefix: string; pad: number; sanitize: Sanitizer }> = {
     lenders:        { collection: "lenders",        counterId: "lenders",        prefix: "LEN-",  pad: 3, sanitize: sanitizeLender },
     products:       { collection: "products",       counterId: "products",       prefix: "PRD-",  pad: 3, sanitize: sanitizeProduct },
@@ -370,6 +445,76 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     await db.collection("audit_logs").add({
       actor: caller.uid, actorFapl: caller.fapl, action: `crm2_update_${cfg.collection}`,
       targetPath: `/${cfg.collection}/${req.params.id}`, at: FieldValue.serverTimestamp(),
+    });
+    res.json({ ok: true });
+  }));
+
+  // ─── Clients — direct CRUD (Client Master) ───────────────────────────────────
+  // FCL-YYYY-##### ids. RMs manage their OWN clients; assign-RM + blacklist are
+  // manager/admin only. Reads are rule-scoped (crm.leads.read/cases.read); writes
+  // are server-only here.
+  app.post("/api/crm2/clients", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "crm.cases.write");
+    if (!caller) return;
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const fields = sanitizeClient(b, true);
+    const meta = await getCallerMeta(caller.uid);
+    // RM owns the clients they create; only an admin may set an explicit owner.
+    const ownerRm = (meta.isAdmin && isStr(b.ownerRm)) ? String(b.ownerRm).trim() : caller.fapl;
+    const year = new Date().getFullYear();
+
+    const id = await db.runTransaction(async (tx) => {
+      const counterRef = db.collection("counters").doc(`clients-${year}`);
+      const seq = (((await tx.get(counterRef)).data()?.seq as number | undefined) ?? 0) + 1;
+      const newId = `FCL-${year}-${String(seq).padStart(5, "0")}`;
+      tx.set(counterRef, { seq, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      tx.set(db.collection("clients").doc(newId), {
+        ...fields, ownerRm, sourceLeadId: null, ...createAudit(caller.fapl),
+      });
+      return newId;
+    });
+
+    await db.collection("audit_logs").add({
+      actor: caller.uid, actorFapl: caller.fapl, action: "crm2_create_clients",
+      targetPath: `/clients/${id}`, at: FieldValue.serverTimestamp(),
+    });
+    res.json({ ok: true, id });
+  }));
+
+  app.patch("/api/crm2/clients/:id", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "crm.cases.write");
+    if (!caller) return;
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const ref = db.collection("clients").doc(req.params.id);
+    const snap = await ref.get();
+    if (!snap.exists) throw new ApiError(404, `${req.params.id} not found`);
+    const client = snap.data()!;
+    const meta = await getCallerMeta(caller.uid);
+    const isOwner = client.ownerRm === caller.fapl;
+
+    // Split privileged keys (assign-RM, blacklist) from ordinary detail edits.
+    const PRIVILEGED = new Set(["ownerRm", "status"]);
+    const privilegedPresent = Object.keys(b).filter((k) => PRIVILEGED.has(k));
+    const detailKeys = Object.keys(b).filter((k) => !PRIVILEGED.has(k));
+    if (privilegedPresent.length > 0 && !meta.isManager) {
+      throw new ApiError(403, `Assign-RM / blacklist require a manager or admin: ${privilegedPresent.join(", ")}`);
+    }
+    if (detailKeys.length > 0 && !(meta.isAdmin || isOwner)) {
+      throw new ApiError(403, "You can only edit your own clients");
+    }
+
+    const fields = sanitizeClient(b, false);   // status handled here; gated above
+    if (b.ownerRm !== undefined) {
+      const rm = optStr(b, "ownerRm");
+      if (!rm) throw new ApiError(400, "ownerRm cannot be empty");
+      fields.ownerRm = rm;
+    }
+    if (Object.keys(fields).length === 0) throw new ApiError(400, "No editable fields in payload");
+    await ref.update({ ...fields, ...updateAudit(caller.fapl) });
+
+    await db.collection("audit_logs").add({
+      actor: caller.uid, actorFapl: caller.fapl, action: "crm2_update_clients",
+      targetPath: `/clients/${req.params.id}`, at: FieldValue.serverTimestamp(),
     });
     res.json({ ok: true });
   }));
@@ -832,6 +977,10 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const b = (req.body ?? {}) as Record<string, unknown>;
     const year = new Date().getFullYear();
     const leadRef = db.collection("leads").doc(req.params.id);
+    // NEW client from the convert wizard (§4.1 template). Validated outside the tx
+    // so a bad payload fails fast. Short-circuits the dedupe/create-from-lead path.
+    const newClientRaw = (b.newClient ?? null) as Record<string, unknown> | null;
+    const newClientFields = newClientRaw ? sanitizeClient(newClientRaw, true) : null;
 
     const result = await db.runTransaction(async (tx) => {
       const leadSnap = await tx.get(leadRef);
@@ -897,7 +1046,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       if (clientId) {
         const c = await tx.get(db.collection("clients").doc(clientId));
         if (!c.exists) throw new ApiError(400, `Client ${clientId} not found`);
-      } else {
+      } else if (!newClientFields) {
+        // Dedupe-match only on the legacy create-from-lead path; an explicit
+        // newClient always mints a fresh client.
         const dupeKeys: string[] = (lead.dupeKeys as string[] | undefined) ?? buildDupeKeys(lead.mobile, lead.email);
         for (const key of dupeKeys) {
           const hit = await tx.get(db.collection("clients").where("dupeKeys", "array-contains", key).limit(1));
@@ -910,7 +1061,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       if (!clientId) {
         clientCounterRef = db.collection("counters").doc(`clients-${year}`);
         clientSeq = (((await tx.get(clientCounterRef)).data()?.seq as number | undefined) ?? 0) + 1;
-        clientId = `CL-${year}-${String(clientSeq).padStart(5, "0")}`;
+        clientId = `FCL-${year}-${String(clientSeq).padStart(5, "0")}`;
         createdClient = true;
       }
       const casesCounterRef = db.collection("counters").doc(`cases-${year}`);
@@ -927,20 +1078,30 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       const emptyAddress = { line: "", city: lead.city ?? "", state: "", pincode: "" };
 
       if (createdClient) {
-        tx.set(db.collection("clients").doc(clientId), {
-          constitution: ["INDIVIDUAL", "PROPRIETORSHIP", "PARTNERSHIP", "LLP", "PVT_LTD", "HUF"].includes(String(b.constitution))
-            ? b.constitution : "INDIVIDUAL",
-          name: lead.name, industry: optStr(b, "industry"),
-          panEnc: null, panLast4: null,
-          gstin: null, udyam: null, cin: null, incorporationDate: null,
-          regAddress: emptyAddress, commAddress: emptyAddress,
-          primaryContact: { name: lead.name, mobile: lead.mobile ?? "", email: lead.email ?? null },
-          latestCibil: null, existingRelationships: [],
-          sourceLeadId: leadRef.id, sourcedById: subDsaId,
-          ownerRm: handlingRm, kycStatus: "PENDING", status: "ACTIVE",
-          dupeKeys: (lead.dupeKeys as string[] | undefined) ?? buildDupeKeys(lead.mobile, lead.email),
-          ...createAudit(caller.fapl),
-        });
+        const clientDoc = newClientFields
+          ? {
+              // NEW client from the wizard — §4.1 template, RM-owned, lead-linked.
+              ...newClientFields,
+              ownerRm: handlingRm, sourceLeadId: leadRef.id,
+              sourcedById: (newClientFields.sourcedById as string | null) ?? subDsaId,
+              ...createAudit(caller.fapl),
+            }
+          : {
+              // Legacy create-from-lead — minimal client from the lead contact.
+              constitution: ["INDIVIDUAL", "PROPRIETORSHIP", "PARTNERSHIP", "LLP", "PVT_LTD", "HUF"].includes(String(b.constitution))
+                ? b.constitution : "INDIVIDUAL",
+              name: lead.name, industry: optStr(b, "industry"),
+              panEnc: null, panLast4: null,
+              gstin: null, udyam: null, cin: null, incorporationDate: null,
+              regAddress: emptyAddress, commAddress: emptyAddress,
+              primaryContact: { name: lead.name, mobile: lead.mobile ?? "", email: lead.email ?? null },
+              latestCibil: null, existingRelationships: [],
+              sourceLeadId: leadRef.id, sourcedById: subDsaId,
+              ownerRm: handlingRm, kycStatus: "PENDING", status: "ACTIVE",
+              dupeKeys: (lead.dupeKeys as string[] | undefined) ?? buildDupeKeys(lead.mobile, lead.email),
+              ...createAudit(caller.fapl),
+            };
+        tx.set(db.collection("clients").doc(clientId), clientDoc);
       }
 
       tx.set(caseRef, {

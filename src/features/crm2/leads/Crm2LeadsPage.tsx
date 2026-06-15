@@ -501,7 +501,8 @@ function ConvertModal({ lead, faplOptions, productOptions, clients, onClose, onD
     if (!id) return;
     setLookupBusy(true); setError('');
     try {
-      if (id.toUpperCase().startsWith('FCL-')) {
+      const up = id.toUpperCase();
+      if (up.startsWith('FCL-') || up.startsWith('CL-')) {   // FCL- (new) or legacy CL- client ids
         const cs = await getDoc(doc(db, 'clients', id));
         if (cs.exists()) { setExistingClientId(id); toast.success(`Client ${id} selected`); }
         else setError(`Client ${id} not found`);

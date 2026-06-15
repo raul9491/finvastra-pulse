@@ -16,19 +16,43 @@ let pass = 0, fail = 0;
 const ok = (n) => { pass++; console.log(`  ✓ ${n}`); };
 const bad = (n, d) => { fail++; console.error(`  ✗ ${n}${d ? ` — ${d}` : ''}`); };
 
-async function makeAdmin() {
-  const email = `p2-admin-${Date.now()}@finvastra.com`;
+async function signUp() {
+  const email = `p2-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@finvastra.com`;
   const s = await fetch(`http://${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password: 'Gate@12345', returnSecureToken: true }),
   }).then((r) => r.json());
+  return { ...s, email };
+}
+
+async function makeAdmin() {
+  const s = await signUp();
   await fetch(`http://${FS}/v1/projects/${PROJECT}/databases/(default)/documents/users/${s.localId}`, {
     method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
     body: JSON.stringify({ fields: {
-      userId: { stringValue: s.localId }, email: { stringValue: email },
+      userId: { stringValue: s.localId }, email: { stringValue: s.email },
       displayName: { stringValue: 'P2 Admin' }, role: { stringValue: 'admin' },
       employeeId: { stringValue: 'FAPL-022' },
     } }),
+  });
+  return s.idToken;
+}
+
+/** A non-admin user with a perms map (requirePerm falls back to the users doc). */
+async function makeUser({ name, role = 'employee', crmRole = null, fapl, perms = {} }) {
+  const s = await signUp();
+  const fields = {
+    userId: { stringValue: s.localId }, email: { stringValue: s.email },
+    displayName: { stringValue: name }, role: { stringValue: role },
+    employeeId: { stringValue: fapl },
+  };
+  if (crmRole) fields.crmRole = { stringValue: crmRole };
+  const permFields = {};
+  for (const k of Object.keys(perms)) permFields[k] = { booleanValue: !!perms[k] };
+  if (Object.keys(permFields).length) fields.perms = { mapValue: { fields: permFields } };
+  await fetch(`http://${FS}/v1/projects/${PROJECT}/databases/(default)/documents/users/${s.localId}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
+    body: JSON.stringify({ fields }),
   });
   return s.idToken;
 }
@@ -116,7 +140,7 @@ async function main() {
   const conv = await api('POST', `/api/crm2/leads/${pub.data.id}/convert`, token, {
     productId: prod.data.id, constitution: 'LLP',
   });
-  conv.status === 200 && conv.data.clientId?.startsWith('CL-') && conv.data.caseId?.startsWith('FIN-CASE-')
+  conv.status === 200 && conv.data.clientId?.startsWith('FCL-') && conv.data.caseId?.startsWith('FIN-CASE-')
     ? ok(`converted → ${conv.data.clientId} / ${conv.data.caseId}`) : bad('convert', JSON.stringify(conv));
 
   const caseDoc = await getDoc(`cases/${conv.data.caseId}`);
@@ -155,6 +179,69 @@ async function main() {
   const sd = await getDoc(`subDsas/${pconv.data.subDsaId}`);
   fv(sd, 'sourceLeadId') === partner.data.id && fv(sd, 'relationshipOwner') === 'FAPL-003'
     ? ok('subDsa carries sourceLeadId + relationshipOwner') : bad('subDsa fields', JSON.stringify(sd?.fields));
+
+  // ── 5. Client Master — direct CRUD + ownership/assign-RM access ────────────
+  const rmA = await makeUser({ name: 'RM Alpha', fapl: 'FAPL-901', perms: { 'crm.cases.write': true, 'crm.cases.read': true } });
+  const rmB = await makeUser({ name: 'RM Bravo', fapl: 'FAPL-902', perms: { 'crm.cases.write': true, 'crm.cases.read': true } });
+  const mgr = await makeUser({ name: 'Team Manager', crmRole: 'manager', fapl: 'FAPL-903', perms: { 'crm.cases.write': true, 'crm.cases.read': true } });
+
+  // RM-A creates a client → FCL- id, owned by FAPL-901
+  const cCreate = await api('POST', '/api/crm2/clients', rmA, {
+    name: `Direct Client ${stamp}`, constitution: 'PVT_LTD',
+    primaryContact: { name: 'Promoter', mobile: mob(4), email: `dc${stamp}@x.com` },
+    industry: 'Manufacturing',
+  });
+  cCreate.status === 200 && cCreate.data.id?.startsWith('FCL-')
+    ? ok(`client created directly (${cCreate.data.id})`) : bad('client create', JSON.stringify(cCreate));
+  const cId = cCreate.data.id;
+  const cDoc = await getDoc(`clients/${cId}`);
+  fv(cDoc, 'ownerRm') === 'FAPL-901' && fv(cDoc, 'name') === `Direct Client ${stamp}`
+    ? ok('client ownerRm = creating RM') : bad('client owner', JSON.stringify(cDoc?.fields?.ownerRm));
+
+  // RM-A edits own client detail → 200
+  const ownEdit = await api('PATCH', `/api/crm2/clients/${cId}`, rmA, { industry: 'Textiles' });
+  ownEdit.status === 200 ? ok('owner edits own client detail') : bad('owner edit', JSON.stringify(ownEdit));
+
+  // RM-B edits another RM's client detail → 403
+  const foreignEdit = await api('PATCH', `/api/crm2/clients/${cId}`, rmB, { industry: 'Hijack' });
+  foreignEdit.status === 403 ? ok('non-owner RM blocked from editing details') : bad('foreign edit', JSON.stringify(foreignEdit));
+
+  // RM-B (not manager) tries assign-RM → 403
+  const foreignAssign = await api('PATCH', `/api/crm2/clients/${cId}`, rmB, { ownerRm: 'FAPL-902' });
+  foreignAssign.status === 403 ? ok('non-manager blocked from assign-RM') : bad('foreign assign', JSON.stringify(foreignAssign));
+
+  // RM-B (not manager) tries blacklist → 403
+  const foreignBlk = await api('PATCH', `/api/crm2/clients/${cId}`, rmB, { status: 'BLACKLISTED' });
+  foreignBlk.status === 403 ? ok('non-manager blocked from blacklist') : bad('foreign blacklist', JSON.stringify(foreignBlk));
+
+  // Manager reassigns + blacklists → 200
+  const mgrAssign = await api('PATCH', `/api/crm2/clients/${cId}`, mgr, { ownerRm: 'FAPL-902' });
+  mgrAssign.status === 200 ? ok('manager assigns RM') : bad('manager assign', JSON.stringify(mgrAssign));
+  const after = await getDoc(`clients/${cId}`);
+  fv(after, 'ownerRm') === 'FAPL-902' ? ok('ownerRm updated to FAPL-902') : bad('owner after', JSON.stringify(after?.fields?.ownerRm));
+  const mgrBlk = await api('PATCH', `/api/crm2/clients/${cId}`, mgr, { status: 'BLACKLISTED' });
+  mgrBlk.status === 200 ? ok('manager blacklists client') : bad('manager blacklist', JSON.stringify(mgrBlk));
+
+  // ── 6. Convert with EXISTING client (reuse) and with newClient (create) ────
+  // Existing-client reuse: a fresh lead converts onto the client created above.
+  const lead2 = await api('POST', '/api/crm2/leads', token, { name: 'Reuse Co', mobile: mob(5), category: 'LOAN', source: 'WALKIN' });
+  await api('PATCH', `/api/crm2/leads/${lead2.data.id}`, token, { status: 'QUALIFIED' });
+  const conv2 = await api('POST', `/api/crm2/leads/${lead2.data.id}/convert`, token, { clientId: cId, productId: prod.data.id });
+  conv2.status === 200 && conv2.data.clientId === cId
+    ? ok('convert reuses the passed existing client (no new client)') : bad('reuse convert', JSON.stringify(conv2));
+
+  // newClient: a fresh lead converts by creating a brand-new FCL- client.
+  const lead3 = await api('POST', '/api/crm2/leads', token, { name: 'Greenfield Co', mobile: mob(6), category: 'LOAN', source: 'WALKIN' });
+  await api('PATCH', `/api/crm2/leads/${lead3.data.id}`, token, { status: 'QUALIFIED' });
+  const conv3 = await api('POST', `/api/crm2/leads/${lead3.data.id}/convert`, token, {
+    productId: prod.data.id,
+    newClient: { name: `Greenfield Holdings ${stamp}`, constitution: 'PARTNERSHIP', primaryContact: { mobile: mob(7) } },
+  });
+  conv3.status === 200 && conv3.data.clientId?.startsWith('FCL-') && conv3.data.clientId !== cId
+    ? ok(`convert with newClient mints a fresh client (${conv3.data.clientId})`) : bad('newClient convert', JSON.stringify(conv3));
+  const newC = await getDoc(`clients/${conv3.data.clientId}`);
+  fv(newC, 'name') === `Greenfield Holdings ${stamp}` && fv(newC, 'constitution') === 'PARTNERSHIP' && fv(newC, 'sourceLeadId') === lead3.data.id
+    ? ok('newClient carries template fields + sourceLeadId') : bad('newClient doc', JSON.stringify(newC?.fields?.name));
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail > 0 ? 1 : 0);

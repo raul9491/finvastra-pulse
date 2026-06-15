@@ -7,8 +7,9 @@
  * dialog. All mutations via /api/crm2/leads* — reads are live snapshots.
  */
 import { useMemo, useState } from 'react';
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, X, AlertTriangle, ArrowRight, Copy } from 'lucide-react';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
@@ -17,7 +18,8 @@ import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
 import { FLabel, inp } from '../masters/MastersPage';
-import type { Crm2LeadFields, Crm2LeadStatus, Product } from '../../../types/crm2';
+import { useClientForm, ClientFieldsGrid, stateFromLead } from '../clients/ClientFormModal';
+import type { Crm2LeadFields, Crm2LeadStatus, Product, Client } from '../../../types/crm2';
 
 type LeadRow = Crm2LeadFields & { id: string };
 
@@ -58,6 +60,7 @@ export function Crm2LeadsPage() {
   const { rows, loading } = useCrm2Leads();
   const { employees } = useAllEmployees();
   const { rows: products } = useCrm2Collection<Product & { id: string }>('products');
+  const { rows: clients } = useCrm2Collection<Client & { id: string }>('clients');
 
   const [funnel, setFunnel] = useState<Crm2LeadStatus | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
@@ -196,7 +199,7 @@ export function Crm2LeadsPage() {
       )}
       {detail && (
         <LeadDrawer lead={detail} canWrite={canWrite} canConvert={canConvert}
-          faplOptions={faplOptions} productOptions={productOptions}
+          faplOptions={faplOptions} productOptions={productOptions} clients={clients}
           onClose={() => setDetailFor(null)} />
       )}
     </div>
@@ -310,11 +313,12 @@ function NewLeadModal({ faplOptions, productOptions, onClose }: {
 }
 
 // ─── Detail drawer (activity log + actions + convert) ───────────────────────
-function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, onClose }: {
+function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, clients, onClose }: {
   lead: LeadRow;
   canWrite: boolean; canConvert: boolean;
   faplOptions: Array<{ value: string; label: string }>;
   productOptions: Array<{ value: string; label: string }>;
+  clients: Array<Client & { id: string }>;
   onClose: () => void;
 }) {
   const toast = useToast();
@@ -447,7 +451,7 @@ function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, o
         </div>
 
         {showConvert && (
-          <ConvertModal lead={lead} faplOptions={faplOptions} productOptions={productOptions}
+          <ConvertModal lead={lead} faplOptions={faplOptions} productOptions={productOptions} clients={clients}
             onClose={() => setShowConvert(false)} onDone={onClose} />
         )}
       </div>
@@ -455,74 +459,180 @@ function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, o
   );
 }
 
-// ─── Convert dialog ───────────────────────────────────────────────────────────
-function ConvertModal({ lead, faplOptions, productOptions, onClose, onDone }: {
+// ─── Convert wizard (resolve client → case) ─────────────────────────────────
+function ConvertModal({ lead, faplOptions, productOptions, clients, onClose, onDone }: {
   lead: LeadRow;
   faplOptions: Array<{ value: string; label: string }>;
   productOptions: Array<{ value: string; label: string }>;
+  clients: Array<Client & { id: string }>;
   onClose: () => void; onDone: () => void;
 }) {
   const toast = useToast();
+  const navigate = useNavigate();
   const isPartner = lead.category === 'PARTNER_DSA';
+
+  // Suggest an existing client if one already matches the lead's mobile/email.
+  const suggested = useMemo(() => {
+    const keys = new Set<string>();
+    if (lead.mobile) keys.add(`m:${lead.mobile.replace(/[\s-]/g, '').replace(/^\+91/, '')}`);
+    if (lead.email) keys.add(`e:${lead.email.trim().toLowerCase()}`);
+    return clients.find((c) => (c.dupeKeys ?? []).some((k) => keys.has(k)));
+  }, [clients, lead.mobile, lead.email]);
+
+  const [mode, setMode] = useState<'existing' | 'new'>(suggested ? 'existing' : 'new');
   const [productId, setProductId] = useState(lead.productId ?? '');
   const [handlingRm, setHandlingRm] = useState(lead.assignedRm ?? '');
-  const [constitution, setConstitution] = useState('INDIVIDUAL');
+  const [existingClientId, setExistingClientId] = useState(suggested?.id ?? '');
+  const [caseLookup, setCaseLookup] = useState('');
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const form = useClientForm(stateFromLead(lead));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const clientOptions = useMemo(() =>
+    clients.filter((c) => c.status !== 'BLACKLISTED').map((c) => ({
+      value: c.id,
+      label: `${c.name} · ${c.id}${c.primaryContact?.mobile ? ` · ${c.primaryContact.mobile}` : ''}`,
+    })), [clients]);
+
+  // Resolve an existing client from an old Case ID (FIN-CASE-…) or a Client ID.
+  const resolveByCase = async () => {
+    const id = caseLookup.trim();
+    if (!id) return;
+    setLookupBusy(true); setError('');
+    try {
+      if (id.toUpperCase().startsWith('FCL-')) {
+        const cs = await getDoc(doc(db, 'clients', id));
+        if (cs.exists()) { setExistingClientId(id); toast.success(`Client ${id} selected`); }
+        else setError(`Client ${id} not found`);
+      } else {
+        const cs = await getDoc(doc(db, 'cases', id));
+        const cid = cs.exists() ? (cs.data().clientId as string | undefined) : undefined;
+        if (cid) { setExistingClientId(cid); toast.success(`Resolved to client ${cid}`); }
+        else setError(`Case ${id} not found`);
+      }
+    } catch {
+      setError('Lookup failed');
+    } finally { setLookupBusy(false); }
+  };
+
   const run = async () => {
-    if (!isPartner && !productId) { setError('Pick the product for the case'); return; }
-    setError(''); setBusy(true);
+    setError('');
+    let body: Record<string, unknown>;
+    if (isPartner) {
+      body = { relationshipOwner: handlingRm || null };
+    } else {
+      if (!productId) { setError('Pick the product for the case'); return; }
+      if (mode === 'existing') {
+        if (!existingClientId) { setError('Select the existing client'); return; }
+        body = { clientId: existingClientId, productId, handlingRm: handlingRm || null };
+      } else {
+        if (!form.validate()) { setError('Fix the highlighted client fields'); return; }
+        body = { newClient: form.payload(), productId, handlingRm: handlingRm || null };
+      }
+    }
+    setBusy(true);
     try {
       const r = await apiCrm2<{ ok: boolean; clientId?: string; caseId?: string; subDsaId?: string }>(
-        'POST', `/api/crm2/leads/${lead.id}/convert`,
-        isPartner
-          ? { relationshipOwner: handlingRm || null }
-          : { productId, handlingRm: handlingRm || null, constitution },
-      );
-      toast.success(r.subDsaId
-        ? `Sub-DSA ${r.subDsaId} created`
-        : `Converted → ${r.clientId} / ${r.caseId}`);
-      onClose(); onDone();
+        'POST', `/api/crm2/leads/${lead.id}/convert`, body);
+      if (r.subDsaId) {
+        toast.success(`Sub-DSA ${r.subDsaId} created`);
+        onClose(); onDone();
+      } else {
+        toast.success(`Converted → ${r.clientId} / ${r.caseId}`);
+        onClose(); onDone();
+        if (r.caseId) navigate(`/crm/pipeline/cases/${r.caseId}`);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Conversion failed');
     } finally { setBusy(false); }
   };
 
+  const wide = !isPartner && mode === 'new';
+
   return (
-    <div className="glass-modal-overlay fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="glass-modal-panel w-full max-w-sm rounded-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="glass-modal-header px-5 py-4">
+    <div className="glass-modal-overlay fixed inset-0 z-60 flex items-center justify-center p-4" onClick={onClose}>
+      <div className={`glass-modal-panel w-full ${wide ? 'max-w-2xl' : 'max-w-md'} rounded-2xl max-h-[92vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
+        <div className="glass-modal-header px-5 py-4 sticky top-0 z-10">
           <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
-            {isPartner ? 'Convert to Sub-DSA' : 'Convert to Client + Case'}
+            {isPartner ? 'Convert to Sub-DSA' : 'Convert Lead → Client + Case'}
           </h3>
           <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
             {isPartner
               ? 'Creates the sub-DSA master record from this partner application.'
-              : 'One transaction: client, case (OPENED), primary applicant, document tracker.'}
+              : 'Resolve the client (new or existing), then open the case in one transaction.'}
           </p>
         </div>
         <div className="p-5 space-y-4">
           {error && <p className="text-sm" style={{ color: '#f87171' }}>{error}</p>}
+
           {!isPartner && (
             <>
-              <div>
-                <FLabel text="Product" required />
-                <SearchableSelect value={productId} onChange={setProductId} options={productOptions} placeholder="Select product…" />
+              {/* Step 1 — new vs existing client */}
+              <div className="grid grid-cols-2 gap-2">
+                {(['existing', 'new'] as const).map((m) => (
+                  <button key={m} onClick={() => setMode(m)}
+                    className="px-3 py-2 rounded-lg text-sm font-semibold border transition-colors"
+                    style={mode === m
+                      ? { backgroundColor: 'rgba(201,169,97,0.15)', borderColor: '#C9A961', color: '#C9A961' }
+                      : { borderColor: 'var(--shell-border)', color: 'var(--text-muted)' }}>
+                    {m === 'existing' ? 'Existing client' : 'New client'}
+                  </button>
+                ))}
               </div>
-              <div>
-                <FLabel text="Constitution" />
-                <SearchableSelect value={constitution} onChange={setConstitution}
-                  options={['INDIVIDUAL', 'PROPRIETORSHIP', 'PARTNERSHIP', 'LLP', 'PVT_LTD', 'HUF'].map((c) => ({ value: c, label: c.replace('_', ' ') }))} />
+
+              {mode === 'existing' ? (
+                <div className="space-y-3">
+                  <div>
+                    <FLabel text="Client" required />
+                    <SearchableSelect value={existingClientId} onChange={setExistingClientId}
+                      options={clientOptions} placeholder="Search by name / client id / mobile…" />
+                    {suggested && existingClientId === suggested.id && (
+                      <p className="text-[11px] mt-1" style={{ color: '#34d399' }}>Matched this lead’s contact automatically.</p>
+                    )}
+                  </div>
+                  <div>
+                    <FLabel text="…or resolve by old Case ID / Client ID" />
+                    <div className="flex gap-2">
+                      <input className={inp()} value={caseLookup} onChange={(e) => setCaseLookup(e.target.value)}
+                        placeholder="FIN-CASE-2026-0001 or FCL-2026-00001" />
+                      <button onClick={resolveByCase} disabled={lookupBusy || !caseLookup.trim()}
+                        className="shrink-0 px-3 py-2 rounded-lg text-sm font-semibold border disabled:opacity-40"
+                        style={{ borderColor: 'var(--shell-border)', color: 'var(--text-primary)' }}>
+                        {lookupBusy ? '…' : 'Find'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <ClientFieldsGrid form={form} />
+              )}
+
+              {/* Step 2 — case basics */}
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <FLabel text="Product" required />
+                  <SearchableSelect value={productId} onChange={setProductId} options={productOptions} placeholder="Select product…" />
+                </div>
+                <div>
+                  <FLabel text="Handling RM" />
+                  <SearchableSelect value={handlingRm} onChange={setHandlingRm}
+                    options={[{ value: '', label: lead.assignedRm ? `Lead RM (${lead.assignedRm})` : 'Me' }, ...faplOptions]}
+                    placeholder="Default" />
+                </div>
               </div>
             </>
           )}
-          <div>
-            <FLabel text={isPartner ? 'Relationship Owner' : 'Handling RM'} />
-            <SearchableSelect value={handlingRm} onChange={setHandlingRm}
-              options={[{ value: '', label: lead.assignedRm ? `Lead RM (${lead.assignedRm})` : 'Me' }, ...faplOptions]}
-              placeholder="Default" />
-          </div>
+
+          {isPartner && (
+            <div>
+              <FLabel text="Relationship Owner" />
+              <SearchableSelect value={handlingRm} onChange={setHandlingRm}
+                options={[{ value: '', label: lead.assignedRm ? `Lead RM (${lead.assignedRm})` : 'Me' }, ...faplOptions]}
+                placeholder="Default" />
+            </div>
+          )}
+
           <div className="flex gap-3">
             <button onClick={onClose} className="flex-1 py-2.5 rounded-lg text-sm font-semibold border"
               style={{ borderColor: 'var(--shell-border)', color: 'var(--text-muted)' }}>Cancel</button>

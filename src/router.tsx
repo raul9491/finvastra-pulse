@@ -157,6 +157,7 @@ const Crm2LeadsPage            = lazyPage(() => import('./features/crm2/leads/Cr
 const Crm2CasesPage            = lazyPage(() => import('./features/crm2/cases/Crm2CasesPage'), 'Crm2CasesPage');
 const CaseWorkspacePage        = lazyPage(() => import('./features/crm2/cases/CaseWorkspacePage'), 'CaseWorkspacePage');
 const Crm2ClientsPage          = lazyPage(() => import('./features/crm2/clients/Crm2ClientsPage'), 'Crm2ClientsPage');
+const Crm2ClientDetailPage     = lazyPage(() => import('./features/crm2/clients/Crm2ClientDetailPage'), 'Crm2ClientDetailPage');
 const TasksPage                = lazyPage(() => import('./features/crm/tasks/TasksPage'), 'TasksPage');
 const PayoutBoardPage          = lazyPage(() => import('./features/crm2/payouts/PayoutBoardPage'), 'PayoutBoardPage');
 const MisGridPage              = lazyPage(() => import('./features/crm2/mis/MisGridPage'), 'MisGridPage');
@@ -326,6 +327,7 @@ export const router = createBrowserRouter([
       { path: 'pipeline/masters',            element: s(<Crm2MastersPage />) },
       { path: 'pipeline/leads',              element: s(<Crm2LeadsPage />) },
       { path: 'pipeline/clients',            element: s(<Crm2ClientsPage />) },
+      { path: 'pipeline/clients/:clientId',  element: s(<Crm2ClientDetailPage />) },
       { path: 'pipeline/cases',              element: s(<Crm2CasesPage />) },
       { path: 'pipeline/cases/:caseId',      element: s(<CaseWorkspacePage />) },
       { path: 'tasks',                       element: s(<TasksPage />) },

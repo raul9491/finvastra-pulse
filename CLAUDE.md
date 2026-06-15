@@ -1880,6 +1880,20 @@ OS-style onboarding: the first time a user opens a module, a **spotlight coachma
 
 ---
 
+## CRM 2.0 Business-Requirements Update (doc "New Updated as on 14-06-2026") — multi-phase
+
+Big approved initiative refining CRM 2.0 (plan: `~/.claude/plans/eager-noodling-floyd.md`). **5 modules** (HRMS · CRM & Leads · MIS · Command & Compliance Center · LMS). Confirmed decisions: terminology rename (labels only — collections/`connectorId` field unchanged): **Aggregator**=`aggregators`(CONN-###) · **Connector**=`subDsas`(SDSA-###) · **Sub DSA**=HRMS `connectors`(FAC-###). Two-step funnel Customers→Leads→**Client Master**(FCL-####)→Cases. **Per-login model** (KEY, Phase 4): case stages 1–3 are case-level; from Stage 4 each *login* runs its own login→sanction→disburse→PDD and makes its own payout cycle + MIS record. Stage order: Opened · Basic Docs+Eligibility · Docs · File/Bank Login · Code+login done · In Process · Sanctioned/Rejected · Disbursement · PDD/OTC · Completed. Data-entry decoupled from stage advancement. Phasing: 1 rename+IA+modules+MIS-move → 2 Client Master+convert wizard → 3 Customers→Leads move+Leads rework → 4 case pipeline rebuild (per-login, heaviest) → 5 master expansions → 6 Tasks/collaboration.
+
+### Phase 1 ✅ (branch `feature/crm2-phase1-rename-ia`, 2026-06-15, NOT deployed) — rename + IA + 5-module launcher + MIS move
+- **1a rename (labels only)**: CRM masters tab "Connectors"(aggregators)→**Aggregators**, "Sub-DSAs"(subDsas)→**Connectors**; MappingsTab + case Details + PayoutTab labels; HRMS Connectors page/nav/search + old-CRM "Sourced by Connector" pickers (NewLead/AddOpportunity/QuickAdd/LeadDetail/OpportunityDetail) + MIS disbursals column → **Sub DSA**. `connectorId`/`aggregators`/`subDsas`/`connectorCode` identifiers untouched.
+- **1b CRM sidebar → doc IA** (`CrmShell.tsx`): Dashboard · Workspace(**Tasks**, Targets) · **Customers** · Pipeline(**Leads · Clients · Cases**) · Teams(My Team, Reports, Import, Import Queue) · Admin(Masters, Permissions, CRM 2.0 Dashboards, legacy config — collapsed, admin). My Queue+Meetings folded into Tasks; Learn→LMS; Command Centre→Command&Compliance module; Commissions + MIS/Recon/Payouts → MIS module.
+- **1c MIS move** (`router.tsx`, `MisShell.tsx`): CRM 2.0 financial pages now at **/mis/cases-mis** (MisGridPage), **/mis/recon** (ReconPage), **/mis/payout-cycles** (PayoutBoardPage) as primary; old MIS (Overview/Statements/Reconciliation/Disputes/RM-Payouts/Slabs/Templates) + old-CRM Commissions (**/mis/commissions**) under an "Archive · old MIS" section. Removed orphaned `/crm/pipeline/{mis,recon,payouts}` routes (Dashboards stays in CRM).
+- **1d minimal pages**: `Crm2ClientsPage` (/crm/pipeline/clients — read-only client list, full master Phase 2); `TasksPage` (/crm/tasks — tabbed My Queue + Meetings, collaboration Phase 6).
+- **1e 5 modules**: standalone landings **/command** (`CommandCompliancePage`) + **/lms** (`LmsPage`) link existing pages; LauncherPage 5-tile grid + AppsMenu entries.
+- _Reversible nav choices flagged for review_: Targets under Workspace (RMs keep own-targets), legacy config under Admin, CRM 2.0 Dashboards under Admin pending the Dashboard merge. tsc + build clean. **Maintainer to review then deploy (rules unchanged → hosting-only).**
+
+---
+
 ## Authentication rules
 
 - **Only `@finvastra.com` Google Workspace accounts** may log in. Enforced in `onAuthStateChanged` (hard block) — not just the Google picker hint. Personal Gmail addresses are blocked even if they somehow reach the auth flow.

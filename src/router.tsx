@@ -316,9 +316,6 @@ export const router = createBrowserRouter([
       { path: 'pipeline/cases',              element: s(<Crm2CasesPage />) },
       { path: 'pipeline/cases/:caseId',      element: s(<CaseWorkspacePage />) },
       { path: 'tasks',                       element: s(<TasksPage />) },
-      { path: 'pipeline/payouts',            element: s(<PayoutBoardPage />) },
-      { path: 'pipeline/mis',                element: s(<MisGridPage />) },
-      { path: 'pipeline/recon',              element: s(<ReconPage />) },
       { path: 'pipeline/dashboards',         element: s(<DashboardsPage />) },
       { path: 'pipeline/permissions',        element: s(<Crm2PermissionsPage />) },
       // Employee referral pages — accessible to all HRMS employees (referral mode)
@@ -333,12 +330,18 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorBoundary />,
     children: [
       { index: true,                  element: <Navigate to="/mis/overview" replace /> },
+      // CRM 2.0 financial pages — moved here from the CRM Pipeline group (business doc).
+      { path: 'cases-mis',            element: s(<MisGridPage />) },
+      { path: 'recon',                element: s(<ReconPage />) },
+      { path: 'payout-cycles',        element: s(<PayoutBoardPage />) },
+      // Archive — old-CRM MIS + commissions.
       { path: 'overview',             element: s(<MisOverviewPage />) },
       { path: 'statements',           element: s(<StatementsPage />) },
       { path: 'statements/upload',    element: s(<UploadStatementPage />) },
       { path: 'statements/:statementId', element: s(<StatementDetailPage />) },
       { path: 'reconciliation',       element: s(<ReconciliationPage />) },
       { path: 'disputes',             element: s(<DisputesPage />) },
+      { path: 'commissions',          element: s(<CommissionRecordsPage />) },
       { path: 'learn',                element: s(<MisLearnPage />) },
       { path: 'payouts',              element: s(<PayoutsPage />) },
       { path: 'payouts/generate',     element: s(<GeneratePayoutsPage />) },

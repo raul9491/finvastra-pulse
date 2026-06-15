@@ -20,17 +20,23 @@ import { SharedNavSection, locationCoveredByShares } from './SharedNavSection';
 import { useMyShares } from '../../features/auth/hooks/useMyShares';
 import { resolvePageKey } from '../../config/shareablePages';
 
-type NavEntry = { path: string; label: string; icon: ElementType; adminOnly: boolean; dataTour?: string };
+type NavEntry = { path: string; label: string; icon: ElementType; adminOnly: boolean; dataTour?: string; section?: 'archive' };
 
 const NAV: NavEntry[] = [
-  { path: '/mis/overview',            label: 'Dashboard',      icon: BarChart3,       adminOnly: false, dataTour: 'mis-overview' },
-  { path: '/mis/statements',          label: 'Statements',     icon: FileText,        adminOnly: false, dataTour: 'mis-statements' },
-  { path: '/mis/reconciliation',      label: 'Reconciliation', icon: GitMerge,        adminOnly: false, dataTour: 'mis-reconciliation' },
-  { path: '/mis/disputes',            label: 'Disputes',       icon: AlertTriangle,   adminOnly: false, dataTour: 'mis-disputes' },
-  { path: '/mis/payouts',             label: 'RM Payouts',     icon: IndianRupee,      adminOnly: false, dataTour: 'mis-payouts' },
+  // CRM 2.0 financial pages (primary) — moved here from the CRM Pipeline group.
+  { path: '/mis/cases-mis',           label: 'MIS',            icon: BarChart3,       adminOnly: false, dataTour: 'mis-overview' },
+  { path: '/mis/recon',               label: 'Reconciliation', icon: GitMerge,        adminOnly: false, dataTour: 'mis-reconciliation' },
+  { path: '/mis/payout-cycles',       label: 'Payout Cycles',  icon: IndianRupee,     adminOnly: false },
   { path: '/mis/learn',               label: 'Learn',          icon: GraduationCap,   adminOnly: false, dataTour: 'learn' },
-  { path: '/mis/admin/payout-slabs',  label: 'Payout Slabs',   icon: Settings,        adminOnly: true  },
-  { path: '/mis/admin/statement-templates', label: 'Statement Templates', icon: Settings, adminOnly: true },
+  // Archive — old-CRM MIS + commissions (kept for reference; CRM 2.0 supersedes).
+  { path: '/mis/overview',            label: 'Overview',       icon: BarChart3,       adminOnly: false, section: 'archive', dataTour: 'mis-overview' },
+  { path: '/mis/statements',          label: 'Statements',     icon: FileText,        adminOnly: false, section: 'archive', dataTour: 'mis-statements' },
+  { path: '/mis/reconciliation',      label: 'Reconciliation', icon: GitMerge,        adminOnly: false, section: 'archive' },
+  { path: '/mis/disputes',            label: 'Disputes',       icon: AlertTriangle,   adminOnly: false, section: 'archive', dataTour: 'mis-disputes' },
+  { path: '/mis/payouts',             label: 'RM Payouts',     icon: IndianRupee,     adminOnly: false, section: 'archive', dataTour: 'mis-payouts' },
+  { path: '/mis/commissions',         label: 'Commissions',    icon: IndianRupee,     adminOnly: false, section: 'archive' },
+  { path: '/mis/admin/payout-slabs',  label: 'Payout Slabs',   icon: Settings,        adminOnly: true,  section: 'archive' },
+  { path: '/mis/admin/statement-templates', label: 'Statement Templates', icon: Settings, adminOnly: true, section: 'archive' },
 ];
 
 function resolveMisTitle(pathname: string): string {
@@ -41,6 +47,10 @@ function resolveMisTitle(pathname: string): string {
 }
 
 const PAGE_TITLES: Record<string, string> = {
+  '/mis/cases-mis':          'MIS',
+  '/mis/recon':              'Reconciliation',
+  '/mis/payout-cycles':      'Payout Cycles',
+  '/mis/commissions':        'Commissions (archive)',
   '/mis/overview':           'MIS Overview',
   '/mis/statements':         'Commission Statements',
   '/mis/statements/upload':  'Upload Statement',
@@ -130,31 +140,40 @@ export function MisShell() {
         <SharedNavSection shares={misShares} />
       ) : (
         <>
-          {visibleNav.map(({ path, label, icon: Icon, dataTour }) => (
-            <NavLink
-              key={path}
-              to={path}
-              data-tour={dataTour}
-              end
-              className={({ isActive }) =>
-                `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3 nav-item-hover'}`
-              }
-              style={({ isActive }) =>
-                isActive
-                  ? { backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961', borderColor: '#C9A961' }
-                  : { color: 'var(--shell-text-secondary)' }
-              }
-            >
-              <Icon size={17} className="shrink-0" />
-              <span className="text-sm flex-1">{label}</span>
-              {path === '/mis/disputes' && openDisputes > 0 && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
-                  style={{ backgroundColor: 'rgba(248,113,113,0.18)', color: '#f87171' }}>
-                  {openDisputes}
-                </span>
-              )}
-            </NavLink>
-          ))}
+          {visibleNav.map(({ path, label, icon: Icon, dataTour, section }, i) => {
+            const firstArchive = section === 'archive' && (i === 0 || visibleNav[i - 1].section !== 'archive');
+            return (
+              <div key={path}>
+                {firstArchive && (
+                  <p className="px-3 pt-4 pb-1.5 text-[9px] font-bold uppercase tracking-[0.28em]" style={{ color: 'var(--shell-text-dim)' }}>
+                    Archive · old MIS
+                  </p>
+                )}
+                <NavLink
+                  to={path}
+                  data-tour={dataTour}
+                  end
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3 nav-item-hover'}`
+                  }
+                  style={({ isActive }) =>
+                    isActive
+                      ? { backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961', borderColor: '#C9A961' }
+                      : { color: 'var(--shell-text-secondary)' }
+                  }
+                >
+                  <Icon size={17} className="shrink-0" />
+                  <span className="text-sm flex-1">{label}</span>
+                  {path === '/mis/disputes' && openDisputes > 0 && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                      style={{ backgroundColor: 'rgba(248,113,113,0.18)', color: '#f87171' }}>
+                      {openDisputes}
+                    </span>
+                  )}
+                </NavLink>
+              </div>
+            );
+          })}
           {/* Phase P — full-access user who ALSO holds shares (edge case) */}
           <SharedNavSection shares={misShares} />
         </>
@@ -316,10 +335,10 @@ export function MisShell() {
       {!isShareOnly && (
         <MobileTabBar
           tabs={[
-            { label: 'Overview',   path: '/mis/overview',       Icon: LayoutDashboard },
-            { label: 'Statements', path: '/mis/statements',     Icon: FileText },
-            { label: 'Reconcile',  path: '/mis/reconciliation', Icon: GitMerge, end: true },
-            { label: 'Payouts',    path: '/mis/payouts',        Icon: IndianRupee },
+            { label: 'MIS',       path: '/mis/cases-mis',     Icon: BarChart3 },
+            { label: 'Reconcile', path: '/mis/recon',         Icon: GitMerge, end: true },
+            { label: 'Payouts',   path: '/mis/payout-cycles', Icon: IndianRupee },
+            { label: 'Overview',  path: '/mis/overview',      Icon: LayoutDashboard },
           ]}
           onMenu={() => setMobileNavOpen(true)}
         />

@@ -214,7 +214,7 @@ export function MisOverviewPage() {
                     <th className="px-4 py-3 text-right font-semibold" style={{ color: 'var(--text-muted)' }}>Amount</th>
                     <th className="px-4 py-3 text-right font-semibold" style={{ color: 'var(--text-muted)' }}>Commission</th>
                     <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>DSA Code</th>
-                    <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Connector</th>
+                    <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Sub DSA</th>
                     <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Status</th>
                     <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>CRM</th>
                   </tr>

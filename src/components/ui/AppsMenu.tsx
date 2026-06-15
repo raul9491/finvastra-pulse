@@ -7,7 +7,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { Users, TrendingUp, BarChart3, LayoutGrid, ChevronRight, Check } from 'lucide-react';
+import { Users, TrendingUp, BarChart3, LayoutGrid, ChevronRight, Check, Command, GraduationCap } from 'lucide-react';
 import type { UserProfile } from '../../types';
 
 interface AppsMenuProps {
@@ -42,6 +42,24 @@ const MODULES = [
     desc:   'Reconciliation · payouts',
     accent: '#4FB286',
     check:  (p: UserProfile | null) => p?.role === 'admin' || p?.misAccess != null,
+  },
+  {
+    key:    'command' as const,
+    name:   'Command & Compliance',
+    icon:   Command,
+    path:   '/command',
+    desc:   'Oversight · compliance',
+    accent: '#C9A961',
+    check:  (p: UserProfile | null) => p?.role === 'admin' || p?.commandCentreAccess === true || p?.isHrmsManager === true || p?.crmRole === 'manager',
+  },
+  {
+    key:    'lms' as const,
+    name:   'LMS',
+    icon:   GraduationCap,
+    path:   '/lms',
+    desc:   'Guides · tours · training',
+    accent: '#8B5CF6',
+    check:  () => true,
   },
 ];
 

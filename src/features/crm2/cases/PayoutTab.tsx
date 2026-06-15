@@ -25,7 +25,7 @@ export const CYCLE_STATUS_LABEL: Record<PayoutCycleStatus, string> = {
   AWAITING_DATA_SHARE: 'Awaiting Data Share', CONFIRMATION_RAISED: 'Confirmation Raised',
   BANKER_CONFIRMED: 'Banker Confirmed', PDD_OTC_HOLD: 'PDD/OTC Hold',
   PAYOUT_CONFIRMED: 'Payout Confirmed', BILLED: 'Billed', RECEIVED: 'Received',
-  SUBDSA_PAID: 'Sub-DSA Paid', CLOSED: 'Closed', DISPUTED: 'Disputed',
+  SUBDSA_PAID: 'Connector Paid', CLOSED: 'Closed', DISPUTED: 'Disputed',
 };
 
 // The 10 steps (step 1 = disbursement, already done when a cycle exists).
@@ -33,7 +33,7 @@ const STEPS: Array<{ step: number; label: string; anchor: keyof PayoutCycle; fie
   { step: 2, label: 'Data shared with aggregator', anchor: 'dataSharedAt', fields: [
     { key: 'dataSharedAt', label: 'Date shared', type: 'date' }, { key: 'dataSharedTo', label: 'Shared to', type: 'text' } ] },
   { step: 3, label: 'Confirmation raised to bank SM', anchor: 'confirmationRaisedAt', fields: [
-    { key: 'confirmationRaisedAt', label: 'Date raised', type: 'date' }, { key: 'bankSmAddressed', label: 'Bank SM', type: 'text' }, { key: 'connectorCaseRef', label: 'Connector ref', type: 'text' } ] },
+    { key: 'confirmationRaisedAt', label: 'Date raised', type: 'date' }, { key: 'bankSmAddressed', label: 'Bank SM', type: 'text' }, { key: 'connectorCaseRef', label: 'Aggregator ref', type: 'text' } ] },
   { step: 4, label: 'Banker confirmation', anchor: 'bankerConfirmedAt', fields: [
     { key: 'bankerConfirmedAt', label: 'Date confirmed', type: 'date' }, { key: 'confirmedAmount', label: 'Confirmed amount', type: 'number', money: true }, { key: 'confirmedDsaCode', label: 'Confirmed DSA code', type: 'text' } ] },
   { step: 5, label: 'PDD/OTC clearance', anchor: 'pddOtcClearedMonth', fields: [
@@ -44,7 +44,7 @@ const STEPS: Array<{ step: number; label: string; anchor: keyof PayoutCycle; fie
     { key: 'billNo', label: 'Bill no', type: 'text' }, { key: 'billDate', label: 'Bill date', type: 'date' }, { key: 'billGross', label: 'Bill gross', type: 'number', money: true }, { key: 'billGst', label: 'GST', type: 'number', money: true }, { key: 'billSentAt', label: 'Sent date', type: 'date' } ] },
   { step: 8, label: 'Payout received', anchor: 'receivedAt', fields: [
     { key: 'receivedAt', label: 'Date received', type: 'date' }, { key: 'receivedNet', label: 'Received net', type: 'number', money: true }, { key: 'tdsDeducted', label: 'TDS deducted', type: 'number', money: true }, { key: 'utr', label: 'UTR', type: 'text' } ] },
-  { step: 9, label: 'Sub-DSA paid', anchor: 'subDsaPaidAt', fields: [
+  { step: 9, label: 'Connector paid', anchor: 'subDsaPaidAt', fields: [
     { key: 'subDsaPaidAt', label: 'Date paid', type: 'date' }, { key: 'subDsaPaidAmount', label: 'Amount paid', type: 'number', money: true }, { key: 'subDsaTds', label: 'TDS', type: 'number', money: true }, { key: 'subDsaUtr', label: 'UTR', type: 'text' } ] },
   { step: 10, label: 'Closure', anchor: 'closedAt', fields: [
     { key: 'closedAt', label: 'Closed date', type: 'date' } ] },

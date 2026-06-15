@@ -216,7 +216,7 @@ const SEARCH_INDEX: SearchItem[] = [
   { path: '/hrms/employees',              label: 'Employees',            icon: Users,         group: 'People', admin: true },
   { path: '/hrms/admin/access-requests',  label: 'Access Requests',      icon: Inbox,         group: 'People', admin: true },
   { path: '/hrms/admin/import-employees', label: 'Import Employees',     icon: UserPlus,      group: 'People', admin: true },
-  { path: '/hrms/admin/connectors',       label: 'Connectors',           icon: Handshake,     group: 'People', admin: true },
+  { path: '/hrms/admin/connectors',       label: 'Sub DSA',              icon: Handshake,     group: 'People', admin: true },
   { path: '/hrms/admin/attendance',       label: 'Attendance — Admin',   icon: Clock,         group: 'Time & Leave', admin: true },
   { path: '/hrms/leave/admin',            label: 'Leave Approvals',      icon: ClipboardList, group: 'Time & Leave', admin: true },
   { path: '/hrms/admin/comp-off',         label: 'Comp Off Credits',     icon: CalendarDays,  group: 'Time & Leave', admin: true },
@@ -247,7 +247,7 @@ const SEARCH_INDEX: SearchItem[] = [
 const PAGE_TITLES: Record<string, string> = {
   '/hrms/dashboard':             'Dashboard',
   '/hrms/employees':             'Employees',
-  '/hrms/admin/connectors':      'Connectors',
+  '/hrms/admin/connectors':      'Sub DSA',
   '/hrms/directory':             'Employee Directory',
   '/hrms/attendance':            'Attendance',
   '/hrms/leave':                 'Leave',
@@ -630,7 +630,7 @@ export function HrmsShell() {
             {navLink('/hrms/employees',             'Employees',       Users)}
             {navLink('/hrms/admin/access-requests', 'Access Requests', Inbox, !onAccessRequestsPage ? pendingRequests : 0, 'red')}
             {navLink('/hrms/admin/import-employees','Import Employees', UserPlus)}
-            {navLink('/hrms/admin/connectors',      'Connectors',      Handshake)}
+            {navLink('/hrms/admin/connectors',      'Sub DSA',         Handshake)}
           </NavSection>
 
           <NavSection label="Time & Leave" badge={pendingRegularizations + pendingEncashCount + leaveResetBadge} badgeColor="red" isOpen={openSections.has('Time & Leave')} onToggle={() => toggleSection('Time & Leave')}>

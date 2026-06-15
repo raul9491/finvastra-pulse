@@ -1,5 +1,6 @@
 /**
- * DSA Code Mappings tab — one mapping per Connector × Lender pair, with the
+ * DSA Code Mappings tab — one mapping per Aggregator × Lender pair (the
+ * `connectorId` field is the aggregator; UI relabelled 2026-06-15), with the
  * slab timeline editor. Editing a live slab's % is impossible by design:
  * end-date it and add a successor ("end slab & add new" flow). Overlap
  * validation runs client-side for instant feedback AND server-side as the
@@ -69,7 +70,7 @@ export function MappingsTab({ productOptions }: { productOptions: Array<{ value:
             <thead>
               <tr className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                 <th className="text-left font-semibold px-4 py-2.5">ID</th>
-                <th className="text-left font-semibold px-3 py-2.5">Connector</th>
+                <th className="text-left font-semibold px-3 py-2.5">Aggregator</th>
                 <th className="text-left font-semibold px-3 py-2.5">Lender</th>
                 <th className="text-left font-semibold px-3 py-2.5">DSA Code</th>
                 <th className="text-left font-semibold px-3 py-2.5">Slabs</th>
@@ -179,10 +180,10 @@ function CreateMappingModal({ aggregators, lenders, onClose, onCreated }: {
             </div>
           )}
           <div>
-            <FLabel text="Connector" required error={errs.connectorId} />
+            <FLabel text="Aggregator" required error={errs.connectorId} />
             <SearchableSelect
               options={aggregators.filter((a) => a.status === 'ACTIVE').map((a) => ({ value: a.id, label: a.name }))}
-              value={connectorId} onChange={setConnectorId} placeholder="Select connector…" />
+              value={connectorId} onChange={setConnectorId} placeholder="Select aggregator…" />
           </div>
           <div>
             <FLabel text="Lender" required error={errs.lenderId} />
@@ -286,8 +287,8 @@ function MappingEditorModal({ mapping, title, productOptions, productName, onClo
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-3 mt-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                      {s.subDsaDefaultPayoutPct != null && <span>Sub-DSA default {s.subDsaDefaultPayoutPct}%</span>}
-                      {s.connectorPayoutPctFromBank != null && <span>Connector-from-bank {s.connectorPayoutPctFromBank}%</span>}
+                      {s.subDsaDefaultPayoutPct != null && <span>Connector default {s.subDsaDefaultPayoutPct}%</span>}
+                      {s.connectorPayoutPctFromBank != null && <span>Aggregator-from-bank {s.connectorPayoutPctFromBank}%</span>}
                       {s.tdsPct != null && <span>TDS {s.tdsPct}%</span>}
                       <span className="font-mono">{s.slabId.slice(0, 8)}</span>
                       {live && (
@@ -409,11 +410,11 @@ function AddSlabModal({ mapping, productOptions, onClose, onSaved }: {
               <input type="number" step="0.01" className={inp(!!errs.pct)} value={pct} onChange={(e) => setPct(e.target.value)} placeholder="1.40" />
             </div>
             <div>
-              <FLabel text="Sub-DSA Default %" />
+              <FLabel text="Connector Default %" />
               <input type="number" step="0.01" className={inp()} value={subDsaPct} onChange={(e) => setSubDsaPct(e.target.value)} placeholder="optional" />
             </div>
             <div>
-              <FLabel text="Connector-from-Bank %" />
+              <FLabel text="Aggregator-from-Bank %" />
               <input type="number" step="0.01" className={inp()} value={connPct} onChange={(e) => setConnPct(e.target.value)} placeholder="transparency only" />
             </div>
             <div>

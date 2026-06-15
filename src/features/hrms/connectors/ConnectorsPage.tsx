@@ -148,21 +148,21 @@ function ConnectorFormModal({ connector, suggestedCode, uid, onClose }: {
   );
 
   return (
-    <Modal isOpen onClose={onClose} title={connector ? `Edit ${connector.connectorCode}` : 'Add Connector'} size="lg"
+    <Modal isOpen onClose={onClose} title={connector ? `Edit ${connector.connectorCode}` : 'Add Sub DSA'} size="lg"
       footer={
         <>
           <button onClick={onClose} className="px-5 py-2.5 text-sm border border-(--shell-border) rounded-xl" style={{ color: 'var(--text-primary)' }}>Cancel</button>
           <button onClick={handleSave} disabled={busy}
             className="px-7 py-2.5 text-sm font-semibold rounded-xl disabled:opacity-50"
             style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
-            {busy ? 'Saving…' : connector ? 'Save Changes' : 'Add Connector'}
+            {busy ? 'Saving…' : connector ? 'Save Changes' : 'Add Sub DSA'}
           </button>
         </>
       }>
       <div className="space-y-3.5">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={labelCls} style={{ color: errs.connectorCode ? '#DC2626' : 'var(--text-muted)' }}>Connector Code *</label>
+            <label className={labelCls} style={{ color: errs.connectorCode ? '#DC2626' : 'var(--text-muted)' }}>Sub DSA Code *</label>
             <input value={form.connectorCode} onChange={(e) => set('connectorCode', e.target.value)} className={inpCls(errs.connectorCode)} style={{ color: 'var(--text-primary)' }} />
           </div>
           <div>
@@ -525,7 +525,7 @@ export function ConnectorsPage() {
       <div className="flex items-start justify-between mb-6 gap-4">
         <div>
           <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-            Connectors
+            Sub DSA
           </h2>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
             Channel partners who source loan, insurance &amp; wealth cases — their name populates when you add a case in CRM
@@ -534,14 +534,14 @@ export function ConnectorsPage() {
         <button onClick={() => setFormFor('new')}
           className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl shrink-0"
           style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
-          <Plus size={15} /> Add Connector
+          <Plus size={15} /> Add Sub DSA
         </button>
       </div>
 
       {/* Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
         {[
-          { label: 'Total Connectors', value: String(connectors.length), color: 'var(--text-primary)', icon: Handshake },
+          { label: 'Total Sub DSAs', value: String(connectors.length), color: 'var(--text-primary)', icon: Handshake },
           { label: 'Active',           value: String(activeCount),       color: '#065F46', icon: CheckCircle2 },
           { label: 'Pending Payouts',  value: rupee(totalPending),       color: '#92400E', icon: IndianRupee },
         ].map(({ label, value, color, icon: Icon }) => (
@@ -596,7 +596,7 @@ export function ConnectorsPage() {
               )}
               {!loading && filtered.length === 0 && (
                 <tr><td colSpan={7} className="text-center py-10 text-sm" style={{ color: 'var(--text-muted)' }}>
-                  No connectors yet. Click <strong>Add Connector</strong> to onboard one.
+                  No Sub DSAs yet. Click <strong>Add Sub DSA</strong> to onboard one.
                 </td></tr>
               )}
               {filtered.map((c) => {
@@ -636,7 +636,7 @@ export function ConnectorsPage() {
       </div>
 
       <p className="text-[11px] mt-3" style={{ color: 'var(--text-muted)' }}>
-        Connectors have no Google Workspace login. Their PAN &amp; bank details are visible to admin/HR only and are used for payouts.
+        Sub DSAs have no Google Workspace login. Their PAN &amp; bank details are visible to admin/HR only and are used for payouts.
       </p>
 
       {/* Modals */}

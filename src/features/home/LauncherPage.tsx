@@ -1,6 +1,6 @@
 import { Navigate, useNavigate, Link } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
-import { Users, TrendingUp, BarChart3, ArrowRight, LogOut, Command, Share2 } from 'lucide-react';
+import { Users, TrendingUp, BarChart3, ArrowRight, LogOut, Command, Share2, GraduationCap } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../auth/AuthContext';
 import { VideoLogo } from '../../components/ui/VideoLogo';
@@ -101,7 +101,8 @@ export function LauncherPage() {
   const showHrms = isAdmin || profile?.hrmsAccess !== false || sharesByModule.hrms.length > 0;
   const showCrm  = isAdmin || profile?.crmAccess === true   || sharesByModule.crm.length > 0;
   const showMis  = isAdmin || profile?.misAccess != null    || sharesByModule.mis.length > 0;
-  const showCommand = isAdmin || profile?.commandCentreAccess === true;
+  const showCommand = isAdmin || profile?.commandCentreAccess === true || profile?.isHrmsManager === true || profile?.crmRole === 'manager';
+  const showLms = true;   // Learning is for everyone
 
   const firstName = profile?.displayName?.split(' ')[0] ?? 'there';
 
@@ -164,16 +165,16 @@ export function LauncherPage() {
 
           {/* Module tiles */}
           {(() => {
-            const tileCount = [showCommand, showHrms, showCrm, showMis].filter(Boolean).length;
-            const gridClass = tileCount >= 4 ? 'md:grid-cols-2' : tileCount === 3 ? 'md:grid-cols-3' : tileCount === 2 ? 'md:grid-cols-2' : 'max-w-sm';
+            const tileCount = [showCommand, showHrms, showCrm, showMis, showLms].filter(Boolean).length;
+            const gridClass = tileCount >= 5 ? 'md:grid-cols-3' : tileCount === 4 ? 'md:grid-cols-2' : tileCount === 3 ? 'md:grid-cols-3' : tileCount === 2 ? 'md:grid-cols-2' : 'max-w-sm';
             return (
               <div className={`grid gap-6 ${gridClass}`}>
                 {showCommand && (
                   <ModuleTile
                     icon={<Command size={24} />}
-                    name="Command Centre"
-                    description="Team overview + pending actions across HR, CRM, and MIS."
-                    path="/crm/command-centre"
+                    name="Command & Compliance"
+                    description="Cross-module oversight + statutory compliance (Command Centre, Compliance, PF)."
+                    path="/command"
                     accentColor="#C9A961"
                   />
                 )}
@@ -202,6 +203,15 @@ export function LauncherPage() {
                     description="Commission reconciliation, statement imports, and RM payout management."
                     path="/mis/overview"
                     accentColor="#166534"
+                  />
+                )}
+                {showLms && (
+                  <ModuleTile
+                    icon={<GraduationCap size={24} />}
+                    name="LMS"
+                    description="Guides, guided tours and training to get faster at Pulse."
+                    path="/lms"
+                    accentColor="#8B5CF6"
                   />
                 )}
               </div>

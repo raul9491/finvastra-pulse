@@ -677,6 +677,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Meta leadgen dead-letters — events that exhausted retries or are unusable.
+    // Server-only write (Admin SDK); admin read for an ops view / alerting.
+    match /meta_lead_deadletters/{leadgenId} {
+      allow read:  if isAdmin();
+      allow write: if false;
+    }
+
     // ─── Rate Limits (Firestore-based rate limiting) ─────────────────────────────
     // Server-only: Admin SDK bypasses rules. Client access denied.
     match /rate_limits/{key} {

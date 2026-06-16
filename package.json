@@ -28,7 +28,9 @@
     "verify:deploy": "bash scripts/verify-deploy.sh",
     "test:email": "tsx scripts/test/testSmtp.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "qa:meta": "bash .qa/run-meta-gate.sh",
+    "qa:meta:inspect": "tsx scripts/test/inspectMetaLead.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  verifyMetaSignature, signMetaPayload, extractLeadgenEvents, mapMetaFields,
+  verifyMetaSignature, signMetaPayload, extractLeadgenEvents, mapMetaFields, inferCategory,
 } from './meta';
 
 const SECRET = 'test_app_secret_value';
@@ -96,7 +96,10 @@ describe('mapMetaFields', () => {
       fd('full_name', '  Asha Rao '), fd('phone_number', '+91 97010 97333'),
       fd('email', 'ASHA@Example.com'), fd('city', 'Hyderabad'),
     ]);
-    expect(m).toEqual({ name: 'Asha Rao', mobile: '9701097333', email: 'ASHA@Example.com', city: 'Hyderabad' });
+    expect(m).toEqual({
+      name: 'Asha Rao', mobile: '9701097333', email: 'ASHA@Example.com', city: 'Hyderabad',
+      productInterest: null, category: null,
+    });
   });
 
   it('joins first_name + last_name when full_name is absent', () => {
@@ -114,8 +117,47 @@ describe('mapMetaFields', () => {
     expect(m).toMatchObject({ name: 'Ravi', mobile: '9876543210', email: 'r@x.io' });
   });
 
-  it('returns nulls for empty / missing data', () => {
-    expect(mapMetaFields([])).toEqual({ name: null, mobile: null, email: null, city: null });
-    expect(mapMetaFields(null)).toEqual({ name: null, mobile: null, email: null, city: null });
+  it('returns nulls (incl. product/category) for empty / missing data', () => {
+    const empty = { name: null, mobile: null, email: null, city: null, productInterest: null, category: null };
+    expect(mapMetaFields([])).toEqual(empty);
+    expect(mapMetaFields(null)).toEqual(empty);
+  });
+
+  it('captures the product answer + infers the vertical', () => {
+    const m = mapMetaFields([fd('full_name', 'A'), fd('phone', '9701097333'), fd('loan_type', 'Home Loan')]);
+    expect(m.productInterest).toBe('Home Loan');
+    expect(m.category).toBe('LOAN');
+  });
+
+  it('matches product aliases (interested_in / which_loan / select_product)', () => {
+    expect(mapMetaFields([fd('interested_in', 'SIP / Mutual Funds')]).category).toBe('WEALTH');
+    expect(mapMetaFields([fd('which_loan', 'LAP')]).category).toBe('LOAN');
+    expect(mapMetaFields([fd('select_product', 'Term Insurance')]).category).toBe('INSURANCE');
+  });
+
+  it('leaves product null when the form asked no product question', () => {
+    const m = mapMetaFields([fd('full_name', 'A'), fd('phone', '9701097333')]);
+    expect(m.productInterest).toBeNull();
+    expect(m.category).toBeNull();
+  });
+});
+
+describe('inferCategory', () => {
+  it('infers LOAN / WEALTH / INSURANCE from keywords', () => {
+    expect(inferCategory('Home Loan')).toBe('LOAN');
+    expect(inferCategory('Loan Against Property')).toBe('LOAN');
+    expect(inferCategory('Balance Transfer')).toBe('LOAN');
+    expect(inferCategory('SIP')).toBe('WEALTH');
+    expect(inferCategory('Mutual Fund investment')).toBe('WEALTH');
+    expect(inferCategory('Term Insurance')).toBe('INSURANCE');
+    expect(inferCategory('Health cover / mediclaim')).toBe('INSURANCE');
+  });
+  it('prefers INSURANCE when "term"/"health" would otherwise mislead', () => {
+    expect(inferCategory('term plan')).toBe('INSURANCE');
+  });
+  it('returns null for nothing / unknown', () => {
+    expect(inferCategory(null)).toBeNull();
+    expect(inferCategory('')).toBeNull();
+    expect(inferCategory('just curious')).toBeNull();
   });
 });

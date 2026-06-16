@@ -854,6 +854,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   const META_APP_SECRET = process.env.META_APP_SECRET || "";
   const META_PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN || "";
   const META_GRAPH_VERSION = process.env.META_GRAPH_VERSION || "v23.0";
+  // Graph API base — overridable so the emulator gate can point it at a local mock
+  // (offline/CI). Defaults to the real Graph host in every real environment.
+  const META_GRAPH_BASE = (process.env.META_GRAPH_BASE || "https://graph.facebook.com").replace(/\/$/, "");
   const META_MAX_ATTEMPTS = 5;
 
   type MetaEvt = MetaLeadgenEvent;
@@ -884,6 +887,22 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     }).catch((e) => console.error("[meta webhook_log write failed]", e));
   }
 
+  /** A leadgen event has exhausted retries (or is permanently unusable). Surface it
+   *  to a human: an error-severity STRUCTURED log (Cloud Logging → alertable) + a
+   *  durable doc in `meta_lead_deadletters` an admin view can query. Never logs the
+   *  token or full PII (only the leadgen_id + reason). */
+  async function deadLetterMeta(leadgenId: string, attempts: number, reason: string): Promise<void> {
+    // Structured, error-severity — a log-based alert policy fires on this (see GO-LIVE.md).
+    console.error(JSON.stringify({
+      severity: "ERROR", event: "meta_lead_deadletter",
+      leadgenId, attempts, reason: reason.slice(0, 300),
+    }));
+    await db.collection("meta_lead_deadletters").doc(leadgenId).set({
+      leadgenId, attempts, reason: reason.slice(0, 500),
+      resolved: false, deadLetteredAt: FieldValue.serverTimestamp(),
+    }, { merge: true }).catch((e) => console.error("[meta deadletter write failed]", e));
+  }
+
   /** Pull the full lead (field_data) from the Graph API by leadgen_id. */
   async function fetchMetaLead(leadgenId: string): Promise<{
     fieldData: Array<{ name?: unknown; values?: unknown }>;
@@ -892,7 +911,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     if (!META_PAGE_ACCESS_TOKEN) throw new Error("META_PAGE_ACCESS_TOKEN unset");
     const fields = "field_data,created_time,ad_id,form_id,campaign_id,is_organic";
     // NOTE: never log this URL — it carries the access token.
-    const url = `https://graph.facebook.com/${META_GRAPH_VERSION}/${encodeURIComponent(leadgenId)}`
+    const url = `${META_GRAPH_BASE}/${META_GRAPH_VERSION}/${encodeURIComponent(leadgenId)}`
       + `?fields=${fields}&access_token=${encodeURIComponent(META_PAGE_ACCESS_TOKEN)}`;
     const resp = await fetch(url, { method: "GET" });
     const json = (await resp.json().catch(() => ({}))) as Record<string, unknown>;
@@ -928,8 +947,11 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     } catch (e) {
       const msg = (e instanceof Error ? e.message : String(e)).slice(0, 500);
       const terminal = attempts >= META_MAX_ATTEMPTS;
-      await ref.update({ status: "failed", lastError: msg, terminal, updatedAt: FieldValue.serverTimestamp() });
-      if (terminal) { console.error(`[meta] dead-letter ${leadgenId}: ${msg}`); await logMetaWebhook("error", null, msg); }
+      await ref.update({
+        status: "failed", lastError: msg, terminal,
+        ...(terminal ? { deadLetter: true } : {}), updatedAt: FieldValue.serverTimestamp(),
+      });
+      if (terminal) { await deadLetterMeta(leadgenId, attempts, `graph fetch: ${msg}`); await logMetaWebhook("error", null, msg); }
       return;
     }
 
@@ -938,7 +960,8 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     if (!m.name || !m.mobile) {
       // Graph fetch worked but the lead is unusable — retrying won't help → terminal.
       const why = `${!m.name ? "missing name " : ""}${!m.mobile ? "missing/invalid mobile" : ""}`.trim();
-      await ref.update({ status: "failed", terminal: true, lastError: `invalid lead: ${why}`, updatedAt: FieldValue.serverTimestamp() });
+      await ref.update({ status: "failed", terminal: true, deadLetter: true, lastError: `invalid lead: ${why}`, updatedAt: FieldValue.serverTimestamp() });
+      await deadLetterMeta(leadgenId, attempts, `invalid lead: ${why}`);
       await logMetaWebhook("invalid", null, `leadgen ${leadgenId}: ${why}`);
       return;
     }
@@ -956,13 +979,18 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       const newId = await nextIdInTx(tx, leadYearCounter(), `LD-${year}-`, 5);
       tx.set(db.collection("leads").doc(newId), {
         receivedAt: FieldValue.serverTimestamp(),
-        category: "GENERAL", productId: null,
+        // Deterministic keyword inference of the vertical from the form's product
+        // answer (no AI). GENERAL when the Instant Form asked no product question.
+        category: m.category ?? "GENERAL", productId: null,
         name: m.name, mobile: m.mobile, email: m.email ?? null, city: m.city ?? null,
         source: "ADS",
         sourceMeta: {
           formId: pulled.formId ?? (e.formId as string | null) ?? null,
           sourceUrl: null,
           utm: pulled.campaignId ? { campaign: pulled.campaignId } : null,
+          // The raw product answer (Phase 2 routing keys off this; its absence is a
+          // go-live blocker flagged by the inspect helper).
+          productInterest: m.productInterest ?? null,
           // Meta provenance (extra keys — schemaless; for traceability/recon).
           leadgenId, adId: pulled.adId ?? (e.adId as string | null) ?? null,
           pageId: (e.pageId as string | null) ?? null,
@@ -1040,6 +1068,55 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       processed++;
     }
     res.json({ ok: true, scanned: snap.size, processed, skipped });
+  }));
+
+  // GET — admin inspect a leadgen event + the lead it produced (go-live verification).
+  // Prints the event state machine + every mapped lead field, and ASSERTS product
+  // interest is present (its absence ⇒ the Instant Form is missing the product
+  // question, which Phase 2 routing depends on).
+  app.get("/api/crm2/admin/meta-event/:leadgenId", route(async (req, res) => {
+    const decoded = await decodeToken(req);
+    if (!decoded) { res.status(401).json({ error: "Unauthorized" }); return; }
+    const isAdmin = decoded.role === "admin"
+      || (await db.collection("users").doc(decoded.uid).get()).data()?.role === "admin";
+    if (!isAdmin) { res.status(403).json({ error: "Admin only" }); return; }
+
+    const leadgenId = req.params.leadgenId;
+    const evtSnap = await db.collection("meta_lead_events").doc(leadgenId).get();
+    if (!evtSnap.exists) { res.status(404).json({ error: `No meta_lead_events doc for ${leadgenId}` }); return; }
+    const evt = evtSnap.data() as Record<string, unknown>;
+    const dlSnap = await db.collection("meta_lead_deadletters").doc(leadgenId).get();
+
+    let lead: Record<string, unknown> | null = null;
+    if (isStr(evt.leadId)) {
+      const leadSnap = await db.collection("leads").doc(String(evt.leadId)).get();
+      lead = leadSnap.exists ? (leadSnap.data() as Record<string, unknown>) : null;
+    }
+
+    const sourceMeta = (lead?.sourceMeta ?? null) as Record<string, unknown> | null;
+    const productInterest = (sourceMeta?.productInterest as string | null) ?? null;
+    const category = (lead?.category as string | null) ?? null;
+    const productInterestPresent = !!productInterest || (category != null && category !== "GENERAL");
+
+    res.json({
+      leadgenId,
+      event: {
+        status: evt.status ?? null, attempts: evt.attempts ?? 0,
+        terminal: evt.terminal ?? false, deadLetter: evt.deadLetter ?? false,
+        lastError: evt.lastError ?? null, leadId: evt.leadId ?? null,
+      },
+      deadLetter: dlSnap.exists ? dlSnap.data() : null,
+      lead: lead && {
+        id: evt.leadId, name: lead.name, mobile: lead.mobile, email: lead.email,
+        city: lead.city, source: lead.source, status: lead.status,
+        category, productInterest, sourceMeta, duplicateOfLeadId: lead.duplicateOfLeadId ?? null,
+      },
+      productInterestPresent,
+      productInterestMessage: productInterestPresent
+        ? "OK — product interest captured; Phase 2 routing has a signal."
+        : "BLOCKER — landed lead has NO product/interest field. Add a product question to "
+          + "the Meta Instant Form (e.g. 'Which product?' → Loan/LAP/SIP/Insurance); Phase 2 routing depends on it.",
+    });
   }));
 
   // ─── Internal lead create ─────────────────────────────────────────────────────

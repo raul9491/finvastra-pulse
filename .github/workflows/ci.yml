@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # The Firestore emulator (used by the Meta gate) needs a JRE.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      # Meta webhook emulator gate — boots auth+firestore emulators + the dev server
+      # pointed at an in-process mock Graph API (offline; no real Meta token).
+      - name: Meta webhook gate (qa:meta)
+        run: npm run qa:meta

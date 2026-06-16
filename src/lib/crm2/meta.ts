@@ -81,11 +81,33 @@ export function extractLeadgenEvents(body: unknown): MetaLeadgenEvent[] {
   return out;
 }
 
+export type Crm2Category = 'LOAN' | 'WEALTH' | 'INSURANCE';
+
 export interface MappedMetaLead {
   name: string | null;
   mobile: string | null;   // normalised 10-digit Indian mobile, or null
   email: string | null;
   city: string | null;
+  /** The raw answer to the form's product/interest question, if the Instant Form
+   *  asked one. Phase 2 routing keys off this — its absence is a go-live blocker. */
+  productInterest: string | null;
+  /** Deterministic keyword inference of the business vertical from productInterest. */
+  category: Crm2Category | null;
+}
+
+/**
+ * Deterministic (no-AI) keyword inference of the CRM 2.0 vertical from the form's
+ * product answer. Returns null when nothing matches (caller falls back to GENERAL).
+ */
+export function inferCategory(productInterest: string | null | undefined): Crm2Category | null {
+  if (!productInterest) return null;
+  const s = productInterest.toLowerCase();
+  const has = (...words: string[]) => words.some((w) => s.includes(w));
+  // Insurance first — "term"/"health" are unambiguous and would false-match below.
+  if (has('insurance', 'policy', 'term plan', 'term life', 'health cover', 'mediclaim', 'ulip', 'endowment')) return 'INSURANCE';
+  if (has('loan', 'lap', 'mortgage', 'home loan', 'personal loan', 'business loan', 'od ', 'overdraft', 'credit', 'bt ', 'balance transfer', 'finance')) return 'LOAN';
+  if (has('sip', 'mutual', 'mf', 'wealth', 'invest', 'portfolio', 'pms', 'aif', 'bond', 'nps', 'fd', 'demat', 'equity')) return 'WEALTH';
+  return null;
 }
 
 /**
@@ -112,10 +134,16 @@ export function mapMetaFields(
     name = parts.length ? parts.join(' ') : null;
   }
   const rawPhone = get('phone_number', 'phone', 'mobile_number', 'mobile', 'contact_number', 'whatsapp_number');
+  const productInterest = get(
+    'product', 'product_interest', 'loan_type', 'loan_product', 'interested_in',
+    'service', 'which_loan', 'requirement', 'i_am_interested_in', 'select_product', 'type_of_loan',
+  );
   return {
     name,
     mobile: rawPhone ? normaliseMobile(rawPhone) : null,
     email: get('email', 'email_address', 'work_email'),
     city: get('city', 'town', 'city_name', 'location'),
+    productInterest,
+    category: inferCategory(productInterest),
   };
 }

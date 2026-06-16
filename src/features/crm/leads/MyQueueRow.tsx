@@ -21,6 +21,7 @@ const SOURCE_STYLES: Record<LeadSource, { bg: string; text: string }> = {
   offline_bulk:      { bg: 'var(--glass-panel-bg)', text: 'var(--text-muted)' },
   walkin:            { bg: 'rgba(52,211,153,0.15)', text: '#34d399' },
   referral:          { bg: 'rgba(52,211,153,0.15)', text: '#34d399' },
+  sub_dsa:           { bg: 'var(--glass-panel-bg)', text: 'var(--text-muted)' },
   broker:            { bg: 'var(--glass-panel-bg)', text: 'var(--text-muted)' },
   employee_referral: { bg: 'rgba(201,169,97,0.15)', text: '#C9A961' },
 };
@@ -33,6 +34,7 @@ const SOURCE_LABELS: Record<LeadSource, string> = {
   offline_bulk:      'Offline',
   walkin:            'Walk-in',
   referral:          'Referral',
+  sub_dsa:           'Sub DSA',
   broker:            'Broker',
   employee_referral: 'Employee Ref',
 };

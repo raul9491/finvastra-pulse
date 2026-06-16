@@ -39,6 +39,7 @@ const SOURCE_LABELS: Partial<Record<LeadSource, string>> = {
   social_meta:  'Social (Meta)',
   walkin:       'Walk-in',
   referral:     'Referral',
+  sub_dsa:      'Sub DSA',
   broker:       'Broker',
   offline_bulk: 'Offline Bulk',
 };

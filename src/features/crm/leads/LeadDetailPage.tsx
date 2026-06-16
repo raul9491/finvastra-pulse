@@ -47,7 +47,7 @@ const STATUS_STYLES: Record<OpportunityStatus, string> = {
 
 const SOURCE_LABELS: Record<string, string> = {
   website: 'Website', instagram: 'Instagram', facebook: 'Facebook',
-  walkin: 'Walk-in', referral: 'Referral', broker: 'Broker',
+  walkin: 'Walk-in', referral: 'Referral', sub_dsa: 'Sub DSA', broker: 'Broker',
 };
 
 // ─── Mini stage progress dots ─────────────────────────────────────────────────

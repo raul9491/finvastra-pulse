@@ -50,7 +50,19 @@ const STEPS: Array<{ step: number; label: string; anchor: keyof PayoutCycle; fie
     { key: 'closedAt', label: 'Closed date', type: 'date' } ] },
 ];
 
+// Legacy per-case wrapper (kept for any login-less case). Per-login cycles use
+// <CycleMilestones> directly (e.g. from the MIS Payout board).
 export function PayoutTab({ caseDoc }: { caseDoc: Crm2Case & { id: string } }) {
+  if (!caseDoc.payoutCycleId) {
+    return <div className="glass-panel p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+      No payout cycle yet — it is created automatically when the case/login is disbursed.
+    </div>;
+  }
+  return <CycleMilestones cycleId={caseDoc.payoutCycleId} />;
+}
+
+/** The 9-step payout milestone timeline + forms for ONE cycle (per-login or legacy). */
+export function CycleMilestones({ cycleId }: { cycleId: string }) {
   const { profile } = useAuth();
   const toast = useToast();
   const [cycle, setCycle] = useState<(PayoutCycle & { id: string }) | null>(null);
@@ -61,19 +73,13 @@ export function PayoutTab({ caseDoc }: { caseDoc: Crm2Case & { id: string } }) {
   const canMoney = hasCrm2Perm(profile, 'payout.amounts.read');
 
   const load = async () => {
-    if (!caseDoc.payoutCycleId) { setLoading(false); return; }
     try {
-      const r = await apiCrm2<{ ok: boolean; cycle: PayoutCycle & { id: string } }>('GET', `/api/crm2/payout-cycles/${caseDoc.payoutCycleId}`);
+      const r = await apiCrm2<{ ok: boolean; cycle: PayoutCycle & { id: string } }>('GET', `/api/crm2/payout-cycles/${cycleId}`);
       setCycle(r.cycle);
     } catch { /* ignore */ } finally { setLoading(false); }
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [caseDoc.payoutCycleId]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [cycleId]);
 
-  if (caseDoc.stage !== 'DISBURSED' && caseDoc.stage !== 'PDD_OTC' && caseDoc.stage !== 'CLOSED') {
-    return <div className="glass-panel p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-      No payout cycle yet — it is created automatically when the case is disbursed.
-    </div>;
-  }
   if (loading) return <div className="glass-panel p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Loading payout cycle…</div>;
   if (!cycle) return <div className="glass-panel p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Payout cycle not found.</div>;
 

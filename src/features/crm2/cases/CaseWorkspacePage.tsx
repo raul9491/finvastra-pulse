@@ -18,6 +18,7 @@ import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
 import { FLabel, inp } from '../masters/MastersPage';
 import { STAGE_LABEL } from './Crm2CasesPage';
 import { PayoutTab, DisburseDialog } from './PayoutTab';
+import { LoginsSection } from './LoginsSection';
 import {
   CASE_STAGE_ORDER,
   type Crm2Case, type CaseStage, type Applicant, type DocTrackerRow,
@@ -50,7 +51,7 @@ export function CaseWorkspacePage() {
   const [caseDoc, setCaseDoc] = useState<(Crm2Case & { id: string }) | null>(null);
   const [client, setClient] = useState<(Client & { id: string }) | null>(null);
   const [mirror, setMirror] = useState<CasePayoutMirror | null>(null);
-  const [tab, setTab] = useState<'details' | 'applicants' | 'documents' | 'payout' | 'history'>('details');
+  const [tab, setTab] = useState<'details' | 'applicants' | 'documents' | 'logins' | 'payout' | 'history'>('details');
   const [showDisburse, setShowDisburse] = useState(false);
 
   const applicants = useSubcollection<Applicant>(['cases', caseId!, 'applicants']);
@@ -196,7 +197,7 @@ export function CaseWorkspacePage() {
 
       {/* Tabs */}
       <div className="flex gap-1.5 flex-wrap">
-        {(['details', 'applicants', 'documents', 'payout', 'history'] as const).map((t) => (
+        {(['details', 'applicants', 'documents', 'logins', 'payout', 'history'] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className="px-3.5 py-2 rounded-lg text-sm font-semibold capitalize transition-colors"
             style={tab === t
@@ -219,6 +220,7 @@ export function CaseWorkspacePage() {
           clientId={caseDoc.clientId} defName={defName} applicantName={applicantName}
           docDefs={docDefs} applicants={applicants} canWrite={canWrite} />
       )}
+      {tab === 'logins' && <LoginsSection caseId={caseDoc.id} canWrite={canWrite} />}
       {tab === 'payout' && <PayoutTab caseDoc={caseDoc} />}
       {tab === 'history' && (
         <div className="glass-panel p-5 space-y-2">

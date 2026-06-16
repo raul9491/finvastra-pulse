@@ -8,9 +8,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { Plus, X, ArrowRight, Pencil } from 'lucide-react';
 import { db } from '../../../lib/firebase';
+import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
-import { apiCrm2, useCrm2Collection } from '../lib';
+import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
 import { FLabel, inp } from '../masters/MastersPage';
 import { rollUpCaseStatus } from '../../../lib/crm2/logins';
 import { LOGIN_STAGE_ORDER, type Login, type LoginStage, type Lender } from '../../../types/crm2';
@@ -28,10 +29,13 @@ const fmtMoney = (n: number | null | undefined) => (n == null ? '—' : `₹${n.
 
 export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: boolean }) {
   const toast = useToast();
+  const { profile } = useAuth();
+  const canDisburse = hasCrm2Perm(profile, 'payout.write');
   const { rows: lenders } = useCrm2Collection<Lender & { id: string }>('lenders');
   const [logins, setLogins] = useState<LoginRow[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<LoginRow | null>(null);
+  const [disbursing, setDisbursing] = useState<LoginRow | null>(null);
 
   useEffect(() => {
     const qy = query(collection(db, 'cases', caseId, 'logins'), orderBy('seq', 'asc'));
@@ -93,9 +97,15 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
                     <Pencil size={12} /> Edit
                   </button>
                   {next === 'DISBURSED' ? (
-                    <span className="text-[11px] px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: 'var(--shell-hover-soft)', color: 'var(--text-muted)' }}>
-                      Disbursement → money engine (next build)
-                    </span>
+                    canDisburse ? (
+                      <button onClick={() => setDisbursing(l)} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+                        Record Disbursement
+                      </button>
+                    ) : (
+                      <span className="text-[11px] px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: 'var(--shell-hover-soft)', color: 'var(--text-muted)' }}>
+                        Disbursement needs payout.write
+                      </span>
+                    )
                   ) : next ? (
                     <button onClick={() => advance(l, next)} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
                       Advance → {STAGE_LABEL[next]} <ArrowRight size={12} />
@@ -145,7 +155,68 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
 
       {showAdd && <AddLoginModal caseId={caseId} lenders={lenders} onClose={() => setShowAdd(false)} />}
       {editing && <EditLoginModal caseId={caseId} login={editing} lenders={lenders} onClose={() => setEditing(null)} />}
+      {disbursing && <DisburseLoginDialog caseId={caseId} login={disbursing} onClose={() => setDisbursing(null)} />}
     </div>
+  );
+}
+
+// ─── Record a per-login disbursement → creates the payout cycle + MIS record ───
+function DisburseLoginDialog({ caseId, login, onClose }: { caseId: string; login: LoginRow; onClose: () => void }) {
+  const toast = useToast();
+  const [f, setF] = useState({
+    disbursedAmount: login.amountSanctioned?.toString() ?? '', disbursementDate: '',
+    loanAccountNo: '', city: '', state: '', roiPct: login.roiPct?.toString() ?? '', processingFee: login.processingFee?.toString() ?? '',
+  });
+  const [preview, setPreview] = useState<{ slab?: { finvastraPayoutPct: number }; expected?: { expectedGross: number } | null; dsaCode?: string } | null>(null);
+  const [previewErr, setPreviewErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
+
+  // Live slab preview (best-effort — needs payout.amounts.read).
+  useEffect(() => {
+    const amt = Number(f.disbursedAmount); if (!amt || !f.disbursementDate) { setPreview(null); setPreviewErr(''); return; }
+    let cancel = false;
+    apiCrm2<{ ok: boolean; slab: { finvastraPayoutPct: number }; expected: { expectedGross: number } | null; dsaCode: string }>(
+      'GET', `/api/crm2/cases/${caseId}/logins/${login.id}/disburse-preview?amount=${amt}&date=${new Date(f.disbursementDate).toISOString()}`)
+      .then((r) => { if (!cancel) { setPreview(r); setPreviewErr(''); } })
+      .catch((e) => { if (!cancel) { setPreview(null); setPreviewErr(e instanceof Error ? e.message : ''); } });
+    return () => { cancel = true; };
+  }, [caseId, login.id, f.disbursedAmount, f.disbursementDate]);
+
+  const save = async () => {
+    if (!f.disbursedAmount || !f.disbursementDate || !f.loanAccountNo || !f.city || !f.state) { setErr('Amount, date, loan a/c, city and state are required'); return; }
+    setBusy(true); setErr('');
+    try {
+      const r = await apiCrm2<{ ok: boolean; cycleId: string }>('POST', `/api/crm2/cases/${caseId}/logins/${login.id}/disburse`, {
+        disbursedAmount: Number(f.disbursedAmount), disbursementDate: new Date(f.disbursementDate).toISOString(),
+        loanAccountNo: f.loanAccountNo, city: f.city, state: f.state,
+        roiPct: f.roiPct ? Number(f.roiPct) : null, processingFee: f.processingFee ? Number(f.processingFee) : null,
+      });
+      toast.success(`Disbursed → payout cycle ${r.cycleId} created (manage in MIS)`); onClose();
+    } catch (e) { setErr(e instanceof Error ? e.message : 'Disburse failed'); } finally { setBusy(false); }
+  };
+
+  return (
+    <Modal title={`Record Disbursement · ${login.id}`} onClose={onClose}>
+      {err && <p className="text-sm" style={{ color: '#f87171' }}>{err}</p>}
+      <div className="grid grid-cols-2 gap-3">
+        <div><FLabel text="Disbursed ₹" required /><input type="number" className={inp()} value={f.disbursedAmount} onChange={(e) => set('disbursedAmount', e.target.value)} /></div>
+        <div><FLabel text="Disbursement Date" required /><input type="date" className={inp()} value={f.disbursementDate} onChange={(e) => set('disbursementDate', e.target.value)} /></div>
+        <div className="col-span-2"><FLabel text="Loan Account No" required /><input className={inp()} value={f.loanAccountNo} onChange={(e) => set('loanAccountNo', e.target.value)} /></div>
+        <div><FLabel text="City" required /><input className={inp()} value={f.city} onChange={(e) => set('city', e.target.value)} /></div>
+        <div><FLabel text="State" required /><input className={inp()} value={f.state} onChange={(e) => set('state', e.target.value)} /></div>
+        <div><FLabel text="ROI %" /><input type="number" className={inp()} value={f.roiPct} onChange={(e) => set('roiPct', e.target.value)} /></div>
+        <div><FLabel text="Processing Fee ₹" /><input type="number" className={inp()} value={f.processingFee} onChange={(e) => set('processingFee', e.target.value)} /></div>
+      </div>
+      {preview?.slab && (
+        <div className="px-3 py-2 rounded-lg text-xs" style={{ backgroundColor: 'rgba(201,169,97,0.1)', color: '#C9A961' }}>
+          Slab {preview.slab.finvastraPayoutPct}% · DSA {preview.dsaCode}{preview.expected ? ` → expected ₹${preview.expected.expectedGross.toLocaleString('en-IN')}` : ''}
+        </div>
+      )}
+      {previewErr && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{previewErr}</p>}
+      <ModalButtons busy={busy} onClose={onClose} onSave={save} saveLabel="Disburse" />
+    </Modal>
   );
 }
 

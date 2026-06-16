@@ -2228,6 +2228,222 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     }
   }));
 
+  // ─── POST /api/crm2/cases/:id/logins/:loginId/disburse (Phase 4 per-login) ───
+  // The unit of disbursement/payout is now the LOGIN. Freezes economics onto the
+  // login + atomically creates a payout cycle (PC- per login) + MIS record
+  // (id == loginId). Mirrors the per-case engine; the cycle carries caseId+loginId
+  // so the milestone engine, recon and dashboards work unchanged.
+  app.post("/api/crm2/cases/:id/logins/:loginId/disburse", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "payout.write");
+    if (!caller) return;
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const caseId = req.params.id, loginId = req.params.loginId;
+
+    const disbursedAmount = optNum(b, "disbursedAmount");
+    if (disbursedAmount == null || disbursedAmount <= 0) throw new ApiError(400, "disbursedAmount must be a positive number");
+    const disbDate = optTs(b, "disbursementDate");
+    if (!disbDate) throw new ApiError(400, "disbursementDate is required (ISO date)");
+    const loanAccountNo = reqStr(b, "loanAccountNo");
+    const city = reqStr(b, "city");
+    const state = reqStr(b, "state");
+    const roiPct = optNum(b, "roiPct");
+    const processingFee = optNum(b, "processingFee");
+    const subDsaPctOverride = optNum(b, "subDsaPayoutPct");
+
+    const caseRef = db.collection("cases").doc(caseId);
+    const loginRef = caseRef.collection("logins").doc(loginId);
+    const [caseSnap, loginSnap] = await Promise.all([caseRef.get(), loginRef.get()]);
+    if (!caseSnap.exists) throw new ApiError(404, `${caseId} not found`);
+    if (!loginSnap.exists) throw new ApiError(404, `${loginId} not found`);
+    const c = caseSnap.data()!;
+    const lg = loginSnap.data()!;
+
+    if (lg.stage !== "SANCTIONED") throw new ApiError(400, `Login must be SANCTIONED to disburse (current: ${lg.stage})`);
+    const connectorId = lg.connectorId as string | null;
+    const lenderId = lg.lenderId as string | null;
+    if (!connectorId || !lenderId) throw new ApiError(400, "Login needs connectorId and lenderId set before disbursement");
+    const productId = c.productId as string;
+    const subDsaId = (lg.subDsaId as string | null) ?? (c.subDsaId as string | null) ?? null;
+
+    // Mandatory DISBURSEMENT docs (case-level shared docTracker) must be VERIFIED.
+    const trackerSnap = await caseRef.collection("docTracker").get();
+    const pendingDisb = trackerSnap.docs
+      .map((d) => ({ rowId: d.id, documentDefId: d.data().documentDefId as string,
+        requiredByStage: d.data().requiredByStage as string, status: d.data().status as string }))
+      .filter((r) => r.requiredByStage === "DISBURSEMENT" && r.status !== "VERIFIED");
+    if (pendingDisb.length > 0) {
+      throw new ApiError(422, `${pendingDisb.length} mandatory DISBURSEMENT document(s) not VERIFIED`,
+        pendingDisb.map((p) => ({ rowId: p.rowId, documentDefId: p.documentDefId, status: p.status })));
+    }
+
+    // Mapping for this login's connector × lender; resolve the slab.
+    const mapSnap = await db.collection("dsaCodeMappings")
+      .where("connectorId", "==", connectorId).where("lenderId", "==", lenderId).limit(1).get();
+    if (mapSnap.empty) throw new ApiError(400, "No DSA code mapping for this connector × lender — create one in Masters first");
+    const mapping = mapSnap.docs[0];
+    const m = mapping.data();
+    if (!m.dsaCode) throw new ApiError(400, "Mapping has no dsaCode set");
+
+    const [aggSnap, lenderSnap, productSnap, clientSnap, subDsaSnap] = await Promise.all([
+      db.collection("aggregators").doc(connectorId).get(),
+      db.collection("lenders").doc(lenderId).get(),
+      db.collection("products").doc(productId).get(),
+      db.collection("clients").doc(c.clientId as string).get(),
+      subDsaId ? db.collection("subDsas").doc(subDsaId).get() : Promise.resolve(null),
+    ]);
+
+    const slabResolution = (m.slabs ?? []).map(toResolution);
+    let slab;
+    try {
+      slab = resolveSlab(slabResolution, productId, disbDate.toMillis(), {
+        connectorName: (aggSnap.data()?.name as string) ?? connectorId,
+        lenderName: (lenderSnap.data()?.name as string) ?? lenderId,
+        productName: (productSnap.data()?.shortCode as string) ?? productId,
+      });
+    } catch (e) {
+      if (e instanceof SlabResolutionError) throw new ApiError(422, e.message, { kind: e.kind });
+      throw e;
+    }
+
+    let caseSubDsaPct: number | null = subDsaPctOverride;
+    if (caseSubDsaPct == null && subDsaSnap?.exists) {
+      const slabs = (subDsaSnap.data()!.payoutSlabs as Array<{ productIds: string[]; payoutPct: number }>) ?? [];
+      caseSubDsaPct = slabs.find((s) => s.productIds.includes(productId))?.payoutPct ?? null;
+    }
+    const amounts = computeExpectedAmounts(slab, disbursedAmount, caseSubDsaPct, !!subDsaId);
+    const expectedTdsPct = (slab.tdsPct ?? (aggSnap.data()?.standardTdsPct as number | undefined)) ?? 0;
+    const reportingMonth = monthOf(disbDate.toMillis());
+    const handlingRmName = await faplDisplayName(c.handlingRm as string);
+    const year = new Date().getFullYear();
+
+    const cycleId = await db.runTransaction(async (tx) => {
+      const fresh = await tx.get(loginRef);                       // reads first
+      if (!fresh.exists) throw new ApiError(404, "Login vanished");
+      if (fresh.data()!.stage !== "SANCTIONED") throw new ApiError(409, "Login is no longer SANCTIONED (already disbursed?)");
+      const newCycleId = await nextIdInTx(tx, `payoutCycles-${year}`, `PC-${year}-`, 4);   // last read (counter), then writes
+      const now = FieldValue.serverTimestamp();
+      const cycleRef = db.collection("payoutCycles").doc(newCycleId);
+      const misRef = db.collection("misRecords").doc(loginId);
+
+      // 1. Login → DISBURSED, freeze economics, payout badge.
+      tx.update(loginRef, {
+        stage: "DISBURSED",
+        mappingId: mapping.id, slabId: slab.slabId, dsaCode: m.dsaCode,
+        amountDisbursed: disbursedAmount, disbursalCity: city, disbursalState: state,
+        ...(roiPct != null ? { roiPct } : {}), ...(processingFee != null ? { processingFee } : {}),
+        loanAccountNo, "keyDates.disbursement": now,
+        payoutStatus: "AWAITING_DATA_SHARE", payoutCycleId: newCycleId,
+        ...updateAudit(caller.fapl),
+      });
+
+      // 2. Payout cycle (source of truth) — carries caseId + loginId.
+      tx.set(cycleRef, {
+        caseId, loginId, clientId: c.clientId,
+        connectorId, lenderId, subDsaId,
+        dsaCode: m.dsaCode, bankApplicationNo: lg.loanApplicationNo ?? null, loanAccountNo,
+        slabId: slab.slabId,
+        disbursedAmount, disbursementDate: disbDate,
+        finvastraPayoutPct: slab.finvastraPayoutPct, expectedGross: amounts.expectedGross,
+        subDsaPayoutPct: amounts.subDsaPayoutPct, subDsaExpected: amounts.subDsaExpected,
+        expectedTdsPct,
+        status: "AWAITING_DATA_SHARE",
+        dataSharedAt: null, dataSharedTo: null, reportingMonth: null, sharingMode: null,
+        confirmationRaisedAt: null, confirmationRaisedFrom: null, bankSmAddressed: null, connectorCaseRef: null,
+        bankerConfirmedAt: null, bankerConfirmedBy: null, confirmedAmount: null, confirmedDsaCode: null,
+        pddStatusAtConfirmation: null, bankerMismatch: false,
+        pddOtcClearedMonth: null, holdFlag: false, holdReason: null,
+        payoutConfirmedAt: null, confirmedPayoutPct: null, confirmedGross: null, pctVariance: false,
+        billNo: null, billDate: null, billGross: null, billGst: null, billGstin: null, billedToEntity: null,
+        billSentAt: null, billMode: null, billStoragePath: null,
+        receivedAt: null, receivedNet: null, tdsDeducted: null, utr: null, receivedInAccount: null,
+        amountVariance: null, varianceReason: null,
+        subDsaBillNo: null, subDsaBillDate: null, subDsaBillAmount: null, subDsaApprovedBy: null,
+        subDsaPaidAt: null, subDsaPaidAmount: null, subDsaTds: null, subDsaUtr: null,
+        closedAt: null, netMarginRealised: null,
+        ageing: { disbToDataShare: null, disbToBankerConfirm: null, disbToBilled: null, disbToReceived: null },
+        disputeFlag: false, disputeNotes: null,
+        milestoneLog: [],
+        ...createAudit(caller.fapl),
+      });
+
+      // 3. MIS projection — doc id == LOGIN id; carries caseId + loginId.
+      tx.set(misRef, {
+        reportingMonth, caseId, loginId, payoutCycleId: newCycleId,
+        partyName: (clientSnap.data()?.name as string) ?? c.clientId, city, state,
+        productCode: (productSnap.data()?.shortCode as string) ?? productId,
+        lenderName: (lenderSnap.data()?.name as string) ?? lenderId,
+        connectorName: (aggSnap.data()?.name as string) ?? connectorId,
+        dsaCode: m.dsaCode,
+        subDsaId, subDsaName: subDsaSnap?.exists ? (subDsaSnap.data()!.name as string) : null,
+        handlingRmId: c.handlingRm, handlingRmName,
+        connectorId, lenderId,
+        bankApplicationNo: lg.loanApplicationNo ?? null, loanAccountNo,
+        disbursedAmount, disbursementDate: disbDate,
+        roiPct: roiPct ?? (lg.roiPct as number | null) ?? null, processingFee: processingFee ?? (lg.processingFee as number | null) ?? null,
+        finvastraPayoutPct: slab.finvastraPayoutPct, expectedGross: amounts.expectedGross,
+        bankerConfirmedAt: null, pddOtcClearedMonth: null,
+        billNo: null, billDate: null, billGross: null,
+        receivedAt: null, receivedNet: null, tdsDeducted: null, utr: null,
+        subDsaPayoutPct: amounts.subDsaPayoutPct, subDsaPaidAmount: null, subDsaPaidAt: null, subDsaUtr: null,
+        netMargin: null, cycleStatus: "AWAITING_DATA_SHARE", ageingDays: null,
+        updatedAt: now,
+      });
+
+      // 4. Stage history (on the case timeline).
+      tx.set(caseRef.collection("stageHistory").doc(), {
+        from: "SANCTIONED", to: "DISBURSED", at: now, by: caller.fapl,
+        note: `Login ${loginId} disbursed ₹${disbursedAmount.toLocaleString("en-IN")} · slab ${slab.finvastraPayoutPct}% → expected ₹${amounts.expectedGross.toLocaleString("en-IN")}`,
+      });
+      return newCycleId;
+    });
+
+    await db.collection("audit_logs").add({
+      actor: caller.uid, actorFapl: caller.fapl, action: "crm2_disburse_login",
+      targetPath: `/cases/${caseId}/logins/${loginId}`, after: { cycleId, expectedGross: amounts.expectedGross }, at: FieldValue.serverTimestamp(),
+    });
+    const showMoney = await callerHasPerm(caller.uid, "payout.amounts.read");
+    res.json({ ok: true, cycleId, loginId, ...(showMoney
+      ? { expectedGross: amounts.expectedGross, finvastraPayoutPct: slab.finvastraPayoutPct, subDsaExpected: amounts.subDsaExpected }
+      : {}) });
+  }));
+
+  // GET per-login slab preview (powers the disburse dialog).
+  app.get("/api/crm2/cases/:id/logins/:loginId/disburse-preview", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "payout.amounts.read");
+    if (!caller) return;
+    const amount = Number(req.query.amount);
+    const date = new Date(String(req.query.date ?? ""));
+    if (isNaN(date.getTime())) throw new ApiError(400, "date query param must be an ISO date");
+    const caseRef = db.collection("cases").doc(req.params.id);
+    const [cSnap, lSnap] = await Promise.all([caseRef.get(), caseRef.collection("logins").doc(req.params.loginId).get()]);
+    if (!cSnap.exists || !lSnap.exists) throw new ApiError(404, "Case or login not found");
+    const c = cSnap.data()!; const lg = lSnap.data()!;
+    const connectorId = lg.connectorId as string | null, lenderId = lg.lenderId as string | null;
+    if (!connectorId || !lenderId) throw new ApiError(400, "Set connector and lender on the login first");
+    const mapSnap = await db.collection("dsaCodeMappings")
+      .where("connectorId", "==", connectorId).where("lenderId", "==", lenderId).limit(1).get();
+    if (mapSnap.empty) throw new ApiError(400, "No DSA code mapping for this connector × lender");
+    const m = mapSnap.docs[0].data();
+    const [agg, lender, product] = await Promise.all([
+      db.collection("aggregators").doc(connectorId).get(),
+      db.collection("lenders").doc(lenderId).get(),
+      db.collection("products").doc(c.productId as string).get(),
+    ]);
+    try {
+      const slab = resolveSlab((m.slabs ?? []).map(toResolution), c.productId as string, date.getTime(), {
+        connectorName: (agg.data()?.name as string) ?? connectorId,
+        lenderName: (lender.data()?.name as string) ?? lenderId,
+        productName: (product.data()?.shortCode as string) ?? (c.productId as string),
+      });
+      const amounts = !isNaN(amount) && amount > 0 ? computeExpectedAmounts(slab, amount, null, !!(lg.subDsaId ?? c.subDsaId)) : null;
+      res.json({ ok: true, connectorName: agg.data()?.name, lenderName: lender.data()?.name,
+        productCode: product.data()?.shortCode, dsaCode: m.dsaCode, slab, expected: amounts });
+    } catch (e) {
+      if (e instanceof SlabResolutionError) { res.status(422).json({ error: e.message, kind: e.kind }); return; }
+      throw e;
+    }
+  }));
+
   // ─── Recompute all derived fields from a merged cycle + write cycle/case/MIS ──
   // Pure-function driven: status, ageing, variance flags, margin. Returns the
   // derived patch applied to the cycle, and mirrors the relevant bits to MIS.
@@ -2271,7 +2487,11 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       if (!cySnap.exists) throw new ApiError(404, `${req.params.id} not found`);
       const cy = cySnap.data()!;
       const caseRef = db.collection("cases").doc(cy.caseId as string);
-      const misRef = db.collection("misRecords").doc(cy.caseId as string);
+      // Phase 4 per-login: the payout badge lives on the LOGIN and the MIS record
+      // is keyed by loginId. Legacy per-case cycles (no loginId) fall back to the case.
+      const isPerLogin = isStr(cy.loginId);
+      const badgeRef = isPerLogin ? caseRef.collection("logins").doc(cy.loginId as string) : caseRef;
+      const misRef = db.collection("misRecords").doc((cy.loginId as string) ?? (cy.caseId as string));
 
       // Step-order validation against current anchors (override bypasses + logs).
       const anchors: Record<string, number | string | null> = {
@@ -2382,9 +2602,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         override: overrideApplied, reason: overrideApplied ? String(override!.reason).slice(0, 500) : null,
       });
 
-      // ── ONE batch: cycle + case mirror + case badge + MIS ──
+      // ── ONE batch: cycle + payout badge (login or legacy case) + MIS ──
       tx.update(cycleRef, { ...patch, ...updateAudit(caller.fapl) });
-      tx.update(caseRef, { payoutStatus: derived.status, ...updateAudit(caller.fapl) });
+      tx.update(badgeRef, { payoutStatus: derived.status, ...updateAudit(caller.fapl) });
 
       // MIS mirror of the cycle's reportable fields.
       const ageingDays = (derived.ageing as { disbToReceived: number | null }).disbToReceived;

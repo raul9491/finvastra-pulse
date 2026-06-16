@@ -1,0 +1,124 @@
+/**
+ * CRM 2.0 Phase 4 (Build #2) acceptance — PER-LOGIN money engine.
+ * Same prereqs as the other crm2 gates (emulators + dev server :8090).
+ *
+ * Proves: a login (not the case) is the unit of disbursement — disburse atomically
+ * freezes economics on the login + creates a payout cycle (PC- per login) + MIS
+ * record keyed by loginId; a milestone updates the LOGIN badge + misRecords/{loginId};
+ * a login whose lender has no mapping is blocked.
+ */
+const API = process.env.API_BASE ?? 'http://127.0.0.1:8090';
+const AUTH = process.env.FIREBASE_AUTH_EMULATOR_HOST ?? '127.0.0.1:9099';
+const FS = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
+const PROJECT = process.env.GCLOUD_PROJECT ?? 'demo-pulse';
+
+let pass = 0, fail = 0;
+const ok = (n) => { pass++; console.log(`  ✓ ${n}`); };
+const bad = (n, d) => { fail++; console.error(`  ✗ ${n}${d ? ` — ${d}` : ''}`); };
+
+async function makeAdmin() {
+  const email = `p4m-admin-${Date.now()}@finvastra.com`;
+  const s = await fetch(`http://${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password: 'Gate@12345', returnSecureToken: true }),
+  }).then((r) => r.json());
+  await fetch(`http://${FS}/v1/projects/${PROJECT}/databases/(default)/documents/users/${s.localId}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
+    body: JSON.stringify({ fields: {
+      userId: { stringValue: s.localId }, email: { stringValue: email },
+      displayName: { stringValue: 'P4m Admin' }, role: { stringValue: 'admin' }, employeeId: { stringValue: 'FAPL-022' },
+    } }),
+  });
+  return s.idToken;
+}
+async function api(method, path, token, body) {
+  const res = await fetch(`${API}${path}`, {
+    method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  return { status: res.status, data: await res.json().catch(() => ({})) };
+}
+async function getDoc(path) {
+  const r = await fetch(`http://${FS}/v1/projects/${PROJECT}/databases/(default)/documents/${path}`, { headers: { Authorization: 'Bearer owner' } });
+  return r.status === 200 ? r.json() : null;
+}
+async function listDocs(path) {
+  const r = await fetch(`http://${FS}/v1/projects/${PROJECT}/databases/(default)/documents/${path}?pageSize=50`, { headers: { Authorization: 'Bearer owner' } });
+  return (await r.json().catch(() => ({}))).documents ?? [];
+}
+const fv = (d, f) => d?.fields?.[f]?.stringValue ?? d?.fields?.[f]?.integerValue ?? d?.fields?.[f]?.doubleValue ?? d?.fields?.[f]?.booleanValue ?? null;
+const fnum = (d, f) => { const x = d?.fields?.[f]; return x ? Number(x.integerValue ?? x.doubleValue ?? 0) : null; };
+
+async function main() {
+  console.log('CRM 2.0 Phase 4 Build #2 — per-login money engine\n');
+  const token = await makeAdmin();
+  const stamp = Date.now() % 1000000;
+
+  // Masters: product, LOGIN + DISBURSEMENT doc defs, aggregator, lender, mapping+slab.
+  const prod = await api('POST', '/api/crm2/masters/products', token, { name: `LAP-${stamp}`, shortCode: 'LAP', vertical: 'LOANS' });
+  await api('POST', '/api/crm2/masters/documentMaster', token, { name: `GST-${stamp}`, category: 'ENTITY_KYC', applicableTo: 'ENTITY', mandatoryForProducts: [prod.data.id], requiredByStage: 'LOGIN' });
+  await api('POST', '/api/crm2/masters/documentMaster', token, { name: `DRL-${stamp}`, category: 'POST_SANCTION_PDD', applicableTo: 'ENTITY', mandatoryForProducts: [prod.data.id], requiredByStage: 'DISBURSEMENT' });
+  const conn = await api('POST', '/api/crm2/masters/aggregators', token, { name: `Agg-${stamp}`, type: 'MASTER_AGGREGATOR', payoutFrequency: 'MONTHLY', standardTdsPct: 5 });
+  const lender = await api('POST', '/api/crm2/masters/lenders', token, { name: `Bank-${stamp}`, type: 'NBFC' });
+  const lender2 = await api('POST', '/api/crm2/masters/lenders', token, { name: `Bank2-${stamp}`, type: 'NBFC' }); // no mapping
+  const map = await api('POST', '/api/crm2/mappings', token, { connectorId: conn.data.id, lenderId: lender.data.id, dsaCode: '1033618', codeRegisteredName: 'AGG', slabs: [] });
+  await api('POST', `/api/crm2/mappings/${map.data.id}/slabs`, token, { productIds: [prod.data.id], finvastraPayoutPct: 1.4, subDsaDefaultPayoutPct: 0.7, effectiveFrom: '2025-04-01', effectiveTo: null });
+
+  // Client + case; verify ALL docTracker rows (so DISBURSEMENT gate passes).
+  const client = await api('POST', '/api/crm2/clients', token, { name: `Co ${stamp}`, constitution: 'PVT_LTD', primaryContact: { mobile: `98${String(stamp).padStart(8, '0')}` } });
+  const kase = await api('POST', '/api/crm2/cases', token, { clientId: client.data.id, productId: prod.data.id });
+  const caseId = kase.data.caseId;
+  for (const r of await listDocs(`cases/${caseId}/docTracker`)) {
+    await api('PATCH', `/api/crm2/cases/${caseId}/doc-tracker/${r.name.split('/').pop()}`, token, { status: 'VERIFIED' });
+  }
+
+  // Login → SANCTIONED (connector+lender on the login).
+  const l1 = await api('POST', `/api/crm2/cases/${caseId}/logins`, token, { lenderId: lender.data.id, connectorId: conn.data.id });
+  const loginId = l1.data.loginId;
+  for (const to of ['CODE_LOGIN_DONE', 'IN_PROCESS', 'SANCTIONED']) await api('POST', `/api/crm2/cases/${caseId}/logins/${loginId}/stage`, token, { to });
+
+  // Disburse the LOGIN.
+  const disb = await api('POST', `/api/crm2/cases/${caseId}/logins/${loginId}/disburse`, token, {
+    disbursedAmount: 5000000, disbursementDate: '2025-06-15', loanAccountNo: 'LN-001', city: 'Mumbai', state: 'MH',
+  });
+  disb.status === 200 && disb.data.cycleId?.startsWith('PC-') && disb.data.expectedGross === 70000
+    ? ok(`login disbursed → cycle ${disb.data.cycleId}, expectedGross ₹70,000 (1.4% of 50L)`) : bad('disburse', JSON.stringify(disb));
+  const cycleId = disb.data.cycleId;
+
+  const lDoc = await getDoc(`cases/${caseId}/logins/${loginId}`);
+  fv(lDoc, 'stage') === 'DISBURSED' && fv(lDoc, 'payoutCycleId') === cycleId && fnum(lDoc, 'amountDisbursed') === 5000000 && fv(lDoc, 'dsaCode') === '1033618'
+    ? ok('login: DISBURSED + payoutCycleId + amountDisbursed + frozen dsaCode') : bad('login doc', JSON.stringify({ s: fv(lDoc, 'stage'), c: fv(lDoc, 'payoutCycleId') }));
+
+  const cyc = await getDoc(`payoutCycles/${cycleId}`);
+  fv(cyc, 'caseId') === caseId && fv(cyc, 'loginId') === loginId && fnum(cyc, 'expectedGross') === 70000 && fv(cyc, 'status') === 'AWAITING_DATA_SHARE'
+    ? ok('payoutCycle: caseId + loginId + expectedGross + AWAITING_DATA_SHARE') : bad('cycle', JSON.stringify({ caseId: fv(cyc, 'caseId'), loginId: fv(cyc, 'loginId') }));
+
+  const mis = await getDoc(`misRecords/${loginId}`);
+  mis && fv(mis, 'loginId') === loginId && fv(mis, 'caseId') === caseId && fv(mis, 'cycleStatus') === 'AWAITING_DATA_SHARE'
+    ? ok('MIS record keyed by loginId (caseId + loginId + status)') : bad('mis', JSON.stringify(mis?.fields?.loginId));
+
+  // Milestone step 2 (data shared) → updates LOGIN badge + misRecords/{loginId}.
+  const mile = await api('PATCH', `/api/crm2/payout-cycles/${cycleId}/milestone`, token, { step: 2, payload: { dataSharedTo: 'agg@x.com', reportingMonth: '2025-06' } });
+  mile.status === 200 ? ok(`milestone step 2 applied (status ${mile.data.status})`) : bad('milestone', JSON.stringify(mile));
+  const lAfter = await getDoc(`cases/${caseId}/logins/${loginId}`);
+  const misAfter = await getDoc(`misRecords/${loginId}`);
+  fv(lAfter, 'payoutStatus') === mile.data.status && fv(misAfter, 'cycleStatus') === mile.data.status
+    ? ok('milestone updated the LOGIN badge + MIS record in lock-step') : bad('milestone propagation', JSON.stringify({ login: fv(lAfter, 'payoutStatus'), mis: fv(misAfter, 'cycleStatus') }));
+
+  // A login whose lender has no mapping is blocked at disburse.
+  const l2 = await api('POST', `/api/crm2/cases/${caseId}/logins`, token, { lenderId: lender2.data.id, connectorId: conn.data.id });
+  for (const to of ['CODE_LOGIN_DONE', 'IN_PROCESS', 'SANCTIONED']) await api('POST', `/api/crm2/cases/${caseId}/logins/${l2.data.loginId}/stage`, token, { to });
+  const noMap = await api('POST', `/api/crm2/cases/${caseId}/logins/${l2.data.loginId}/disburse`, token, { disbursedAmount: 1000000, disbursementDate: '2025-06-15', loanAccountNo: 'LN-002', city: 'Pune', state: 'MH' });
+  noMap.status === 400 && /mapping/.test(noMap.data.error ?? '')
+    ? ok('login with no connector×lender mapping blocked (400)') : bad('no-mapping', JSON.stringify(noMap));
+
+  // A non-SANCTIONED login cannot disburse.
+  const l3 = await api('POST', `/api/crm2/cases/${caseId}/logins`, token, { lenderId: lender.data.id, connectorId: conn.data.id });
+  const early = await api('POST', `/api/crm2/cases/${caseId}/logins/${l3.data.loginId}/disburse`, token, { disbursedAmount: 1000000, disbursementDate: '2025-06-15', loanAccountNo: 'LN-003', city: 'Pune', state: 'MH' });
+  early.status === 400 && /SANCTIONED/.test(early.data.error ?? '')
+    ? ok('non-SANCTIONED login cannot disburse (400)') : bad('early disburse', JSON.stringify(early));
+
+  console.log(`\n${pass} passed, ${fail} failed`);
+  process.exit(fail > 0 ? 1 : 0);
+}
+main().catch((e) => { console.error('FATAL:', e); process.exit(1); });

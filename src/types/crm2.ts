@@ -269,6 +269,75 @@ export interface CasePayoutMirror {
   updatedAt: Ts;
 }
 
+// ─── Phase 4 — per-login model ────────────────────────────────────────────────
+// Stages 1–3 are CASE-level (Opened · Basic Docs+Eligibility · Docs); from stage 4
+// each LOGIN (one file → one bank/NBFC) runs its OWN progression and (Build #2)
+// produces its own payout cycle + MIS record. The case shows a derived roll-up.
+// These are ADDITIVE to the legacy CaseStage engine during the staged cutover.
+export type CaseLevelStage = 'OPENED' | 'BASIC_DOCS' | 'DOCS' | 'IN_PROGRESS' | 'COMPLETED' | 'CLOSED';
+export const CASE_LEVEL_STAGE_ORDER: CaseLevelStage[] = ['OPENED', 'BASIC_DOCS', 'DOCS', 'IN_PROGRESS', 'COMPLETED'];
+
+export type LoginStage =
+  | 'FILE_LOGIN' | 'CODE_LOGIN_DONE' | 'IN_PROCESS' | 'SANCTIONED' | 'DISBURSED' | 'PDD_OTC' | 'COMPLETED';
+export const LOGIN_STAGE_ORDER: LoginStage[] =
+  ['FILE_LOGIN', 'CODE_LOGIN_DONE', 'IN_PROCESS', 'SANCTIONED', 'DISBURSED', 'PDD_OTC', 'COMPLETED'];
+
+export interface SubProcess {
+  status: 'NA' | 'PENDING' | 'IN_PROGRESS' | 'DONE';
+  query: string | null;
+  remarks: string | null;
+}
+
+/** cases/{caseId}/logins/{LGN-YYYY-####} — the per-login pipeline unit. */
+export interface Login extends Audit {
+  caseId: string;
+  seq: number;                          // display order within the case (1,2,3…)
+  lenderId: string | null;             // bank/NBFC this file went to
+  connectorId: string | null;          // aggregator routed-via (defaults from case)
+  subDsaId: string | null;             // sourced-by (defaults from case)
+  branch: string | null;
+  // Stage 4 — File / Bank Login
+  amountRequested: number | null;
+  smName: string | null; smNumber: string | null;     // bank Sales Manager
+  asmName: string | null; asmNumber: string | null;   // bank Area Sales Manager
+  docsSent: boolean;
+  directFromBank: boolean;             // structure now; payout-routing logic later (decision I)
+  // Stage 5 — Code + bank login done
+  dsaCodeUsed: 'finvastra' | 'connector_own' | null;
+  codeName: string | null;
+  loginDone: boolean;
+  loanApplicationNo: string | null;
+  // Stage 6 — In Process (parallel sub-processes)
+  queryLog: Array<{ raisedAt: Ts; detail: string; resolvedAt: Ts | null }>;
+  subProcesses: { pd: SubProcess; technical: SubProcess; valuation: SubProcess; legal: SubProcess; credit: SubProcess };
+  // Stage 7 — Sanctioned / Rejected
+  amountSanctioned: number | null; roiPct: number | null; tenureMonths: number | null;
+  processingFee: number | null; insuranceAmount: number | null; otherCharges: number | null;
+  sanctionDate: Ts | null; sanctionLetterPath: string | null; verifiedAppNo: string | null;
+  customerDecision: 'ACCEPTED' | 'PENDING' | 'REJECTED' | null;
+  // Stage 8 — Disbursement (money engine = Build #2; fields reserved/frozen there)
+  amountDisbursed: number | null; disbursementDate: Ts | null; loanAccountNo: string | null;
+  disbursalCity: string | null; disbursalState: string | null;
+  bt: { isBt: boolean; amount: number | null; date: Ts | null; mode: string | null; kind: 'TOPUP' | 'FINAL' | null } | null;
+  secured: { isSecured: boolean; modtDate: Ts | null; agreementDate: Ts | null; mode: string | null } | null;
+  // Stage 9 — PDD / OTC
+  pddStatus: 'NA' | 'PENDING' | 'PARTIAL' | 'CLEARED';
+  otcStatus: 'NA' | 'PENDING' | 'CLEARED';
+  pddPendingList: string[];
+  // money badge + frozen economics (Build #2)
+  payoutStatus: PayoutCycleStatus | 'NOT_DUE';
+  payoutCycleId: string | null;
+  mappingId: string | null; slabId: string | null; dsaCode: string | null;
+  // lifecycle
+  stage: LoginStage;
+  outcome: 'COMPLETED' | 'REJECTED' | 'WITHDRAWN' | null;
+  rejectionReason: string | null;
+  applicantIds: string[];              // subset of the case's applicants on this file
+  keyDates: { fileLogin: Ts; codeLoginDone: Ts | null; inProcess: Ts | null; sanction: Ts | null;
+              disbursement: Ts | null; pddCleared: Ts | null; otcCleared: Ts | null; completed: Ts | null };
+  remarks: string | null;
+}
+
 export interface Applicant extends Audit {
   type: 'PRIMARY' | 'CO_APPLICANT' | 'GUARANTOR';
   relationshipToPrimary: 'SELF' | 'SPOUSE' | 'FATHER' | 'MOTHER' | 'PARTNER' | 'DIRECTOR' | 'OTHER';

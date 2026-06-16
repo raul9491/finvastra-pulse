@@ -1348,6 +1348,13 @@ service cloud.firestore {
         allow read:  if isAdmin() || hasCrm2Perm('crm.cases.read');
         allow write: if false;
       }
+      // Phase 4 — per-login pipeline. The login doc itself carries no money
+      // (sanction figures are operational; payout economics live in the cycle/
+      // mirror, gated separately). Server-only writes.
+      match /logins/{loginId} {
+        allow read:  if isAdmin() || hasCrm2Perm('crm.cases.read');
+        allow write: if false;
+      }
     }
 
     // ─── Phase 4 — Payout cycles + MIS projection ────────────────────────────

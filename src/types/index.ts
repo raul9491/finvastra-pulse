@@ -466,6 +466,9 @@ export interface Lead {
   updatedAt?: any;
   deleted: boolean;
   deletedAt?: any;
+  // Phase 3 (CRM 2.0) — once a Customer is promoted to a CRM 2.0 Lead, the SAME doc
+  // gains receivedAt and leaves the Customers list (the Pipeline Leads page picks it up).
+  receivedAt?: any;
 }
 
 // ─── CRM: Meetings (scheduled against a customer, synced to RM's Google Calendar) ──

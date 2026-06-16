@@ -154,11 +154,20 @@ export interface Crm2LeadFields {
   amountRequired: number | null;
   referredById: string | null;        // subDsaId or clientId
   referredByType: 'SUBDSA' | 'CLIENT' | null;
+  referredByName: string | null;      // denormalised label (sub-DSA / referring client name)
+  referredByCode: string | null;      // SDSA-### code (for REFERRAL_SUBDSA), shown on the lead
+  // Phase 3 — link an existing client master to the lead (pre-fills convert).
+  linkedExistingClientId: string | null;
+  // Phase 3 — optional "bigger client details" captured on the lead.
+  customerProfile: { constitution: string | null; businessName: string | null;
+                     annualTurnover: number | null; requirements: string | null } | null;
   assignedRm: string | null;          // FAPL-xxx
   assignedAt: Ts | null;              // SLA anchor
   status: Crm2LeadStatus;
-  priority: 'HOT' | 'WARM' | 'COLD';
+  priority: 'HOT' | 'WARM' | 'COLD';  // shown as a Red / Yellow / Green traffic light
   nextFollowUpAt: Ts | null;
+  nextFollowUpNote: string | null;    // Phase 3 — emailed with the follow-up reminder
+  followUpReminderSent: boolean;      // re-armed whenever nextFollowUpAt changes
   attempts: number;
   activityLog: Array<{ at: Ts; by: string; note: string; action: string }>;
   dropReason: 'RATE' | 'AVAILED_ELSEWHERE' | 'NOT_ELIGIBLE' | 'UNREACHABLE' | 'DOCS_ISSUE' | null;
@@ -168,6 +177,8 @@ export interface Crm2LeadFields {
   // dedupe — server-written on create
   duplicateOfLeadId: string | null;
   dupeKeys: string[];                 // ["m:9701097333","e:x@y.com"]
+  // Phase 3 — set when a doc was promoted from an old-CRM "Customer" record.
+  promotedFromCustomer?: boolean;
 }
 
 // ─── Clients + vault ────────────────────────────────────────────────────────────

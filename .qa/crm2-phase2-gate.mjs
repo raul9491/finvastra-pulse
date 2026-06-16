@@ -243,6 +243,47 @@ async function main() {
   fv(newC, 'name') === `Greenfield Holdings ${stamp}` && fv(newC, 'constitution') === 'PARTNERSHIP' && fv(newC, 'sourceLeadId') === lead3.data.id
     ? ok('newClient carries template fields + sourceLeadId') : bad('newClient doc', JSON.stringify(newC?.fields?.name));
 
+  // ── 7. Promote an old-CRM Customer → CRM 2.0 Lead (in place) ──────────────
+  // Seed an OLD-model lead (no receivedAt) directly via REST, then promote it.
+  const custId = `PROMO-${stamp}`;
+  await fetch(`http://${FS}/v1/projects/${PROJECT}/databases/(default)/documents/leads?documentId=${custId}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
+    body: JSON.stringify({ fields: {
+      displayName: { stringValue: 'Walkin Wanda' }, phone: { stringValue: mob(8) },
+      source: { stringValue: 'walkin' }, primaryOwnerId: { stringValue: 'UNASSIGNED' },
+      triagePriority: { stringValue: 'high' }, deleted: { booleanValue: false },
+      createdAt: { timestampValue: '2026-01-01T00:00:00Z' }, createdBy: { stringValue: 'gate' },
+    } }),
+  });
+  const prom = await api('POST', `/api/crm2/leads/${custId}/promote`, token, {
+    category: 'LOAN', productId: prod.data.id, assignedRm: 'FAPL-012',
+  });
+  prom.status === 200 && prom.data.id === custId
+    ? ok('customer promoted in place (same doc id, no duplicate)') : bad('promote', JSON.stringify(prom));
+  const promDoc = await getDoc(`leads/${custId}`);
+  promDoc?.fields?.receivedAt && fv(promDoc, 'status') === 'NEW' && fv(promDoc, 'category') === 'LOAN'
+    && fv(promDoc, 'name') === 'Walkin Wanda' && fv(promDoc, 'priority') === 'HOT'
+    && fv(promDoc, 'assignedRm') === 'FAPL-012' && fv(promDoc, 'leadStatus') === 'interested'
+    && promDoc?.fields?.promotedFromCustomer?.booleanValue === true
+    ? ok('promoted doc: receivedAt + NEW + mapped category/priority/RM + interested + flag')
+    : bad('promoted fields', JSON.stringify({ status: fv(promDoc, 'status'), prio: fv(promDoc, 'priority'), rm: fv(promDoc, 'assignedRm') }));
+  const promAgain = await api('POST', `/api/crm2/leads/${custId}/promote`, token, { category: 'LOAN' });
+  promAgain.status === 409 ? ok('re-promote rejected (409 already a CRM 2.0 lead)') : bad('re-promote', JSON.stringify(promAgain));
+
+  // New lead fields: link-client + customerProfile + follow-up note + re-arm.
+  const lead4 = await api('POST', '/api/crm2/leads', token, {
+    name: 'Profile Co', mobile: mob(9), category: 'LOAN', source: 'REFERRAL_CLIENT',
+    linkedExistingClientId: cId, referredById: cId, referredByType: 'CLIENT', referredByName: 'Direct Client',
+    customerProfile: { constitution: 'PVT_LTD', businessName: 'Profile Industries', annualTurnover: 5000000, requirements: '₹2cr WC' },
+    nextFollowUpAt: new Date(Date.now() + 3600_000).toISOString(), nextFollowUpNote: 'Call after CIBIL pull',
+  });
+  const l4 = await getDoc(`leads/${lead4.data.id}`);
+  fv(l4, 'linkedExistingClientId') === cId && fv(l4, 'nextFollowUpNote') === 'Call after CIBIL pull'
+    && l4?.fields?.followUpReminderSent?.booleanValue === false
+    && l4?.fields?.customerProfile?.mapValue?.fields?.businessName?.stringValue === 'Profile Industries'
+    ? ok('new lead stores link-client + customerProfile + follow-up note (reminder armed)')
+    : bad('lead4 fields', JSON.stringify(l4?.fields?.customerProfile));
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail > 0 ? 1 : 0);
 }

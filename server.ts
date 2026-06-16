@@ -2628,6 +2628,65 @@ async function startServer() {
     } catch (e) { return res.status(500).json({ error: String(e) }); }
   });
 
+  // ─── CRM 2.0 Lead follow-up reminders (Phase 3) ───────────────────────────────
+  // POST /api/admin/run-crm2-followup-reminders (OIDC or admin). Run every ~15 min.
+  // New-model leads (receivedAt) carry `nextFollowUpAt` (Timestamp) + an optional
+  // `nextFollowUpNote` (the remark, emailed). assignedRm is a FAPL code → resolve to
+  // the user's uid+email. Deduped via `followUpReminderSent` (re-armed on edit).
+  app.post("/api/admin/run-crm2-followup-reminders", async (req, res) => {
+    if (!(await requireAdminOrScheduler(req, res))) return;
+    try {
+      const now = Date.now();
+      const snap = await db.collection("leads").where("followUpReminderSent", "==", false).get();
+      const faplCache = new Map<string, { uid: string; email: string | null } | null>();
+      const resolveRm = async (fapl: string) => {
+        if (faplCache.has(fapl)) return faplCache.get(fapl)!;
+        const u = await db.collection("users").where("employeeId", "==", fapl).limit(1).get();
+        const hit = u.empty ? null : { uid: u.docs[0].id, email: (u.docs[0].data().email as string | undefined) ?? null };
+        faplCache.set(fapl, hit);
+        return hit;
+      };
+      let notified = 0;
+      for (const d of snap.docs) {
+        const l: any = d.data();
+        if (l.converted === true) continue;
+        const due = l.nextFollowUpAt?.toMillis ? l.nextFollowUpAt.toMillis() : null;
+        if (due === null || due > now) continue;            // not due yet / no follow-up set
+        const fapl = l.assignedRm;
+        if (!fapl) continue;
+        const rm = await resolveRm(String(fapl));
+        if (!rm) { await d.ref.update({ followUpReminderSent: true }).catch(() => {}); continue; }
+
+        await db.collection("notifications").doc(rm.uid).collection("items").add({
+          type:      "follow_up_needed",
+          title:     `Follow up now — ${l.name ?? "Lead"}`,
+          body:      l.nextFollowUpNote ? String(l.nextFollowUpNote).slice(0, 140) : "Your scheduled follow-up is due.",
+          link:      `/crm/pipeline/leads`,
+          read:      false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        }).catch(() => {});
+
+        if (rm.email) {
+          const html = buildBrandEmail({
+            title: "Time to follow up",
+            intro: `Your scheduled follow-up for ${l.name ?? "a lead"} is due now.`,
+            rows: [
+              { label: "Lead", value: l.name ?? "-" },
+              { label: "Mobile", value: l.mobile ?? "-" },
+              ...(l.nextFollowUpNote ? [{ label: "Your note", value: String(l.nextFollowUpNote) }] : []),
+            ],
+            ctaLabel: "Open Pipeline Leads", ctaLink: "https://pulse.finvastra.com/crm/pipeline/leads",
+          });
+          await sendGmailMessage(rm.email, `Follow up now — ${l.name ?? "Lead"}`, html).catch(() => {});
+        }
+
+        await d.ref.update({ followUpReminderSent: true });
+        notified++;
+      }
+      return res.json({ checked: snap.size, notified });
+    } catch (e) { return res.status(500).json({ error: String(e) }); }
+  });
+
   // ─── Meeting reminders — fire ~30 min before a scheduled CRM meeting ──────────
   // POST /api/admin/run-meeting-reminders (OIDC or admin). Run every ~15 min.
   // Bell + email to the RM. The Google Calendar event carries its own native

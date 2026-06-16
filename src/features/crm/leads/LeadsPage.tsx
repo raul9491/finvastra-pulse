@@ -98,6 +98,8 @@ export function LeadsPage() {
 
   const filtered = useMemo(() => {
     return leads.filter((l) => {
+      // Phase 3 — a promoted customer (now a CRM 2.0 Lead) leaves the Customers list.
+      if (l.receivedAt) return false;
       if (filterUnassigned) return l.primaryOwnerId === 'UNASSIGNED';
       if (filterSource && l.source !== filterSource) return false;
       if (filterImport && l.importName !== filterImport) return false;

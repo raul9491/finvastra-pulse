@@ -835,6 +835,25 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   }));
 
   // ─── Internal lead create ─────────────────────────────────────────────────────
+  // Optional "bigger client details" captured on a lead (Phase 3). Returns null
+  // when nothing meaningful was provided.
+  function sanitizeCustomerProfile(v: unknown): Record<string, unknown> | null {
+    if (!v || typeof v !== "object") return null;
+    const p = v as Record<string, unknown>;
+    const turnoverRaw = p.annualTurnover;
+    const annualTurnover = turnoverRaw === undefined || turnoverRaw === null || turnoverRaw === ""
+      ? null : (isNaN(Number(turnoverRaw)) ? null : Number(turnoverRaw));
+    const out = {
+      constitution: isStr(p.constitution) ? String(p.constitution).trim() : null,
+      businessName: isStr(p.businessName) ? String(p.businessName).trim() : null,
+      annualTurnover,
+      requirements: isStr(p.requirements) ? String(p.requirements).trim() : null,
+    };
+    if (!out.constitution && !out.businessName && out.annualTurnover === null && !out.requirements) return null;
+    return out;
+  }
+  const refType = (v: unknown) => (v === "SUBDSA" || v === "CLIENT" ? v : null);
+
   app.post("/api/crm2/leads", route(async (req, res) => {
     const caller = await requirePerm(req, res, "crm.leads.write");
     if (!caller) return;
@@ -862,11 +881,16 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         sourceMeta: { formId: null, sourceUrl: null, utm: null },
         amountRequired: optNum(b, "amountRequired"),
         referredById: optStr(b, "referredById"),
-        referredByType: b.referredByType === "SUBDSA" || b.referredByType === "CLIENT" ? b.referredByType : null,
+        referredByType: refType(b.referredByType),
+        referredByName: optStr(b, "referredByName"),
+        referredByCode: optStr(b, "referredByCode"),
+        linkedExistingClientId: optStr(b, "linkedExistingClientId"),
+        customerProfile: sanitizeCustomerProfile(b.customerProfile),
         assignedRm, assignedAt: assignedRm ? FieldValue.serverTimestamp() : null,
         status: "NEW",
         priority: ["HOT", "WARM", "COLD"].includes(String(b.priority)) ? b.priority : "WARM",
-        nextFollowUpAt: optTs(b, "nextFollowUpAt"), attempts: 0,
+        nextFollowUpAt: optTs(b, "nextFollowUpAt"), nextFollowUpNote: optStr(b, "nextFollowUpNote"),
+        followUpReminderSent: false, attempts: 0,
         activityLog: [], dropReason: null,
         converted: false, convertedAt: null,
         linkedClientId: null, linkedCaseId: null, linkedSubDsaId: null,
@@ -900,7 +924,17 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       fields.assignedRm = optStr(b, "assignedRm");
       if (fields.assignedRm && fields.assignedRm !== cur.assignedRm) fields.assignedAt = FieldValue.serverTimestamp();
     }
-    if (b.nextFollowUpAt !== undefined) fields.nextFollowUpAt = optTs(b, "nextFollowUpAt");
+    if (b.nextFollowUpAt !== undefined) {
+      fields.nextFollowUpAt = optTs(b, "nextFollowUpAt");
+      fields.followUpReminderSent = false;            // re-arm the email reminder
+    }
+    if (b.nextFollowUpNote !== undefined) fields.nextFollowUpNote = optStr(b, "nextFollowUpNote");
+    if (b.linkedExistingClientId !== undefined) fields.linkedExistingClientId = optStr(b, "linkedExistingClientId");
+    if (b.customerProfile !== undefined) fields.customerProfile = sanitizeCustomerProfile(b.customerProfile);
+    if (b.referredById !== undefined) fields.referredById = optStr(b, "referredById");
+    if (b.referredByType !== undefined) fields.referredByType = refType(b.referredByType);
+    if (b.referredByName !== undefined) fields.referredByName = optStr(b, "referredByName");
+    if (b.referredByCode !== undefined) fields.referredByCode = optStr(b, "referredByCode");
     if (b.productId !== undefined) fields.productId = optStr(b, "productId");
     if (b.category !== undefined) fields.category = reqEnum(b, "category", LEAD_CATEGORIES);
     if (b.amountRequired !== undefined) fields.amountRequired = optNum(b, "amountRequired");
@@ -1161,6 +1195,91 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       targetPath: `/leads/${req.params.id}`, after: result, at: FieldValue.serverTimestamp(),
     });
     res.json({ ok: true, ...result });
+  }));
+
+  // ─── Promote a Customer (old-CRM lead) → CRM 2.0 Lead (in place) ──────────────
+  // Phase 3 funnel spine. The SAME `/leads/{id}` doc is stamped with new-model
+  // fields (receivedAt is the discriminator) — one record, no duplicate, keeps its
+  // id. Old fields are left intact (additive); the doc just leaves the Customers
+  // list and appears in Pipeline Leads. Idempotent: a doc already carrying
+  // receivedAt is rejected (409).
+  const OLD_TO_NEW_SOURCE: Record<string, typeof LEAD_SOURCES[number]> = {
+    website: "WEBSITE", instagram: "ADS", facebook: "ADS", social_meta: "ADS",
+    walkin: "WALKIN", referral: "REFERRAL_CLIENT", employee_referral: "REFERRAL_CLIENT",
+    broker: "REFERRAL_SUBDSA", offline_bulk: "COLD_CALL",
+  };
+  const TRIAGE_TO_PRIORITY: Record<string, "HOT" | "WARM" | "COLD"> = {
+    high: "HOT", medium: "WARM", low: "COLD",
+  };
+
+  app.post("/api/crm2/leads/:id/promote", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "crm.leads.write");
+    if (!caller) return;
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const category = reqEnum(b, "category", LEAD_CATEGORIES);
+    const productId = optStr(b, "productId");
+    const ref = db.collection("leads").doc(req.params.id);
+
+    const snap = await ref.get();
+    if (!snap.exists) throw new ApiError(404, `${req.params.id} not found`);
+    const old = snap.data()!;
+    if (old.receivedAt) throw new ApiError(409, "This record is already a CRM 2.0 lead");
+    if (old.deleted === true) throw new ApiError(400, "Cannot promote a deleted customer");
+
+    const mobile = normaliseMobile(String(old.phone ?? old.mobile ?? ""));
+    if (!mobile) throw new ApiError(400, "Customer has no valid 10-digit mobile to promote");
+    const email = optStr(old as Record<string, unknown>, "email");
+    const name = isStr(old.displayName) ? String(old.displayName).trim()
+      : isStr(old.name) ? String(old.name).trim() : "Customer";
+
+    // Resolve assignedRm: explicit body → the old owner's FAPL → null.
+    let assignedRm = optStr(b, "assignedRm");
+    if (!assignedRm && isStr(old.primaryOwnerId) && old.primaryOwnerId !== "UNASSIGNED") {
+      const ownerSnap = await db.collection("users").doc(String(old.primaryOwnerId)).get();
+      assignedRm = (ownerSnap.data()?.employeeId as string | undefined) ?? null;
+    }
+
+    const source = OLD_TO_NEW_SOURCE[String(old.source)] ?? "WALKIN";
+    const priority = TRIAGE_TO_PRIORITY[String(old.triagePriority)] ?? "WARM";
+    // Carry over a scheduled callback as the first CRM 2.0 follow-up.
+    const followUp = isStr(old.callbackAt) ? Timestamp.fromDate(new Date(String(old.callbackAt))) : null;
+    const dupeKeys = buildDupeKeys(mobile, email);
+
+    await ref.update({
+      // ── new-model fields ──
+      receivedAt: FieldValue.serverTimestamp(),
+      category, productId,
+      name, mobile, email: email ?? null,
+      city: optStr(old as Record<string, unknown>, "city"),
+      source,
+      sourceMeta: { formId: null, sourceUrl: null, utm: null },
+      amountRequired: typeof old.monthlyIncome === "number" ? null : (optNum(b, "amountRequired") ?? null),
+      referredById: null, referredByType: null, referredByName: null, referredByCode: null,
+      linkedExistingClientId: null, customerProfile: null,
+      assignedRm, assignedAt: assignedRm ? FieldValue.serverTimestamp() : null,
+      status: "NEW", priority,
+      nextFollowUpAt: followUp, nextFollowUpNote: null, followUpReminderSent: false,
+      attempts: 0,
+      activityLog: [{
+        at: Timestamp.now(), by: caller.fapl,
+        note: "Promoted from Customer → Lead", action: "promote",
+      }],
+      dropReason: null,
+      converted: false, convertedAt: null,
+      linkedClientId: null, linkedCaseId: null, linkedSubDsaId: null,
+      duplicateOfLeadId: null, dupeKeys,
+      promotedFromCustomer: true,
+      // ── keep the old disposition coherent ──
+      leadStatus: "interested", leadStatusAt: FieldValue.serverTimestamp(), leadStatusBy: caller.uid,
+      promotedAt: FieldValue.serverTimestamp(), promotedBy: caller.fapl,
+      ...updateAudit(caller.fapl),
+    });
+
+    await db.collection("audit_logs").add({
+      actor: caller.uid, actorFapl: caller.fapl, action: "crm2_promote_lead",
+      targetPath: `/leads/${req.params.id}`, at: FieldValue.serverTimestamp(),
+    });
+    res.json({ ok: true, id: req.params.id });
   }));
 
   // ─── Permission editor backend — set a user's perms map + resync claims ──────

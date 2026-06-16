@@ -19,9 +19,18 @@ import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
 import { FLabel, inp } from '../masters/MastersPage';
 import { useClientForm, ClientFieldsGrid, stateFromLead } from '../clients/ClientFormModal';
-import type { Crm2LeadFields, Crm2LeadStatus, Product, Client } from '../../../types/crm2';
+import { ContactActions, PhoneLink } from '../../crm/components/ContactActions';
+import type { Crm2LeadFields, Crm2LeadStatus, Product, Client, SubDsa } from '../../../types/crm2';
 
 type LeadRow = Crm2LeadFields & { id: string };
+
+// Priority shown as a Red / Yellow / Green traffic light (enum values unchanged).
+const PRIORITY_META: Record<'HOT' | 'WARM' | 'COLD', { label: string; color: string; dot: string }> = {
+  HOT:  { label: 'High',   color: '#f87171', dot: '#ef4444' },
+  WARM: { label: 'Medium', color: '#fbbf24', dot: '#f59e0b' },
+  COLD: { label: 'Low',    color: '#34d399', dot: '#22c55e' },
+};
+const PRIORITY_OPTS = (['HOT', 'WARM', 'COLD'] as const).map((p) => ({ value: p, label: `${PRIORITY_META[p].label} (${p === 'HOT' ? 'Red' : p === 'WARM' ? 'Yellow' : 'Green'})` }));
 
 const STATUS_META: Record<Crm2LeadStatus, { label: string; color: string }> = {
   NEW:            { label: 'New',            color: '#60a5fa' },
@@ -61,6 +70,7 @@ export function Crm2LeadsPage() {
   const { employees } = useAllEmployees();
   const { rows: products } = useCrm2Collection<Product & { id: string }>('products');
   const { rows: clients } = useCrm2Collection<Client & { id: string }>('clients');
+  const { rows: subDsas } = useCrm2Collection<SubDsa & { id: string }>('subDsas');
 
   const [funnel, setFunnel] = useState<Crm2LeadStatus | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
@@ -78,6 +88,13 @@ export function Crm2LeadsPage() {
   const productOptions = useMemo(() =>
     products.filter((p) => p.status === 'ACTIVE').map((p) => ({ value: p.id, label: `${p.name} (${p.shortCode})` })),
     [products]);
+  const clientOptions = useMemo(() =>
+    clients.filter((c) => c.status !== 'BLACKLISTED').map((c) => ({ value: c.id, label: `${c.name} · ${c.id}` })),
+    [clients]);
+  const subDsaOptions = useMemo(() =>
+    subDsas.filter((s) => s.status === 'ACTIVE').map((s) => ({ value: s.id, label: `${s.name} (${s.id})` })),
+    [subDsas]);
+  const refData = useMemo(() => ({ clients, subDsas }), [clients, subDsas]);
 
   const counts = useMemo(() => {
     const c = new Map<string, number>();
@@ -167,13 +184,17 @@ export function Crm2LeadsPage() {
                             <Copy size={10} /> DUP
                           </span>
                         )}
-                        {r.priority === 'HOT' && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                            style={{ backgroundColor: 'rgba(248,113,113,0.15)', color: '#f87171' }}>HOT</span>
-                        )}
+                        <span title={`Priority: ${PRIORITY_META[r.priority]?.label ?? r.priority}`}
+                          className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: PRIORITY_META[r.priority]?.dot ?? '#8B8B85' }} />
                       </div>
                     </td>
-                    <td className="px-3 py-2.5 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{r.mobile}</td>
+                    <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-2">
+                        <PhoneLink phone={r.mobile} className="text-xs" />
+                        <ContactActions phone={r.mobile} email={r.email} name={r.name} size="sm" />
+                      </div>
+                    </td>
                     <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{r.category}</td>
                     <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-muted)' }}>{r.source}</td>
                     <td className="px-3 py-2.5 text-xs" style={{ color: r.assignedRm ? 'var(--text-secondary)' : 'var(--text-muted)' }}>
@@ -195,25 +216,53 @@ export function Crm2LeadsPage() {
       </div>
 
       {showNew && canWrite && (
-        <NewLeadModal faplOptions={faplOptions} productOptions={productOptions} onClose={() => setShowNew(false)} />
+        <NewLeadModal faplOptions={faplOptions} productOptions={productOptions}
+          clientOptions={clientOptions} subDsaOptions={subDsaOptions} refData={refData}
+          onClose={() => setShowNew(false)} />
       )}
       {detail && (
         <LeadDrawer lead={detail} canWrite={canWrite} canConvert={canConvert}
           faplOptions={faplOptions} productOptions={productOptions} clients={clients}
+          clientOptions={clientOptions} subDsaOptions={subDsaOptions} refData={refData}
           onClose={() => setDetailFor(null)} />
       )}
     </div>
   );
 }
 
+// Shared option/data props for the lead forms.
+type Opt = { value: string; label: string };
+type RefData = { clients: Array<Client & { id: string }>; subDsas: Array<SubDsa & { id: string }> };
+const CATEGORY_OPTS = ['LOAN', 'WEALTH', 'INSURANCE', 'CIBIL_CHECK', 'PARTNER_DSA', 'GENERAL'].map((c) => ({ value: c, label: c }));
+const SOURCE_OPTS = ['WALKIN', 'COLD_CALL', 'REFERRAL_CLIENT', 'REFERRAL_SUBDSA', 'JUSTDIAL', 'ADS', 'WEBSITE'].map((s) => ({ value: s, label: s.replace(/_/g, ' ') }));
+const CONSTITUTION_LEAD_OPTS = [{ value: '', label: '—' }, ...['INDIVIDUAL', 'PROPRIETORSHIP', 'PARTNERSHIP', 'LLP', 'PVT_LTD', 'HUF'].map((c) => ({ value: c, label: c.replace(/_/g, ' ') }))];
+
+/** Builds the referral payload (referredBy*) from the chosen source + picker value. */
+function buildReferral(source: string, refSubDsaId: string, refClientId: string, refData: RefData) {
+  if (source === 'REFERRAL_SUBDSA' && refSubDsaId) {
+    const s = refData.subDsas.find((x) => x.id === refSubDsaId);
+    return { referredById: refSubDsaId, referredByType: 'SUBDSA', referredByName: s?.name ?? null, referredByCode: refSubDsaId };
+  }
+  if (source === 'REFERRAL_CLIENT' && refClientId) {
+    const c = refData.clients.find((x) => x.id === refClientId);
+    return { referredById: refClientId, referredByType: 'CLIENT', referredByName: c?.name ?? null, referredByCode: null };
+  }
+  return { referredById: null, referredByType: null, referredByName: null, referredByCode: null };
+}
+
 // ─── New lead ─────────────────────────────────────────────────────────────────
-function NewLeadModal({ faplOptions, productOptions, onClose }: {
-  faplOptions: Array<{ value: string; label: string }>;
-  productOptions: Array<{ value: string; label: string }>;
-  onClose: () => void;
+function NewLeadModal({ faplOptions, productOptions, clientOptions, subDsaOptions, refData, onClose }: {
+  faplOptions: Opt[]; productOptions: Opt[]; clientOptions: Opt[]; subDsaOptions: Opt[];
+  refData: RefData; onClose: () => void;
 }) {
   const toast = useToast();
-  const [f, setF] = useState({ name: '', mobile: '', email: '', city: '', category: 'LOAN', source: 'WALKIN', productId: '', amountRequired: '', assignedRm: '' });
+  const [f, setF] = useState({
+    name: '', mobile: '', email: '', city: '', category: 'LOAN', source: 'WALKIN',
+    productId: '', amountRequired: '', assignedRm: '',
+    linkedExistingClientId: '', refSubDsaId: '', refClientId: '',
+    cpConstitution: '', cpBusinessName: '', cpTurnover: '', cpRequirements: '',
+  });
+  const [showMore, setShowMore] = useState(false);
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -235,6 +284,12 @@ function NewLeadModal({ faplOptions, productOptions, onClose }: {
         category: f.category, source: f.source, productId: f.productId || null,
         amountRequired: f.amountRequired ? Number(f.amountRequired) : null,
         assignedRm: f.assignedRm || null,
+        linkedExistingClientId: f.linkedExistingClientId || null,
+        ...buildReferral(f.source, f.refSubDsaId, f.refClientId, refData),
+        customerProfile: {
+          constitution: f.cpConstitution || null, businessName: f.cpBusinessName || null,
+          annualTurnover: f.cpTurnover ? Number(f.cpTurnover) : null, requirements: f.cpRequirements || null,
+        },
       });
       toast.success(`Lead ${r.id} created${r.duplicateOf ? ' — flagged as possible duplicate' : ''}`);
       onClose();
@@ -246,7 +301,7 @@ function NewLeadModal({ faplOptions, productOptions, onClose }: {
   return (
     <div className="glass-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="glass-modal-panel w-full max-w-lg rounded-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="glass-modal-header flex items-center justify-between px-5 py-4">
+        <div className="glass-modal-header flex items-center justify-between px-5 py-4 sticky top-0 z-10">
           <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>New Lead</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard)" aria-label="Close">
             <X size={17} style={{ color: 'var(--text-muted)' }} />
@@ -274,14 +329,27 @@ function NewLeadModal({ faplOptions, productOptions, onClose }: {
             </div>
             <div>
               <FLabel text="Category" required />
-              <SearchableSelect value={f.category} onChange={(v) => set('category', v)}
-                options={['LOAN', 'WEALTH', 'INSURANCE', 'CIBIL_CHECK', 'PARTNER_DSA', 'GENERAL'].map((c) => ({ value: c, label: c }))} />
+              <SearchableSelect value={f.category} onChange={(v) => set('category', v)} options={CATEGORY_OPTS} />
             </div>
             <div>
               <FLabel text="Source" required />
-              <SearchableSelect value={f.source} onChange={(v) => set('source', v)}
-                options={['WALKIN', 'COLD_CALL', 'REFERRAL_CLIENT', 'REFERRAL_SUBDSA', 'JUSTDIAL', 'ADS', 'WEBSITE'].map((s) => ({ value: s, label: s }))} />
+              <SearchableSelect value={f.source} onChange={(v) => set('source', v)} options={SOURCE_OPTS} />
             </div>
+            {/* Source-specific referral picker */}
+            {f.source === 'REFERRAL_SUBDSA' && (
+              <div className="col-span-2">
+                <FLabel text="Referred by (Connector / Sub-DSA)" />
+                <SearchableSelect value={f.refSubDsaId} onChange={(v) => set('refSubDsaId', v)}
+                  options={[{ value: '', label: '— select —' }, ...subDsaOptions]} placeholder="— select —" />
+              </div>
+            )}
+            {f.source === 'REFERRAL_CLIENT' && (
+              <div className="col-span-2">
+                <FLabel text="Referred by (Client)" />
+                <SearchableSelect value={f.refClientId} onChange={(v) => set('refClientId', v)}
+                  options={[{ value: '', label: '— select —' }, ...clientOptions]} placeholder="— select —" />
+              </div>
+            )}
             <div>
               <FLabel text="Product" />
               <SearchableSelect value={f.productId} onChange={(v) => set('productId', v)}
@@ -296,7 +364,39 @@ function NewLeadModal({ faplOptions, productOptions, onClose }: {
               <SearchableSelect value={f.assignedRm} onChange={(v) => set('assignedRm', v)}
                 options={[{ value: '', label: 'Unassigned' }, ...faplOptions]} placeholder="Unassigned" />
             </div>
+            <div className="col-span-2">
+              <FLabel text="Link existing client (optional)" />
+              <SearchableSelect value={f.linkedExistingClientId} onChange={(v) => set('linkedExistingClientId', v)}
+                options={[{ value: '', label: '— none —' }, ...clientOptions]} placeholder="— none —" />
+            </div>
           </div>
+
+          {/* Optional bigger client details */}
+          <button type="button" onClick={() => setShowMore((v) => !v)}
+            className="text-xs font-semibold inline-flex items-center gap-1" style={{ color: '#C9A961' }}>
+            {showMore ? '− Hide' : '+ More'} customer details
+          </button>
+          {showMore && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FLabel text="Constitution" />
+                <SearchableSelect value={f.cpConstitution} onChange={(v) => set('cpConstitution', v)} options={CONSTITUTION_LEAD_OPTS} />
+              </div>
+              <div>
+                <FLabel text="Business name" />
+                <input className={inp()} value={f.cpBusinessName} onChange={(e) => set('cpBusinessName', e.target.value)} />
+              </div>
+              <div>
+                <FLabel text="Annual turnover ₹" />
+                <input type="number" className={inp()} value={f.cpTurnover} onChange={(e) => set('cpTurnover', e.target.value)} />
+              </div>
+              <div className="col-span-2">
+                <FLabel text="Requirements" />
+                <input className={inp()} value={f.cpRequirements} onChange={(e) => set('cpRequirements', e.target.value)} placeholder="e.g. ₹50L LAP, 10yr tenure" />
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-3 pt-1">
             <button onClick={onClose} className="flex-1 py-2.5 rounded-lg text-sm font-semibold border"
               style={{ borderColor: 'var(--shell-border)', color: 'var(--text-muted)' }}>Cancel</button>
@@ -313,16 +413,17 @@ function NewLeadModal({ faplOptions, productOptions, onClose }: {
 }
 
 // ─── Detail drawer (activity log + actions + convert) ───────────────────────
-function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, clients, onClose }: {
+function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, clients, clientOptions, subDsaOptions, refData, onClose }: {
   lead: LeadRow;
   canWrite: boolean; canConvert: boolean;
-  faplOptions: Array<{ value: string; label: string }>;
-  productOptions: Array<{ value: string; label: string }>;
+  faplOptions: Opt[]; productOptions: Opt[];
   clients: Array<Client & { id: string }>;
+  clientOptions: Opt[]; subDsaOptions: Opt[]; refData: RefData;
   onClose: () => void;
 }) {
   const toast = useToast();
   const [note, setNote] = useState('');
+  const [followUpNote, setFollowUpNote] = useState(lead.nextFollowUpNote ?? '');
   const [busy, setBusy] = useState(false);
   const [showConvert, setShowConvert] = useState(false);
 
@@ -351,6 +452,13 @@ function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, c
             <p className="text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>
               {lead.id} · {lead.mobile}{lead.email ? ` · ${lead.email}` : ''} · {lead.source}
             </p>
+            {(lead.referredByName || lead.linkedExistingClientId) && (
+              <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                {lead.referredByName && <>Referred by <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>{lead.referredByName}{lead.referredByCode ? ` (${lead.referredByCode})` : ''}</span></>}
+                {lead.linkedExistingClientId && <> · Linked client <span className="font-mono" style={{ color: '#C9A961' }}>{lead.linkedExistingClientId}</span></>}
+              </p>
+            )}
+            <div className="mt-2"><ContactActions phone={lead.mobile} email={lead.email} name={lead.name} size="sm" /></div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard)" aria-label="Close">
             <X size={17} style={{ color: 'var(--text-muted)' }} />
@@ -392,15 +500,44 @@ function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, c
               <div>
                 <FLabel text="Priority" />
                 <SearchableSelect value={lead.priority} disabled={busy}
-                  onChange={(v) => patch({ priority: v }, `Priority → ${v}`)}
-                  options={['HOT', 'WARM', 'COLD'].map((p) => ({ value: p, label: p }))} />
+                  onChange={(v) => patch({ priority: v }, `Priority → ${PRIORITY_META[v as 'HOT'].label}`)}
+                  options={PRIORITY_OPTS} />
               </div>
               <div>
                 <FLabel text="Next Follow-up" />
                 <input type="datetime-local" className={inp()} disabled={busy}
                   defaultValue={lead.nextFollowUpAt?.toDate ? new Date(lead.nextFollowUpAt.toDate().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
-                  onBlur={(e) => e.target.value && patch({ nextFollowUpAt: new Date(e.target.value).toISOString() }, 'Follow-up set')} />
+                  onBlur={(e) => e.target.value && patch({ nextFollowUpAt: new Date(e.target.value).toISOString(), nextFollowUpNote: followUpNote || null }, 'Follow-up set — reminder will email you')} />
               </div>
+              <div className="col-span-2">
+                <FLabel text="Follow-up remark (emailed with the reminder)" />
+                <input className={inp()} value={followUpNote} disabled={busy}
+                  onChange={(e) => setFollowUpNote(e.target.value)}
+                  onBlur={() => { if ((followUpNote ?? '') !== (lead.nextFollowUpNote ?? '')) patch({ nextFollowUpNote: followUpNote || null }, 'Remark saved'); }}
+                  placeholder="e.g. Confirm income docs, discuss 9.2% offer" />
+              </div>
+              <div className="col-span-2">
+                <FLabel text="Link existing client" />
+                <SearchableSelect value={lead.linkedExistingClientId ?? ''} disabled={busy}
+                  onChange={(v) => patch({ linkedExistingClientId: v || null }, v ? 'Client linked' : 'Client unlinked')}
+                  options={[{ value: '', label: '— none —' }, ...clientOptions]} placeholder="— none —" />
+              </div>
+              {lead.source === 'REFERRAL_SUBDSA' && (
+                <div className="col-span-2">
+                  <FLabel text="Referred by (Connector / Sub-DSA)" />
+                  <SearchableSelect value={lead.referredById ?? ''} disabled={busy}
+                    onChange={(v) => patch(buildReferral('REFERRAL_SUBDSA', v, '', refData), 'Referral updated')}
+                    options={[{ value: '', label: '— none —' }, ...subDsaOptions]} placeholder="— none —" />
+                </div>
+              )}
+              {lead.source === 'REFERRAL_CLIENT' && (
+                <div className="col-span-2">
+                  <FLabel text="Referred by (Client)" />
+                  <SearchableSelect value={lead.referredById ?? ''} disabled={busy}
+                    onChange={(v) => patch(buildReferral('REFERRAL_CLIENT', '', v, refData), 'Referral updated')}
+                    options={[{ value: '', label: '— none —' }, ...clientOptions]} placeholder="— none —" />
+                </div>
+              )}
             </div>
           )}
 

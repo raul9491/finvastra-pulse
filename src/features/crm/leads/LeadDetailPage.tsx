@@ -22,6 +22,8 @@ import { LeadActivityFeed } from '../components/LeadActivityFeed';
 import { MeetingsSection } from './MeetingsSection';
 import { updateWithHistory } from '../../../lib/fieldHistory';
 import { FieldHistory } from '../components/FieldHistory';
+import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../../crm2/lib';
+import type { Product } from '../../../types/crm2';
 import type { Opportunity, OpportunityType, OpportunityStatus, LeadStatus } from '../../../types';
 
 // ─── Opportunity type icons ───────────────────────────────────────────────────
@@ -202,8 +204,15 @@ export function LeadDetailPage() {
   };
   const TERMINAL_STATUSES = new Set<LeadStatus>(['not_interested', 'no_response', 'wrong_number']);
 
+  // Phase 3 — marking a Customer "Interested" promotes it to a CRM 2.0 Lead
+  // (moves the same record into the Pipeline Leads funnel). Intercept before the
+  // plain disposition write and open the move dialog instead.
+  const canPromote = hasCrm2Perm(profile, 'crm.leads.write');
+  const [promoteOpen, setPromoteOpen] = useState(false);
+
   const handleDisposition = async (status: LeadStatus) => {
     if (!leadId || !user) return;
+    if (status === 'interested' && canPromote) { setPromoteOpen(true); return; }
     setSavingStatus(true);
     try {
       // Phase P — status change + field_history diff in ONE batch.
@@ -517,6 +526,14 @@ export function LeadDetailPage() {
               <option value="no_response">No response / not reachable</option>
               <option value="wrong_number">Wrong number</option>
             </select>
+            {canPromote && (
+              <button onClick={() => setPromoteOpen(true)}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
+                style={{ backgroundColor: '#C9A961', color: '#0B1538' }}
+                title="Move this customer into the CRM 2.0 Leads funnel">
+                <TrendingUp size={13} /> Move to Leads
+              </button>
+            )}
             {savingStatus && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Saving…</span>}
             {!savingStatus && lead.leadStatus && lead.leadStatus !== 'new' && (
               <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold"
@@ -563,6 +580,11 @@ export function LeadDetailPage() {
                   </span>
                 )}
               </div>
+            )}
+            {promoteOpen && leadId && (
+              <PromoteToLeadDialog leadId={leadId} customerName={lead.displayName}
+                onClose={() => setPromoteOpen(false)}
+                onMoved={() => { setPromoteOpen(false); navigate('/crm/pipeline/leads'); }} />
             )}
           </div>
         )}
@@ -708,6 +730,86 @@ export function LeadDetailPage() {
       {/* Phase P — one-tap activity logging */}
       <div className="glass-panel p-5 mt-4">
         <QuickLogBar leadId={lead.id} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Phase 3 — Move a Customer into the CRM 2.0 Leads funnel ───────────────────
+// Quick confirm: pick a category (the new model needs it) + optional product + an
+// optional RM override (default keeps the current owner). The SAME doc is promoted
+// in place by the server — no duplicate.
+const PROMOTE_CATEGORIES = [
+  { value: 'LOAN', label: 'Loan' }, { value: 'WEALTH', label: 'Wealth' },
+  { value: 'INSURANCE', label: 'Insurance' }, { value: 'CIBIL_CHECK', label: 'CIBIL Check' },
+  { value: 'PARTNER_DSA', label: 'Partner / DSA' }, { value: 'GENERAL', label: 'General' },
+];
+
+function PromoteToLeadDialog({ leadId, customerName, onClose, onMoved }: {
+  leadId: string; customerName: string;
+  onClose: () => void; onMoved: () => void;
+}) {
+  const { rows: products } = useCrm2Collection<Product & { id: string }>('products');
+  const { employees } = useAllEmployees();
+  const [category, setCategory] = useState('LOAN');
+  const [productId, setProductId] = useState('');
+  const [assignedRm, setAssignedRm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  const faplOptions = employees
+    .filter((e) => e.employeeStatus !== 'inactive' && e.employeeId)
+    .map((e) => ({ value: e.employeeId!, label: `${e.displayName} (${e.employeeId})` }));
+  const productOptions = products.filter((p) => p.status === 'ACTIVE')
+    .map((p) => ({ value: p.id, label: `${p.name} (${p.shortCode})` }));
+
+  const move = async () => {
+    setBusy(true); setErr('');
+    try {
+      await apiCrm2('POST', `/api/crm2/leads/${leadId}/promote`, {
+        category, productId: productId || null, assignedRm: assignedRm || null,
+      });
+      onMoved();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Move failed');
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="glass-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="glass-modal-panel w-full max-w-sm rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="glass-modal-header px-5 py-4">
+          <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Move to Leads</h3>
+          <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+            {customerName} graduates from Customers into the CRM 2.0 Leads funnel — same record, no duplicate.
+          </p>
+        </div>
+        <div className="p-5 space-y-4">
+          {err && <p className="text-sm" style={{ color: '#f87171' }}>{err}</p>}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Category <span className="text-red-500">*</span></label>
+            <SearchableSelect value={category} onChange={setCategory} options={PROMOTE_CATEGORIES} />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Product</label>
+            <SearchableSelect value={productId} onChange={setProductId}
+              options={[{ value: '', label: '— optional —' }, ...productOptions]} placeholder="— optional —" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Handling RM</label>
+            <SearchableSelect value={assignedRm} onChange={setAssignedRm}
+              options={[{ value: '', label: 'Keep current owner' }, ...faplOptions]} placeholder="Keep current owner" />
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button onClick={onClose} className="flex-1 py-2.5 rounded-lg text-sm font-semibold border"
+              style={{ borderColor: 'var(--shell-border)', color: 'var(--text-muted)' }}>Cancel</button>
+            <button onClick={move} disabled={busy}
+              className="flex-1 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50"
+              style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+              {busy ? 'Moving…' : 'Move to Leads'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

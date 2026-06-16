@@ -25,7 +25,7 @@ import {
   validateTransition, gateForStage, keyDateForStage,
 } from "../src/lib/crm2/stages.js";
 import {
-  validateLoginTransition, keyDateForLoginStage,
+  validateLoginTransition, keyDateForLoginStage, validateCaseLevelTransition, type LoginLite,
 } from "../src/lib/crm2/logins.js";
 import {
   deriveCycleStatus, computeAgeing, computeBankerMismatch, computePctVariance,
@@ -1523,11 +1523,13 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   }));
 
   // ─── Stage transition — order validation + doc gating + keyDates + history ──
+  // Phase 4 cutover — the CASE stage is now case-level only (stages 1–3 + the
+  // logins roll-up). Sanction/disburse/PDD live on each LOGIN, not the case.
   app.post("/api/crm2/cases/:id/stage", route(async (req, res) => {
     const caller = await requirePerm(req, res, "crm.cases.write");
     if (!caller) return;
     const b = (req.body ?? {}) as Record<string, unknown>;
-    const to = reqStr(b, "to") as CaseStageT;
+    const to = reqEnum(b, "to", ["OPENED", "BASIC_DOCS", "DOCS", "IN_PROGRESS", "COMPLETED", "CLOSED"] as const);
     const outcome = optStr(b, "outcome");
     const caseRef = db.collection("cases").doc(req.params.id);
 
@@ -1535,24 +1537,23 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       const caseSnap = await tx.get(caseRef);
       if (!caseSnap.exists) throw new ApiError(404, `${req.params.id} not found`);
       const cur = caseSnap.data()!;
-      const from = cur.stage as CaseStageT;
+      const from = cur.stage as string;
 
-      const order = validateTransition(from, to, outcome);
+      // COMPLETED requires every login COMPLETED → read them first (before writes).
+      let logins: LoginLite[] = [];
+      if (to === "COMPLETED") {
+        const lsnap = await tx.get(caseRef.collection("logins"));
+        logins = lsnap.docs.map((d) => ({ stage: d.data().stage, outcome: d.data().outcome ?? null }));
+      }
+      const order = validateCaseLevelTransition(from as never, to as never, outcome, logins);
       if (!order.ok) throw new ApiError(400, order.reason!);
 
-      // Doc gating (reads happen before writes)
-      const rows = await readTrackerRows(tx, caseRef);
-      const gate = gateForStage(to, rows);
-      if (!gate.ok) {
-        throw new ApiError(422, gate.reason!,
-          gate.pendingDocs!.map((p) => ({ rowId: p.rowId, documentDefId: p.documentDefId, applicantId: p.applicantId, status: p.status })));
-      }
-
       const fields: Record<string, unknown> = { stage: to };
-      const kd = keyDateForStage(to);
-      if (kd) fields[`keyDates.${kd}`] = FieldValue.serverTimestamp();
+      if (to === "DOCS") fields["keyDates.docsComplete"] = FieldValue.serverTimestamp();
+      if (to === "COMPLETED") { fields.outcome = "COMPLETED"; fields["keyDates.closed"] = FieldValue.serverTimestamp(); }
       if (to === "CLOSED") {
-        fields.outcome = outcome ?? (from === "PDD_OTC" ? "COMPLETED" : null);
+        fields.outcome = outcome ?? null;
+        fields["keyDates.closed"] = FieldValue.serverTimestamp();
         if (outcome === "REJECTED") fields.rejectionReason = optStr(b, "rejectionReason");
       }
       tx.update(caseRef, { ...fields, ...updateAudit(caller.fapl) });
@@ -1808,10 +1809,14 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         remarks: optStr(b, "remarks"),
         ...createAudit(caller.fapl),
       });
-      // Bump the case into its login phase the first time a login is opened.
+      // Bump the case into its login phase (IN_PROGRESS) the first time a login is
+      // opened (case-level stages 1–3 are done once logins begin).
       if (existing.size === 0) {
+        if (["OPENED", "BASIC_DOCS", "DOCS"].includes(String(c.stage))) {
+          tx.update(caseRef, { stage: "IN_PROGRESS", ...updateAudit(caller.fapl) });
+        }
         tx.set(caseRef.collection("stageHistory").doc(), {
-          from: c.stage ?? null, to: "LOGIN", at: FieldValue.serverTimestamp(),
+          from: c.stage ?? null, to: "IN_PROGRESS", at: FieldValue.serverTimestamp(),
           by: caller.fapl, note: `First login opened (${loginId})`,
         });
       }
@@ -2839,8 +2844,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       const cy = d.data();
       const disbMs = tsToMs(cy.disbursementDate);
       const caseId = cy.caseId as string;
-      // Find the handling RM via the MIS record (denormalised FAPL).
-      const mis = (await db.collection("misRecords").doc(caseId).get()).data();
+      // Find the handling RM via the MIS record (keyed by loginId in the per-login
+      // model; legacy per-case cycles fall back to caseId).
+      const mis = (await db.collection("misRecords").doc((cy.loginId as string) ?? caseId).get()).data();
       const fapl = (mis?.handlingRmId as string | undefined) ?? null;
       if (!fapl) continue;
       if (!uidCache.has(fapl)) uidCache.set(fapl, await faplToUid(fapl));
@@ -2953,7 +2959,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const misBook: MisLite[] = misSnap.docs.map((d) => {
       const m = d.data();
       return {
-        caseId: d.id,
+        caseId: (m.caseId as string | undefined) ?? d.id,   // per-login: misRecord id is loginId; report the real caseId
         loanAccountNo: (m.loanAccountNo as string | null) ?? null,
         bankApplicationNo: (m.bankApplicationNo as string | null) ?? null,
         dsaCode: (m.dsaCode as string) ?? "",
@@ -3042,10 +3048,16 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
 
     if (b.action === "match") {
       const caseId = reqStr(b, "caseId");
-      const mis = await db.collection("misRecords").doc(caseId).get();
-      if (!mis.exists) throw new ApiError(400, `misRecord ${caseId} not found`);
+      // Per-login: misRecords are keyed by loginId. Accept either the misRecord id
+      // (loginId) or a caseId (resolve to the case's record).
+      let misData = (await db.collection("misRecords").doc(caseId).get()).data();
+      if (!misData) {
+        const byCase = await db.collection("misRecords").where("caseId", "==", caseId).limit(1).get();
+        misData = byCase.empty ? undefined : byCase.docs[0].data();
+      }
+      if (!misData) throw new ApiError(400, `misRecord for ${caseId} not found`);
       const amount = snap.data()!.amount as number | null;
-      const variance = amount != null ? Math.round(amount - Number(mis.data()!.disbursedAmount ?? 0)) : null;
+      const variance = amount != null ? Math.round(amount - Number(misData.disbursedAmount ?? 0)) : null;
       await ref.update({ matched: true, matchType: "manual", matchedCaseId: caseId, amountVariance: variance, manualOverride: true, updatedAt: FieldValue.serverTimestamp() });
     } else if (b.action === "unmatch") {
       await ref.update({ matched: false, matchType: "none", matchedCaseId: null, amountVariance: null, manualOverride: true, updatedAt: FieldValue.serverTimestamp() });
@@ -3064,11 +3076,16 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const caseId = reqStr(b, "caseId");
     const note = optStr(b, "note") ?? "Missing in connector's bank MIS dump";
 
-    const caseSnap = await db.collection("cases").doc(caseId).get();
-    if (!caseSnap.exists) throw new ApiError(404, `${caseId} not found`);
-    const cycleId = caseSnap.data()!.payoutCycleId as string | undefined;
-    if (!cycleId) throw new ApiError(400, "Case has no payout cycle (not disbursed)");
-    const cycleRef = db.collection("payoutCycles").doc(cycleId);
+    // Per-login: a case may have several cycles — find this case's cycle(s).
+    // (Optional loginId narrows to one.) Dispute the matched cycle.
+    const loginId = optStr(b, "loginId");
+    let cq = db.collection("payoutCycles").where("caseId", "==", caseId);
+    if (loginId) cq = cq.where("loginId", "==", loginId);
+    const cycSnap = await cq.limit(1).get();
+    if (cycSnap.empty) throw new ApiError(400, "No payout cycle for this case (not disbursed)");
+    const cycleRef = cycSnap.docs[0].ref;
+    const cycleId = cycSnap.docs[0].id;
+    const cyLoginId = cycSnap.docs[0].data().loginId as string | undefined;
 
     await db.runTransaction(async (tx) => {
       const cy = await tx.get(cycleRef);
@@ -3076,8 +3093,10 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       const merged = { ...cy.data()!, disputeFlag: true, disputeNotes: note };
       const derived = deriveCycleFields(merged);
       tx.update(cycleRef, { disputeFlag: true, disputeNotes: note, status: derived.status, ...updateAudit(caller.fapl) });
-      tx.update(db.collection("cases").doc(caseId), { payoutStatus: derived.status, ...updateAudit(caller.fapl) });
-      tx.set(db.collection("misRecords").doc(caseId), { cycleStatus: derived.status, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      // Badge on the login (per-login) or the case (legacy); MIS keyed by loginId.
+      const badgeRef = cyLoginId ? db.collection("cases").doc(caseId).collection("logins").doc(cyLoginId) : db.collection("cases").doc(caseId);
+      tx.update(badgeRef, { payoutStatus: derived.status, ...updateAudit(caller.fapl) });
+      tx.set(db.collection("misRecords").doc(cyLoginId ?? caseId), { cycleStatus: derived.status, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
     });
     await db.collection("audit_logs").add({ actor: caller.uid, actorFapl: caller.fapl, action: "crm2_recon_dispute", targetPath: `/payoutCycles/${cycleId}`, at: FieldValue.serverTimestamp() });
     res.json({ ok: true, cycleId });
@@ -3097,18 +3116,22 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     // All cycles whose reporting month == this month (reportingMonth on the MIS;
     // the cycle stores disbursementDate — group by its YYYY-MM).
     const misSnap = await db.collection("misRecords").where("reportingMonth", "==", month).get();
-    const byConnector = new Map<string, string[]>();  // connectorId → caseIds
+    // connectorId → [{ caseId, cycleId }] (per-login: misRecord id is loginId; read
+    // the cycle via the misRecord's stored payoutCycleId, not a derived id).
+    const byConnector = new Map<string, Array<{ caseId: string; cycleId: string }>>();
     for (const d of misSnap.docs) {
-      const conn = d.data().connectorId as string;
+      const m = d.data();
+      const conn = m.connectorId as string;
       if (!byConnector.has(conn)) byConnector.set(conn, []);
-      byConnector.get(conn)!.push(d.id);
+      byConnector.get(conn)!.push({ caseId: (m.caseId as string | undefined) ?? d.id, cycleId: m.payoutCycleId as string });
     }
 
     let snapshots = 0;
-    for (const [connectorId, caseIds] of byConnector) {
+    for (const [connectorId, entries] of byConnector) {
       const cycles: CycleLite[] = [];
-      for (const caseId of caseIds) {
-        const cySnap = await db.collection("payoutCycles").doc(caseId.replace("FIN-CASE", "PC")).get();
+      for (const { caseId, cycleId } of entries) {
+        if (!cycleId) continue;
+        const cySnap = await db.collection("payoutCycles").doc(cycleId).get();
         if (!cySnap.exists) continue;
         const c = cySnap.data()!;
         cycles.push({

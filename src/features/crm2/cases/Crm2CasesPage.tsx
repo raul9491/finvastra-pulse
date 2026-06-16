@@ -12,22 +12,27 @@ import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
 import { FLabel, inp } from '../masters/MastersPage';
-import { CASE_STAGE_ORDER, type Crm2Case, type CaseStage, type Client, type Product } from '../../../types/crm2';
+import { CASE_LEVEL_STAGE_ORDER, type Crm2Case, type Client, type Product } from '../../../types/crm2';
 
 type CaseRow = Crm2Case & { id: string };
 
-export const STAGE_LABEL: Record<CaseStage, string> = {
-  OPENED: 'Opened', ELIGIBILITY: 'Eligibility', DOC_COLLECTION: 'Docs',
-  CODE_ASSIGNMENT: 'Code', LOGIN: 'Login', UNDER_PROCESS: 'In Process',
-  SANCTIONED: 'Sanctioned', DISBURSED: 'Disbursed', PDD_OTC: 'PDD/OTC', CLOSED: 'Closed',
+// Case-level stage labels (Phase 4 cutover). Legacy + login-stage keys are kept as
+// fallbacks so the shared stageHistory timeline renders any value cleanly.
+export const STAGE_LABEL: Record<string, string> = {
+  OPENED: 'Opened', BASIC_DOCS: 'Basic Docs', DOCS: 'Docs', IN_PROGRESS: 'In Progress',
+  COMPLETED: 'Completed', CLOSED: 'Closed',
+  ELIGIBILITY: 'Eligibility', DOC_COLLECTION: 'Docs', CODE_ASSIGNMENT: 'Code', LOGIN: 'Login',
+  UNDER_PROCESS: 'In Process', SANCTIONED: 'Sanctioned', DISBURSED: 'Disbursed', PDD_OTC: 'PDD/OTC',
+  FILE_LOGIN: 'File Login', CODE_LOGIN_DONE: 'Code+Login',
 };
+export const caseStageLabel = (s: string) => STAGE_LABEL[s] ?? s;
 
 export function Crm2CasesPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [rows, setRows] = useState<CaseRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [stageFilter, setStageFilter] = useState<CaseStage | 'ALL'>('ALL');
+  const [stageFilter, setStageFilter] = useState<string>('ALL');
   const [search, setSearch] = useState('');
   const [showNew, setShowNew] = useState(false);
   const { rows: clients } = useCrm2Collection<Client & { id: string }>('clients');
@@ -75,7 +80,7 @@ export function Crm2CasesPage() {
       </div>
 
       <div className="flex gap-1.5 flex-wrap">
-        {(['ALL', ...CASE_STAGE_ORDER] as Array<CaseStage | 'ALL'>).map((s) => (
+        {(['ALL', ...CASE_LEVEL_STAGE_ORDER, 'CLOSED'] as string[]).map((s) => (
           <button key={s} onClick={() => setStageFilter(s)}
             className="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors"
             style={stageFilter === s

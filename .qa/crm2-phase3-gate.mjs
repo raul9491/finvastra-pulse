@@ -85,19 +85,16 @@ async function main() {
   prot.status === 400 && /Server-calculated/.test(prot.data.error)
     ? ok('protected fields (stage, docsCompletePct) rejected on PATCH') : bad('protected fields', JSON.stringify(prot));
 
-  // 2. Walk forward; LOGIN must be blocked with pending docs
-  for (const to of ['ELIGIBILITY', 'DOC_COLLECTION', 'CODE_ASSIGNMENT']) {
-    await api('POST', `/api/crm2/cases/${caseId}/stage`, token, { to });
+  // 2. Case-level stage machine (Phase 4 cutover): OPENED → BASIC_DOCS → DOCS.
+  // Sanction/login/disburse/PDD are PER-LOGIN now (covered by the phase4-money + 4a gates).
+  const skip = await api('POST', `/api/crm2/cases/${caseId}/stage`, token, { to: 'DOCS' });
+  skip.status === 400 ? ok('case stage skipping rejected (OPENED → DOCS)') : bad('skip', JSON.stringify(skip));
+  let walkOk = true;
+  for (const to of ['BASIC_DOCS', 'DOCS']) {
+    const r = await api('POST', `/api/crm2/cases/${caseId}/stage`, token, { to });
+    if (r.status !== 200) { walkOk = false; bad(`case advance → ${to}`, JSON.stringify(r)); }
   }
-  // Exactly the 2 LOGIN-stage docs must block (the PDD doc is NOT a LOGIN gate).
-  const blocked = await api('POST', `/api/crm2/cases/${caseId}/stage`, token, { to: 'LOGIN' });
-  blocked.status === 422 && Array.isArray(blocked.data.details) && blocked.data.details.length === 2
-    ? ok(`LOGIN blocked — ${blocked.data.details.length} pending LOGIN docs returned (PDD doc correctly excluded)`)
-    : bad('LOGIN gate', JSON.stringify(blocked));
-
-  // Stage skipping rejected
-  const skip = await api('POST', `/api/crm2/cases/${caseId}/stage`, token, { to: 'SANCTIONED' });
-  skip.status === 400 ? ok('stage skipping rejected') : bad('skip', JSON.stringify(skip));
+  if (walkOk) ok('case advanced OPENED → BASIC_DOCS → DOCS (case-level)');
 
   // 3. Vault upload + link + verify → docsCompletePct moves
   const pdfB64 = Buffer.from('%PDF-1.4 fake-gst-certificate').toString('base64');
@@ -122,9 +119,7 @@ async function main() {
   caseAfterDocs?.fields?.keyDates?.mapValue?.fields?.docsComplete?.timestampValue
     ? ok('keyDates.docsComplete stamped when LOGIN docs all VERIFIED') : bad('docsComplete stamp');
 
-  // 4. Now LOGIN succeeds; verifiedBy stamped with the actor FAPL
-  const login = await api('POST', `/api/crm2/cases/${caseId}/stage`, token, { to: 'LOGIN' });
-  login.status === 200 ? ok('LOGIN transition passes once docs verified') : bad('LOGIN pass', JSON.stringify(login));
+  // 4. verifiedBy stamped with the actor FAPL when a doc row is VERIFIED
   const anyRow = await getDoc(`cases/${caseId}/docTracker/${rowIds[0]}`);
   fv(anyRow, 'verifiedBy') === 'FAPL-003'
     ? ok('verifiedBy stamped with actor FAPL-003') : bad('verifiedBy', fv(anyRow, 'verifiedBy'));
@@ -161,8 +156,8 @@ async function main() {
   const hist = await listDocs(`cases/${caseId}/stageHistory`);
   const tos = hist.map((h) => fv(h, 'to'));
   const actors = new Set(hist.map((h) => fv(h, 'by')));
-  hist.length >= 5 && tos.includes('LOGIN') && actors.has('FAPL-003')
-    ? ok(`stageHistory has ${hist.length} entries incl. LOGIN, actor FAPL-003`)
+  hist.length >= 3 && tos.includes('DOCS') && actors.has('FAPL-003')
+    ? ok(`stageHistory has ${hist.length} entries incl. DOCS, actor FAPL-003`)
     : bad('stageHistory', JSON.stringify({ n: hist.length, tos, actors: [...actors] }));
 
   console.log(`\n${pass} passed, ${fail} failed`);

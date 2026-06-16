@@ -17,11 +17,10 @@ import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
 import { FLabel, inp } from '../masters/MastersPage';
 import { STAGE_LABEL } from './Crm2CasesPage';
-import { PayoutTab, DisburseDialog } from './PayoutTab';
 import { LoginsSection } from './LoginsSection';
 import {
-  CASE_STAGE_ORDER,
-  type Crm2Case, type CaseStage, type Applicant, type DocTrackerRow,
+  CASE_LEVEL_STAGE_ORDER, type CaseLevelStage,
+  type Crm2Case, type Applicant, type DocTrackerRow,
   type StageHistoryEntry, type Client, type DocumentDef, type Lender, type Aggregator,
   type CasePayoutMirror, type VaultDoc,
 } from '../../../types/crm2';
@@ -51,18 +50,12 @@ export function CaseWorkspacePage() {
   const [caseDoc, setCaseDoc] = useState<(Crm2Case & { id: string }) | null>(null);
   const [client, setClient] = useState<(Client & { id: string }) | null>(null);
   const [mirror, setMirror] = useState<CasePayoutMirror | null>(null);
-  const [tab, setTab] = useState<'details' | 'applicants' | 'documents' | 'logins' | 'payout' | 'history'>('details');
-  const [showDisburse, setShowDisburse] = useState(false);
+  const [tab, setTab] = useState<'details' | 'applicants' | 'documents' | 'logins' | 'clientid' | 'history'>('details');
 
   const applicants = useSubcollection<Applicant>(['cases', caseId!, 'applicants']);
   const tracker = useSubcollection<DocTrackerRow>(['cases', caseId!, 'docTracker']);
   const history = useSubcollection<StageHistoryEntry>(['cases', caseId!, 'stageHistory'], 'at');
   const vaultDocs = useSubcollection<VaultDoc>(client ? ['clients', client.id, 'vaultDocs'] : ['clients', '_none', 'vaultDocs']);
-  // Phase 4 — once a case has logins, disbursement/payout is per-login: the
-  // legacy case-level disburse + Payout tab are hidden (no double-disburse).
-  const caseLogins = useSubcollection<{ stage: string }>(['cases', caseId!, 'logins']);
-  const hasLogins = caseLogins.length > 0;
-
   const { rows: docDefs } = useCrm2Collection<WithId<DocumentDef>>('documentMaster');
   const { rows: lenders } = useCrm2Collection<WithId<Lender>>('lenders');
   const { rows: aggregators } = useCrm2Collection<WithId<Aggregator>>('aggregators');
@@ -100,11 +93,11 @@ export function CaseWorkspacePage() {
     return <div className="glass-panel p-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Loading case…</div>;
   }
 
-  const stageIdx = CASE_STAGE_ORDER.indexOf(caseDoc.stage);
-  const nextStage = caseDoc.stage !== 'CLOSED' && caseDoc.stage !== 'SANCTIONED' && stageIdx < CASE_STAGE_ORDER.length - 1
-    ? CASE_STAGE_ORDER[stageIdx + 1] : null;   // SANCTIONED→DISBURSED only via Phase 4 disburse
+  const stageIdx = CASE_LEVEL_STAGE_ORDER.indexOf(caseDoc.stage as CaseLevelStage);
+  const nextStage = caseDoc.stage !== 'CLOSED' && stageIdx >= 0 && stageIdx < CASE_LEVEL_STAGE_ORDER.length - 1
+    ? CASE_LEVEL_STAGE_ORDER[stageIdx + 1] : null;
 
-  const advance = async (to: CaseStage, outcome?: string) => {
+  const advance = async (to: CaseLevelStage | 'CLOSED', outcome?: string) => {
     try {
       await apiCrm2('POST', `/api/crm2/cases/${caseId}/stage`, { to, outcome });
       toast.success(`Stage → ${STAGE_LABEL[to]}`);
@@ -149,13 +142,13 @@ export function CaseWorkspacePage() {
           </div>
         </div>
 
-        {/* 10-stage stepper */}
+        {/* Case-level stage stepper (sanction/disburse/PDD are per-login → Logins tab) */}
         <div className="flex items-center gap-0 overflow-x-auto pb-1">
-          {CASE_STAGE_ORDER.map((s, i) => {
+          {CASE_LEVEL_STAGE_ORDER.map((s, i) => {
             const done = i < stageIdx, active = i === stageIdx;
             return (
               <div key={s} className="flex items-center shrink-0">
-                <div className="flex flex-col items-center gap-1 w-[72px]">
+                <div className="flex flex-col items-center gap-1 w-[84px]">
                   <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
                     style={{ backgroundColor: done || active ? '#C9A961' : 'var(--shell-hover-hard)',
                              color: done || active ? '#0B1538' : 'var(--text-dim)' }}>
@@ -164,7 +157,7 @@ export function CaseWorkspacePage() {
                   <span className="text-[9px] font-semibold text-center"
                     style={{ color: active ? '#C9A961' : 'var(--text-muted)' }}>{STAGE_LABEL[s]}</span>
                 </div>
-                {i < CASE_STAGE_ORDER.length - 1 && (
+                {i < CASE_LEVEL_STAGE_ORDER.length - 1 && (
                   <div className="w-4 h-px mt-[-14px]" style={{ backgroundColor: done ? '#C9A961' : 'var(--shell-hover-hard)' }} />
                 )}
               </div>
@@ -172,44 +165,33 @@ export function CaseWorkspacePage() {
           })}
         </div>
 
-        {canWrite && caseDoc.stage !== 'CLOSED' && (
+        {canWrite && caseDoc.stage !== 'CLOSED' && caseDoc.stage !== 'COMPLETED' && (
           <div className="flex flex-wrap gap-2">
             {nextStage && (
               <button onClick={() => advance(nextStage)}
                 className="px-4 py-2 rounded-lg text-sm font-semibold"
                 style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
-                Advance → {STAGE_LABEL[nextStage]}
+                {nextStage === 'IN_PROGRESS' ? 'Start logins (In Progress)' : nextStage === 'COMPLETED' ? 'Mark case Completed' : `Advance → ${STAGE_LABEL[nextStage]}`}
               </button>
             )}
-            {caseDoc.stage === 'SANCTIONED' && !hasLogins && hasCrm2Perm(profile, 'payout.write') && (
-              <button onClick={() => setShowDisburse(true)}
-                className="px-4 py-2 rounded-lg text-sm font-semibold inline-flex items-center gap-1.5"
-                style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
-                <IndianRupee size={14} /> Record Disbursement
-              </button>
-            )}
-            {caseDoc.stage !== 'PDD_OTC' && (
-              <button onClick={() => { const r = prompt('Close early — reason (recorded):'); if (r !== null) advance('CLOSED', r.toLowerCase().includes('withdraw') ? 'WITHDRAWN' : 'REJECTED'); }}
-                className="px-4 py-2 rounded-lg text-sm font-semibold border"
-                style={{ borderColor: 'rgba(248,113,113,0.4)', color: '#f87171' }}>
-                Close (reject/withdraw)
-              </button>
-            )}
+            <button onClick={() => { const r = prompt('Close early — reason (recorded):'); if (r !== null) advance('CLOSED', r.toLowerCase().includes('withdraw') ? 'WITHDRAWN' : 'REJECTED'); }}
+              className="px-4 py-2 rounded-lg text-sm font-semibold border"
+              style={{ borderColor: 'rgba(248,113,113,0.4)', color: '#f87171' }}>
+              Close (reject/withdraw)
+            </button>
           </div>
         )}
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1.5 flex-wrap">
-        {(['details', 'applicants', 'documents', 'logins', 'payout', 'history'] as const)
-          .filter((t) => t !== 'payout' || !hasLogins)   // per-login cases manage payout per-login + in MIS
-          .map((t) => (
+        {(['details', 'applicants', 'documents', 'logins', 'clientid', 'history'] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className="px-3.5 py-2 rounded-lg text-sm font-semibold capitalize transition-colors"
             style={tab === t
               ? { backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961', border: '1px solid rgba(201,169,97,0.35)' }
               : { color: 'var(--text-muted)', border: '1px solid var(--shell-border)' }}>
-            {t}{t === 'documents' ? ` (${caseDoc.docsCompletePct}%)` : ''}
+            {t === 'clientid' ? 'Client-ID data' : t}{t === 'documents' ? ` (${caseDoc.docsCompletePct}%)` : ''}
           </button>
         ))}
       </div>
@@ -227,14 +209,7 @@ export function CaseWorkspacePage() {
           docDefs={docDefs} applicants={applicants} canWrite={canWrite} />
       )}
       {tab === 'logins' && <LoginsSection caseId={caseDoc.id} canWrite={canWrite} />}
-      {tab === 'payout' && !hasLogins && <PayoutTab caseDoc={caseDoc} />}
-      {tab === 'payout' && hasLogins && (
-        <div className="glass-panel p-6 text-sm text-center" style={{ color: 'var(--text-muted)' }}>
-          This case uses the per-login pipeline — disburse and track payout per login in the
-          <button onClick={() => setTab('logins')} className="font-semibold mx-1" style={{ color: '#C9A961' }}>Logins</button>
-          tab, and manage payout cycles in the MIS module.
-        </div>
-      )}
+      {tab === 'clientid' && <ClientIdTab client={client} />}
       {tab === 'history' && (
         <div className="glass-panel p-5 space-y-2">
           {history.length === 0 ? (
@@ -242,7 +217,7 @@ export function CaseWorkspacePage() {
           ) : [...history].reverse().map((h) => (
             <div key={h.id} className="px-3 py-2 rounded-lg flex items-center gap-3" style={{ border: '1px solid var(--shell-border)' }}>
               <span className="text-xs font-semibold" style={{ color: '#C9A961' }}>
-                {h.from ? `${STAGE_LABEL[h.from]} →` : ''} {STAGE_LABEL[h.to]}
+                {h.from ? `${STAGE_LABEL[h.from] ?? h.from} →` : ''} {STAGE_LABEL[h.to] ?? h.to}
               </span>
               <span className="text-[11px] flex-1" style={{ color: 'var(--text-muted)' }}>{h.note ?? ''}</span>
               <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{h.by} · {fmtTs(h.at)}</span>
@@ -250,10 +225,41 @@ export function CaseWorkspacePage() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
 
-      {showDisburse && (
-        <DisburseDialog caseDoc={caseDoc} onClose={() => setShowDisburse(false)} onDone={() => setTab('payout')} />
-      )}
+// ─── Client-ID data tab (decision B — the case's client master at a glance) ────
+function ClientIdTab({ client }: { client: (Client & { id: string }) | null }) {
+  const navigate = useNavigate();
+  if (!client) return <div className="glass-panel p-6 text-sm" style={{ color: 'var(--text-muted)' }}>Loading client…</div>;
+  const addr = [client.regAddress?.line, client.regAddress?.city, client.regAddress?.state, client.regAddress?.pincode].filter(Boolean).join(', ');
+  const Row = ({ k, v }: { k: string; v: string | null | undefined }) => (
+    <div><p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{k}</p><p className="text-sm" style={{ color: 'var(--text-primary)' }}>{v || '—'}</p></div>
+  );
+  return (
+    <div className="glass-panel p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>{client.name}</p>
+          <p className="text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>{client.id} · {client.constitution}</p>
+        </div>
+        <button onClick={() => navigate(`/crm/pipeline/clients/${client.id}`)} className="text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+          Open client master →
+        </button>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <Row k="Industry" v={client.industry} />
+        <Row k="PAN" v={client.panLast4 ? `••••••${client.panLast4}` : null} />
+        <Row k="GSTIN" v={client.gstin} />
+        <Row k="Contact" v={client.primaryContact?.name} />
+        <Row k="Mobile" v={client.primaryContact?.mobile} />
+        <Row k="Email" v={client.primaryContact?.email} />
+        <Row k="Owner RM" v={client.ownerRm} />
+        <Row k="KYC" v={client.kycStatus} />
+        <Row k="Latest CIBIL" v={client.latestCibil ? String(client.latestCibil.score) : null} />
+        <Row k="Registered Address" v={addr} />
+      </div>
     </div>
   );
 }

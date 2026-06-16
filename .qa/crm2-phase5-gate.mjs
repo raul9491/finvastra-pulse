@@ -35,16 +35,17 @@ async function listDocs(path) { const r = await fetch(`http://${FS}/v1/projects/
 const fnum = (d, f) => { const x = d?.fields?.[f]; return x ? Number(x.integerValue ?? x.doubleValue ?? 0) : null; };
 const fstr = (d, f) => d?.fields?.[f]?.stringValue ?? null;
 
+// Phase 4 cutover: disburse PER LOGIN. Returns the caseId (recon dispute is by case).
 async function disburse(T, stamp, conn, len, prod, dsaCode, amount, date, loanAcct) {
   const lead = await api('POST', '/api/crm2/leads', T, { name: `Co-${stamp}`, mobile: `9${String(stamp).padStart(9, '0').slice(0, 9)}`, category: 'LOAN', source: 'WALKIN', productId: prod });
   await api('PATCH', `/api/crm2/leads/${lead.data.id}`, T, { status: 'QUALIFIED' });
   const conv = await api('POST', `/api/crm2/leads/${lead.data.id}/convert`, T, {});
   const caseId = conv.data.caseId;
-  await api('PATCH', `/api/crm2/cases/${caseId}`, T, { connectorId: conn, lenderId: len });
   const rows = (await listDocs(`cases/${caseId}/docTracker`));
   for (const r of rows) await api('PATCH', `/api/crm2/cases/${caseId}/doc-tracker/${r.name.split('/').pop()}`, T, { status: 'VERIFIED' });
-  for (const to of ['ELIGIBILITY', 'DOC_COLLECTION', 'CODE_ASSIGNMENT', 'LOGIN', 'UNDER_PROCESS', 'SANCTIONED']) await api('POST', `/api/crm2/cases/${caseId}/stage`, T, { to });
-  await api('POST', `/api/crm2/cases/${caseId}/disburse`, T, { disbursedAmount: amount, disbursementDate: date, loanAccountNo: loanAcct, city: 'C', state: 'S' });
+  const l = await api('POST', `/api/crm2/cases/${caseId}/logins`, T, { connectorId: conn, lenderId: len });
+  for (const to of ['CODE_LOGIN_DONE', 'IN_PROCESS', 'SANCTIONED']) await api('POST', `/api/crm2/cases/${caseId}/logins/${l.data.loginId}/stage`, T, { to });
+  await api('POST', `/api/crm2/cases/${caseId}/logins/${l.data.loginId}/disburse`, T, { disbursedAmount: amount, disbursementDate: date, loanAccountNo: loanAcct, city: 'C', state: 'S' });
   return caseId;
 }
 
@@ -87,14 +88,15 @@ async function main() {
   fstr(matchedA, 'matchType') === 'loan' && fstr(matchedA, 'matchedCaseId') === c1
     ? ok('matched row links to the correct case via loan-account tier') : bad('row link', JSON.stringify(matchedA?.fields?.matchedCaseId));
 
-  // ── 2. Dispute the missing case → cycle DISPUTED ──
+  // ── 2. Dispute the missing case → its (per-login) cycle DISPUTED ──
   const disp = await api('POST', '/api/crm2/recon/dispute', T, { caseId: c3 });
-  const pc3 = c3.replace('FIN-CASE', 'PC');
-  const cyc3 = await getDoc(`payoutCycles/${pc3}`);
+  const cyc3 = disp.data.cycleId ? await getDoc(`payoutCycles/${disp.data.cycleId}`) : null;
   disp.status === 200 && fstr(cyc3, 'status') === 'DISPUTED' && cyc3?.fields?.disputeFlag?.booleanValue === true
-    ? ok(`missing case disputed → cycle ${pc3} DISPUTED`) : bad('dispute', JSON.stringify(cyc3?.fields?.status));
-  const case3 = await getDoc(`cases/${c3}`);
-  fstr(case3, 'payoutStatus') === 'DISPUTED' ? ok('case payout badge → DISPUTED (same tx)') : bad('badge', fstr(case3, 'payoutStatus'));
+    ? ok(`missing case disputed → cycle ${disp.data.cycleId} DISPUTED`) : bad('dispute', JSON.stringify({ s: fstr(cyc3, 'status'), d: disp.data }));
+  // Per-login: the payout badge lives on the LOGIN, not the case.
+  const loginId3 = fstr(cyc3, 'loginId');
+  const login3 = loginId3 ? await getDoc(`cases/${c3}/logins/${loginId3}`) : null;
+  fstr(login3, 'payoutStatus') === 'DISPUTED' ? ok('login payout badge → DISPUTED (same tx)') : bad('badge', fstr(login3, 'payoutStatus'));
 
   // ── 3. Recon snapshot idempotent ──
   const snap1 = await api('POST', '/api/crm2/jobs/run-recon-snapshots', T, { month });

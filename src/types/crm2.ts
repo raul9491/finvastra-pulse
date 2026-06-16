@@ -240,7 +240,7 @@ export interface Crm2Case extends Audit {
   amountSanctioned: number | null; amountDisbursed: number | null;
   roiPct: number | null; tenureMonths: number | null; processingFee: number | null;
   disbursalCity: string | null; disbursalState: string | null;
-  stage: CaseStage;
+  stage: CaseLevelStage | CaseStage;   // Phase 4 cutover: case-level (legacy union kept for old readers)
   outcome: 'COMPLETED' | 'REJECTED' | 'WITHDRAWN' | null;
   rejectionReason: string | null;
   keyDates: { opened: Ts; docsComplete: Ts | null; login: Ts | null;

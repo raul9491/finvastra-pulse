@@ -2018,6 +2018,16 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     if (!caseSnap.exists) throw new ApiError(404, `${req.params.id} not found`);
     const c = caseSnap.data()!;
 
+    // ── MONEY SAFETY (Phase 4) — a case is EITHER legacy-per-case OR per-login,
+    // never both. If any login exists, the case-level disburse is refused so the
+    // same case can't be disbursed twice (per-case AND per-login). Disburse each
+    // login from the Logins tab instead. This makes the two engines mutually
+    // exclusive per case → no double-disburse / duplicate payout cycles.
+    const loginCount = (await caseRef.collection("logins").limit(1).get()).size;
+    if (loginCount > 0) {
+      throw new ApiError(400, "This case uses the per-login pipeline — disburse each login from its Logins tab, not the case.");
+    }
+
     // Pre-tx validation + slab resolution (hard-fail BEFORE opening the tx).
     if (c.stage !== "SANCTIONED") throw new ApiError(400, `Case must be SANCTIONED to disburse (current: ${c.stage})`);
     if (!c.connectorId || !c.lenderId) throw new ApiError(400, "Case needs connectorId and lenderId set before disbursement");

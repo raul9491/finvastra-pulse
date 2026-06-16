@@ -105,6 +105,14 @@ async function main() {
   fv(lAfter, 'payoutStatus') === mile.data.status && fv(misAfter, 'cycleStatus') === mile.data.status
     ? ok('milestone updated the LOGIN badge + MIS record in lock-step') : bad('milestone propagation', JSON.stringify({ login: fv(lAfter, 'payoutStatus'), mis: fv(misAfter, 'cycleStatus') }));
 
+  // MONEY SAFETY — a case that has logins cannot be disbursed at the case level
+  // (no double-disburse: a case is either legacy-per-case OR per-login).
+  const caseDisb = await api('POST', `/api/crm2/cases/${caseId}/disburse`, token, {
+    disbursedAmount: 5000000, disbursementDate: '2025-06-15', loanAccountNo: 'LN-X', city: 'Mumbai', state: 'MH',
+  });
+  caseDisb.status === 400 && /per-login pipeline/.test(caseDisb.data.error ?? '')
+    ? ok('case-level disburse blocked once logins exist (no double-disburse)') : bad('case disburse guard', JSON.stringify(caseDisb));
+
   // A login whose lender has no mapping is blocked at disburse.
   const l2 = await api('POST', `/api/crm2/cases/${caseId}/logins`, token, { lenderId: lender2.data.id, connectorId: conn.data.id });
   for (const to of ['CODE_LOGIN_DONE', 'IN_PROCESS', 'SANCTIONED']) await api('POST', `/api/crm2/cases/${caseId}/logins/${l2.data.loginId}/stage`, token, { to });

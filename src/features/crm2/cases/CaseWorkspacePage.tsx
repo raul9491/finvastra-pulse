@@ -58,6 +58,10 @@ export function CaseWorkspacePage() {
   const tracker = useSubcollection<DocTrackerRow>(['cases', caseId!, 'docTracker']);
   const history = useSubcollection<StageHistoryEntry>(['cases', caseId!, 'stageHistory'], 'at');
   const vaultDocs = useSubcollection<VaultDoc>(client ? ['clients', client.id, 'vaultDocs'] : ['clients', '_none', 'vaultDocs']);
+  // Phase 4 — once a case has logins, disbursement/payout is per-login: the
+  // legacy case-level disburse + Payout tab are hidden (no double-disburse).
+  const caseLogins = useSubcollection<{ stage: string }>(['cases', caseId!, 'logins']);
+  const hasLogins = caseLogins.length > 0;
 
   const { rows: docDefs } = useCrm2Collection<WithId<DocumentDef>>('documentMaster');
   const { rows: lenders } = useCrm2Collection<WithId<Lender>>('lenders');
@@ -177,7 +181,7 @@ export function CaseWorkspacePage() {
                 Advance → {STAGE_LABEL[nextStage]}
               </button>
             )}
-            {caseDoc.stage === 'SANCTIONED' && hasCrm2Perm(profile, 'payout.write') && (
+            {caseDoc.stage === 'SANCTIONED' && !hasLogins && hasCrm2Perm(profile, 'payout.write') && (
               <button onClick={() => setShowDisburse(true)}
                 className="px-4 py-2 rounded-lg text-sm font-semibold inline-flex items-center gap-1.5"
                 style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
@@ -197,7 +201,9 @@ export function CaseWorkspacePage() {
 
       {/* Tabs */}
       <div className="flex gap-1.5 flex-wrap">
-        {(['details', 'applicants', 'documents', 'logins', 'payout', 'history'] as const).map((t) => (
+        {(['details', 'applicants', 'documents', 'logins', 'payout', 'history'] as const)
+          .filter((t) => t !== 'payout' || !hasLogins)   // per-login cases manage payout per-login + in MIS
+          .map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className="px-3.5 py-2 rounded-lg text-sm font-semibold capitalize transition-colors"
             style={tab === t
@@ -221,7 +227,14 @@ export function CaseWorkspacePage() {
           docDefs={docDefs} applicants={applicants} canWrite={canWrite} />
       )}
       {tab === 'logins' && <LoginsSection caseId={caseDoc.id} canWrite={canWrite} />}
-      {tab === 'payout' && <PayoutTab caseDoc={caseDoc} />}
+      {tab === 'payout' && !hasLogins && <PayoutTab caseDoc={caseDoc} />}
+      {tab === 'payout' && hasLogins && (
+        <div className="glass-panel p-6 text-sm text-center" style={{ color: 'var(--text-muted)' }}>
+          This case uses the per-login pipeline — disburse and track payout per login in the
+          <button onClick={() => setTab('logins')} className="font-semibold mx-1" style={{ color: '#C9A961' }}>Logins</button>
+          tab, and manage payout cycles in the MIS module.
+        </div>
+      )}
       {tab === 'history' && (
         <div className="glass-panel p-5 space-y-2">
           {history.length === 0 ? (

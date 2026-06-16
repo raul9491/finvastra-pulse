@@ -1936,6 +1936,20 @@ After an audit, four real gaps were fixed:
 
 ---
 
+## Meta Lead Ads → CRM 2.0 webhook — Phase 1 (capture + queue) (2026-06-16) — BUILT, NOT deployed
+
+Real-time Meta Lead Ads intake landing as **CRM 2.0 Leads** (`source: ADS`, `status: NEW`) in Pipeline → Leads. **Replaces the broken legacy `GET|POST /api/leads/intake/meta`** (which skipped real webhooks with `if (!val?.field_data) continue;` — Meta only ever sends a `leadgen_id`, never inline `field_data` — and whose verify token was unset, so 0 Meta leads ever flowed). Phase 1 = capture + queue ONLY; **routing (RM assignment) + contact-within-SLA timer are Phase 2; backfill of historical leads is a separate forward-only-webhook limitation**.
+
+- **Endpoints** (`server/crm2.ts`, registered via `registerCrm2Routes`): **`GET /api/webhooks/meta/leadgen`** (subscription handshake — echoes `hub.challenge` when `hub.verify_token === META_VERIFY_TOKEN`, else 403); **`POST /api/webhooks/meta/leadgen`** (verifies `X-Hub-Signature-256` = HMAC-SHA256 over the **raw bytes** keyed with `META_APP_SECRET`, constant-time compare → **persist-first** to `meta_lead_events/{leadgen_id}` → **ACK 200 fast** → async pull+map+upsert; valid because Cloud Run runs `--no-cpu-throttling`); **`POST /api/crm2/jobs/run-meta-retry`** (scheduler-OIDC or admin — reprocesses pending / non-terminal-failed / stuck-fetching events).
+- **Worker `processMetaLeadgen`**: Graph pull `GET /{META_GRAPH_VERSION}/{leadgen_id}?fields=field_data,…&access_token=…` → defensive field map (`mapMetaFields`: alias-tolerant name/phone/email/city, phone normalised via `normaliseMobile`) → **one transaction guarded on the event doc** mints `LD-${year}-#####` and writes the full `Crm2LeadFields` lead; soft person-dedup (`findDuplicate`/`buildDupeKeys`) **flags `duplicateOfLeadId`, never drops**. State machine `pending → fetching → done` (or `failed` + `lastError`; `terminal:true` after 5 attempts or for an unusable lead). Writes a `webhook_logs` row (`source: social_meta`).
+- **Idempotency**: event doc id = `leadgen_id` (redelivered webhooks not re-queued) + the upsert tx re-reads the event and aborts if `status==='done'` → exactly one lead per `leadgen_id`. Lost-after-ACK events recovered by the retry job.
+- **Pure helpers** extracted to **`src/lib/crm2/meta.ts`** (`verifyMetaSignature`, `signMetaPayload`, `extractLeadgenEvents`, `mapMetaFields`) with **`meta.test.ts` (16 unit tests)**; crm2 unit total **97**. tsc + client build clean.
+- **New collection `meta_lead_events`** — rules: `read: isAdmin(); write: if false` (server-only via Admin SDK). Single-field `status` query (no composite index needed).
+- **Env (Cloud Run, secrets — never commit)**: `META_VERIFY_TOKEN` (handshake), `META_APP_SECRET` (HMAC key — the security boundary), `META_PAGE_ACCESS_TOKEN` (**long-lived System User** token, `leads_retrieval` + `pages_manage_metadata`), `META_GRAPH_VERSION` (e.g. `v23.0`). Documented in `.env.example`; setup + manual-test + scheduler commands in **`docs/meta-webhook/README.md`** (+ `sample-leadgen-webhook.json`).
+- **Deploy when maintainer ships**: `deploy:rules` (new `meta_lead_events` block — verify bind) → `gcloud run deploy pulse-api --source . --region asia-south1 --no-cpu-throttling` (sets the 4 `META_*` env vars) → `npm run deploy` (hosting unaffected) → `verify:deploy`. Then on the Meta side: subscribe the Page to the `leadgen` field, set the callback URL + verify token, grant the System User token. Register Cloud Scheduler `crm2-meta-retry` (every 10 min → `/api/crm2/jobs/run-meta-retry`, OIDC). **Verification gate: one live test lead must flow capture → queue → (Phase 2) route → contact-within-SLA before ad budget goes live.**
+
+---
+
 ## Authentication rules
 
 - **Only `@finvastra.com` Google Workspace accounts** may log in. Enforced in `onAuthStateChanged` (hard block) — not just the Google picker hint. Personal Gmail addresses are blocked even if they somehow reach the auth flow.
@@ -2606,7 +2620,8 @@ Authoritative list of every Express route. Verify against `server.ts` after any 
 - `GET  /api/track/:token` · `POST /api/leads/:leadId/opportunities/:oppId/submissions/:subId/tracker-token`
 
 **CRM — webhook intake**
-- `POST /api/leads/intake/website` · `GET|POST /api/leads/intake/meta` · `POST /api/leads/referral/submit`
+- `POST /api/leads/intake/website` · `GET|POST /api/leads/intake/meta` (LEGACY — broken, superseded) · `POST /api/leads/referral/submit`
+- `GET|POST /api/webhooks/meta/leadgen` (Meta Lead Ads → CRM 2.0, Phase 1; in `server/crm2.ts`) · `POST /api/crm2/jobs/run-meta-retry` (scheduler retry)
 
 **HRMS — notify / letters / employees**
 - `POST /api/support/raise` · `POST /api/hrms/notify/email` (Gmail API DWD)
@@ -2643,7 +2658,7 @@ Every collection with a rule block. The global deny-all (`/{document=**}`) rejec
 
 **CRM — config**: `opportunity_types`, `providers`, `document_types`, `commission_slabs`, `commission_records`, `commission_leakage_reports`
 
-**CRM — ops & audit**: `import_logs`, `import_jobs`, `access_requests`, `webhook_logs`, `lead_view_logs` (Phase M), `rtbf_log`, `public_tracker_links`, `crm_documents`
+**CRM — ops & audit**: `import_logs`, `import_jobs`, `access_requests`, `webhook_logs`, `lead_view_logs` (Phase M), `meta_lead_events` (Meta webhook write-ahead store — server-only write, admin read), `rtbf_log`, `public_tracker_links`, `crm_documents`
 
 **HRMS — attendance & leave**: `attendance`, `attendance_regularizations`, `leave_applications`, `leave_balances`, `leave_balance_adjustments`, `leave_year_resets`, `leave_encashment_requests`, `comp_off_credits`, `holidays`
 

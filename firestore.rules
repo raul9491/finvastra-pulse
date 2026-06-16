@@ -670,6 +670,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Meta Lead Ads webhook write-ahead store (one doc per leadgen_id; state machine
+    // pending→fetching→done / failed). Server-only via Admin SDK; admin read for debug.
+    match /meta_lead_events/{leadgenId} {
+      allow read:  if isAdmin();
+      allow write: if false;
+    }
+
     // ─── Rate Limits (Firestore-based rate limiting) ─────────────────────────────
     // Server-only: Admin SDK bypasses rules. Client access denied.
     match /rate_limits/{key} {

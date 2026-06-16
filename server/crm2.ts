@@ -22,6 +22,9 @@ import { findSlabOverlaps, resolveSlab, computeExpectedAmounts, SlabResolutionEr
 import { buildDupeKeys, normaliseMobile } from "../src/lib/crm2/dedupe.js";
 import { extractClientIp } from "../src/lib/crm2/http.js";
 import {
+  verifyMetaSignature, extractLeadgenEvents, mapMetaFields, type MetaLeadgenEvent,
+} from "../src/lib/crm2/meta.js";
+import {
   validateTransition, gateForStage, keyDateForStage,
 } from "../src/lib/crm2/stages.js";
 import {
@@ -835,6 +838,208 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       return newId;
     });
     res.json({ ok: true, id });
+  }));
+
+  // ═══ Meta Lead Ads → CRM 2.0 lead — Phase 1 (capture + queue) ═════════════════
+  //
+  // Meta delivers ONLY a leadgen_id; the real answers must be pulled from the Graph
+  // API. Flow: verify HMAC over the raw bytes → persist-first to a write-ahead store
+  // (meta_lead_events/{leadgen_id}) → ACK fast → async pull + map + upsert a CRM 2.0
+  // lead (source ADS, status NEW). A scheduler retry pass reprocesses pending/failed
+  // events. Phase 2 (routing + SLA) is OUT OF SCOPE here.
+  //
+  // SECURITY: the verify token, app secret, and page token are read from env ONLY —
+  // never hardcoded or logged. Unsigned / badly-signed POSTs are rejected (403).
+  const META_VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || "";
+  const META_APP_SECRET = process.env.META_APP_SECRET || "";
+  const META_PAGE_ACCESS_TOKEN = process.env.META_PAGE_ACCESS_TOKEN || "";
+  const META_GRAPH_VERSION = process.env.META_GRAPH_VERSION || "v23.0";
+  const META_MAX_ATTEMPTS = 5;
+
+  type MetaEvt = MetaLeadgenEvent;
+
+  /** Write-ahead: create the event doc (id = leadgen_id) only if absent. Returns
+   *  true when newly queued (redelivered webhooks return false → not re-queued). */
+  async function persistMetaEvent(evt: MetaEvt): Promise<boolean> {
+    const ref = db.collection("meta_lead_events").doc(evt.leadgenId);
+    return db.runTransaction(async (tx) => {
+      if ((await tx.get(ref)).exists) return false;
+      tx.set(ref, {
+        leadgenId: evt.leadgenId, pageId: evt.pageId, formId: evt.formId,
+        adId: evt.adId, createdTime: evt.createdTime,
+        status: "pending", attempts: 0, lastError: null, leadId: null, terminal: false,
+        receivedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
+      });
+      return true;
+    });
+  }
+
+  async function logMetaWebhook(
+    result: "success" | "duplicate" | "invalid" | "error",
+    leadId: string | null, errorMessage: string | null,
+  ): Promise<void> {
+    await db.collection("webhook_logs").add({
+      source: "social_meta", result, leadId, errorMessage, assignedTo: null,
+      receivedAt: FieldValue.serverTimestamp(),
+    }).catch((e) => console.error("[meta webhook_log write failed]", e));
+  }
+
+  /** Pull the full lead (field_data) from the Graph API by leadgen_id. */
+  async function fetchMetaLead(leadgenId: string): Promise<{
+    fieldData: Array<{ name?: unknown; values?: unknown }>;
+    createdTime: string | null; adId: string | null; formId: string | null; campaignId: string | null;
+  }> {
+    if (!META_PAGE_ACCESS_TOKEN) throw new Error("META_PAGE_ACCESS_TOKEN unset");
+    const fields = "field_data,created_time,ad_id,form_id,campaign_id,is_organic";
+    // NOTE: never log this URL — it carries the access token.
+    const url = `https://graph.facebook.com/${META_GRAPH_VERSION}/${encodeURIComponent(leadgenId)}`
+      + `?fields=${fields}&access_token=${encodeURIComponent(META_PAGE_ACCESS_TOKEN)}`;
+    const resp = await fetch(url, { method: "GET" });
+    const json = (await resp.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!resp.ok) {
+      const err = (json?.error as { message?: string } | undefined)?.message || `HTTP ${resp.status}`;
+      throw new Error(`Graph fetch failed: ${err}`);
+    }
+    return {
+      fieldData: Array.isArray(json.field_data) ? json.field_data as Array<{ name?: unknown; values?: unknown }> : [],
+      createdTime: isStr(json.created_time) ? String(json.created_time) : null,
+      adId: isStr(json.ad_id) ? String(json.ad_id) : null,
+      formId: isStr(json.form_id) ? String(json.form_id) : null,
+      campaignId: isStr(json.campaign_id) ? String(json.campaign_id) : null,
+    };
+  }
+
+  /** Worker: pull → map → upsert. Idempotent via the event doc state machine. Called
+   *  from the webhook (async, post-ACK) and the scheduler retry pass. */
+  async function processMetaLeadgen(leadgenId: string): Promise<void> {
+    const ref = db.collection("meta_lead_events").doc(leadgenId);
+    const snap = await ref.get();
+    if (!snap.exists) return;
+    const evt = snap.data() as Record<string, unknown>;
+    if (evt.status === "done" || evt.terminal === true) return;
+
+    const attempts = ((evt.attempts as number | undefined) ?? 0) + 1;
+    await ref.update({ attempts, status: "fetching", updatedAt: FieldValue.serverTimestamp() });
+
+    // 1. Pull the answers from the Graph API. Transient failure → retryable (job re-runs).
+    let pulled: Awaited<ReturnType<typeof fetchMetaLead>>;
+    try {
+      pulled = await fetchMetaLead(leadgenId);
+    } catch (e) {
+      const msg = (e instanceof Error ? e.message : String(e)).slice(0, 500);
+      const terminal = attempts >= META_MAX_ATTEMPTS;
+      await ref.update({ status: "failed", lastError: msg, terminal, updatedAt: FieldValue.serverTimestamp() });
+      if (terminal) { console.error(`[meta] dead-letter ${leadgenId}: ${msg}`); await logMetaWebhook("error", null, msg); }
+      return;
+    }
+
+    // 2. Defensive field mapping + minimal validation.
+    const m = mapMetaFields(pulled.fieldData);
+    if (!m.name || !m.mobile) {
+      // Graph fetch worked but the lead is unusable — retrying won't help → terminal.
+      const why = `${!m.name ? "missing name " : ""}${!m.mobile ? "missing/invalid mobile" : ""}`.trim();
+      await ref.update({ status: "failed", terminal: true, lastError: `invalid lead: ${why}`, updatedAt: FieldValue.serverTimestamp() });
+      await logMetaWebhook("invalid", null, `leadgen ${leadgenId}: ${why}`);
+      return;
+    }
+
+    // 3. Soft person-dedup (FLAG, never drop) + atomic lead upsert guarded on the
+    //    event doc so redeliveries / retries never create a second lead.
+    const dupeKeys = buildDupeKeys(m.mobile, m.email);
+    const duplicate = await findDuplicate(dupeKeys);
+    const year = new Date().getFullYear();
+
+    const leadId = await db.runTransaction(async (tx) => {
+      const e = (await tx.get(ref)).data() as Record<string, unknown> | undefined;
+      if (!e) return null;
+      if (e.status === "done") return (e.leadId as string | null) ?? null;   // already upserted
+      const newId = await nextIdInTx(tx, leadYearCounter(), `LD-${year}-`, 5);
+      tx.set(db.collection("leads").doc(newId), {
+        receivedAt: FieldValue.serverTimestamp(),
+        category: "GENERAL", productId: null,
+        name: m.name, mobile: m.mobile, email: m.email ?? null, city: m.city ?? null,
+        source: "ADS",
+        sourceMeta: {
+          formId: pulled.formId ?? (e.formId as string | null) ?? null,
+          sourceUrl: null,
+          utm: pulled.campaignId ? { campaign: pulled.campaignId } : null,
+          // Meta provenance (extra keys — schemaless; for traceability/recon).
+          leadgenId, adId: pulled.adId ?? (e.adId as string | null) ?? null,
+          pageId: (e.pageId as string | null) ?? null,
+          campaignId: pulled.campaignId ?? null,
+          metaCreatedTime: pulled.createdTime ?? (e.createdTime as string | null) ?? null,
+        },
+        amountRequired: null,
+        referredById: null, referredByType: null, referredByName: null, referredByCode: null,
+        channelPartnerId: null, channelPartnerCode: null, channelPartnerName: null,
+        linkedExistingClientId: null,
+        customerProfile: null,
+        assignedRm: null, assignedAt: null,
+        status: "NEW", priority: "WARM",
+        nextFollowUpAt: null, nextFollowUpNote: null, followUpReminderSent: false,
+        attempts: 0, activityLog: [], dropReason: null,
+        converted: false, convertedAt: null,
+        linkedClientId: null, linkedCaseId: null, linkedSubDsaId: null,
+        duplicateOfLeadId: duplicate?.collection === "leads" ? duplicate.id : null,
+        dupeKeys,
+        ...createAudit("webhook:meta"),
+      });
+      tx.update(ref, {
+        status: "done", leadId: newId, lastError: null, terminal: false,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      return newId;
+    });
+
+    if (leadId) await logMetaWebhook(duplicate ? "duplicate" : "success", leadId, null);
+  }
+
+  // GET — Meta subscription handshake (hub.challenge echo, verify-token gated).
+  app.get("/api/webhooks/meta/leadgen", (req, res) => {
+    const mode = req.query["hub.mode"];
+    const token = req.query["hub.verify_token"];
+    const challenge = req.query["hub.challenge"];
+    if (mode === "subscribe" && META_VERIFY_TOKEN && token === META_VERIFY_TOKEN) {
+      res.status(200).send(String(challenge ?? ""));
+      return;
+    }
+    res.sendStatus(403);
+  });
+
+  // POST — signed leadgen delivery. Persist-first, ACK fast, process async.
+  app.post("/api/webhooks/meta/leadgen", route(async (req, res) => {
+    const raw = (req as express.Request & { rawBody?: Buffer }).rawBody;
+    if (!META_APP_SECRET) console.error("[meta] META_APP_SECRET unset — rejecting webhook");
+    if (!verifyMetaSignature(raw, req.headers["x-hub-signature-256"], META_APP_SECRET)) {
+      res.sendStatus(403); return;
+    }
+    const events = extractLeadgenEvents(req.body);
+    // Write-ahead BEFORE the ACK so a crash never loses an event (retry job recovers).
+    const fresh: MetaEvt[] = [];
+    for (const evt of events) {
+      try { if (await persistMetaEvent(evt)) fresh.push(evt); }
+      catch (e) { console.error("[meta] persist failed", evt.leadgenId, e); }
+    }
+    // Meta only needs a 200 — never block it on Graph pulls.
+    res.status(200).json({ ok: true, received: events.length, queued: fresh.length });
+    // CPU stays allocated (Cloud Run --no-cpu-throttling) so post-response work runs.
+    for (const evt of fresh) void processMetaLeadgen(evt.leadgenId).catch((e) => console.error("[meta] process failed", evt.leadgenId, e));
+  }));
+
+  // POST — scheduler retry pass: reprocess pending / non-terminal failed events.
+  app.post("/api/crm2/jobs/run-meta-retry", route(async (req, res) => {
+    const caller = await requireSchedulerOrAdmin(req, res);
+    if (!caller) return;
+    const snap = await db.collection("meta_lead_events")
+      .where("status", "in", ["pending", "failed", "fetching"]).limit(100).get();
+    let processed = 0, skipped = 0;
+    for (const doc of snap.docs) {
+      const d = doc.data();
+      if (d.terminal === true || ((d.attempts as number | undefined) ?? 0) >= META_MAX_ATTEMPTS) { skipped++; continue; }
+      await processMetaLeadgen(doc.id).catch((e) => console.error("[meta] retry failed", doc.id, e));
+      processed++;
+    }
+    res.json({ ok: true, scanned: snap.size, processed, skipped });
   }));
 
   // ─── Internal lead create ─────────────────────────────────────────────────────

@@ -4390,108 +4390,12 @@ async function startServer() {
     }
   });
 
-  // ─── GET /api/leads/intake/meta — Meta webhook verification handshake ─────────
-  // Meta sends this request when the webhook URL is first configured in Meta Business Suite.
-  app.get("/api/leads/intake/meta", (req, res) => {
-    const mode      = req.query["hub.mode"];
-    const token     = req.query["hub.verify_token"];
-    const challenge = req.query["hub.challenge"];
-    const secret    = process.env.META_WEBHOOK_SECRET;
-
-    if (mode === "subscribe" && token === secret) {
-      console.log("[webhook/meta] Webhook verified by Meta");
-      return res.status(200).send(challenge);
-    }
-    return res.status(403).json({ error: "Verification failed" });
-  });
-
-  // ─── POST /api/leads/intake/meta — Meta Lead Ads webhook intake ───────────────
-  // Receives new lead form submissions from Meta Lead Ads.
-  // Auth: X-Hub-Signature-256 HMAC verification using META_WEBHOOK_SECRET.
-  // Always returns 200 — Meta retries on any non-200 response.
-  app.post("/api/leads/intake/meta", async (req, res) => {
-    const secret = process.env.META_WEBHOOK_SECRET;
-
-    // HMAC verification — uses rawBody captured by express.json verify option
-    if (secret) {
-      const sig = req.headers["x-hub-signature-256"] as string | undefined;
-      const rawBuf = (req as express.Request & { rawBody?: Buffer }).rawBody ?? Buffer.alloc(0);
-      const expected = "sha256=" + crypto.createHmac("sha256", secret).update(rawBuf).digest("hex");
-      if (!sig || sig !== expected) {
-        console.warn("[webhook/meta] HMAC mismatch — rejected");
-        return res.status(403).json({ error: "Signature mismatch" });
-      }
-    } else {
-      console.warn("[webhook/meta] META_WEBHOOK_SECRET not set — skipping HMAC check (dev mode)");
-    }
-
-    // Always ACK immediately — Meta retries on non-200
-    res.status(200).json({ ok: true });
-
-    // Parse Meta payload structure
-    const body = req.body as {
-      object?: string;
-      entry?: Array<{
-        changes?: Array<{
-          value?: {
-            leadgen_id?: string;
-            page_id?:   string;
-            form_id?:   string;
-            field_data?: Array<{ name: string; values: string[] }>;
-          };
-        }>;
-      }>;
-    };
-
-    if (body.object !== "page" || !Array.isArray(body.entry)) {
-      await writeWebhookLog("social_meta", "invalid", null, "unexpected payload structure", null);
-      return;
-    }
-
-    for (const entry of body.entry) {
-      for (const change of entry.changes ?? []) {
-        const val = change.value;
-        if (!val?.field_data) continue;
-
-        // Extract fields — Meta form field names vary; check common variants
-        const get = (keys: string[]) => {
-          for (const key of keys) {
-            const found = val.field_data!.find((f) => f.name.toLowerCase() === key.toLowerCase());
-            if (found?.values?.[0]) return found.values[0];
-          }
-          return undefined;
-        };
-
-        const name        = get(["full_name", "name", "first_name"]);
-        const phone       = get(["phone_number", "phone", "mobile"]);
-        const email       = get(["email"]);
-        const loanProduct = get(["loan_type", "product", "loan_product"]);
-        const loanAmtRaw  = get(["loan_amount", "amount"]);
-        const loanAmount  = loanAmtRaw ? parseFloat(loanAmtRaw.replace(/[^0-9.]/g, "")) || undefined : undefined;
-
-        if (!name || !phone) {
-          await writeWebhookLog("social_meta", "invalid", null,
-            `missing name or phone in leadgen_id=${val.leadgen_id}`, null);
-          continue;
-        }
-
-        try {
-          const outcome = await processInboundLead({
-            name, phone, email,
-            loanProduct, loanAmount,
-            formId:        val.form_id,
-            metaLeadgenId: val.leadgen_id,
-            source:        "social_meta",
-          });
-          await writeWebhookLog("social_meta", outcome.result, outcome.leadId,
-            outcome.errorMessage, outcome.assignedTo);
-        } catch (e) {
-          console.error("[webhook/meta] processing error:", e);
-          await writeWebhookLog("social_meta", "error", null, String(e), null);
-        }
-      }
-    }
-  });
+  // ─── Meta Lead Ads intake — REMOVED (2026-06-16) ──────────────────────────────
+  // The old GET|POST /api/leads/intake/meta was broken (it skipped real webhooks,
+  // which only carry a leadgen_id, never inline field_data) and is superseded by
+  // GET|POST /api/webhooks/meta/leadgen in server/crm2.ts (write-ahead + Graph pull
+  // + CRM 2.0 lead upsert). `processInboundLead` is retained — the website intake
+  // still uses it. See docs/meta-webhook/.
 
   // ─── POST /api/leads/referral/submit — Employee referral lead intake ─────────
   //

@@ -126,6 +126,22 @@ async function main() {
   early.status === 400 && /SANCTIONED/.test(early.data.error ?? '')
     ? ok('non-SANCTIONED login cannot disburse (400)') : bad('early disburse', JSON.stringify(early));
 
+  // Sub DSA (FAC- channel partner) attribution carries case → login → misRecord.
+  const kase2 = await api('POST', '/api/crm2/cases', token, {
+    clientId: client.data.id, productId: prod.data.id,
+    channelPartnerId: 'FAC-001', channelPartnerCode: 'FAC-001', channelPartnerName: 'Acme Partners',
+  });
+  for (const r of await listDocs(`cases/${kase2.data.caseId}/docTracker`)) await api('PATCH', `/api/crm2/cases/${kase2.data.caseId}/doc-tracker/${r.name.split('/').pop()}`, token, { status: 'VERIFIED' });
+  const lp = await api('POST', `/api/crm2/cases/${kase2.data.caseId}/logins`, token, { lenderId: lender.data.id, connectorId: conn.data.id });
+  const lpDoc = await getDoc(`cases/${kase2.data.caseId}/logins/${lp.data.loginId}`);
+  fv(lpDoc, 'channelPartnerName') === 'Acme Partners' && fv(lpDoc, 'channelPartnerCode') === 'FAC-001'
+    ? ok('login inherits the sourcing Sub DSA (channelPartner) from the case') : bad('login channelPartner', fv(lpDoc, 'channelPartnerName'));
+  for (const to of ['CODE_LOGIN_DONE', 'IN_PROCESS', 'SANCTIONED']) await api('POST', `/api/crm2/cases/${kase2.data.caseId}/logins/${lp.data.loginId}/stage`, token, { to });
+  await api('POST', `/api/crm2/cases/${kase2.data.caseId}/logins/${lp.data.loginId}/disburse`, token, { disbursedAmount: 1000000, disbursementDate: '2025-06-15', loanAccountNo: 'LN-CP', city: 'X', state: 'Y' });
+  const misP = await getDoc(`misRecords/${lp.data.loginId}`);
+  fv(misP, 'channelPartnerName') === 'Acme Partners' && fv(misP, 'channelPartnerCode') === 'FAC-001'
+    ? ok('misRecord carries the sourcing Sub DSA for MIS reporting (case→login→MIS)') : bad('mis channelPartner', fv(misP, 'channelPartnerName'));
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail > 0 ? 1 : 0);
 }

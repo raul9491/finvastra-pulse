@@ -156,6 +156,12 @@ export interface Crm2LeadFields {
   referredByType: 'SUBDSA' | 'CLIENT' | null;
   referredByName: string | null;      // denormalised label (sub-DSA / referring client name)
   referredByCode: string | null;      // SDSA-### code (for REFERRAL_SUBDSA), shown on the lead
+  // The "Sub DSA" channel partner (HRMS `connectors`, FAC-###) who SOURCED this
+  // lead. Attribution — carried lead→case→login→MIS. Distinct from referredBy*
+  // (subDsas/clients) and from the case's connectorId (aggregators) / subDsaId (subDsas).
+  channelPartnerId: string | null;    // FAC-### (HRMS connectors)
+  channelPartnerCode: string | null;
+  channelPartnerName: string | null;
   // Phase 3 — link an existing client master to the lead (pre-fills convert).
   linkedExistingClientId: string | null;
   // Phase 3 — optional "bigger client details" captured on the lead.
@@ -228,7 +234,9 @@ export interface Crm2Case extends Audit {
   clientId: string; leadId: string | null;
   productId: string;
   handlingRm: string;                 // FAPL-xxx
-  subDsaId: string | null;            // "Sourced By"; null = self-sourced
+  subDsaId: string | null;            // "Connector" (subDsas/SDSA-###) — per-login payout sub-agent
+  // "Sub DSA" (HRMS connectors/FAC-###) — the sourcing channel partner (attribution).
+  channelPartnerId: string | null; channelPartnerCode: string | null; channelPartnerName: string | null;
   lenderId: string | null;
   connectorId: string | null;         // aggregators/{id} — "Routed Via"
   // frozen from Mapping (server-written)
@@ -294,7 +302,9 @@ export interface Login extends Audit {
   seq: number;                          // display order within the case (1,2,3…)
   lenderId: string | null;             // bank/NBFC this file went to
   connectorId: string | null;          // aggregator routed-via (defaults from case)
-  subDsaId: string | null;             // sourced-by (defaults from case)
+  subDsaId: string | null;             // "Connector" (subDsas) — defaults from case
+  // "Sub DSA" (HRMS connectors/FAC-###) sourcing partner — defaults from the case.
+  channelPartnerId: string | null; channelPartnerCode: string | null; channelPartnerName: string | null;
   branch: string | null;
   // Stage 4 — File / Bank Login
   amountRequested: number | null;

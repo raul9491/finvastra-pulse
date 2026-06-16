@@ -18,6 +18,8 @@ import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
 import { FLabel, inp } from '../masters/MastersPage';
 import { STAGE_LABEL } from './Crm2CasesPage';
 import { LoginsSection } from './LoginsSection';
+import { useConnectors } from '../../hrms/hooks/useConnectors';
+import type { Connector } from '../../../types';
 import {
   CASE_LEVEL_STAGE_ORDER, type CaseLevelStage,
   type Crm2Case, type Applicant, type DocTrackerRow,
@@ -59,6 +61,7 @@ export function CaseWorkspacePage() {
   const { rows: docDefs } = useCrm2Collection<WithId<DocumentDef>>('documentMaster');
   const { rows: lenders } = useCrm2Collection<WithId<Lender>>('lenders');
   const { rows: aggregators } = useCrm2Collection<WithId<Aggregator>>('aggregators');
+  const { connectors } = useConnectors();   // HRMS Sub-DSAs (FAC-)
 
   const canWrite = hasCrm2Perm(profile, 'crm.cases.write');
   const canSeeMoney = hasCrm2Perm(profile, 'payout.amounts.read');
@@ -198,7 +201,7 @@ export function CaseWorkspacePage() {
 
       {tab === 'details' && (
         <DetailsTab caseDoc={caseDoc} lenders={lenders} aggregators={aggregators}
-          canWrite={canWrite} canSeeMoney={canSeeMoney} mirror={mirror} patchCase={patchCase} />
+          connectors={connectors} canWrite={canWrite} canSeeMoney={canSeeMoney} mirror={mirror} patchCase={patchCase} />
       )}
       {tab === 'applicants' && (
         <ApplicantsTab caseId={caseDoc.id} applicants={applicants} canWrite={canWrite} />
@@ -265,7 +268,8 @@ function ClientIdTab({ client }: { client: (Client & { id: string }) | null }) {
 }
 
 // ─── Details tab ──────────────────────────────────────────────────────────────
-function DetailsTab({ caseDoc, lenders, aggregators, canWrite, canSeeMoney, mirror, patchCase }: {
+function DetailsTab({ caseDoc, lenders, aggregators, connectors, canWrite, canSeeMoney, mirror, patchCase }: {
+  connectors: Connector[];
   caseDoc: Crm2Case & { id: string };
   lenders: Array<WithId<Lender>>; aggregators: Array<WithId<Aggregator>>;
   canWrite: boolean; canSeeMoney: boolean; mirror: CasePayoutMirror | null;
@@ -303,6 +307,15 @@ function DetailsTab({ caseDoc, lenders, aggregators, canWrite, canSeeMoney, mirr
               onChange={(v) => patchCase({ connectorId: v || null }, 'Aggregator saved')}
               options={[{ value: '', label: '—' }, ...aggregators.filter((a) => a.status === 'ACTIVE').map((a) => ({ value: a.id, label: a.name }))]} />
           ) : (aggregators.find((a) => a.id === caseDoc.connectorId)?.name ?? '—')}
+        </Row>
+        <Row label="Sub DSA (Sourced By)">
+          {canWrite ? (
+            <SearchableSelect value={caseDoc.channelPartnerId ?? ''} placeholder="— self-sourced —"
+              onChange={(v) => { const p = connectors.find((c) => c.id === v);
+                patchCase(p ? { channelPartnerId: p.id, channelPartnerCode: p.connectorCode, channelPartnerName: p.displayName }
+                            : { channelPartnerId: null, channelPartnerCode: null, channelPartnerName: null }, 'Sub DSA saved'); }}
+              options={[{ value: '', label: '— self-sourced —' }, ...connectors.filter((c) => c.status === 'active').map((c) => ({ value: c.id, label: `${c.displayName} (${c.connectorCode})` }))]} />
+          ) : (caseDoc.channelPartnerName ?? '— self-sourced —')}
         </Row>
         <Row label="DSA Code (frozen)"><span className="font-mono text-xs">{caseDoc.dsaCode ?? '— set at disbursement'}</span></Row>
         <Row label="Bank Application No">{editStr('bankApplicationNo', caseDoc.bankApplicationNo, 'App no')}</Row>

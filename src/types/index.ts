@@ -399,7 +399,8 @@ export interface PayslipExtras {
 
 // ─── CRM: Leads (person record) ──────────────────────────────────────────────
 
-export type LeadSource = 'website' | 'instagram' | 'facebook' | 'walkin' | 'referral' | 'broker' | 'offline_bulk' | 'social_meta' | 'employee_referral';
+// 'broker' was renamed to 'sub_dsa' (channel-partner terminology); legacy docs may still carry 'broker'.
+export type LeadSource = 'website' | 'instagram' | 'facebook' | 'walkin' | 'referral' | 'sub_dsa' | 'broker' | 'offline_bulk' | 'social_meta' | 'employee_referral';
 export type ConsentMethod = 'verbal' | 'written' | 'digital' | 'offline_collection';
 export type TriagePriority = 'high' | 'medium' | 'low';
 

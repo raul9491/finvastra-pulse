@@ -6,10 +6,10 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, AlertTriangle } from 'lucide-react';
+import { RefreshCw, AlertTriangle, X, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
-import { CYCLE_STATUS_LABEL } from '../cases/PayoutTab';
+import { CYCLE_STATUS_LABEL, CycleMilestones } from '../cases/PayoutTab';
 import type { PayoutCycleStatus, Aggregator } from '../../../types/crm2';
 
 interface CycleRow {
@@ -30,6 +30,7 @@ export function PayoutBoardPage() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'all' | 'stuck' | 'hold' | 'dispute'>('all');
   const [statusFilter, setStatusFilter] = useState<PayoutCycleStatus | 'ALL'>('ALL');
+  const [openCycle, setOpenCycle] = useState<CycleRow | null>(null);   // milestone modal
   const { rows: aggregators } = useCrm2Collection<Aggregator & { id: string }>('aggregators');
   const canMoney = hasCrm2Perm(profile, 'payout.amounts.read');
   const STUCK_DAYS = 21;
@@ -102,7 +103,7 @@ export function PayoutBoardPage() {
                 const age = ageDays(r.disbursementDate);
                 const stuck = view !== 'stuck' && age != null && age > STUCK_DAYS && r.status !== 'CLOSED' && r.status !== 'RECEIVED' && r.status !== 'SUBDSA_PAID';
                 return (
-                  <tr key={r.id} onClick={() => navigate(`/crm/pipeline/cases/${r.caseId}`)}
+                  <tr key={r.id} onClick={() => setOpenCycle(r)}
                     className="cursor-pointer hover:bg-(--shell-hover-soft) transition-colors" style={{ borderTop: '1px solid var(--shell-border)' }}>
                     <td className="px-4 py-2.5 font-mono text-xs font-semibold" style={{ color: '#C9A961' }}>{r.id}</td>
                     <td className="px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{aggName(r.connectorId)}</td>
@@ -123,6 +124,24 @@ export function PayoutBoardPage() {
           </table>
         </div>
       </div>
+
+      {openCycle && (
+        <div className="glass-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setOpenCycle(null)}>
+          <div className="glass-modal-panel w-full max-w-2xl rounded-2xl max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="glass-modal-header flex items-center justify-between px-5 py-4 sticky top-0 z-10">
+              <div>
+                <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Payout cycle {openCycle.id}</h3>
+                <button onClick={() => { setOpenCycle(null); navigate(`/crm/pipeline/cases/${openCycle.caseId}`); }}
+                  className="text-[11px] font-semibold inline-flex items-center gap-1" style={{ color: '#C9A961' }}>
+                  Open case {openCycle.caseId} <ArrowRight size={11} />
+                </button>
+              </div>
+              <button onClick={() => setOpenCycle(null)} className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard)"><X size={17} style={{ color: 'var(--text-muted)' }} /></button>
+            </div>
+            <div className="p-5"><CycleMilestones cycleId={openCycle.id} /></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -12,7 +12,7 @@ export const leadSchema = z.object({
   panRaw: z
     .string()
     .refine((v) => v === '' || PAN_REGEX.test(v), 'Invalid PAN — expected format: ABCDE1234F'),
-  source: z.enum(['website', 'instagram', 'facebook', 'walkin', 'referral', 'broker']),
+  source: z.enum(['website', 'instagram', 'facebook', 'walkin', 'referral', 'sub_dsa']),
   referrerName: z.string().max(200).optional(),
   primaryOwnerId: z.string().min(1, 'Assign a primary relationship manager'),
   consentGiven: z.boolean().refine((v) => v === true, {

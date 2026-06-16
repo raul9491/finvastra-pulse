@@ -887,6 +887,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         referredByType: refType(b.referredByType),
         referredByName: optStr(b, "referredByName"),
         referredByCode: optStr(b, "referredByCode"),
+        channelPartnerId: optStr(b, "channelPartnerId"),
+        channelPartnerCode: optStr(b, "channelPartnerCode"),
+        channelPartnerName: optStr(b, "channelPartnerName"),
         linkedExistingClientId: optStr(b, "linkedExistingClientId"),
         customerProfile: sanitizeCustomerProfile(b.customerProfile),
         assignedRm, assignedAt: assignedRm ? FieldValue.serverTimestamp() : null,
@@ -938,6 +941,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     if (b.referredByType !== undefined) fields.referredByType = refType(b.referredByType);
     if (b.referredByName !== undefined) fields.referredByName = optStr(b, "referredByName");
     if (b.referredByCode !== undefined) fields.referredByCode = optStr(b, "referredByCode");
+    if (b.channelPartnerId !== undefined) fields.channelPartnerId = optStr(b, "channelPartnerId");
+    if (b.channelPartnerCode !== undefined) fields.channelPartnerCode = optStr(b, "channelPartnerCode");
+    if (b.channelPartnerName !== undefined) fields.channelPartnerName = optStr(b, "channelPartnerName");
     if (b.productId !== undefined) fields.productId = optStr(b, "productId");
     if (b.category !== undefined) fields.category = reqEnum(b, "category", LEAD_CATEGORIES);
     if (b.amountRequired !== undefined) fields.amountRequired = optNum(b, "amountRequired");
@@ -1144,6 +1150,10 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       tx.set(caseRef, {
         clientId, leadId: leadRef.id, productId,
         handlingRm, subDsaId,
+        // Carry the sourcing Sub DSA (FAC-) from the lead → case (attribution).
+        channelPartnerId: (lead.channelPartnerId as string | null) ?? null,
+        channelPartnerCode: (lead.channelPartnerCode as string | null) ?? null,
+        channelPartnerName: (lead.channelPartnerName as string | null) ?? null,
         lenderId: null, connectorId: null,
         mappingId: null, slabId: null, dsaCode: null,
         connectorCaseRef: null, bankApplicationNo: null, loanAccountNo: null,
@@ -1330,7 +1340,8 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   // ═══ Phase 3 — Cases: CRUD, stage machine, applicants, docTracker, vault ══════
 
   const CASE_EDITABLE_FIELDS = new Set([
-    "handlingRm", "subDsaId", "lenderId", "connectorId",
+    "handlingRm", "subDsaId", "channelPartnerId", "channelPartnerCode", "channelPartnerName",
+    "lenderId", "connectorId",
     "amountRequested", "amountSanctioned", "roiPct", "tenureMonths", "processingFee",
     "bankApplicationNo", "loanAccountNo", "connectorCaseRef",
     "bankContact", "nextAction", "remarks", "rejectionReason",
@@ -1402,6 +1413,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         productId,
         handlingRm: optStr(b, "handlingRm") ?? (client.ownerRm as string | undefined) ?? caller.fapl,
         subDsaId: optStr(b, "subDsaId") ?? (client.sourcedById as string | null) ?? null,
+        channelPartnerId: optStr(b, "channelPartnerId"),
+        channelPartnerCode: optStr(b, "channelPartnerCode"),
+        channelPartnerName: optStr(b, "channelPartnerName"),
         lenderId: optStr(b, "lenderId"), connectorId: optStr(b, "connectorId"),
         mappingId: null, slabId: null, dsaCode: null,
         connectorCaseRef: null, bankApplicationNo: null, loanAccountNo: null,
@@ -1749,7 +1763,8 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
 
   // Fields an RM may edit directly on a login (stage/keyDates/money are protected).
   const LOGIN_EDITABLE = new Set([
-    "lenderId", "connectorId", "subDsaId", "branch", "amountRequested",
+    "lenderId", "connectorId", "subDsaId", "channelPartnerId", "channelPartnerCode", "channelPartnerName",
+    "branch", "amountRequested",
     "smName", "smNumber", "asmName", "asmNumber", "docsSent", "directFromBank",
     "dsaCodeUsed", "codeName", "loginDone", "loanApplicationNo",
     "amountSanctioned", "roiPct", "tenureMonths", "processingFee", "insuranceAmount",
@@ -1788,6 +1803,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         lenderId: optStr(b, "lenderId") ?? (c.lenderId as string | null) ?? null,
         connectorId: optStr(b, "connectorId") ?? (c.connectorId as string | null) ?? null,
         subDsaId: optStr(b, "subDsaId") ?? (c.subDsaId as string | null) ?? null,
+        channelPartnerId: optStr(b, "channelPartnerId") ?? (c.channelPartnerId as string | null) ?? null,
+        channelPartnerCode: optStr(b, "channelPartnerCode") ?? (c.channelPartnerCode as string | null) ?? null,
+        channelPartnerName: optStr(b, "channelPartnerName") ?? (c.channelPartnerName as string | null) ?? null,
         branch: optStr(b, "branch"),
         amountRequested: optNum(b, "amountRequested") ?? (c.amountRequested as number | null) ?? null,
         smName: null, smNumber: null, asmName: null, asmNumber: null,
@@ -1847,7 +1865,8 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
 
     const fields: Record<string, unknown> = {};
     for (const k of [
-      "lenderId", "connectorId", "subDsaId", "branch", "smName", "smNumber", "asmName", "asmNumber",
+      "lenderId", "connectorId", "subDsaId", "channelPartnerId", "channelPartnerCode", "channelPartnerName",
+      "branch", "smName", "smNumber", "asmName", "asmNumber",
       "codeName", "loanApplicationNo", "sanctionLetterPath", "verifiedAppNo", "remarks",
     ]) if (b[k] !== undefined) fields[k] = optStr(b, k);
     for (const k of ["amountRequested", "amountSanctioned", "roiPct", "tenureMonths",
@@ -2390,6 +2409,10 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         connectorName: (aggSnap.data()?.name as string) ?? connectorId,
         dsaCode: m.dsaCode,
         subDsaId, subDsaName: subDsaSnap?.exists ? (subDsaSnap.data()!.name as string) : null,
+        // Sourcing Sub DSA (FAC-) attribution for MIS reporting.
+        channelPartnerId: (lg.channelPartnerId as string | null) ?? (c.channelPartnerId as string | null) ?? null,
+        channelPartnerCode: (lg.channelPartnerCode as string | null) ?? (c.channelPartnerCode as string | null) ?? null,
+        channelPartnerName: (lg.channelPartnerName as string | null) ?? (c.channelPartnerName as string | null) ?? null,
         handlingRmId: c.handlingRm, handlingRmName,
         connectorId, lenderId,
         bankApplicationNo: lg.loanApplicationNo ?? null, loanAccountNo,

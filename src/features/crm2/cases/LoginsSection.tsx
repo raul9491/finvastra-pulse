@@ -166,6 +166,7 @@ function DisburseLoginDialog({ caseId, login, onClose }: { caseId: string; login
   const [f, setF] = useState({
     disbursedAmount: login.amountSanctioned?.toString() ?? '', disbursementDate: '',
     loanAccountNo: '', city: '', state: '', roiPct: login.roiPct?.toString() ?? '', processingFee: login.processingFee?.toString() ?? '',
+    subDsaPayoutPct: '',
   });
   const [preview, setPreview] = useState<{ slab?: { finvastraPayoutPct: number }; expected?: { expectedGross: number } | null; dsaCode?: string } | null>(null);
   const [previewErr, setPreviewErr] = useState('');
@@ -192,6 +193,7 @@ function DisburseLoginDialog({ caseId, login, onClose }: { caseId: string; login
         disbursedAmount: Number(f.disbursedAmount), disbursementDate: new Date(f.disbursementDate).toISOString(),
         loanAccountNo: f.loanAccountNo, city: f.city, state: f.state,
         roiPct: f.roiPct ? Number(f.roiPct) : null, processingFee: f.processingFee ? Number(f.processingFee) : null,
+        subDsaPayoutPct: f.subDsaPayoutPct ? Number(f.subDsaPayoutPct) : null,
       });
       toast.success(`Disbursed → payout cycle ${r.cycleId} created (manage in MIS)`); onClose();
     } catch (e) { setErr(e instanceof Error ? e.message : 'Disburse failed'); } finally { setBusy(false); }
@@ -208,6 +210,7 @@ function DisburseLoginDialog({ caseId, login, onClose }: { caseId: string; login
         <div><FLabel text="State" required /><input className={inp()} value={f.state} onChange={(e) => set('state', e.target.value)} /></div>
         <div><FLabel text="ROI %" /><input type="number" className={inp()} value={f.roiPct} onChange={(e) => set('roiPct', e.target.value)} /></div>
         <div><FLabel text="Processing Fee ₹" /><input type="number" className={inp()} value={f.processingFee} onChange={(e) => set('processingFee', e.target.value)} /></div>
+        <div className="col-span-2"><FLabel text="Sub-DSA payout % override (optional)" /><input type="number" className={inp()} value={f.subDsaPayoutPct} onChange={(e) => set('subDsaPayoutPct', e.target.value)} placeholder="defaults to the Connector's slab %" /></div>
       </div>
       {preview?.slab && (
         <div className="px-3 py-2 rounded-lg text-xs" style={{ backgroundColor: 'rgba(201,169,97,0.1)', color: '#C9A961' }}>

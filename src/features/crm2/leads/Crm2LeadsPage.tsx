@@ -20,7 +20,17 @@ import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
 import { FLabel, inp } from '../masters/MastersPage';
 import { useClientForm, ClientFieldsGrid, stateFromLead } from '../clients/ClientFormModal';
 import { ContactActions, PhoneLink } from '../../crm/components/ContactActions';
+import { useConnectors } from '../../hrms/hooks/useConnectors';
+import type { Connector } from '../../../types';
 import type { Crm2LeadFields, Crm2LeadStatus, Product, Client, SubDsa } from '../../../types/crm2';
+
+/** Resolve a HRMS Sub-DSA (FAC-) id → the channelPartner* attribution fields. */
+function buildChannelPartner(partnerId: string, connectors: Connector[]) {
+  const p = connectors.find((c) => c.id === partnerId);
+  return p
+    ? { channelPartnerId: p.id, channelPartnerCode: p.connectorCode, channelPartnerName: p.displayName }
+    : { channelPartnerId: null, channelPartnerCode: null, channelPartnerName: null };
+}
 
 type LeadRow = Crm2LeadFields & { id: string };
 
@@ -71,6 +81,7 @@ export function Crm2LeadsPage() {
   const { rows: products } = useCrm2Collection<Product & { id: string }>('products');
   const { rows: clients } = useCrm2Collection<Client & { id: string }>('clients');
   const { rows: subDsas } = useCrm2Collection<SubDsa & { id: string }>('subDsas');
+  const { connectors } = useConnectors();   // HRMS Sub-DSAs (FAC-)
 
   const [funnel, setFunnel] = useState<Crm2LeadStatus | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
@@ -94,7 +105,10 @@ export function Crm2LeadsPage() {
   const subDsaOptions = useMemo(() =>
     subDsas.filter((s) => s.status === 'ACTIVE').map((s) => ({ value: s.id, label: `${s.name} (${s.id})` })),
     [subDsas]);
-  const refData = useMemo(() => ({ clients, subDsas }), [clients, subDsas]);
+  const partnerOptions = useMemo(() =>
+    connectors.filter((c) => c.status === 'active').map((c) => ({ value: c.id, label: `${c.displayName} (${c.connectorCode})` })),
+    [connectors]);
+  const refData = useMemo(() => ({ clients, subDsas, connectors }), [clients, subDsas, connectors]);
 
   const counts = useMemo(() => {
     const c = new Map<string, number>();
@@ -217,13 +231,13 @@ export function Crm2LeadsPage() {
 
       {showNew && canWrite && (
         <NewLeadModal faplOptions={faplOptions} productOptions={productOptions}
-          clientOptions={clientOptions} subDsaOptions={subDsaOptions} refData={refData}
+          clientOptions={clientOptions} subDsaOptions={subDsaOptions} partnerOptions={partnerOptions} refData={refData}
           onClose={() => setShowNew(false)} />
       )}
       {detail && (
         <LeadDrawer lead={detail} canWrite={canWrite} canConvert={canConvert}
           faplOptions={faplOptions} productOptions={productOptions} clients={clients}
-          clientOptions={clientOptions} subDsaOptions={subDsaOptions} refData={refData}
+          clientOptions={clientOptions} subDsaOptions={subDsaOptions} partnerOptions={partnerOptions} refData={refData}
           onClose={() => setDetailFor(null)} />
       )}
     </div>
@@ -232,7 +246,7 @@ export function Crm2LeadsPage() {
 
 // Shared option/data props for the lead forms.
 type Opt = { value: string; label: string };
-type RefData = { clients: Array<Client & { id: string }>; subDsas: Array<SubDsa & { id: string }> };
+type RefData = { clients: Array<Client & { id: string }>; subDsas: Array<SubDsa & { id: string }>; connectors: Connector[] };
 const CATEGORY_OPTS = ['LOAN', 'WEALTH', 'INSURANCE', 'CIBIL_CHECK', 'PARTNER_DSA', 'GENERAL'].map((c) => ({ value: c, label: c }));
 const SOURCE_OPTS = ['WALKIN', 'COLD_CALL', 'REFERRAL_CLIENT', 'REFERRAL_SUBDSA', 'JUSTDIAL', 'ADS', 'WEBSITE'].map((s) => ({ value: s, label: s.replace(/_/g, ' ') }));
 const CONSTITUTION_LEAD_OPTS = [{ value: '', label: '—' }, ...['INDIVIDUAL', 'PROPRIETORSHIP', 'PARTNERSHIP', 'LLP', 'PVT_LTD', 'HUF'].map((c) => ({ value: c, label: c.replace(/_/g, ' ') }))];
@@ -251,15 +265,15 @@ function buildReferral(source: string, refSubDsaId: string, refClientId: string,
 }
 
 // ─── New lead ─────────────────────────────────────────────────────────────────
-function NewLeadModal({ faplOptions, productOptions, clientOptions, subDsaOptions, refData, onClose }: {
-  faplOptions: Opt[]; productOptions: Opt[]; clientOptions: Opt[]; subDsaOptions: Opt[];
+function NewLeadModal({ faplOptions, productOptions, clientOptions, subDsaOptions, partnerOptions, refData, onClose }: {
+  faplOptions: Opt[]; productOptions: Opt[]; clientOptions: Opt[]; subDsaOptions: Opt[]; partnerOptions: Opt[];
   refData: RefData; onClose: () => void;
 }) {
   const toast = useToast();
   const [f, setF] = useState({
     name: '', mobile: '', email: '', city: '', category: 'LOAN', source: 'WALKIN',
     productId: '', amountRequired: '', assignedRm: '',
-    linkedExistingClientId: '', refSubDsaId: '', refClientId: '',
+    linkedExistingClientId: '', refSubDsaId: '', refClientId: '', channelPartnerId: '',
     cpConstitution: '', cpBusinessName: '', cpTurnover: '', cpRequirements: '',
   });
   const [showMore, setShowMore] = useState(false);
@@ -286,6 +300,7 @@ function NewLeadModal({ faplOptions, productOptions, clientOptions, subDsaOption
         assignedRm: f.assignedRm || null,
         linkedExistingClientId: f.linkedExistingClientId || null,
         ...buildReferral(f.source, f.refSubDsaId, f.refClientId, refData),
+        ...buildChannelPartner(f.channelPartnerId, refData.connectors),
         customerProfile: {
           constitution: f.cpConstitution || null, businessName: f.cpBusinessName || null,
           annualTurnover: f.cpTurnover ? Number(f.cpTurnover) : null, requirements: f.cpRequirements || null,
@@ -338,7 +353,7 @@ function NewLeadModal({ faplOptions, productOptions, clientOptions, subDsaOption
             {/* Source-specific referral picker */}
             {f.source === 'REFERRAL_SUBDSA' && (
               <div className="col-span-2">
-                <FLabel text="Referred by (Connector / Sub-DSA)" />
+                <FLabel text="Referred by (Connector)" />
                 <SearchableSelect value={f.refSubDsaId} onChange={(v) => set('refSubDsaId', v)}
                   options={[{ value: '', label: '— select —' }, ...subDsaOptions]} placeholder="— select —" />
               </div>
@@ -363,6 +378,11 @@ function NewLeadModal({ faplOptions, productOptions, clientOptions, subDsaOption
               <FLabel text="Assign RM" />
               <SearchableSelect value={f.assignedRm} onChange={(v) => set('assignedRm', v)}
                 options={[{ value: '', label: 'Unassigned' }, ...faplOptions]} placeholder="Unassigned" />
+            </div>
+            <div className="col-span-2">
+              <FLabel text="Sourced by Sub DSA (channel partner)" />
+              <SearchableSelect value={f.channelPartnerId} onChange={(v) => set('channelPartnerId', v)}
+                options={[{ value: '', label: '— none (self-sourced) —' }, ...partnerOptions]} placeholder="— none —" />
             </div>
             <div className="col-span-2">
               <FLabel text="Link existing client (optional)" />
@@ -413,12 +433,12 @@ function NewLeadModal({ faplOptions, productOptions, clientOptions, subDsaOption
 }
 
 // ─── Detail drawer (activity log + actions + convert) ───────────────────────
-function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, clients, clientOptions, subDsaOptions, refData, onClose }: {
+function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, clients, clientOptions, subDsaOptions, partnerOptions, refData, onClose }: {
   lead: LeadRow;
   canWrite: boolean; canConvert: boolean;
   faplOptions: Opt[]; productOptions: Opt[];
   clients: Array<Client & { id: string }>;
-  clientOptions: Opt[]; subDsaOptions: Opt[]; refData: RefData;
+  clientOptions: Opt[]; subDsaOptions: Opt[]; partnerOptions: Opt[]; refData: RefData;
   onClose: () => void;
 }) {
   const toast = useToast();
@@ -452,9 +472,10 @@ function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, c
             <p className="text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>
               {lead.id} · {lead.mobile}{lead.email ? ` · ${lead.email}` : ''} · {lead.source}
             </p>
-            {(lead.referredByName || lead.linkedExistingClientId) && (
+            {(lead.referredByName || lead.linkedExistingClientId || lead.channelPartnerName) && (
               <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                {lead.referredByName && <>Referred by <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>{lead.referredByName}{lead.referredByCode ? ` (${lead.referredByCode})` : ''}</span></>}
+                {lead.channelPartnerName && <>Sub DSA <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>{lead.channelPartnerName}{lead.channelPartnerCode ? ` (${lead.channelPartnerCode})` : ''}</span></>}
+                {lead.referredByName && <>{lead.channelPartnerName ? ' · ' : ''}Referred by <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>{lead.referredByName}{lead.referredByCode ? ` (${lead.referredByCode})` : ''}</span></>}
                 {lead.linkedExistingClientId && <> · Linked client <span className="font-mono" style={{ color: '#C9A961' }}>{lead.linkedExistingClientId}</span></>}
               </p>
             )}
@@ -516,7 +537,13 @@ function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, c
                   onBlur={() => { if ((followUpNote ?? '') !== (lead.nextFollowUpNote ?? '')) patch({ nextFollowUpNote: followUpNote || null }, 'Remark saved'); }}
                   placeholder="e.g. Confirm income docs, discuss 9.2% offer" />
               </div>
-              <div className="col-span-2">
+              <div>
+                <FLabel text="Sourced by Sub DSA" />
+                <SearchableSelect value={lead.channelPartnerId ?? ''} disabled={busy}
+                  onChange={(v) => patch(v ? buildChannelPartner(v, refData.connectors) : { channelPartnerId: null, channelPartnerCode: null, channelPartnerName: null }, 'Sub DSA updated')}
+                  options={[{ value: '', label: '— none —' }, ...partnerOptions]} placeholder="— none —" />
+              </div>
+              <div>
                 <FLabel text="Link existing client" />
                 <SearchableSelect value={lead.linkedExistingClientId ?? ''} disabled={busy}
                   onChange={(v) => patch({ linkedExistingClientId: v || null }, v ? 'Client linked' : 'Client unlinked')}
@@ -524,7 +551,7 @@ function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, c
               </div>
               {lead.source === 'REFERRAL_SUBDSA' && (
                 <div className="col-span-2">
-                  <FLabel text="Referred by (Connector / Sub-DSA)" />
+                  <FLabel text="Referred by (Connector)" />
                   <SearchableSelect value={lead.referredById ?? ''} disabled={busy}
                     onChange={(v) => patch(buildReferral('REFERRAL_SUBDSA', v, '', refData), 'Referral updated')}
                     options={[{ value: '', label: '— none —' }, ...subDsaOptions]} placeholder="— none —" />

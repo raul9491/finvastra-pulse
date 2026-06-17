@@ -39,7 +39,7 @@
 - `server.ts` — Express server, Google OAuth, Calendar API proxy, Firebase Admin init
 - `vite.config.ts` — Vite + Tailwind + React plugins, `@/` alias
 - `firebase-applet-config.json` — client Firebase config (safe to commit)
-- `firebase-blueprint.json` — entity schemas for user/attendance/leave (extend for CRM)
+- `firebase-blueprint.json` — entity-schema reference (docs only, not loaded at runtime). Covers Phase 1–4 (user/attendance/leave/payslip/commission) **+ the full CRM 2.0 `cases` block** (added 2026-06-17): `case` + sub-collections `case_applicant` / `case_doc_tracker` / `case_stage_history` / `case_login` / `case_task` / `case_payout_mirror`, with their `/cases/**` paths. The authoritative source of truth remains `src/types/crm2.ts` + `firestore.rules`; keep this file in sync when the case schema changes.
 - `firestore.rules` — security rules (build out against `security_spec.md`)
 - `security_spec.md` — invariants + "Dirty Dozen" attack payloads; **rules must defeat all 12**
 - `metadata.json`, `index.html`, `package.json`, `tsconfig.json` — boilerplate

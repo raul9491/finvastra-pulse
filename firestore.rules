@@ -1377,6 +1377,11 @@ service cloud.firestore {
         allow read:  if isAdmin() || hasCrm2Perm('crm.cases.read');
         allow write: if false;
       }
+      // Phase 6 — case collaboration thread (tasks + updates). Server-only writes.
+      match /tasks/{taskId} {
+        allow read:  if isAdmin() || hasCrm2Perm('crm.cases.read');
+        allow write: if false;
+      }
     }
 
     // ─── Phase 4 — Payout cycles + MIS projection ────────────────────────────

@@ -1030,6 +1030,16 @@
   ],
   "fieldOverrides": [
     {
+      "collectionGroup": "tasks",
+      "fieldPath": "assignedTo",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" },
+        { "arrayConfig": "CONTAINS", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    },
+    {
       "collectionGroup": "opportunities",
       "fieldPath": "status",
       "indexes": [

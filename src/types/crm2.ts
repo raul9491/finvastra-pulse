@@ -280,6 +280,22 @@ export interface Crm2Case extends Audit {
   nextAction: string | null; remarks: string | null;
   // Stage-1 "Opened" underwriting capture (PLAN §4 stage 1) — editable anytime.
   stage1?: CaseStage1 | null;
+  // Phase 6 — RMs collaborating on this case besides handlingRm (FAPL-xxx).
+  collaborators?: string[];
+}
+
+/** cases/{caseId}/tasks/{taskId} — the per-case collaboration thread (PLAN §5). */
+export interface Crm2CaseTask extends Audit {
+  caseId: string;                     // denormalised (powers the cross-case Tasks page)
+  clientName: string | null;          // denormalised case label
+  kind: 'task' | 'update';            // task = actionable+assignable; update = a note
+  text: string;
+  assignedTo: string | null;          // FAPL-xxx (tasks only)
+  assignedToName: string | null;
+  status: 'open' | 'done';
+  doneAt: Ts | null;
+  doneBy: string | null;              // FAPL-xxx
+  createdByName: string;
 }
 
 /** Rich Stage-1 (Opened) underwriting data — additive, editable anytime. */

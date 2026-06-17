@@ -2482,6 +2482,116 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     res.json({ ok: true });
   }));
 
+  // ═══ Phase 6 — Case collaboration (collaborators + task/update thread) ════════
+  // Case access is already permission-wide (crm.cases.read); collaboration adds
+  // attribution (who's working it → their Tasks page) + a comms thread. Server-only
+  // writes. Bells the counterparties so a task by one is seen + actionable by another.
+
+  async function notifyFapls(fapls: Iterable<string>, payload: Record<string, unknown>): Promise<void> {
+    const seen = new Set<string>();
+    for (const f of fapls) {
+      if (!f || seen.has(f)) continue; seen.add(f);
+      const uid = await faplToUid(f);
+      if (uid) await notify(uid, payload);
+    }
+  }
+
+  // POST collaborators — set the full collaborator set (admin/manager/owner only).
+  app.post("/api/crm2/cases/:id/collaborators", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "crm.cases.write");
+    if (!caller) return;
+    const meta = await getCallerMeta(caller.uid);
+    const caseRef = db.collection("cases").doc(req.params.id);
+    const snap = await caseRef.get();
+    if (!snap.exists) throw new ApiError(404, `${req.params.id} not found`);
+    const c = snap.data()!;
+    const handlingRm = c.handlingRm as string;
+    if (!(meta.isAdmin || meta.isManager || handlingRm === caller.fapl)) {
+      throw new ApiError(403, "Only an admin, a manager, or the handling RM can change collaborators");
+    }
+    const raw = Array.isArray((req.body ?? {}).collaborators) ? (req.body as Record<string, unknown>).collaborators as unknown[] : [];
+    const next = [...new Set(raw.map((x) => String(x).trim()).filter((x) => /^FAPL-\d+$/.test(x)))]
+      .filter((f) => f !== handlingRm).slice(0, 12);
+    const prev = ((c.collaborators as string[]) ?? []);
+    await caseRef.update({ collaborators: next, ...updateAudit(caller.fapl) });
+    const added = next.filter((f) => !prev.includes(f));
+    if (added.length) {
+      const byName = await faplDisplayName(caller.fapl);
+      await notifyFapls(added, {
+        type: "new_lead", title: `Added to a case by ${byName}`,
+        body: `${req.params.id} — ${(c as Record<string, unknown>).clientId ?? ""}`, link: `/crm/pipeline/cases/${req.params.id}`,
+      });
+    }
+    res.json({ ok: true, collaborators: next });
+  }));
+
+  // POST a task/update onto the case thread.
+  app.post("/api/crm2/cases/:id/tasks", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "crm.cases.write");
+    if (!caller) return;
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const kind = reqEnum(b, "kind", ["task", "update"] as const);
+    const text = reqStr(b, "text").slice(0, 2000);
+    const assignedTo = kind === "task" && isStr(b.assignedTo) && /^FAPL-\d+$/.test(String(b.assignedTo)) ? String(b.assignedTo) : null;
+    const caseRef = db.collection("cases").doc(req.params.id);
+    const snap = await caseRef.get();
+    if (!snap.exists) throw new ApiError(404, `${req.params.id} not found`);
+    const c = snap.data()!;
+    const clientSnap = await db.collection("clients").doc(c.clientId as string).get();
+    const clientName = (clientSnap.data()?.name as string | null) ?? null;
+    const assignedToName = assignedTo ? await faplDisplayName(assignedTo) : null;
+    const createdByName = await faplDisplayName(caller.fapl);
+
+    const ref = await caseRef.collection("tasks").add({
+      caseId: req.params.id, clientName, kind, text,
+      assignedTo, assignedToName, status: kind === "task" ? "open" : "done",
+      doneAt: kind === "update" ? FieldValue.serverTimestamp() : null, doneBy: null,
+      createdByName, ...createAudit(caller.fapl),
+    });
+    // Bell the counterparties (handling RM + collaborators + assignee), minus the author.
+    const audience = new Set<string>([c.handlingRm as string, ...((c.collaborators as string[]) ?? []), ...(assignedTo ? [assignedTo] : [])]);
+    audience.delete(caller.fapl);
+    await notifyFapls(audience, {
+      type: "new_lead",
+      title: kind === "task" ? `New task on ${req.params.id}` : `Update on ${req.params.id}`,
+      body: `${createdByName}: ${text.slice(0, 120)}`, link: `/crm/pipeline/cases/${req.params.id}`,
+    });
+    res.json({ ok: true, taskId: ref.id });
+  }));
+
+  // PATCH a task — toggle open/done (tasks only).
+  app.patch("/api/crm2/cases/:id/tasks/:taskId", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "crm.cases.write");
+    if (!caller) return;
+    const status = reqEnum((req.body ?? {}) as Record<string, unknown>, "status", ["open", "done"] as const);
+    const ref = db.collection("cases").doc(req.params.id).collection("tasks").doc(req.params.taskId);
+    const snap = await ref.get();
+    if (!snap.exists) throw new ApiError(404, "Task not found");
+    if (snap.data()!.kind !== "task") throw new ApiError(400, "Only tasks can be marked done");
+    await ref.update({
+      status,
+      doneAt: status === "done" ? FieldValue.serverTimestamp() : null,
+      doneBy: status === "done" ? caller.fapl : null,
+      ...updateAudit(caller.fapl),
+    });
+    res.json({ ok: true });
+  }));
+
+  // GET my open case-tasks (across all cases) — powers the Tasks page section.
+  app.get("/api/crm2/my-case-tasks", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "crm.cases.read");
+    if (!caller) return;
+    const snap = await db.collectionGroup("tasks").where("assignedTo", "==", caller.fapl).get();
+    const ms = (v: unknown) => (v as { toMillis?: () => number })?.toMillis?.() ?? 0;
+    const tasks = snap.docs
+      .map((d) => ({ id: d.id, data: d.data() as Record<string, unknown> }))
+      .filter((r) => r.data.status === "open" && r.data.kind === "task")
+      .sort((a, b) => ms(b.data.createdAt) - ms(a.data.createdAt))
+      .map((r) => ({ id: r.id, caseId: r.data.caseId, clientName: r.data.clientName, text: r.data.text,
+        createdByName: r.data.createdByName, createdAt: ms(r.data.createdAt) || null }));
+    res.json({ ok: true, tasks });
+  }));
+
   // ═══ Phase 4 — Logins (per-login pipeline; subcollection cases/{id}/logins) ═══
   // A login = one file → one bank/NBFC. Additive to the legacy per-case stage
   // engine; the money engine (disburse → per-login cycle + MIS) is Build #2.

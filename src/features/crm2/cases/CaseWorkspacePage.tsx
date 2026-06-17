@@ -16,6 +16,8 @@ import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
 import { FLabel, inp } from '../masters/MastersPage';
+import { useAllEmployees } from '../../../lib/hooks/useProfile';
+import { MultiSearchableSelect } from '../../../components/ui/SearchableSelect';
 import { STAGE_LABEL } from './Crm2CasesPage';
 import { LoginsSection } from './LoginsSection';
 import { useConnectors } from '../../hrms/hooks/useConnectors';
@@ -24,7 +26,7 @@ import {
   CASE_LEVEL_STAGE_ORDER, type CaseLevelStage,
   type Crm2Case, type Applicant, type DocTrackerRow,
   type StageHistoryEntry, type Client, type DocumentDef, type Lender, type Aggregator,
-  type CasePayoutMirror, type VaultDoc, type CaseStage1,
+  type CasePayoutMirror, type VaultDoc, type CaseStage1, type Crm2CaseTask,
 } from '../../../types/crm2';
 
 type WithId<T> = T & { id: string };
@@ -52,7 +54,8 @@ export function CaseWorkspacePage() {
   const [caseDoc, setCaseDoc] = useState<(Crm2Case & { id: string }) | null>(null);
   const [client, setClient] = useState<(Client & { id: string }) | null>(null);
   const [mirror, setMirror] = useState<CasePayoutMirror | null>(null);
-  const [tab, setTab] = useState<'details' | 'applicants' | 'documents' | 'logins' | 'clientid' | 'history'>('details');
+  const [tab, setTab] = useState<'details' | 'applicants' | 'documents' | 'logins' | 'collab' | 'clientid' | 'history'>('details');
+  const { employees } = useAllEmployees();
 
   const applicants = useSubcollection<Applicant>(['cases', caseId!, 'applicants']);
   const tracker = useSubcollection<DocTrackerRow>(['cases', caseId!, 'docTracker']);
@@ -188,13 +191,13 @@ export function CaseWorkspacePage() {
 
       {/* Tabs */}
       <div className="flex gap-1.5 flex-wrap">
-        {(['details', 'applicants', 'documents', 'logins', 'clientid', 'history'] as const).map((t) => (
+        {(['details', 'applicants', 'documents', 'logins', 'collab', 'clientid', 'history'] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className="px-3.5 py-2 rounded-lg text-sm font-semibold capitalize transition-colors"
             style={tab === t
               ? { backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961', border: '1px solid rgba(201,169,97,0.35)' }
               : { color: 'var(--text-muted)', border: '1px solid var(--shell-border)' }}>
-            {t === 'clientid' ? 'Client-ID data' : t}{t === 'documents' ? ` (${caseDoc.docsCompletePct}%)` : ''}
+            {t === 'clientid' ? 'Client-ID data' : t === 'collab' ? 'Collaboration' : t}{t === 'documents' ? ` (${caseDoc.docsCompletePct}%)` : ''}
           </button>
         ))}
       </div>
@@ -212,6 +215,11 @@ export function CaseWorkspacePage() {
           docDefs={docDefs} applicants={applicants} canWrite={canWrite} />
       )}
       {tab === 'logins' && <LoginsSection caseId={caseDoc.id} canWrite={canWrite} />}
+      {tab === 'collab' && (
+        <CollaborationTab caseDoc={caseDoc} employees={employees} canWrite={canWrite}
+          canManage={hasCrm2Perm(profile, 'crm.cases.write') && (
+            profile?.role === 'admin' || profile?.crmRole === 'manager' || caseDoc.handlingRm === profile?.employeeId)} />
+      )}
       {tab === 'clientid' && <ClientIdTab client={client} />}
       {tab === 'history' && (
         <div className="glass-panel p-5 space-y-2">
@@ -228,6 +236,135 @@ export function CaseWorkspacePage() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Collaboration tab (Phase 6 — multi-RM sharing + task/update thread) ──────
+function CollaborationTab({ caseDoc, employees, canWrite, canManage }: {
+  caseDoc: Crm2Case & { id: string };
+  employees: Array<{ employeeId?: string; displayName?: string; employeeStatus?: string }>;
+  canWrite: boolean; canManage: boolean;
+}) {
+  const toast = useToast();
+  const tasks = useSubcollection<Crm2CaseTask>(['cases', caseDoc.id, 'tasks'], 'createdAt');
+  const nameOf = (fapl: string) => employees.find((e) => e.employeeId === fapl)?.displayName ?? fapl;
+  const opts = useMemo(() => employees
+    .filter((e) => e.employeeId && e.employeeStatus !== 'inactive' && e.employeeId !== caseDoc.handlingRm)
+    .map((e) => ({ value: e.employeeId!, label: `${e.displayName} (${e.employeeId})` })), [employees, caseDoc.handlingRm]);
+
+  const [collab, setCollab] = useState<string[]>(caseDoc.collaborators ?? []);
+  const [savingCollab, setSavingCollab] = useState(false);
+  useEffect(() => setCollab(caseDoc.collaborators ?? []), [caseDoc.collaborators]);
+  const collabDirty = JSON.stringify([...collab].sort()) !== JSON.stringify([...(caseDoc.collaborators ?? [])].sort());
+  const saveCollab = async () => {
+    setSavingCollab(true);
+    try { await apiCrm2('POST', `/api/crm2/cases/${caseDoc.id}/collaborators`, { collaborators: collab }); toast.success('Collaborators updated'); }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); } finally { setSavingCollab(false); }
+  };
+
+  const [kind, setKind] = useState<'update' | 'task'>('update');
+  const [text, setText] = useState('');
+  const [assignee, setAssignee] = useState('');
+  const [posting, setPosting] = useState(false);
+  const post = async () => {
+    if (text.trim().length < 2) return;
+    setPosting(true);
+    try {
+      await apiCrm2('POST', `/api/crm2/cases/${caseDoc.id}/tasks`, {
+        kind, text: text.trim(), assignedTo: kind === 'task' ? (assignee || null) : null });
+      setText(''); setAssignee('');
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); } finally { setPosting(false); }
+  };
+  const toggleTask = async (t: Crm2CaseTask & { id: string }) => {
+    try { await apiCrm2('PATCH', `/api/crm2/cases/${caseDoc.id}/tasks/${t.id}`, { status: t.status === 'done' ? 'open' : 'done' }); }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Collaborators */}
+      <div className="glass-panel p-5 space-y-3">
+        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Working this case</p>
+        <div className="flex flex-wrap gap-2">
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961' }}>
+            {nameOf(caseDoc.handlingRm)} · owner
+          </span>
+          {(caseDoc.collaborators ?? []).map((f) => (
+            <span key={f} className="text-xs px-2.5 py-1 rounded-full" style={{ backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-secondary)' }}>{nameOf(f)}</span>
+          ))}
+          {(caseDoc.collaborators ?? []).length === 0 && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>No collaborators yet.</span>}
+        </div>
+        {canManage && (
+          <div className="space-y-2 pt-1">
+            <FLabel text="Add / remove collaborators" />
+            <MultiSearchableSelect value={collab} onChange={setCollab} options={opts} placeholder="Select teammates…" />
+            {collabDirty && (
+              <button onClick={saveCollab} disabled={savingCollab}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+                {savingCollab ? 'Saving…' : 'Save collaborators'}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Thread */}
+      <div className="glass-panel p-5 space-y-3">
+        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Thread</p>
+        <div className="space-y-2 max-h-105 overflow-y-auto">
+          {tasks.length === 0 && <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No updates or tasks yet.</p>}
+          {tasks.map((t) => (
+            <div key={t.id} className="px-3 py-2 rounded-lg" style={{ border: '1px solid var(--shell-border)' }}>
+              <div className="flex items-start gap-2">
+                {t.kind === 'task' && (
+                  <button onClick={() => canWrite && toggleTask(t)} disabled={!canWrite}
+                    className="mt-0.5 w-4 h-4 rounded shrink-0 flex items-center justify-center"
+                    style={{ border: `1.5px solid ${t.status === 'done' ? '#34d399' : 'var(--shell-border-mid)'}`, backgroundColor: t.status === 'done' ? '#34d399' : 'transparent' }}>
+                    {t.status === 'done' && <Check size={11} style={{ color: '#0B1538' }} />}
+                  </button>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm" style={{ color: 'var(--text-primary)', textDecoration: t.kind === 'task' && t.status === 'done' ? 'line-through' : 'none' }}>{t.text}</p>
+                  <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                    {t.kind === 'task' ? '✓ Task' : '💬 Update'} · {t.createdByName}
+                    {t.assignedToName ? ` → ${t.assignedToName}` : ''} · {fmtTs(t.createdAt)}
+                    {t.status === 'done' && t.doneBy ? ` · done` : ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        {canWrite && (
+          <div className="space-y-2 pt-1" style={{ borderTop: '1px solid var(--shell-border)' }}>
+            <div className="flex gap-1.5 pt-2">
+              {(['update', 'task'] as const).map((k) => (
+                <button key={k} onClick={() => setKind(k)}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg capitalize"
+                  style={kind === k ? { backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961' } : { color: 'var(--text-muted)', border: '1px solid var(--shell-border)' }}>
+                  {k === 'update' ? '💬 Update' : '✓ Task'}
+                </button>
+              ))}
+            </div>
+            <textarea className={inp()} rows={2} value={text} onChange={(e) => setText(e.target.value)}
+              placeholder={kind === 'task' ? 'Describe the task…' : 'Post an update…'} />
+            <div className="flex flex-wrap items-center gap-2">
+              {kind === 'task' && (
+                <div className="flex-1 min-w-45">
+                  <SearchableSelect value={assignee} onChange={setAssignee}
+                    options={[{ value: '', label: 'Unassigned' }, { value: caseDoc.handlingRm, label: `${nameOf(caseDoc.handlingRm)} (owner)` }, ...opts]}
+                    placeholder="Assign to…" />
+                </div>
+              )}
+              <button onClick={post} disabled={posting || text.trim().length < 2}
+                className="text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-50 ml-auto" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+                {posting ? 'Posting…' : kind === 'task' ? 'Add task' : 'Post update'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

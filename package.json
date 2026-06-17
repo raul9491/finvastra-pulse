@@ -31,7 +31,8 @@
     "test:watch": "vitest",
     "qa:meta": "bash .qa/run-meta-gate.sh",
     "qa:meta:inspect": "tsx scripts/test/inspectMetaLead.ts",
-    "qa:sla": "bash .qa/run-sla-gate.sh"
+    "qa:sla": "bash .qa/run-sla-gate.sh",
+    "qa:queue": "bash .qa/run-queue-gate.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

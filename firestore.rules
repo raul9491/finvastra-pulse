@@ -341,6 +341,10 @@ service cloud.firestore {
       // Admin updates any field; primary owner can update non-consent, non-PAN fields.
       // slaDeadline is allowed only when CLEARED to null (e.g. on deal close) — owners
       // cannot extend their own SLA to dodge the overdue badge.
+      // FIFO queue fields (assignedRm/assignedAt/status/releaseCount/lastReleaseReason/
+      // queueFlagged on CRM 2.0 leads) are NOT in the owner allowlist below and CRM 2.0
+      // leads carry no primaryOwnerId, so non-admins can't update them — mutated only by
+      // /api/crm2/queue/* (Admin SDK). queueSkills lives on /users (admin-write only).
       allow update: if isAdmin() ||
                        (hasCrmAccess() &&
                         (resource.data.primaryOwnerId == request.auth.uid

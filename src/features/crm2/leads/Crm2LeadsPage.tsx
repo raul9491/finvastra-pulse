@@ -20,6 +20,8 @@ import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
 import { FLabel, inp } from '../masters/MastersPage';
 import { useClientForm, ClientFieldsGrid, stateFromLead } from '../clients/ClientFormModal';
 import { ContactActions, PhoneLink } from '../../crm/components/ContactActions';
+import { QueuePanel } from '../queue/QueuePanel';
+import { useQueueActions } from '../queue/useQueue';
 import { useConnectors } from '../../hrms/hooks/useConnectors';
 import type { Connector } from '../../../types';
 import type { Crm2LeadFields, Crm2LeadStatus, Product, Client, SubDsa } from '../../../types/crm2';
@@ -44,6 +46,8 @@ const PRIORITY_OPTS = (['HOT', 'WARM', 'COLD'] as const).map((p) => ({ value: p,
 
 const STATUS_META: Record<Crm2LeadStatus, { label: string; color: string }> = {
   NEW:            { label: 'New',            color: '#60a5fa' },
+  QUEUED:         { label: 'In Queue',       color: '#60a5fa' },
+  ASSIGNED:       { label: 'Claimed',        color: '#C9A961' },
   ATTEMPTED:      { label: 'Attempted',      color: '#fbbf24' },
   CONTACTED:      { label: 'Contacted',      color: '#34d399' },
   QUALIFIED:      { label: 'Qualified',      color: '#C9A961' },
@@ -90,6 +94,7 @@ export function Crm2LeadsPage() {
 
   const canWrite = hasCrm2Perm(profile, 'crm.leads.write');
   const canConvert = hasCrm2Perm(profile, 'crm.cases.write');
+  const isManager = profile?.role === 'admin' || profile?.crmRole === 'manager';
 
   const faplOptions = useMemo(() =>
     employees
@@ -141,6 +146,10 @@ export function Crm2LeadsPage() {
           </button>
         )}
       </div>
+
+      {/* FIFO pull queue — Get next lead + (managers) live monitor */}
+      <QueuePanel canWrite={canWrite} isManager={isManager}
+        onOpenLead={(id) => { const r = rows.find((x) => x.id === id); if (r) setDetailFor(r); }} />
 
       {/* Funnel chips */}
       <div className="flex gap-1.5 flex-wrap">
@@ -433,6 +442,46 @@ function NewLeadModal({ faplOptions, productOptions, clientOptions, subDsaOption
 }
 
 // ─── Detail drawer (activity log + actions + convert) ───────────────────────
+/** Release a claimed lead back to the FIFO queue (preserves its place; bumps releaseCount). */
+function ReleaseControl({ leadId, onReleased }: { leadId: string; onReleased: () => void }) {
+  const { release } = useQueueActions();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+  const submit = async () => {
+    setBusy(true);
+    try {
+      const r = await release(leadId, reason.trim());
+      onReleased();
+      if (r.flagged) toast.error(`Released ${r.releaseCount}× — flagged for a manager`);
+      setOpen(false); setReason('');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Release failed');
+    } finally { setBusy(false); }
+  };
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="mt-1.5 text-xs font-semibold" style={{ color: '#f87171' }}>
+        ↩ Release to queue
+      </button>
+    );
+  }
+  return (
+    <div className="mt-1.5 space-y-1.5">
+      <input className="glass-inp text-xs w-full" placeholder="Reason (optional)…"
+        value={reason} onChange={(e) => setReason(e.target.value)} />
+      <div className="flex gap-2">
+        <button onClick={submit} disabled={busy}
+          className="text-xs font-semibold px-3 py-1 rounded disabled:opacity-50" style={{ backgroundColor: '#f87171', color: '#fff' }}>
+          {busy ? '…' : 'Release'}
+        </button>
+        <button onClick={() => setOpen(false)} className="text-xs" style={{ color: 'var(--text-muted)' }}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, clients, clientOptions, subDsaOptions, partnerOptions, refData, onClose }: {
   lead: LeadRow;
   canWrite: boolean; canConvert: boolean;
@@ -517,6 +566,9 @@ function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, c
                 <SearchableSelect value={lead.assignedRm ?? ''} disabled={busy}
                   onChange={(v) => patch({ assignedRm: v || null }, 'RM updated')}
                   options={[{ value: '', label: 'Unassigned' }, ...faplOptions]} placeholder="Unassigned" />
+                {canWrite && lead.assignedRm && (
+                  <ReleaseControl leadId={lead.id} onReleased={() => toast.success('Released back to the queue')} />
+                )}
               </div>
               <div>
                 <FLabel text="Priority" />

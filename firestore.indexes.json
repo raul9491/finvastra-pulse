@@ -4,6 +4,15 @@
       "collectionGroup": "leads",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "assignedRm", "order": "ASCENDING" },
+        { "fieldPath": "converted", "order": "ASCENDING" },
+        { "fieldPath": "receivedAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "firstContactedAt", "order": "ASCENDING" },
         { "fieldPath": "converted", "order": "ASCENDING" }
       ]

@@ -40,3 +40,8 @@ jobs:
       # pause math is covered by unit tests).
       - name: Lead SLA gate (qa:sla)
         run: npm run qa:sla
+
+      # FIFO pull-queue gate — FIFO claim, atomic concurrency, skill gating, release,
+      # /state, SLA regression, live config reshape.
+      - name: Pull-queue gate (qa:queue)
+        run: npm run qa:queue

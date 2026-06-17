@@ -1971,6 +1971,20 @@ Measures + alerts on lead responsiveness across **BOTH lead models** (old-model 
 
 ---
 
+## FIFO pull-queue work model (2026-06-17) — BUILT, NOT deployed
+
+Replaces manager-push as the **default** for warm-inbound CRM 2.0 leads (ADS + public website): they stay unassigned in shared, **oldest-first** queues; a free telecaller pulls the front of the line, which **claims** it (stamps owner + `assignedAt`) atomically at pickup. Manual `PATCH …/leads/:id {assignedRm}` remains the **manager override**. **Cold bulk imports stay on the Import-Queue `distribute` path** (untouched). Sits ON TOP of the SLA engine — `captureAt`/`assignedAt`/`firstContactedAt` unchanged; **Stage 1 now measures time-in-queue (claim latency)**, Stage 2 unchanged.
+
+- **Pure lib `src/lib/crm2/queue.ts`** (14 tests): `QueueDef`, `DEFAULT_QUEUES` (`Loans`→`['LOAN']`/skill LOANS · `SIP`→`['WEALTH']`/skill SIP), `queueConfigFromDoc` (from `app_config/queues`, falls back to defaults), `leadQueueCategory` (explicit `category`, else `inferCategory(sourceMeta.productInterest)`, else GENERAL), `queueMatchesLead` (`['*']`=all), `eligibleQueues`/`leadEligibleForSkills` (**empty/unset `queueSkills` = eligible for ALL**; case-insensitive), `queueForLead`, `isQueueableLead` (ADS/WEBSITE + `receivedAt`).
+- **Endpoints** (`server/crm2.ts`, perm `crm.leads.write`/`read`): **`POST /api/crm2/queue/claim`** — oldest unassigned warm CRM2 lead by `receivedAt` across the caller's eligible queues, claimed in a **Firestore transaction** (re-reads in-tx; loser falls through to the next → two concurrent claims never collide); stamps `assignedRm`=caller FAPL + `assignedAt` + `status` NEW→`ASSIGNED`; returns `{lead}` or `{lead:null}`. **`POST /api/crm2/queue/release`** `{leadId,reason}` — owner or manager/admin; `assignedRm`/`assignedAt`→null, `status`→`QUEUED`, **preserves `receivedAt`** (keeps its place), bumps `releaseCount`, sets `lastReleaseReason`, **`queueFlagged:true` + manager bell at `releaseCount>=3`**. **`GET /api/crm2/queue/state`** — per-queue `depth` + oldest-lead working-age (`elapsedWorkingMs`) + wall-age + Stage-1 SLA countdown (reuses the SLA lib) + active telecallers (claimed-but-uncontacted by `assignedRm`); for ~10s client polling.
+- **Types**: `Crm2LeadStatus` gains `QUEUED`/`ASSIGNED`; `Crm2LeadFields` gains `firstContactedAt`/`releaseCount`/`lastReleaseReason`/`queueFlagged`; `UserProfile.queueSkills?: string[]`. `LEAD_STATUSES` extended server-side.
+- **Index**: `leads(assignedRm, converted, receivedAt)` composite (claim/state FIFO query). **Rules**: queue fields are server-only — they're absent from the leads owner-update allowlist AND CRM 2.0 leads carry no `primaryOwnerId`, so non-admin clients can't update them at all (only `/api/crm2/queue/*` via Admin SDK); `queueSkills` lives on `/users` (admin-write only — not in the self-update allowlist). No rule logic change, only a clarifying comment.
+- **Client** (`src/features/crm2/queue/`): `useQueue.ts` (`useQueueActions` claim/release · `useQueueState` 10s poller); `QueuePanel.tsx` mounted on `Crm2LeadsPage` — **"Get next lead"** (serve-don't-browse → claims + opens the lead) for any `crm.leads.write` user + a **manager monitor** (depth/oldest-age/SLA countdown/active reps); a `ReleaseControl` (reason) in the lead drawer when a lead is claimed.
+- **Gate** `.qa/crm2-queue-gate.mjs` (`npm run qa:queue`) **18/18**: FIFO oldest-first, **atomic concurrent claims → different leads**, skill gating + empty-skills=all, claim stamps, release→QUEUED + captureAt preserved + flag-at-3, `/state` depth/age/SLA, **SLA regression** (unclaimed still Stage-1 breaches · `firstContactedAt` stamps post-claim Stage 2), live `app_config/queues` reshape (single `['*']` = one shared FIFO). Wired into `.github/workflows/ci.yml`. 150 crm2 unit tests; tsc + build clean.
+- **Deploy when maintainer ships**: `deploy:rules` (comment only — verify bind) → `deploy:indexes` (new `leads(assignedRm,converted,receivedAt)` composite READY) → `gcloud run deploy pulse-api --no-cpu-throttling` (3 endpoints) → `npm run deploy` (hosting: QueuePanel) → `verify:deploy`. Optionally seed `app_config/queues` (else DEFAULT_QUEUES) + set `queueSkills` per telecaller (else all-eligible). _Flagged follow-on (not built): richer queue analytics / per-agent throughput dashboard._
+
+---
+
 ## Authentication rules
 
 - **Only `@finvastra.com` Google Workspace accounts** may log in. Enforced in `onAuthStateChanged` (hard block) — not just the Google picker hint. Personal Gmail addresses are blocked even if they somehow reach the auth flow.
@@ -2663,6 +2677,7 @@ Authoritative list of every Express route. Verify against `server.ts` after any 
 - `GET  /api/crm/team/performance?period=` — caller's downline performance summary (Phase P)
 - `POST /api/admin/run-weekly-team-digest` — Friday bell+email team review per manager (Phase P)
 - `POST /api/crm2/jobs/run-lead-sla-sweep` — two-stage lead SLA (time-to-assign + time-to-first-contact), working-time, both lead models; notify-only (2026-06-17)
+- `POST /api/crm2/queue/claim` · `POST /api/crm2/queue/release` · `GET /api/crm2/queue/state` — FIFO pull-queue work model (warm-inbound CRM 2.0 leads; atomic claim) (2026-06-17)
 
 **SPA fallback**: `GET *` → `index.html` (prod static).
 

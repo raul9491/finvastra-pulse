@@ -138,8 +138,8 @@ export interface DocumentDef extends Audit {
 
 export type Crm2LeadCategory = 'LOAN' | 'WEALTH' | 'INSURANCE' | 'CIBIL_CHECK' | 'PARTNER_DSA' | 'GENERAL';
 export type Crm2LeadStatus =
-  | 'NEW' | 'ATTEMPTED' | 'CONTACTED' | 'QUALIFIED' | 'JUNK_DUPLICATE'
-  | 'NOT_INTERESTED' | 'CONVERTED' | 'DROPPED';
+  | 'NEW' | 'QUEUED' | 'ASSIGNED' | 'ATTEMPTED' | 'CONTACTED' | 'QUALIFIED' | 'JUNK_DUPLICATE'
+  | 'NOT_INTERESTED' | 'CONVERTED' | 'DROPPED';   // QUEUED/ASSIGNED drive the FIFO pull queue
 export type Crm2LeadSource =
   | 'WEBSITE' | 'JUSTDIAL' | 'REFERRAL_CLIENT' | 'REFERRAL_SUBDSA' | 'ADS' | 'WALKIN' | 'COLD_CALL';
 
@@ -185,6 +185,13 @@ export interface Crm2LeadFields {
   dupeKeys: string[];                 // ["m:9701097333","e:x@y.com"]
   // Phase 3 — set when a doc was promoted from an old-CRM "Customer" record.
   promotedFromCustomer?: boolean;
+  // SLA (Phase 2) — set-once on first contact attempt; server-stamped.
+  firstContactedAt?: Ts | null;
+  // FIFO pull queue (server-managed): claim stamps assignedRm+assignedAt; release
+  // returns to the queue preserving receivedAt (captureAt) + bumps releaseCount.
+  releaseCount?: number;
+  lastReleaseReason?: string | null;
+  queueFlagged?: boolean;          // raised when releaseCount >= 3 (needs manager)
 }
 
 // ─── Clients + vault ────────────────────────────────────────────────────────────

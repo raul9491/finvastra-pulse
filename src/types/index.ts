@@ -70,6 +70,9 @@ export interface UserProfile {
   reportingManagerName?: string;
   reportingManagerUid?: string;  // HRMS reporting line — drives org chart + My Team scoping
   employeeStatus?: EmployeeStatus;
+  // FIFO pull queue eligibility — skills a telecaller can pull from (e.g. ['LOANS','SIP']).
+  // Empty/unset = eligible for ALL queues (works out of the box / single-queue mode).
+  queueSkills?: string[];
   // Module access flags. Absent field is treated as the safe default:
   // hrmsAccess absent → true (everyone gets HRMS self-service)
   // crmAccess  absent → false (only RMs explicitly granted access)

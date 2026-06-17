@@ -798,10 +798,17 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     // Honeypot: bots fill the hidden "website" field — pretend success, write nothing.
     if (isStr(b.website)) { res.json({ ok: true }); return; }
 
+    // A TRUSTED server-to-server caller (e.g. the website's Google Apps Script) may
+    // present the shared secret to bypass the per-IP rate limit — Apps Script egress
+    // shares Google IPs, so the public 20/h cap would otherwise drop legit campaign
+    // leads. Browser posts (no secret) stay rate-limited + honeypotted as before.
+    const trusted = !!process.env.WEBSITE_WEBHOOK_SECRET
+      && req.headers["x-finvastra-webhook-secret"] === process.env.WEBSITE_WEBHOOK_SECRET;
+
     // Real client IP: Cloud Run appends it as the LAST X-Forwarded-For entry
     // (first-entry parsing is client-spoofable). req.ip agrees via trust proxy=1.
     const ip = extractClientIp(req.headers["x-forwarded-for"], req.ip);
-    if (!(await rateLimit(`crm2pub:${ip}`, 20, 60 * 60 * 1000))) {
+    if (!trusted && !(await rateLimit(`crm2pub:${ip}`, 20, 60 * 60 * 1000))) {
       throw new ApiError(429, "Too many submissions — try again later");
     }
 
@@ -838,6 +845,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
           formId: optStr(b, "formId"),
           sourceUrl: optStr(b, "sourceUrl")?.slice(0, 500) ?? null,
           utm: utm && Object.keys(utm).length > 0 ? utm : null,
+          via: trusted ? "apps_script" : "web",
         },
         amountRequired,
         referredById: null, referredByType: null,

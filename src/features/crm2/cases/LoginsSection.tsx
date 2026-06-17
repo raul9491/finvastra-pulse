@@ -27,6 +27,32 @@ const PDD_OPTS = ['NA', 'PENDING', 'PARTIAL', 'CLEARED'].map((v) => ({ value: v,
 const OTC_OPTS = ['NA', 'PENDING', 'CLEARED'].map((v) => ({ value: v, label: v }));
 const fmtMoney = (n: number | null | undefined) => (n == null ? '—' : `₹${n.toLocaleString('en-IN')}`);
 
+// Stage 6 — In-Process parallel sub-processes (PLAN §4 stage 6).
+const SUB_PROCS: Array<{ key: 'pd' | 'technical' | 'valuation' | 'legal' | 'credit'; label: string }> = [
+  { key: 'pd', label: 'Personal Discussion (PD)' },
+  { key: 'technical', label: 'Technical' },
+  { key: 'valuation', label: 'Valuation' },
+  { key: 'legal', label: 'Legal' },
+  { key: 'credit', label: 'Credit' },
+];
+const SP_STATUS_OPTS = ['NA', 'PENDING', 'IN_PROGRESS', 'DONE'].map((v) => ({ value: v, label: v.replace('_', ' ') }));
+const BT_MODE_OPTS = [{ value: '', label: '—' }, { value: 'cheque', label: 'Cheque' }, { value: 'e_transfer', label: 'E-transfer (NEFT/RTGS)' }];
+const BT_KIND_OPTS = [{ value: '', label: '—' }, { value: 'TOPUP', label: 'Top-up' }, { value: 'FINAL', label: 'Final' }];
+const SEC_MODE_OPTS = [{ value: '', label: '—' }, { value: 'physical', label: 'Physical' }, { value: 'digital', label: 'Digital / e-stamp' }];
+
+// Stored login dates may be Firestore Timestamps (sanctionDate via optTs) or ISO
+// strings (bt/secured — server passes them through raw). Normalise to yyyy-mm-dd.
+function toDateInput(v: unknown): string {
+  if (!v) return '';
+  if (typeof v === 'string') return v.slice(0, 10);
+  if (typeof (v as { toDate?: () => Date }).toDate === 'function') {
+    try { return (v as { toDate: () => Date }).toDate().toISOString().slice(0, 10); } catch { return ''; }
+  }
+  return '';
+}
+const numOrNull = (s: string) => (s.trim() ? Number(s) : null);
+const isoOrNull = (s: string) => (s ? new Date(s).toISOString() : null);
+
 export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: boolean }) {
   const toast = useToast();
   const { profile } = useAuth();
@@ -149,6 +175,24 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
                 </>
               )}
             </div>
+
+            {/* In-Process sub-process summary (stage 6 onward) */}
+            {idx >= LOGIN_STAGE_ORDER.indexOf('IN_PROCESS') && l.subProcesses && (
+              <div className="flex flex-wrap gap-1.5">
+                {SUB_PROCS.map(({ key, label }) => {
+                  const s = l.subProcesses?.[key]?.status ?? 'NA';
+                  if (s === 'NA') return null;
+                  const c = s === 'DONE' ? '#34d399' : s === 'IN_PROGRESS' ? '#C9A961' : 'var(--text-muted)';
+                  return (
+                    <span key={key} className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'var(--shell-hover-soft)', color: c }}>
+                      {label.replace(/ \(.*\)/, '')}: {s.replace('_', ' ')}
+                    </span>
+                  );
+                })}
+                {(l.bt?.isBt) && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961' }}>BT</span>}
+                {(l.secured?.isSecured) && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961' }}>Secured</span>}
+              </div>
+            )}
           </div>
         );
       })}
@@ -261,57 +305,249 @@ function AddLoginModal({ caseId, lenders, onClose }: { caseId: string; lenders: 
   );
 }
 
+type SpState = Record<string, { status: string; query: string; remarks: string }>;
+type QLog = Array<{ raisedAt: unknown; detail: string; resolvedAt: unknown }>;
+
 function EditLoginModal({ caseId, login, lenders, onClose }: { caseId: string; login: LoginRow; lenders: Array<Lender & { id: string }>; onClose: () => void }) {
   const toast = useToast();
   const [f, setF] = useState({
+    // Stage 4 — File Login
     lenderId: login.lenderId ?? '', branch: login.branch ?? '',
+    amountRequested: login.amountRequested?.toString() ?? '',
     smName: login.smName ?? '', smNumber: login.smNumber ?? '', asmName: login.asmName ?? '', asmNumber: login.asmNumber ?? '',
-    codeName: login.codeName ?? '', dsaCodeUsed: login.dsaCodeUsed ?? '', loanApplicationNo: login.loanApplicationNo ?? '',
+    docsSent: !!login.docsSent, directFromBank: !!login.directFromBank,
+    // Stage 5 — Code + Login
+    codeName: login.codeName ?? '', dsaCodeUsed: login.dsaCodeUsed ?? '', loginDone: !!login.loginDone,
+    loanApplicationNo: login.loanApplicationNo ?? '',
+    // Stage 7 — Sanctioned
     amountSanctioned: login.amountSanctioned?.toString() ?? '', roiPct: login.roiPct?.toString() ?? '',
     tenureMonths: login.tenureMonths?.toString() ?? '', processingFee: login.processingFee?.toString() ?? '',
-    customerDecision: login.customerDecision ?? '', pddStatus: login.pddStatus ?? 'NA', otcStatus: login.otcStatus ?? 'NA',
+    insuranceAmount: login.insuranceAmount?.toString() ?? '', otherCharges: login.otherCharges?.toString() ?? '',
+    sanctionDate: toDateInput(login.sanctionDate), verifiedAppNo: login.verifiedAppNo ?? '',
+    customerDecision: login.customerDecision ?? '',
+    // Stage 9 — PDD / OTC
+    pddStatus: login.pddStatus ?? 'NA', otcStatus: login.otcStatus ?? 'NA',
+    pddPendingList: (login.pddPendingList ?? []).join(', '),
     remarks: login.remarks ?? '',
   });
+  const [sp, setSp] = useState<SpState>(() => {
+    const base: SpState = {};
+    for (const { key } of SUB_PROCS) {
+      const s = login.subProcesses?.[key];
+      base[key] = { status: s?.status ?? 'NA', query: s?.query ?? '', remarks: s?.remarks ?? '' };
+    }
+    return base;
+  });
+  const [bt, setBt] = useState({
+    isBt: !!login.bt?.isBt, amount: login.bt?.amount?.toString() ?? '',
+    date: toDateInput(login.bt?.date), mode: login.bt?.mode ?? '', kind: (login.bt?.kind as string) ?? '',
+  });
+  const [sec, setSec] = useState({
+    isSecured: !!login.secured?.isSecured, modtDate: toDateInput(login.secured?.modtDate),
+    agreementDate: toDateInput(login.secured?.agreementDate), mode: login.secured?.mode ?? '',
+  });
+  const [applicants, setApplicants] = useState<Array<{ id: string; name: string; type: string }>>([]);
+  const [picked, setPicked] = useState<string[]>(login.applicantIds ?? []);
+  const [qlog, setQlog] = useState<QLog>((login.queryLog as QLog) ?? []);
+  const [newQuery, setNewQuery] = useState('');
   const [busy, setBusy] = useState(false);
-  const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
+  const set = (k: keyof typeof f, v: string | boolean) => setF((p) => ({ ...p, [k]: v }));
+  const setSpField = (key: string, field: 'status' | 'query' | 'remarks', v: string) =>
+    setSp((p) => ({ ...p, [key]: { ...p[key], [field]: v } }));
+
+  useEffect(() => (
+    onSnapshot(collection(db, 'cases', caseId, 'applicants'), (snap) =>
+      setApplicants(snap.docs.map((d) => ({ id: d.id, name: (d.data().name as string) ?? d.id, type: (d.data().type as string) ?? '' }))))
+  ), [caseId]);
+
+  // Query log raise/resolve fire their own PATCH immediately (decoupled from the main save).
+  const raiseQuery = async () => {
+    const q = newQuery.trim(); if (!q) return;
+    try {
+      await apiCrm2('PATCH', `/api/crm2/cases/${caseId}/logins/${login.id}`, { query: q });
+      setQlog((p) => [...p, { raisedAt: { toDate: () => new Date() }, detail: q, resolvedAt: null }]);
+      setNewQuery(''); toast.success('Query raised');
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); }
+  };
+  const resolveQuery = async (i: number) => {
+    try {
+      await apiCrm2('PATCH', `/api/crm2/cases/${caseId}/logins/${login.id}`, { resolveQueryIndex: i });
+      setQlog((p) => p.map((q, idx) => (idx === i ? { ...q, resolvedAt: { toDate: () => new Date() } } : q)));
+      toast.success('Query resolved');
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); }
+  };
+
   const save = async () => {
     setBusy(true);
     try {
       await apiCrm2('PATCH', `/api/crm2/cases/${caseId}/logins/${login.id}`, {
-        lenderId: f.lenderId || null, branch: f.branch || null,
+        lenderId: f.lenderId || null, branch: f.branch || null, amountRequested: numOrNull(f.amountRequested),
         smName: f.smName || null, smNumber: f.smNumber || null, asmName: f.asmName || null, asmNumber: f.asmNumber || null,
+        docsSent: f.docsSent, directFromBank: f.directFromBank, loginDone: f.loginDone,
         codeName: f.codeName || null, dsaCodeUsed: f.dsaCodeUsed || null, loanApplicationNo: f.loanApplicationNo || null,
-        amountSanctioned: f.amountSanctioned ? Number(f.amountSanctioned) : null,
-        roiPct: f.roiPct ? Number(f.roiPct) : null, tenureMonths: f.tenureMonths ? Number(f.tenureMonths) : null,
-        processingFee: f.processingFee ? Number(f.processingFee) : null,
-        customerDecision: f.customerDecision || null, pddStatus: f.pddStatus, otcStatus: f.otcStatus, remarks: f.remarks || null,
+        amountSanctioned: numOrNull(f.amountSanctioned), roiPct: numOrNull(f.roiPct),
+        tenureMonths: numOrNull(f.tenureMonths), processingFee: numOrNull(f.processingFee),
+        insuranceAmount: numOrNull(f.insuranceAmount), otherCharges: numOrNull(f.otherCharges),
+        sanctionDate: isoOrNull(f.sanctionDate), verifiedAppNo: f.verifiedAppNo || null,
+        customerDecision: f.customerDecision || null,
+        pddStatus: f.pddStatus, otcStatus: f.otcStatus,
+        pddPendingList: f.pddPendingList.split(',').map((s) => s.trim()).filter(Boolean),
+        applicantIds: picked,
+        remarks: f.remarks || null,
+        subProcesses: Object.fromEntries(SUB_PROCS.map(({ key }) => [key, {
+          status: sp[key].status, query: sp[key].query || null, remarks: sp[key].remarks || null,
+        }])),
+        bt: bt.isBt
+          ? { isBt: true, amount: numOrNull(bt.amount), date: isoOrNull(bt.date), mode: bt.mode || null, kind: bt.kind || null }
+          : { isBt: false, amount: null, date: null, mode: null, kind: null },
+        secured: sec.isSecured
+          ? { isSecured: true, modtDate: isoOrNull(sec.modtDate), agreementDate: isoOrNull(sec.agreementDate), mode: sec.mode || null }
+          : { isSecured: false, modtDate: null, agreementDate: null, mode: null },
       });
       toast.success('Login updated'); onClose();
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); } finally { setBusy(false); }
   };
+
   return (
-    <Modal title={`Edit ${login.id}`} onClose={onClose} wide>
-      <div className="grid grid-cols-2 gap-3">
-        <div><FLabel text="Lender" /><SearchableSelect value={f.lenderId} onChange={(v) => set('lenderId', v)} options={[{ value: '', label: '—' }, ...lenders.map((l) => ({ value: l.id, label: l.name }))]} /></div>
-        <div><FLabel text="Branch" /><input className={inp()} value={f.branch} onChange={(e) => set('branch', e.target.value)} /></div>
-        <div><FLabel text="SM Name" /><input className={inp()} value={f.smName} onChange={(e) => set('smName', e.target.value)} /></div>
-        <div><FLabel text="SM Number" /><input className={inp()} value={f.smNumber} onChange={(e) => set('smNumber', e.target.value)} /></div>
-        <div><FLabel text="ASM Name" /><input className={inp()} value={f.asmName} onChange={(e) => set('asmName', e.target.value)} /></div>
-        <div><FLabel text="ASM Number" /><input className={inp()} value={f.asmNumber} onChange={(e) => set('asmNumber', e.target.value)} /></div>
-        <div><FLabel text="Code Name" /><input className={inp()} value={f.codeName} onChange={(e) => set('codeName', e.target.value)} /></div>
-        <div><FLabel text="DSA Code Used" /><SearchableSelect value={f.dsaCodeUsed} onChange={(v) => set('dsaCodeUsed', v)} options={[{ value: '', label: '—' }, { value: 'finvastra', label: "Finvastra's code" }, { value: 'connector_own', label: "Connector's own code" }]} /></div>
-        <div className="col-span-2"><FLabel text="Loan Application No" /><input className={inp()} value={f.loanApplicationNo} onChange={(e) => set('loanApplicationNo', e.target.value)} /></div>
-        <div><FLabel text="Sanctioned ₹" /><input type="number" className={inp()} value={f.amountSanctioned} onChange={(e) => set('amountSanctioned', e.target.value)} /></div>
-        <div><FLabel text="ROI %" /><input type="number" className={inp()} value={f.roiPct} onChange={(e) => set('roiPct', e.target.value)} /></div>
-        <div><FLabel text="Tenure (months)" /><input type="number" className={inp()} value={f.tenureMonths} onChange={(e) => set('tenureMonths', e.target.value)} /></div>
-        <div><FLabel text="Processing Fee ₹" /><input type="number" className={inp()} value={f.processingFee} onChange={(e) => set('processingFee', e.target.value)} /></div>
-        <div><FLabel text="Customer Decision" /><SearchableSelect value={f.customerDecision} onChange={(v) => set('customerDecision', v)} options={DECISION_OPTS} /></div>
-        <div><FLabel text="PDD Status" /><SearchableSelect value={f.pddStatus} onChange={(v) => set('pddStatus', v)} options={PDD_OPTS} /></div>
-        <div><FLabel text="OTC Status" /><SearchableSelect value={f.otcStatus} onChange={(v) => set('otcStatus', v)} options={OTC_OPTS} /></div>
-        <div className="col-span-2"><FLabel text="Remarks" /><input className={inp()} value={f.remarks} onChange={(e) => set('remarks', e.target.value)} /></div>
-      </div>
+    <Modal title={`Edit ${login.id} · all stages`} onClose={onClose} wide>
+      <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+        Fill any stage's data anytime — saving here does not advance the login. Use “Advance →” on the card to move stages.
+      </p>
+
+      <Section title="① File / Bank Login">
+        <div className="grid grid-cols-2 gap-3">
+          <div><FLabel text="Lender" /><SearchableSelect value={f.lenderId} onChange={(v) => set('lenderId', v)} options={[{ value: '', label: '—' }, ...lenders.map((l) => ({ value: l.id, label: l.name }))]} /></div>
+          <div><FLabel text="Branch" /><input className={inp()} value={f.branch} onChange={(e) => set('branch', e.target.value)} /></div>
+          <div><FLabel text="Amount Requested ₹" /><input type="number" className={inp()} value={f.amountRequested} onChange={(e) => set('amountRequested', e.target.value)} /></div>
+          <div className="hidden sm:block" />
+          <div><FLabel text="SM Name" /><input className={inp()} value={f.smName} onChange={(e) => set('smName', e.target.value)} /></div>
+          <div><FLabel text="SM Number" /><input className={inp()} value={f.smNumber} onChange={(e) => set('smNumber', e.target.value)} /></div>
+          <div><FLabel text="ASM Name" /><input className={inp()} value={f.asmName} onChange={(e) => set('asmName', e.target.value)} /></div>
+          <div><FLabel text="ASM Number" /><input className={inp()} value={f.asmNumber} onChange={(e) => set('asmNumber', e.target.value)} /></div>
+        </div>
+        <div className="flex flex-wrap gap-5 pt-1">
+          <Check label="Docs sent to bank" checked={f.docsSent} onChange={(b) => set('docsSent', b)} />
+          <Check label="Direct from bank (bank pays Finvastra)" checked={f.directFromBank} onChange={(b) => set('directFromBank', b)} />
+        </div>
+      </Section>
+
+      <Section title="② Code + Bank Login Done">
+        <div className="grid grid-cols-2 gap-3">
+          <div><FLabel text="Code Name" /><input className={inp()} value={f.codeName} onChange={(e) => set('codeName', e.target.value)} /></div>
+          <div><FLabel text="DSA Code Used" /><SearchableSelect value={f.dsaCodeUsed} onChange={(v) => set('dsaCodeUsed', v)} options={[{ value: '', label: '—' }, { value: 'finvastra', label: "Finvastra's code" }, { value: 'connector_own', label: "Connector's own code" }]} /></div>
+          <div className="col-span-2"><FLabel text="Loan Application No" /><input className={inp()} value={f.loanApplicationNo} onChange={(e) => set('loanApplicationNo', e.target.value)} /></div>
+        </div>
+        <Check label="Login done" checked={f.loginDone} onChange={(b) => set('loginDone', b)} />
+      </Section>
+
+      <Section title="③ In Process — parallel sub-processes">
+        <div className="space-y-2">
+          {SUB_PROCS.map(({ key, label }) => (
+            <div key={key} className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-2 items-end border-t pt-2" style={{ borderColor: 'var(--shell-border)' }}>
+              <div>
+                <p className="text-xs font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{label}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <input className={inp()} placeholder="Query / pending" value={sp[key].query} onChange={(e) => setSpField(key, 'query', e.target.value)} />
+                  <input className={inp()} placeholder="Remarks" value={sp[key].remarks} onChange={(e) => setSpField(key, 'remarks', e.target.value)} />
+                </div>
+              </div>
+              <SearchableSelect value={sp[key].status} onChange={(v) => setSpField(key, 'status', v)} options={SP_STATUS_OPTS} />
+            </div>
+          ))}
+        </div>
+        {/* Query log */}
+        <div className="space-y-1.5 pt-1">
+          <FLabel text="Query log" />
+          {qlog.length === 0 && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>No queries raised.</p>}
+          {qlog.map((q, i) => (
+            <div key={i} className="flex items-center justify-between gap-2 text-xs px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: 'var(--shell-hover-soft)' }}>
+              <span style={{ color: 'var(--text-primary)', textDecoration: q.resolvedAt ? 'line-through' : 'none' }}>{q.detail}</span>
+              {q.resolvedAt
+                ? <span className="text-[10px] font-bold" style={{ color: '#34d399' }}>RESOLVED</span>
+                : <button onClick={() => resolveQuery(i)} className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(201,169,97,0.18)', color: '#C9A961' }}>Resolve</button>}
+            </div>
+          ))}
+          <div className="flex gap-2">
+            <input className={inp()} placeholder="Raise a new query…" value={newQuery} onChange={(e) => setNewQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); raiseQuery(); } }} />
+            <button onClick={raiseQuery} className="px-3 rounded-lg text-xs font-semibold shrink-0" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>Raise</button>
+          </div>
+        </div>
+      </Section>
+
+      <Section title="④ Sanctioned">
+        <div className="grid grid-cols-2 gap-3">
+          <div><FLabel text="Sanctioned ₹" /><input type="number" className={inp()} value={f.amountSanctioned} onChange={(e) => set('amountSanctioned', e.target.value)} /></div>
+          <div><FLabel text="ROI %" /><input type="number" className={inp()} value={f.roiPct} onChange={(e) => set('roiPct', e.target.value)} /></div>
+          <div><FLabel text="Tenure (months)" /><input type="number" className={inp()} value={f.tenureMonths} onChange={(e) => set('tenureMonths', e.target.value)} /></div>
+          <div><FLabel text="Processing Fee ₹" /><input type="number" className={inp()} value={f.processingFee} onChange={(e) => set('processingFee', e.target.value)} /></div>
+          <div><FLabel text="Insurance ₹" /><input type="number" className={inp()} value={f.insuranceAmount} onChange={(e) => set('insuranceAmount', e.target.value)} /></div>
+          <div><FLabel text="Other Charges ₹" /><input type="number" className={inp()} value={f.otherCharges} onChange={(e) => set('otherCharges', e.target.value)} /></div>
+          <div><FLabel text="Sanction Date" /><input type="date" className={inp()} value={f.sanctionDate} onChange={(e) => set('sanctionDate', e.target.value)} /></div>
+          <div><FLabel text="Verified App No" /><input className={inp()} value={f.verifiedAppNo} onChange={(e) => set('verifiedAppNo', e.target.value)} /></div>
+          <div className="col-span-2"><FLabel text="Customer Decision" /><SearchableSelect value={f.customerDecision} onChange={(v) => set('customerDecision', v)} options={DECISION_OPTS} /></div>
+        </div>
+      </Section>
+
+      <Section title="⑤ Disbursement extras (BT · Secured)">
+        <Check label="Balance Transfer (BT)" checked={bt.isBt} onChange={(b) => setBt((p) => ({ ...p, isBt: b }))} />
+        {bt.isBt && (
+          <div className="grid grid-cols-2 gap-3 pl-1">
+            <div><FLabel text="BT Amount ₹" /><input type="number" className={inp()} value={bt.amount} onChange={(e) => setBt((p) => ({ ...p, amount: e.target.value }))} /></div>
+            <div><FLabel text="BT Date" /><input type="date" className={inp()} value={bt.date} onChange={(e) => setBt((p) => ({ ...p, date: e.target.value }))} /></div>
+            <div><FLabel text="Mode" /><SearchableSelect value={bt.mode} onChange={(v) => setBt((p) => ({ ...p, mode: v }))} options={BT_MODE_OPTS} /></div>
+            <div><FLabel text="Top-up / Final" /><SearchableSelect value={bt.kind} onChange={(v) => setBt((p) => ({ ...p, kind: v }))} options={BT_KIND_OPTS} /></div>
+          </div>
+        )}
+        <Check label="Secured (MODT / agreement / hypothecation)" checked={sec.isSecured} onChange={(b) => setSec((p) => ({ ...p, isSecured: b }))} />
+        {sec.isSecured && (
+          <div className="grid grid-cols-2 gap-3 pl-1">
+            <div><FLabel text="MODT Date" /><input type="date" className={inp()} value={sec.modtDate} onChange={(e) => setSec((p) => ({ ...p, modtDate: e.target.value }))} /></div>
+            <div><FLabel text="Agreement Date" /><input type="date" className={inp()} value={sec.agreementDate} onChange={(e) => setSec((p) => ({ ...p, agreementDate: e.target.value }))} /></div>
+            <div className="col-span-2"><FLabel text="Mode" /><SearchableSelect value={sec.mode} onChange={(v) => setSec((p) => ({ ...p, mode: v }))} options={SEC_MODE_OPTS} /></div>
+          </div>
+        )}
+        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Disbursed amount / date / loan a/c are captured via “Record Disbursement” (the money engine).</p>
+      </Section>
+
+      <Section title="⑥ PDD / OTC">
+        <div className="grid grid-cols-2 gap-3">
+          <div><FLabel text="PDD Status" /><SearchableSelect value={f.pddStatus} onChange={(v) => set('pddStatus', v)} options={PDD_OPTS} /></div>
+          <div><FLabel text="OTC Status" /><SearchableSelect value={f.otcStatus} onChange={(v) => set('otcStatus', v)} options={OTC_OPTS} /></div>
+          <div className="col-span-2"><FLabel text="PDD Pending List (comma-separated)" /><input className={inp()} value={f.pddPendingList} onChange={(e) => set('pddPendingList', e.target.value)} placeholder="e.g. Original sale deed, NACH" /></div>
+        </div>
+      </Section>
+
+      {applicants.length > 0 && (
+        <Section title="Applicants on this file">
+          <div className="flex flex-wrap gap-3">
+            {applicants.map((a) => (
+              <Check key={a.id} label={`${a.name}${a.type ? ` · ${a.type}` : ''}`} checked={picked.includes(a.id)}
+                onChange={(b) => setPicked((p) => (b ? [...new Set([...p, a.id])] : p.filter((x) => x !== a.id)))} />
+            ))}
+          </div>
+        </Section>
+      )}
+
+      <div><FLabel text="Remarks" /><input className={inp()} value={f.remarks} onChange={(e) => set('remarks', e.target.value)} /></div>
       <ModalButtons busy={busy} onClose={onClose} onSave={save} saveLabel="Save Changes" />
     </Modal>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-3 pt-1">
+      <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#C9A961' }}>{title}</p>
+      {children}
+    </div>
+  );
+}
+function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (b: boolean) => void }) {
+  return (
+    <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-primary)' }}>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} style={{ accentColor: '#C9A961' }} />
+      {label}
+    </label>
   );
 }
 

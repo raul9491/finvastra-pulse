@@ -25,6 +25,12 @@ import {
   verifyMetaSignature, extractLeadgenEvents, mapMetaFields, type MetaLeadgenEvent,
 } from "../src/lib/crm2/meta.js";
 import {
+  evaluateSla, slaConfigFromDoc, type SlaConfig,
+} from "../src/lib/crm2/sla.js";
+import {
+  DEFAULT_BUSINESS_HOURS, type BusinessHoursConfig,
+} from "../src/lib/crm2/businessHours.js";
+import {
   validateTransition, gateForStage, keyDateForStage,
 } from "../src/lib/crm2/stages.js";
 import {
@@ -57,6 +63,12 @@ interface Deps {
   /** Verifies a Cloud Scheduler OIDC token (from server.ts). Used by the
    *  daily reminder + vault-expiry job endpoints. */
   verifyScheduler: (req: express.Request) => Promise<boolean>;
+  /** Sends a branded HTML email (server.ts wraps buildBrandEmail + sendGmailMessage).
+   *  Used by job endpoints that escalate to managers/telecallers. Fire-and-forget. */
+  sendBrandedEmail: (to: string, subject: string, body: {
+    title: string; intro: string; rows: Array<{ label: string; value: string }>;
+    note?: string; ctaLabel?: string; ctaLink?: string;
+  }) => Promise<void>;
 }
 
 /** Typed 4xx error — handlers throw it; the wrapper maps it to a JSON response. */
@@ -69,7 +81,7 @@ class ApiError extends Error {
 const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 const MOBILE_RE = /^[6-9]\d{9}$/;
 
-export function registerCrm2Routes(app: express.Express, { db, admin, verifyScheduler }: Deps): void {
+export function registerCrm2Routes(app: express.Express, { db, admin, verifyScheduler, sendBrandedEmail }: Deps): void {
   const { FieldValue, Timestamp } = admin.firestore;
 
   // ─── Auth + permissions ──────────────────────────────────────────────────────
@@ -833,6 +845,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         linkedClientId: null, linkedCaseId: null, linkedSubDsaId: null,
         duplicateOfLeadId: duplicate?.collection === "leads" ? duplicate.id : null,
         dupeKeys,
+        firstContactedAt: null,   // Stage-2 SLA end — stamped once on first contact
         ...createAudit("public:website"),
       });
       return newId;
@@ -1010,6 +1023,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         linkedClientId: null, linkedCaseId: null, linkedSubDsaId: null,
         duplicateOfLeadId: duplicate?.collection === "leads" ? duplicate.id : null,
         dupeKeys,
+        firstContactedAt: null,   // Stage-2 SLA end — stamped once on first contact
         ...createAudit("webhook:meta"),
       });
       tx.update(ref, {
@@ -1069,6 +1083,167 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     }
     res.json({ ok: true, scanned: snap.size, processed, skipped });
   }));
+
+  // ═══ Two-stage lead SLA — sweep job (measure + alert; NOTIFY-ONLY) ════════════
+  // Stage 1 = time-to-assign (capture → manager assigns). Stage 2 = time-to-first-
+  // contact (anchor → telecaller logs a first attempt). Working-time clocks across
+  // BOTH lead models. Windows from app_config/sla, business hours from
+  // app_config/business_hours (defaults if absent). No auto-reassign.
+
+  async function loadSlaConfig(): Promise<{ cfg: SlaConfig; escalationUids: string[] }> {
+    const snap = await db.collection("app_config").doc("sla").get();
+    const raw = snap.exists ? (snap.data() as Record<string, unknown>) : null;
+    const escalationUids = Array.isArray(raw?.escalationUids)
+      ? (raw!.escalationUids as unknown[]).filter((x) => isStr(x)).map(String) : [];
+    return { cfg: slaConfigFromDoc(raw), escalationUids };
+  }
+  async function loadBusinessHours(): Promise<BusinessHoursConfig> {
+    const snap = await db.collection("app_config").doc("business_hours").get();
+    const d = snap.exists ? (snap.data() as Partial<BusinessHoursConfig>) : null;
+    if (!d) return DEFAULT_BUSINESS_HOURS;
+    const D = DEFAULT_BUSINESS_HOURS;
+    return {
+      tzOffsetMinutes: typeof d.tzOffsetMinutes === "number" ? d.tzOffsetMinutes : D.tzOffsetMinutes,
+      startMinutes: typeof d.startMinutes === "number" ? d.startMinutes : D.startMinutes,
+      endMinutes: typeof d.endMinutes === "number" ? d.endMinutes : D.endMinutes,
+      workingDows: Array.isArray(d.workingDows) ? (d.workingDows as number[]) : D.workingDows,
+      offSaturdayOrdinals: Array.isArray(d.offSaturdayOrdinals) ? (d.offSaturdayOrdinals as number[]) : D.offSaturdayOrdinals,
+    };
+  }
+
+  const leadName = (d: Record<string, unknown>) => String(d.name ?? d.displayName ?? "Lead");
+  const leadLink = (id: string, d: Record<string, unknown>) =>
+    d.receivedAt != null ? "/crm/pipeline/leads" : `/crm/leads/${id}`;
+
+  async function ownerUidForLead(d: Record<string, unknown>): Promise<string | null> {
+    if (d.receivedAt != null) return isStr(d.assignedRm) ? await faplToUid(String(d.assignedRm)) : null;
+    const po = d.primaryOwnerId;
+    return isStr(po) && po !== "UNASSIGNED" ? String(po) : null;
+  }
+  async function managerUidForOwner(ownerUid: string | null): Promise<string | null> {
+    if (!ownerUid) return null;
+    const m = (await db.collection("users").doc(ownerUid).get()).data()?.reportingManagerUid;
+    return isStr(m) ? String(m) : null;
+  }
+  async function userEmail(uid: string): Promise<string | null> {
+    // Hard timeout so a slow/unreachable auth lookup can never stall the sweep.
+    try {
+      const got = await Promise.race([
+        admin.auth().getUser(uid).then((u) => u.email ?? null),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+      ]);
+      return got;
+    } catch { return null; }
+  }
+  // Fallback escalation target when no owner/config exists: active admins.
+  async function defaultEscalationUids(): Promise<string[]> {
+    const snap = await db.collection("users").where("role", "==", "admin").limit(5).get();
+    return snap.docs.filter((u) => u.data().employeeStatus !== "inactive").map((u) => u.id);
+  }
+  // Once-per-breach dedup marker (belt; the per-lead breach stamp is the primary guard).
+  async function claimSlaAlert(leadId: string, stage: 1 | 2): Promise<boolean> {
+    try {
+      await db.collection("crm2_reminder_logs").doc(`sla${stage}_${leadId}`)
+        .create({ leadId, stage, at: FieldValue.serverTimestamp() });
+      return true;
+    } catch { return false; }
+  }
+  async function deliverSla(
+    uids: string[], notif: { title: string; body: string; link: string },
+    email: { subject: string; title: string; intro: string; rows: Array<{ label: string; value: string }>; note?: string; ctaLink: string },
+  ): Promise<void> {
+    for (const uid of [...new Set(uids)]) {
+      await notify(uid, { type: "sla_breach", ...notif });
+      const e = await userEmail(uid);
+      if (e) await sendBrandedEmail(e, email.subject, {
+        title: email.title, intro: email.intro, rows: email.rows, note: email.note,
+        ctaLabel: "Open lead", ctaLink: `https://pulse.finvastra.com${email.ctaLink}`,
+      });
+    }
+  }
+
+  app.post("/api/crm2/jobs/run-lead-sla-sweep", route(async (req, res) => {
+    const caller = await requireSchedulerOrAdmin(req, res);
+    if (!caller) return;
+    const { cfg, escalationUids } = await loadSlaConfig();
+    const bh = await loadBusinessHours();
+    const nowMs = Date.now();
+
+    // Uncontacted candidates from both (disjoint) schemas: CRM2 has `converted`,
+    // old-model has `deleted`. firstContactedAt==null ⇒ no first contact yet.
+    const [crm2Snap, oldSnap] = await Promise.all([
+      db.collection("leads").where("firstContactedAt", "==", null).where("converted", "==", false).limit(500).get(),
+      db.collection("leads").where("firstContactedAt", "==", null).where("deleted", "==", false).limit(500).get(),
+    ]);
+    const seen = new Set<string>();
+    const docs = [...crm2Snap.docs, ...oldSnap.docs].filter((d) => (seen.has(d.id) ? false : (seen.add(d.id), true)));
+
+    let scanned = 0, backfilled = 0, stage1Alerts = 0, stage2Alerts = 0;
+    for (const d of docs) {
+      scanned++;
+      const data = d.data() as Record<string, unknown>;
+
+      // Old-model authoritative backfill: a contact may exist as an activity doc
+      // without the stamp (client stamp missed / legacy). Stamp from the earliest.
+      if (data.receivedAt == null && data.firstContactedAt == null) {
+        const act = await d.ref.collection("activities").orderBy("at", "asc").limit(1).get();
+        if (!act.empty) {
+          await d.ref.update({ firstContactedAt: act.docs[0].get("at") ?? FieldValue.serverTimestamp() });
+          backfilled++;
+          continue;   // contacted — no Stage-2 breach
+        }
+      }
+
+      const ev = evaluateSla(data, nowMs, cfg, bh);
+
+      // Stage 1 — unassigned past window → alert manager / duty admin (no owner yet).
+      if (ev.stage1.breached && data.slaStage1BreachedAt == null && await claimSlaAlert(d.id, 1)) {
+        await d.ref.update({ slaStage1BreachedAt: FieldValue.serverTimestamp() });
+        const mins = Math.round(ev.stage1.elapsedMs / 60000);
+        const name = leadName(data), link = leadLink(d.id, data);
+        const targets = escalationUids.length ? escalationUids : await defaultEscalationUids();
+        await deliverSla(targets,
+          { title: `Unassigned lead past SLA — ${name}`, body: `${ev.tier} lead unassigned ${mins} working-min. Assign now.`, link },
+          { subject: `Lead SLA — assign ${name}`, title: "Lead waiting for assignment",
+            intro: `${name} (${ev.tier}) is unassigned past the time-to-assign SLA.`,
+            rows: [{ label: "Working time unassigned", value: `${mins} min` }, { label: "Tier", value: ev.tier }],
+            note: "Assign it to a telecaller from the queue.", ctaLink: link });
+        stage1Alerts++;
+        await logSla(d.id, "stage1", `${ev.tier} unassigned ${mins}m`);
+      }
+
+      // Stage 2 — no first contact past window → owner + manager, with attribution.
+      if (ev.stage2.breached && data.slaStage2BreachedAt == null && await claimSlaAlert(d.id, 2)) {
+        await d.ref.update({ slaStage2BreachedAt: FieldValue.serverTimestamp() });
+        const mins = Math.round(ev.stage2.elapsedMs / 60000);
+        const name = leadName(data), link = leadLink(d.id, data);
+        const attribution = ev.lateAssignment
+          ? "Assignment was late — queue/manager to expedite." : "Assignment was timely — telecaller to make contact.";
+        const ownerUid = await ownerUidForLead(data);
+        const mgrUid = await managerUidForOwner(ownerUid);
+        let targets = [ownerUid, mgrUid].filter((x): x is string => !!x);
+        if (!targets.length) targets = escalationUids.length ? escalationUids : await defaultEscalationUids();
+        await deliverSla(targets,
+          { title: `No first contact — ${name}`, body: `${mins} working-min, no contact attempt. ${attribution}`, link },
+          { subject: `Lead SLA — contact ${name}`, title: "Lead awaiting first contact",
+            intro: `${name} (${ev.tier}) has had no contact attempt past the time-to-first-contact SLA.`,
+            rows: [{ label: "Working time since due", value: `${mins} min` }, { label: "Tier", value: ev.tier },
+                   { label: "Attribution", value: ev.lateAssignment ? "Late assignment" : "Timely assignment" }],
+            note: attribution, ctaLink: link });
+        stage2Alerts++;
+        await logSla(d.id, "stage2", `${ev.tier} no-contact ${mins}m ${ev.lateAssignment ? "late-assign" : "on-time"}`);
+      }
+    }
+    res.json({ ok: true, scanned, backfilled, stage1Alerts, stage2Alerts });
+  }));
+
+  // Audit row (webhook_logs-style) for an SLA breach alert.
+  async function logSla(leadId: string, stage: string, detail: string): Promise<void> {
+    await db.collection("webhook_logs").add({
+      source: "sla_sweep", result: stage, leadId, errorMessage: detail, assignedTo: null,
+      receivedAt: FieldValue.serverTimestamp(),
+    }).catch(() => {});
+  }
 
   // GET — admin inspect a leadgen event + the lead it produced (go-live verification).
   // Prints the event state machine + every mapped lead field, and ASSERTS product
@@ -1184,6 +1359,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         linkedClientId: null, linkedCaseId: null, linkedSubDsaId: null,
         duplicateOfLeadId: duplicate?.collection === "leads" ? duplicate.id : null,
         dupeKeys,
+        firstContactedAt: null,   // Stage-2 SLA end — stamped once on first contact
         ...createAudit(caller.fapl),
       });
       return newId;
@@ -1252,6 +1428,15 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         note: String(activity.note).slice(0, 2000),
         action: isStr(activity.action) ? String(activity.action).slice(0, 60) : "note",
       });
+    }
+    // First-contact stamp (Stage-2 SLA end) — set ONCE, on the first ATTEMPT:
+    // status→ATTEMPTED/CONTACTED, an attempts bump, or a logged activity. Never overwritten.
+    const contactTrigger =
+      fields.status === "ATTEMPTED" || fields.status === "CONTACTED"
+      || b.incrementAttempts === true
+      || !!(activity && isStr(activity.note));
+    if (contactTrigger && cur.firstContactedAt == null) {
+      fields.firstContactedAt = FieldValue.serverTimestamp();
     }
     if (Object.keys(fields).length === 0) throw new ApiError(400, "No editable fields in payload");
     await ref.update({ ...fields, ...updateAudit(caller.fapl) });
@@ -1563,6 +1748,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       converted: false, convertedAt: null,
       linkedClientId: null, linkedCaseId: null, linkedSubDsaId: null,
       duplicateOfLeadId: null, dupeKeys,
+      // A promoted Customer is interested ⇒ already contacted: preserve any prior
+      // stamp, else mark contact now so it doesn't spuriously Stage-2-breach.
+      firstContactedAt: old.firstContactedAt ?? FieldValue.serverTimestamp(),
       promotedFromCustomer: true,
       // ── keep the old disposition coherent ──
       leadStatus: "interested", leadStatusAt: FieldValue.serverTimestamp(), leadStatusBy: caller.uid,

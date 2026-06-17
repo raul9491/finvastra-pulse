@@ -350,7 +350,11 @@ service cloud.firestore {
                           'primaryOwnerId', 'assignedToCurrentOwnerAt', 'updatedAt', 'slaDeadline',
                           'leadStatus', 'leadStatusAt', 'leadStatusBy',
                           'callbackAt', 'callbackReminderSent',
-                          'meetingLocation'
+                          'meetingLocation',
+                          // Stage-2 SLA: owner stamps first-contact (set-once, client-side).
+                          // The slaStage1/2BreachedAt fields are deliberately ABSENT here —
+                          // server-only (Admin SDK) so they can't be cleared to dodge alerts.
+                          'firstContactedAt'
                         ]) &&
                         (!incoming().diff(existing()).affectedKeys().hasAny(['slaDeadline'])
                          || incoming().slaDeadline == null));

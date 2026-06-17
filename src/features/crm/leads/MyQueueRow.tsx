@@ -163,6 +163,7 @@ export function MyQueueRow({ item, onRefresh }: Props) {
             <QuickLogBar
               leadId={lead.id}
               opportunityId={opp?.id}
+              markFirstContact={!(lead as { firstContactedAt?: unknown }).firstContactedAt}
               onLogged={() => {
                 setLastLoggedAt(Date.now());
                 setTimeout(() => { setLogOpen(false); onRefresh?.(); }, 1200);

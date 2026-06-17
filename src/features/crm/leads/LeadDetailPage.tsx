@@ -729,7 +729,7 @@ export function LeadDetailPage() {
 
       {/* Phase P — one-tap activity logging */}
       <div className="glass-panel p-5 mt-4">
-        <QuickLogBar leadId={lead.id} />
+        <QuickLogBar leadId={lead.id} markFirstContact={!(lead as { firstContactedAt?: unknown }).firstContactedAt} />
       </div>
     </div>
   );

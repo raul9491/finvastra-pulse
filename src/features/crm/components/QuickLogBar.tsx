@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Phone, MessageCircle, Mail, Handshake, StickyNote, Check } from 'lucide-react';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import type { ActivityType } from '../../../types';
@@ -20,10 +20,13 @@ const MIN_CHARS = 5;
  * (/leads/{leadId}/activities) so it works on raw leads with zero
  * opportunities; opportunityId is attached when provided for context.
  */
-export function QuickLogBar({ leadId, opportunityId, onLogged }: {
+export function QuickLogBar({ leadId, opportunityId, onLogged, markFirstContact }: {
   leadId: string;
   opportunityId?: string;
   onLogged?: () => void;
+  // Old-model leads: pass !lead.firstContactedAt so the first log stamps the
+  // Stage-2 SLA end (set-once). The server sweep also backfills authoritatively.
+  markFirstContact?: boolean;
 }) {
   const { user, profile } = useAuth();
   const [type, setType] = useState<ActivityType>('call');
@@ -49,6 +52,10 @@ export function QuickLogBar({ leadId, opportunityId, onLogged }: {
         at:     serverTimestamp(),
         opportunityId: opportunityId ?? null,
       });
+      // Stamp first-contact once (Stage-2 SLA end) for old-model leads.
+      if (markFirstContact) {
+        updateDoc(doc(db, 'leads', leadId), { firstContactedAt: serverTimestamp() }).catch(() => {});
+      }
       setFlash(true);
       setTimeout(() => setFlash(false), 1500);
       onLogged?.();

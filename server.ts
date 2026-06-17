@@ -516,6 +516,7 @@ async function processImportBatch(
         createdBy:          triggerUserId,
         updatedAt:          admin.firestore.FieldValue.serverTimestamp(),
         deleted:            false,
+        firstContactedAt:   null,   // Stage-2 SLA end — stamped once on first contact
       });
 
       // Create opportunity if loanProduct is valid
@@ -4319,6 +4320,7 @@ async function startServer() {
       createdBy:        `webhook:${source}`,
       deleted:          false,
       slaDeadline:      admin.firestore.Timestamp.fromDate(slaDeadline),
+      firstContactedAt: null,   // Stage-2 SLA end — stamped once on first contact
     };
     if (loanAmount)               leadData.loanAmount   = loanAmount;
     if (payload.city?.trim())     leadData.city         = payload.city.trim();
@@ -4641,7 +4643,16 @@ async function startServer() {
   });
 
   // ─── CRM 2.0 / Pipeline routes (server/crm2.ts — see PLAN.md) ─────────────────
-  registerCrm2Routes(app, { db, admin, verifyScheduler: verifySchedulerOIDC });
+  registerCrm2Routes(app, {
+    db, admin, verifyScheduler: verifySchedulerOIDC,
+    sendBrandedEmail: async (to, subject, body) => {
+      // Skip when Gmail DWD isn't configured (dev/emulator) — getGmailClient would
+      // otherwise fall through to the GCE metadata server and hang. In-app bell is
+      // the primary channel; email is best-effort.
+      if (!process.env.GOOGLE_SA_JSON_BASE64) return;
+      await sendGmailMessage(to, subject, buildBrandEmail(body)).catch(() => {});
+    },
+  });
 
   // ─── Vite / static serving ───────────────────────────────────────────────────
   if (process.env.NODE_ENV !== "production") {

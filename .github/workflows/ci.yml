@@ -34,3 +34,9 @@ jobs:
       # pointed at an in-process mock Graph API (offline; no real Meta token).
       - name: Meta webhook gate (qa:meta)
         run: npm run qa:meta
+
+      # Two-stage lead-SLA emulator gate — boots emulators + dev server; seeds a
+      # 24/7 business-hours config for deterministic breach timing (the working-time
+      # pause math is covered by unit tests).
+      - name: Lead SLA gate (qa:sla)
+        run: npm run qa:sla

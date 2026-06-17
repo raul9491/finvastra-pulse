@@ -30,7 +30,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "qa:meta": "bash .qa/run-meta-gate.sh",
-    "qa:meta:inspect": "tsx scripts/test/inspectMetaLead.ts"
+    "qa:meta:inspect": "tsx scripts/test/inspectMetaLead.ts",
+    "qa:sla": "bash .qa/run-sla-gate.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

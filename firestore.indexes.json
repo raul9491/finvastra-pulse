@@ -1,6 +1,22 @@
 {
   "indexes": [
     {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "firstContactedAt", "order": "ASCENDING" },
+        { "fieldPath": "converted", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "firstContactedAt", "order": "ASCENDING" },
+        { "fieldPath": "deleted", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "crm_meetings",
       "queryScope": "COLLECTION",
       "fields": [

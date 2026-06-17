@@ -134,6 +134,7 @@ export async function createLead(
     createdBy:        userId,
     updatedAt:        now,
     deleted:          false,
+    firstContactedAt: null,   // Stage-2 SLA end — stamped once on first contact
   });
   return ref.id;
 }

@@ -1,24 +1,8 @@
-import type { LeadSource } from '../types';
-
 /**
- * Compute the SLA deadline for a new lead.
- * Phase 2.5a: calendar hours only — working-day skipping deferred to Phase 2.5b.
- *
- * Sources and their SLA windows:
- *  - offline_bulk       → 24 calendar hours
- *  - social_meta        → 30 minutes (placeholder, real-time intake in Phase 2.5b)
- *  - website            → 30 minutes (placeholder, webhook intake in Phase 2.5b)
- *  - all other sources  → 24 calendar hours (manual entries, walk-ins, referrals)
+ * SLA status formatting. The deadline *computation* now lives in the working-time
+ * engine (src/lib/crm2/sla.ts + businessHours.ts); the old calendar-only
+ * computeSlaDeadline() was removed 2026-06-17 (it had no callers).
  */
-export function computeSlaDeadline(source: LeadSource, createdAt: Date): Date {
-  const deadline = new Date(createdAt);
-  if (source === 'social_meta' || source === 'website') {
-    deadline.setMinutes(deadline.getMinutes() + 30);
-  } else {
-    deadline.setHours(deadline.getHours() + 24);
-  }
-  return deadline;
-}
 
 /**
  * Format a Firestore Timestamp or JS Date as a human-readable SLA status.

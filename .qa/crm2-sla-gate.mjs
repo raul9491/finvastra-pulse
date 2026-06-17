@@ -68,14 +68,18 @@ async function main() {
   console.log('Two-stage lead-SLA — emulator integration gate\n');
   const { token, uid: adminUid } = await makeAdmin();
 
-  // Owner (FAPL-OWNER) + manager + duty-admin — all FABRICATED uids (Firestore user
-  // docs, NO Auth account) so userEmail() returns null and the email path is skipped
-  // (Gmail auth has no creds in the emulator and would hang); notify() still writes.
+  // Owner (FAPL-OWNER) + manager (Stage-2 escalation via reportingManagerUid) + a
+  // CRM manager (DUTY = the dynamic Stage-1/backlog recipient; crmRole:'manager') —
+  // all FABRICATED uids (Firestore user docs, NO Auth account) so userEmail() returns
+  // null and the email path is skipped (Gmail auth has no creds in the emulator and
+  // would hang); notify() still writes.
   const OWNER = 'sla-owner-uid', MGR = 'sla-mgr-uid', DUTY = 'sla-duty-uid';
   await putDoc(`users/${OWNER}`, { userId: V.s(OWNER), employeeId: V.s('FAPL-OWNER'), role: V.s('employee'), reportingManagerUid: V.s(MGR), employeeStatus: V.s('active') });
-  await putDoc(`users/${DUTY}`, { userId: V.s(DUTY), role: V.s('admin'), employeeStatus: V.s('active') });
+  // Stage-1 recipients are resolved LIVE to active crmRole:'manager' users (no hardcoded
+  // escalationUids). DUTY is that manager.
+  await putDoc(`users/${DUTY}`, { userId: V.s(DUTY), role: V.s('employee'), crmRole: V.s('manager'), employeeStatus: V.s('active') });
 
-  // Config: 24/7 business hours (deterministic timing) + tier windows + escalation.
+  // Config: 24/7 business hours (deterministic timing) + tier windows (no escalationUids).
   await putDoc('app_config/business_hours', {
     tzOffsetMinutes: V.i(0), startMinutes: V.i(0), endMinutes: V.i(1440),
     workingDows: { arrayValue: { values: [0, 1, 2, 3, 4, 5, 6].map(V.i) } },
@@ -86,7 +90,6 @@ async function main() {
     WARM: { mapValue: { fields: { stage1Ms: mins(15), stage2Ms: mins(30) } } },
     COLD: { mapValue: { fields: { stage1Ms: mins(48 * 60), stage2Ms: mins(24 * 60) } } },
     MANUAL: { mapValue: { fields: { stage1Ms: V.i(0), stage2Ms: mins(30) } } },
-    escalationUids: { arrayValue: { values: [V.s(DUTY)] } },
   });
 
   // ── 1. Warm ADS unassigned 20 min → Stage-1 breach, alert escalation, dedup ──
@@ -96,7 +99,7 @@ async function main() {
   r1.status === 200 ? ok('sweep authorised (admin)') : bad('sweep auth', JSON.stringify(r1));
   has(await getDoc('leads/L1'), 'slaStage1BreachedAt') ? ok('Stage-1 breach stamped on warm unassigned (20m > 15m)') : bad('stage1 stamp');
   const dutyItems1 = await listItems(DUTY);
-  dutyItems1.some((d) => d.fields?.title?.stringValue?.includes('Warm One')) ? ok('Stage-1 alert delivered to escalation (duty admin)') : bad('stage1 notify', `${dutyItems1.length} items`);
+  dutyItems1.some((d) => d.fields?.title?.stringValue?.includes('Warm One')) ? ok('Stage-1 alert delivered to dynamic recipient (active CRM manager)') : bad('stage1 notify', `${dutyItems1.length} items`);
   // dedup: a second sweep must not re-alert L1
   const before = (await listItems(DUTY)).length;
   await sweep(token);
@@ -150,7 +153,6 @@ async function main() {
     WARM: { mapValue: { fields: { stage1Ms: mins(99 * 60), stage2Ms: mins(99 * 60) } } },
     COLD: { mapValue: { fields: { stage1Ms: mins(48 * 60), stage2Ms: mins(24 * 60) } } },
     MANUAL: { mapValue: { fields: { stage1Ms: V.i(0), stage2Ms: mins(30) } } },
-    escalationUids: { arrayValue: { values: [V.s(DUTY)] } },
   });
   await putDoc('leads/L7', { source: V.s('ADS'), receivedAt: V.t(isoMinus(20)), converted: V.b(false),
     assignedRm: V.n(), firstContactedAt: V.n(), status: V.s('NEW'), name: V.s('Warm Seven') });

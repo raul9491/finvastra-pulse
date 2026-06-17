@@ -1094,12 +1094,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   // BOTH lead models. Windows from app_config/sla, business hours from
   // app_config/business_hours (defaults if absent). No auto-reassign.
 
-  async function loadSlaConfig(): Promise<{ cfg: SlaConfig; escalationUids: string[] }> {
+  async function loadSlaConfig(): Promise<SlaConfig> {
     const snap = await db.collection("app_config").doc("sla").get();
-    const raw = snap.exists ? (snap.data() as Record<string, unknown>) : null;
-    const escalationUids = Array.isArray(raw?.escalationUids)
-      ? (raw!.escalationUids as unknown[]).filter((x) => isStr(x)).map(String) : [];
-    return { cfg: slaConfigFromDoc(raw), escalationUids };
+    return slaConfigFromDoc(snap.exists ? (snap.data() as Record<string, unknown>) : null);
   }
   async function loadBusinessHours(): Promise<BusinessHoursConfig> {
     const snap = await db.collection("app_config").doc("business_hours").get();
@@ -1139,10 +1136,22 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       return got;
     } catch { return null; }
   }
-  // Fallback escalation target when no owner/config exists: active admins.
-  async function defaultEscalationUids(): Promise<string[]> {
-    const snap = await db.collection("users").where("role", "==", "admin").limit(5).get();
-    return snap.docs.filter((u) => u.data().employeeStatus !== "inactive").map((u) => u.id);
+  const superAdminUidsFromEnv = (): string[] =>
+    (process.env.SUPER_ADMIN_UIDS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+
+  // Stage-1 / queue-backlog alert recipients — resolved LIVE, never hardcoded:
+  // active CRM managers (crmRole === 'manager'); super admins as the fallback when
+  // no manager exists (and they remain the overview/report overseers via admin access).
+  async function resolveEscalationUids(): Promise<string[]> {
+    const snap = await db.collection("users").where("crmRole", "==", "manager").get();
+    const managers = snap.docs.filter((u) => u.data().employeeStatus !== "inactive").map((u) => u.id);
+    if (managers.length) return managers;
+    const sa = new Set(superAdminUidsFromEnv());
+    try {
+      const saSnap = await db.collection("users").where("superAdmin", "==", true).get();
+      for (const u of saSnap.docs) if (u.data().employeeStatus !== "inactive") sa.add(u.id);
+    } catch { /* superAdmin field/index may be absent — env list is the reliable fallback */ }
+    return [...sa];
   }
   // Once-per-breach dedup marker (belt; the per-lead breach stamp is the primary guard).
   async function claimSlaAlert(leadId: string, stage: 1 | 2): Promise<boolean> {
@@ -1169,7 +1178,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   app.post("/api/crm2/jobs/run-lead-sla-sweep", route(async (req, res) => {
     const caller = await requireSchedulerOrAdmin(req, res);
     if (!caller) return;
-    const { cfg, escalationUids } = await loadSlaConfig();
+    const cfg = await loadSlaConfig();
     const bh = await loadBusinessHours();
     const nowMs = Date.now();
 
@@ -1205,7 +1214,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         await d.ref.update({ slaStage1BreachedAt: FieldValue.serverTimestamp() });
         const mins = Math.round(ev.stage1.elapsedMs / 60000);
         const name = leadName(data), link = leadLink(d.id, data);
-        const targets = escalationUids.length ? escalationUids : await defaultEscalationUids();
+        const targets = await resolveEscalationUids();
         await deliverSla(targets,
           { title: `Unassigned lead past SLA — ${name}`, body: `${ev.tier} lead unassigned ${mins} working-min. Assign now.`, link },
           { subject: `Lead SLA — assign ${name}`, title: "Lead waiting for assignment",
@@ -1226,7 +1235,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         const ownerUid = await ownerUidForLead(data);
         const mgrUid = await managerUidForOwner(ownerUid);
         let targets = [ownerUid, mgrUid].filter((x): x is string => !!x);
-        if (!targets.length) targets = escalationUids.length ? escalationUids : await defaultEscalationUids();
+        if (!targets.length) targets = await resolveEscalationUids();
         await deliverSla(targets,
           { title: `No first contact — ${name}`, body: `${mins} working-min, no contact attempt. ${attribution}`, link },
           { subject: `Lead SLA — contact ${name}`, title: "Lead awaiting first contact",
@@ -1337,7 +1346,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
 
     if (result.flagged) {
       // Flag the manager: the lead has bounced too many times.
-      const targets = await defaultEscalationUids();
+      const targets = await resolveEscalationUids();
       for (const uid of targets) {
         await notify(uid, {
           type: "queue_flag", title: `Lead released ${result.releaseCount}×: ${result.name}`,
@@ -1354,8 +1363,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   app.get("/api/crm2/queue/state", route(async (req, res) => {
     const caller = await requirePerm(req, res, "crm.leads.read");
     if (!caller) return;
-    const [queues, slaLoaded, bh] = await Promise.all([loadQueues(), loadSlaConfig(), loadBusinessHours()]);
-    const cfg: SlaConfig = slaLoaded.cfg;
+    const [queues, cfg, bh] = await Promise.all([loadQueues(), loadSlaConfig(), loadBusinessHours()]);
     const nowMs = Date.now();
 
     // All waiting (unassigned) warm leads, oldest first → bucket by queue.

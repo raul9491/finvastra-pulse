@@ -38,24 +38,29 @@ Constants used throughout:
 > delegation). If absent, SLA/queue escalation **emails silently no-op** — in-app `notify`
 > bells still fire. Confirm it's set.
 
-### 1b. Firestore `app_config` docs `[HUMAN]`
-Create/confirm via **Firebase Console → Firestore → `app_config`** (an admin can write
-these; rules allow admin/HR-manager). All SLA windows are **working-milliseconds**.
+### 1b. Firestore `app_config` docs `[HUMAN, seeded]`
+**Run the idempotent seed script** (create-if-absent; never overwrites an existing doc):
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json npm run seed:golive
+# DRY_RUN=true … to preview · OVERWRITE=true … to replace existing docs
+```
+Then **confirm the three docs** in **Firebase Console → Firestore → `app_config`**. (You can
+also hand-create them; rules allow admin/HR-manager writes.) All SLA windows are
+**working-milliseconds**.
 
-**`app_config/sla`** (defaults apply per field if the doc/field is absent — but
-`escalationUids` has no default, see below):
+**`app_config/sla`** (per-field defaults apply if absent):
 ```jsonc
 {
   "WARM":   { "stage1Ms": 900000,   "stage2Ms": 1800000 },   // 15 wm assign · 30 wm contact
   "COLD":   { "stage1Ms": 172800000,"stage2Ms": 86400000 },  // 48 wh assign · 24 wh contact
-  "MANUAL": { "stage1Ms": 0,        "stage2Ms": 1800000 },   // assigned at t=0 · 30 wm contact
-  "escalationUids": ["<manager-uid>", "<backup-uid>"]
+  "MANUAL": { "stage1Ms": 0,        "stage2Ms": 1800000 }    // assigned at t=0 · 30 wm contact
 }
 ```
-> **`escalationUids` is REQUIRED.** Stage-1 (unassigned/in-queue) and queue-backlog alerts
-> route here (Stage-2 goes to the lead's owner + their `reportingManagerUid`). **Empty ⇒
-> Stage-1 alerts fall back to active admins**; set explicit triage manager uid(s) + one
-> backup so they land on the right person.
+> **No `escalationUids` to set.** Stage-1 (unassigned/in-queue) + queue-backlog alert
+> recipients are **resolved live** to **active `crmRole:'manager'` users**, with **super
+> admins as the fallback** (and the overview/report overseers via admin access). Stage-2
+> goes to the lead's owner + their `reportingManagerUid`. Just ensure ≥1 active manager
+> exists (else super admins receive). Nothing to hardcode.
 
 **`app_config/business_hours`** (defaults to exactly this if the doc is absent):
 ```jsonc
@@ -68,16 +73,17 @@ these; rules allow admin/HR-manager). All SLA windows are **working-milliseconds
 }
 ```
 
-**`app_config/queues`** (defaults to Loans + SIP if absent):
+**`app_config/queues`** — **single shared FIFO** (what `seed:golive` writes):
 ```jsonc
 {
   "queues": [
-    { "id": "loans", "name": "Loans", "skill": "LOANS", "productFilter": ["LOAN"] },
-    { "id": "sip",   "name": "SIP",   "skill": "SIP",   "productFilter": ["WEALTH"] }
+    { "id": "shared", "name": "Shared", "skill": "GENERAL", "productFilter": ["*"] }
   ]
 }
 ```
-> For **one shared FIFO**, use a single queue with `"productFilter": ["*"]`.
+> One `["*"]` queue = every warm lead in one oldest-first line; with telecaller
+> `queueSkills` empty (the default), everyone can pull from it. To split later, replace
+> with per-product queues (e.g. Loans `["LOAN"]` / SIP `["WEALTH"]`) + matching `queueSkills`.
 
 ### 1c. Per-telecaller `queueSkills` `[HUMAN]`
 On `/users/{uid}` set `queueSkills: ["LOANS"]` / `["SIP"]` to gate who can pull from
@@ -208,14 +214,14 @@ PATCH `{status:"ATTEMPTED"}`). `npm run sla:inspect -- <leadId>` → `firstConta
 **f. `[verify]` Controlled breach → manager alert.** Temporarily tighten the window, leave a
 **second** test lead unclaimed, sweep, confirm the alert, then **restore**:
 ```bash
-# (i) shrink WARM stage1 to 1 min (KEEP your real escalationUids in the doc):
-#     app_config/sla.WARM.stage1Ms = 60000   (edit in Firebase Console)
+# (i) shrink WARM stage1 to 1 min:  app_config/sla.WARM.stage1Ms = 60000  (Firebase Console).
+#     Ensure at least one ACTIVE crmRole:'manager' user exists (else super admins receive).
 # (ii) create/fire a second unclaimed test lead, then:
 gcloud scheduler jobs run crm2-lead-sla-sweep --location=asia-south1
 ```
-Confirm one **Stage-1 alert** reaches an `escalationUids` manager — **in-app bell AND email** —
-and `npm run sla:inspect -- <secondLeadId>` shows `Stage-1 breach` stamped.
-**(iii) RESTORE the real `app_config/sla`** (15 wm / 30 wm etc.) immediately after.
+Confirm one **Stage-1 alert** reaches an **active CRM manager** (or a super admin if none) —
+**in-app bell AND email** — and `npm run sla:inspect -- <secondLeadId>` shows `Stage-1 breach`
+stamped. **(iii) RESTORE the real `app_config/sla`** (15 wm / 30 wm etc.) immediately after.
 
 **g. `[verify]` Release back to queue:**
 ```bash
@@ -246,15 +252,15 @@ gcloud scheduler jobs run crm2-lead-sla-sweep --location=asia-south1
    (Until merged, `/api/leads/intake/meta` returns a harmless 200 — no gap. `processInboundLead`
    stays; the website intake uses it. See `docs/meta-webhook/legacy-cutover.md`.)
 2. **Delete test data** — remove the 3f test leads; **re-confirm** real `app_config/sla`
-   (windows + `escalationUids`), `app_config/business_hours`, `app_config/queues` are in place
-   (`npm run queue:inspect` + `npm run sla:inspect` on a known lead).
+   (windows), `app_config/business_hours`, `app_config/queues` are in place
+   (`npm run queue:inspect` + `npm run sla:inspect` on a known lead) and ≥1 active CRM manager exists.
 3. Confirm both scheduler jobs are **ENABLED** (`gcloud scheduler jobs describe …`).
 
 ### Go / no-go (one screen)
 - [ ] `verify:deploy` 3/3 green; all indexes READY.
 - [ ] Four `META_*` env vars set; `META_GRAPH_BASE` **unset**; `GOOGLE_SA_JSON_BASE64` present.
 - [ ] Handshake → `PING`; unsigned POST → 403.
-- [ ] `app_config/sla` has real windows **+ `escalationUids`**; `business_hours` + `queues` confirmed.
+- [ ] `app_config/sla` has real windows; `business_hours` + `queues` confirmed; **≥1 active CRM manager exists** (escalation auto-resolves to them).
 - [ ] Real test lead: landed (3b) → in correct queue (3c) → claimed (3d) → first-contact (3e).
 - [ ] Controlled breach alerted a manager in-app **and** email (3f) → **real SLA config restored**.
 - [ ] Release preserved captureAt (3g); sweep dedup holds (3h).

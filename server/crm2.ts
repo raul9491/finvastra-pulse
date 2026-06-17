@@ -1843,7 +1843,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         pddStatus: "NA", otcStatus: "NA", pddPendingList: [], queryLog: [],
         payoutStatus: "NOT_DUE", payoutCycleId: null,
         wealth: null, insurance: null,
-        docsCompletePct: 0, nextAction: null, remarks: null,
+        docsCompletePct: 0, nextAction: null, remarks: null, stage1: null,
         ...createAudit(caller.fapl),
       });
 
@@ -2023,7 +2023,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     "amountRequested", "amountSanctioned", "roiPct", "tenureMonths", "processingFee",
     "bankApplicationNo", "loanAccountNo", "connectorCaseRef",
     "bankContact", "nextAction", "remarks", "rejectionReason",
-    "pddStatus", "otcStatus", "pddPendingList",
+    "pddStatus", "otcStatus", "pddPendingList", "stage1",
   ]);
   // Server-calculated / frozen / payout-mirror fields — REJECTED on client input.
   const CASE_PROTECTED_FIELDS = new Set([
@@ -2035,6 +2035,40 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     "subDsaPayoutExpected", "netMarginExpected",
     "createdAt", "createdBy", "updatedAt", "updatedBy",
   ]);
+
+  // Shape the rich Stage-1 (Opened) underwriting object — bounded arrays, typed
+  // scalars; never trusts client field count. Returns null for a non-object.
+  const s1num = (v: unknown): number | null => {
+    if (v === "" || v === null || v === undefined) return null;
+    const n = Number(v); return Number.isFinite(n) ? n : null;
+  };
+  const s1str = (v: unknown, max = 500): string | null =>
+    isStr(v) && String(v).trim() ? String(v).trim().slice(0, max) : null;
+  function sanitizeStage1(raw: unknown): Record<string, unknown> | null {
+    if (!raw || typeof raw !== "object") return null;
+    const r = raw as Record<string, Record<string, unknown> & unknown[]>;
+    const obj = (x: unknown) => (x && typeof x === "object" ? (x as Record<string, unknown>) : null);
+    const p = obj(r.property);
+    const g = obj(r.gstTurnover);
+    const inc = obj(r.income);
+    return {
+      property: p ? { description: s1str(p.description), address: s1str(p.address, 1000), marketValue: s1num(p.marketValue) } : null,
+      turnover: Array.isArray(r.turnover)
+        ? r.turnover.slice(0, 5).map((t) => ({ fy: s1str((t as Record<string, unknown>)?.fy, 20) ?? "", amount: s1num((t as Record<string, unknown>)?.amount) ?? 0 }))
+            .filter((t) => t.fy || t.amount) : [],
+      gstTurnover: g ? { period: s1str(g.period, 40), amount: s1num(g.amount) } : null,
+      existingLoans: Array.isArray(r.existingLoans)
+        ? r.existingLoans.slice(0, 20).map((l) => { const o = l as Record<string, unknown>;
+            return { lender: s1str(o?.lender) ?? "", loanType: s1str(o?.loanType) ?? "", outstanding: s1num(o?.outstanding) ?? 0, emi: s1num(o?.emi) ?? 0 }; })
+            .filter((l) => l.lender || l.outstanding || l.emi) : [],
+      income: inc ? { company: s1num(inc.company), individual: s1num(inc.individual), rental: s1num(inc.rental) } : null,
+      references: Array.isArray(r.references)
+        ? r.references.slice(0, 4).map((x) => { const o = x as Record<string, unknown>;
+            return { name: s1str(o?.name) ?? "", mobile: s1str(o?.mobile, 20) ?? "", relation: s1str(o?.relation, 60) ?? "" }; })
+            .filter((x) => x.name || x.mobile) : [],
+      notes: s1str(r.notes, 4000),
+    };
+  }
 
   async function readTrackerRows(
     tx: Transaction, caseRef: FirebaseFirestore.DocumentReference,
@@ -2108,7 +2142,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         pddStatus: "NA", otcStatus: "NA", pddPendingList: [], queryLog: [],
         payoutStatus: "NOT_DUE", payoutCycleId: null,
         wealth: null, insurance: null,
-        docsCompletePct: 0, nextAction: null, remarks: null,
+        docsCompletePct: 0, nextAction: null, remarks: null, stage1: null,
         ...createAudit(caller.fapl),
       });
 
@@ -2171,6 +2205,8 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
             : null;
         } else if (k === "pddPendingList") {
           fields.pddPendingList = strArr(b, "pddPendingList");
+        } else if (k === "stage1") {
+          fields.stage1 = sanitizeStage1(b.stage1);
         } else if (k === "pddStatus") {
           const v = reqEnum(b, "pddStatus", ["NA", "PENDING", "PARTIAL", "CLEARED"] as const);
           if (v === "CLEARED" && cur.pddStatus !== "CLEARED") {

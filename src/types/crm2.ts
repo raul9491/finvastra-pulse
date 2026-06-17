@@ -274,6 +274,19 @@ export interface Crm2Case extends Audit {
   wealth: WealthAddon | null; insurance: InsuranceAddon | null;
   docsCompletePct: number;            // server-maintained from docTracker
   nextAction: string | null; remarks: string | null;
+  // Stage-1 "Opened" underwriting capture (PLAN §4 stage 1) — editable anytime.
+  stage1?: CaseStage1 | null;
+}
+
+/** Rich Stage-1 (Opened) underwriting data — additive, editable anytime. */
+export interface CaseStage1 {
+  property: { description: string | null; address: string | null; marketValue: number | null } | null;
+  turnover: Array<{ fy: string; amount: number }>;            // last 3 financial years
+  gstTurnover: { period: string | null; amount: number | null } | null;
+  existingLoans: Array<{ lender: string; loanType: string; outstanding: number; emi: number }>;
+  income: { company: number | null; individual: number | null; rental: number | null } | null;
+  references: Array<{ name: string; mobile: string; relation: string }>;   // 2 references
+  notes: string | null;               // partner/director-as-applicant details, etc.
 }
 
 /** cases/{id}/private/payout — money mirror, readable only with payout.amounts.read. */

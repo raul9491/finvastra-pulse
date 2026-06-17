@@ -32,7 +32,9 @@
     "qa:meta": "bash .qa/run-meta-gate.sh",
     "qa:meta:inspect": "tsx scripts/test/inspectMetaLead.ts",
     "qa:sla": "bash .qa/run-sla-gate.sh",
-    "qa:queue": "bash .qa/run-queue-gate.sh"
+    "qa:queue": "bash .qa/run-queue-gate.sh",
+    "sla:inspect": "tsx scripts/test/inspectLeadSla.ts",
+    "queue:inspect": "tsx scripts/test/inspectQueue.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

@@ -1,5 +1,10 @@
 # Meta Lead Ads webhook — GO-LIVE runbook
 
+> **⚠️ Superseded for deploy sequencing by [`docs/go-live/PULSE-LEAD-PIPELINE.md`](../go-live/PULSE-LEAD-PIPELINE.md)**,
+> which deploys the Meta webhook + SLA engine + pull queue together and runs a full
+> lifecycle smoke test. Use that as the primary runbook. This file is retained for the
+> Meta-specific deep-dive (§5 dead-letter alert policy, Meta App setup detail).
+
 Ordered steps to take the Phase 1 (capture + queue) webhook to production and verify a
 real test lead. Steps are tagged:
 - **`[deploy]`** — a machine step (run the command).

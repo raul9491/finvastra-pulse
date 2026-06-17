@@ -2678,6 +2678,7 @@ Authoritative list of every Express route. Verify against `server.ts` after any 
 - `POST /api/admin/run-weekly-team-digest` — Friday bell+email team review per manager (Phase P)
 - `POST /api/crm2/jobs/run-lead-sla-sweep` — two-stage lead SLA (time-to-assign + time-to-first-contact), working-time, both lead models; notify-only (2026-06-17)
 - `POST /api/crm2/queue/claim` · `POST /api/crm2/queue/release` · `GET /api/crm2/queue/state` — FIFO pull-queue work model (warm-inbound CRM 2.0 leads; atomic claim) (2026-06-17)
+- `GET /api/crm2/admin/lead/:id` — admin go-live inspect: a lead's SLA + pull-queue timeline (capture/assigned/firstContact/breach stamps/queue). Helper: `npm run sla:inspect -- <leadId>`; `npm run queue:inspect` hits `/queue/state`. Consolidated runbook: `docs/go-live/PULSE-LEAD-PIPELINE.md`
 
 **SPA fallback**: `GET *` → `index.html` (prod static).
 

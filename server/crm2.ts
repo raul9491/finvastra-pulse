@@ -1447,6 +1447,45 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     });
   }));
 
+  // GET — admin inspect a lead's SLA + pull-queue timeline (go-live verification).
+  // Read-only; prints captureAt / assignedAt / firstContactedAt / breach stamps /
+  // queue state so the smoke test can watch a lead move through the lifecycle.
+  app.get("/api/crm2/admin/lead/:id", route(async (req, res) => {
+    const decoded = await decodeToken(req);
+    if (!decoded) { res.status(401).json({ error: "Unauthorized" }); return; }
+    const isAdmin = decoded.role === "admin"
+      || (await db.collection("users").doc(decoded.uid).get()).data()?.role === "admin";
+    if (!isAdmin) { res.status(403).json({ error: "Admin only" }); return; }
+
+    const snap = await db.collection("leads").doc(req.params.id).get();
+    if (!snap.exists) { res.status(404).json({ error: `No lead ${req.params.id}` }); return; }
+    const d = snap.data() as Record<string, unknown>;
+    const iso = (v: unknown) => { const m = toMs(v); return m == null ? null : new Date(m).toISOString(); };
+    const captureMs = toMs(d.receivedAt) ?? toMs(d.createdAt);
+    const model = d.receivedAt != null ? "CRM2" : "OLD";
+
+    res.json({
+      id: req.params.id, model,
+      name: d.name ?? d.displayName ?? null,
+      source: d.source ?? null, category: d.category ?? null,
+      productInterest: (d.sourceMeta as { productInterest?: string } | undefined)?.productInterest ?? null,
+      status: d.status ?? d.leadStatus ?? null,
+      assignedRm: d.assignedRm ?? d.primaryOwnerId ?? null,
+      converted: d.converted ?? false,
+      queue: {
+        releaseCount: d.releaseCount ?? 0, queueFlagged: d.queueFlagged ?? false,
+        lastReleaseReason: d.lastReleaseReason ?? null,
+      },
+      sla: {
+        captureAt: captureMs == null ? null : new Date(captureMs).toISOString(),
+        assignedAt: iso(d.assignedAt) ?? iso(d.assignedToCurrentOwnerAt),
+        firstContactedAt: iso(d.firstContactedAt),
+        stage1BreachedAt: iso(d.slaStage1BreachedAt),
+        stage2BreachedAt: iso(d.slaStage2BreachedAt),
+      },
+    });
+  }));
+
   // ─── Internal lead create ─────────────────────────────────────────────────────
   // Optional "bigger client details" captured on a lead (Phase 3). Returns null
   // when nothing meaningful was provided.

@@ -24,9 +24,10 @@ import { useConnectors } from '../../hrms/hooks/useConnectors';
 import type { Connector } from '../../../types';
 import {
   CASE_LEVEL_STAGE_ORDER, type CaseLevelStage,
+  CASE_PIPELINE, activeCasePipelineStage, type LoginStage, type Login,
   type Crm2Case, type Applicant, type DocTrackerRow,
   type StageHistoryEntry, type Client, type DocumentDef, type Lender, type Aggregator,
-  type CasePayoutMirror, type VaultDoc, type CaseStage1, type Crm2CaseTask,
+  type CasePayoutMirror, type VaultDoc, type CaseStage1, type CaseEligibility, type Crm2CaseTask,
 } from '../../../types/crm2';
 
 type WithId<T> = T & { id: string };
@@ -54,10 +55,13 @@ export function CaseWorkspacePage() {
   const [caseDoc, setCaseDoc] = useState<(Crm2Case & { id: string }) | null>(null);
   const [client, setClient] = useState<(Client & { id: string }) | null>(null);
   const [mirror, setMirror] = useState<CasePayoutMirror | null>(null);
-  const [tab, setTab] = useState<'details' | 'applicants' | 'documents' | 'logins' | 'collab' | 'clientid' | 'history'>('details');
+  // view = a pipeline stage number (1..10) or a cross-cutting glance tab; null = follow the active stage.
+  type GlanceTab = 'details' | 'collab' | 'clientid' | 'history';
+  const [view, setView] = useState<number | GlanceTab | null>(null);
   const { employees } = useAllEmployees();
 
   const applicants = useSubcollection<Applicant>(['cases', caseId!, 'applicants']);
+  const logins = useSubcollection<Login>(['cases', caseId!, 'logins'], 'seq');
   const tracker = useSubcollection<DocTrackerRow>(['cases', caseId!, 'docTracker']);
   const history = useSubcollection<StageHistoryEntry>(['cases', caseId!, 'stageHistory'], 'at');
   const vaultDocs = useSubcollection<VaultDoc>(client ? ['clients', client.id, 'vaultDocs'] : ['clients', '_none', 'vaultDocs']);
@@ -99,17 +103,101 @@ export function CaseWorkspacePage() {
     return <div className="glass-panel p-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Loading case…</div>;
   }
 
-  const stageIdx = CASE_LEVEL_STAGE_ORDER.indexOf(caseDoc.stage as CaseLevelStage);
-  const nextStage = caseDoc.stage !== 'CLOSED' && stageIdx >= 0 && stageIdx < CASE_LEVEL_STAGE_ORDER.length - 1
-    ? CASE_LEVEL_STAGE_ORDER[stageIdx + 1] : null;
-
   const advance = async (to: CaseLevelStage | 'CLOSED', outcome?: string) => {
     try {
       await apiCrm2('POST', `/api/crm2/cases/${caseId}/stage`, { to, outcome });
-      toast.success(`Stage → ${STAGE_LABEL[to]}`);
+      toast.success(`Stage → ${STAGE_LABEL[to] ?? to}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Transition failed');
     }
+  };
+
+  const loginStages = logins.map((l) => l.stage as LoginStage);
+  const activeN = activeCasePipelineStage(caseDoc.stage, loginStages);
+  const effView: number | GlanceTab = view ?? activeN;
+  const selStageN = typeof effView === 'number' ? effView : 0;
+  const caseIdxNow = CASE_LEVEL_STAGE_ORDER.indexOf(caseDoc.stage as CaseLevelStage);
+  const nextCaseStage = caseDoc.stage !== 'CLOSED' && caseIdxNow >= 0 && caseIdxNow < CASE_LEVEL_STAGE_ORDER.length - 1
+    ? CASE_LEVEL_STAGE_ORDER[caseIdxNow + 1] : null;
+  const canManageCollab = canWrite && (profile?.role === 'admin' || profile?.crmRole === 'manager' || caseDoc.handlingRm === profile?.employeeId);
+
+  // The working panel for one of the 10 pipeline stages.
+  const stagePanel = (n: number) => {
+    const sd = CASE_PIPELINE[n - 1];
+    const isCurrentCaseStage = sd.level === 'case' && sd.caseStage === caseDoc.stage;
+    const showAdvance = canWrite && caseDoc.stage !== 'CLOSED' && caseDoc.stage !== 'COMPLETED'
+      && ((isCurrentCaseStage && !!nextCaseStage) || (n === 10 && caseDoc.stage === 'IN_PROGRESS'));
+    const advanceTo: CaseLevelStage | null = n === 10 ? 'COMPLETED' : nextCaseStage;
+    const advanceLabel = advanceTo === 'IN_PROGRESS' ? 'Submit & start File Login →'
+      : advanceTo === 'COMPLETED' ? 'Mark case Completed'
+      : advanceTo ? `Submit & advance to ${STAGE_LABEL[advanceTo] ?? advanceTo} →` : '';
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+            <span style={{ color: '#C9A961' }}>Stage {n}</span> — {sd.label}
+          </h3>
+          {sd.level === 'login' && (
+            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-muted)' }}>
+              Worked per login
+            </span>
+          )}
+        </div>
+
+        {n === 1 && (
+          <>
+            <div className="glass-panel p-4 flex flex-wrap items-center gap-3">
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Amount required</span>
+              {canWrite ? (
+                <input type="number" className="glass-inp text-sm w-48" defaultValue={caseDoc.amountRequested ?? ''}
+                  onBlur={(e) => { const v = e.target.value; if (v !== String(caseDoc.amountRequested ?? '')) patchCase({ amountRequested: v ? Number(v) : null }, 'Amount saved'); }} />
+              ) : <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{inr(caseDoc.amountRequested)}</span>}
+              <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>· Routing, product &amp; sourcing are on the <b>Details</b> tab</span>
+            </div>
+            <ApplicantsTab caseId={caseDoc.id} applicants={applicants} canWrite={canWrite} />
+            <Stage1Panel caseDoc={caseDoc} canWrite={canWrite} patchCase={patchCase} />
+          </>
+        )}
+        {n === 2 && <EligibilityPanel caseDoc={caseDoc} canWrite={canWrite} patchCase={patchCase} onGoDocs={() => setView(3)} />}
+        {n === 3 && (
+          <>
+            <DriveLinkCard caseDoc={caseDoc} canWrite={canWrite} patchCase={patchCase} />
+            <DocumentsTab caseId={caseDoc.id} tracker={tracker} vaultDocs={vaultDocs}
+              clientId={caseDoc.clientId} defName={defName} applicantName={applicantName}
+              docDefs={docDefs} applicants={applicants} canWrite={canWrite} />
+          </>
+        )}
+        {n >= 4 && n <= 9 && (
+          <>
+            <p className="text-[11px] px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(201,169,97,0.08)', color: 'var(--text-muted)' }}>
+              Stages 4–9 are worked <b>per login</b> (one file → one bank/NBFC). Each login below runs File&nbsp;Login → Code → In&nbsp;Process → Sanctioned → Disbursed → PDD/OTC — advance each with its own button.
+            </p>
+            <LoginsSection caseId={caseDoc.id} canWrite={canWrite} />
+          </>
+        )}
+        {n === 10 && (
+          <div className="glass-panel p-6 space-y-2 text-center">
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              {caseDoc.stage === 'COMPLETED' ? 'This case is completed.' : caseDoc.stage === 'CLOSED' ? 'This case is closed.' : 'Mark the case completed once every login has been disbursed and its PDD/OTC cleared (or closed).'}
+            </p>
+            {caseDoc.outcome && (
+              <span className="inline-block text-xs font-bold px-3 py-1 rounded-full"
+                style={{ backgroundColor: caseDoc.outcome === 'COMPLETED' ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)', color: caseDoc.outcome === 'COMPLETED' ? '#34d399' : '#f87171' }}>
+                {caseDoc.outcome}
+              </span>
+            )}
+          </div>
+        )}
+
+        {showAdvance && advanceTo && (
+          <div className="flex justify-end pt-1">
+            <button onClick={() => advance(advanceTo)} className="px-5 py-2.5 rounded-lg text-sm font-semibold" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+              {advanceLabel}
+            </button>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -119,7 +207,7 @@ export function CaseWorkspacePage() {
         <ArrowLeft size={14} /> All cases
       </button>
 
-      {/* Header */}
+      {/* Header + 10-stage clickable pipeline */}
       <div className="glass-panel p-5 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -148,38 +236,27 @@ export function CaseWorkspacePage() {
           </div>
         </div>
 
-        {/* Case-level stage stepper (sanction/disburse/PDD are per-login → Logins tab) */}
-        <div className="flex items-center gap-0 overflow-x-auto pb-1">
-          {CASE_LEVEL_STAGE_ORDER.map((s, i) => {
-            const done = i < stageIdx, active = i === stageIdx;
+        {/* 10-stage clickable pipeline — click any stage to open and work it */}
+        <div className="flex items-stretch gap-1 overflow-x-auto pb-1">
+          {CASE_PIPELINE.map((sd) => {
+            const n = sd.n, done = n < activeN, active = n === activeN, selected = n === selStageN;
             return (
-              <div key={s} className="flex items-center shrink-0">
-                <div className="flex flex-col items-center gap-1 w-[84px]">
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
-                    style={{ backgroundColor: done || active ? '#C9A961' : 'var(--shell-hover-hard)',
-                             color: done || active ? '#0B1538' : 'var(--text-dim)' }}>
-                    {done ? <Check size={12} /> : i + 1}
-                  </div>
-                  <span className="text-[9px] font-semibold text-center"
-                    style={{ color: active ? '#C9A961' : 'var(--text-muted)' }}>{STAGE_LABEL[s]}</span>
+              <button key={sd.key} onClick={() => setView(n)}
+                className="flex flex-col items-center gap-1 shrink-0 w-[94px] px-1 py-1.5 rounded-lg transition-colors"
+                style={selected ? { backgroundColor: 'rgba(201,169,97,0.12)', border: '1px solid rgba(201,169,97,0.5)' } : { border: '1px solid transparent' }}>
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold"
+                  style={{ backgroundColor: done || active ? '#C9A961' : 'var(--shell-hover-hard)', color: done || active ? '#0B1538' : 'var(--text-dim)' }}>
+                  {done ? <Check size={13} /> : n}
                 </div>
-                {i < CASE_LEVEL_STAGE_ORDER.length - 1 && (
-                  <div className="w-4 h-px mt-[-14px]" style={{ backgroundColor: done ? '#C9A961' : 'var(--shell-hover-hard)' }} />
-                )}
-              </div>
+                <span className="text-[9px] font-semibold text-center leading-tight"
+                  style={{ color: active || selected ? '#C9A961' : 'var(--text-muted)' }}>{sd.label}</span>
+              </button>
             );
           })}
         </div>
 
         {canWrite && caseDoc.stage !== 'CLOSED' && caseDoc.stage !== 'COMPLETED' && (
           <div className="flex flex-wrap gap-2">
-            {nextStage && (
-              <button onClick={() => advance(nextStage)}
-                className="px-4 py-2 rounded-lg text-sm font-semibold"
-                style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
-                {nextStage === 'IN_PROGRESS' ? 'Start logins (In Progress)' : nextStage === 'COMPLETED' ? 'Mark case Completed' : `Advance → ${STAGE_LABEL[nextStage]}`}
-              </button>
-            )}
             <button onClick={() => { const r = prompt('Close early — reason (recorded):'); if (r !== null) advance('CLOSED', r.toLowerCase().includes('withdraw') ? 'WITHDRAWN' : 'REJECTED'); }}
               className="px-4 py-2 rounded-lg text-sm font-semibold border"
               style={{ borderColor: 'rgba(248,113,113,0.4)', color: '#f87171' }}>
@@ -189,52 +266,121 @@ export function CaseWorkspacePage() {
         )}
       </div>
 
-      {/* Tabs */}
+      {/* Glance tabs (cross-stage views) */}
       <div className="flex gap-1.5 flex-wrap">
-        {(['details', 'applicants', 'documents', 'logins', 'collab', 'clientid', 'history'] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            className="px-3.5 py-2 rounded-lg text-sm font-semibold capitalize transition-colors"
-            style={tab === t
+        {([['details', 'Details'], ['collab', 'Collaboration'], ['clientid', 'Client-ID data'], ['history', 'History']] as const).map(([t, label]) => (
+          <button key={t} onClick={() => setView(t)}
+            className="px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors"
+            style={effView === t
               ? { backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961', border: '1px solid rgba(201,169,97,0.35)' }
               : { color: 'var(--text-muted)', border: '1px solid var(--shell-border)' }}>
-            {t === 'clientid' ? 'Client-ID data' : t === 'collab' ? 'Collaboration' : t}{t === 'documents' ? ` (${caseDoc.docsCompletePct}%)` : ''}
+            {label}
           </button>
         ))}
       </div>
 
-      {tab === 'details' && (
-        <DetailsTab caseDoc={caseDoc} lenders={lenders} aggregators={aggregators}
-          connectors={connectors} canWrite={canWrite} canSeeMoney={canSeeMoney} mirror={mirror} patchCase={patchCase} />
-      )}
-      {tab === 'applicants' && (
-        <ApplicantsTab caseId={caseDoc.id} applicants={applicants} canWrite={canWrite} />
-      )}
-      {tab === 'documents' && (
-        <DocumentsTab caseId={caseDoc.id} tracker={tracker} vaultDocs={vaultDocs}
-          clientId={caseDoc.clientId} defName={defName} applicantName={applicantName}
-          docDefs={docDefs} applicants={applicants} canWrite={canWrite} />
-      )}
-      {tab === 'logins' && <LoginsSection caseId={caseDoc.id} canWrite={canWrite} />}
-      {tab === 'collab' && (
-        <CollaborationTab caseDoc={caseDoc} employees={employees} canWrite={canWrite}
-          canManage={hasCrm2Perm(profile, 'crm.cases.write') && (
-            profile?.role === 'admin' || profile?.crmRole === 'manager' || caseDoc.handlingRm === profile?.employeeId)} />
-      )}
-      {tab === 'clientid' && <ClientIdTab client={client} />}
-      {tab === 'history' && (
-        <div className="glass-panel p-5 space-y-2">
-          {history.length === 0 ? (
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No transitions yet.</p>
-          ) : [...history].reverse().map((h) => (
-            <div key={h.id} className="px-3 py-2 rounded-lg flex items-center gap-3" style={{ border: '1px solid var(--shell-border)' }}>
-              <span className="text-xs font-semibold" style={{ color: '#C9A961' }}>
-                {h.from ? `${STAGE_LABEL[h.from] ?? h.from} →` : ''} {STAGE_LABEL[h.to] ?? h.to}
-              </span>
-              <span className="text-[11px] flex-1" style={{ color: 'var(--text-muted)' }}>{h.note ?? ''}</span>
-              <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{h.by} · {fmtTs(h.at)}</span>
+      {/* Main panel — either a pipeline stage workspace or a glance view */}
+      {typeof effView === 'number' ? stagePanel(effView)
+        : effView === 'details' ? (
+          <DetailsTab caseDoc={caseDoc} lenders={lenders} aggregators={aggregators}
+            connectors={connectors} canWrite={canWrite} canSeeMoney={canSeeMoney} mirror={mirror} patchCase={patchCase} />
+        ) : effView === 'collab' ? (
+          <CollaborationTab caseDoc={caseDoc} employees={employees} canWrite={canWrite} canManage={canManageCollab} />
+        ) : effView === 'clientid' ? (
+          <ClientIdTab client={client} />
+        ) : (
+          <div className="glass-panel p-5 space-y-2">
+            {history.length === 0 ? (
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No transitions yet.</p>
+            ) : [...history].reverse().map((h) => (
+              <div key={h.id} className="px-3 py-2 rounded-lg flex items-center gap-3" style={{ border: '1px solid var(--shell-border)' }}>
+                <span className="text-xs font-semibold" style={{ color: '#C9A961' }}>
+                  {h.from ? `${STAGE_LABEL[h.from] ?? h.from} →` : ''} {STAGE_LABEL[h.to] ?? h.to}
+                </span>
+                <span className="text-[11px] flex-1" style={{ color: 'var(--text-muted)' }}>{h.note ?? ''}</span>
+                <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{h.by} · {fmtTs(h.at)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+    </div>
+  );
+}
+
+// ─── Stage 2 — Basic Docs + Eligibility (CIBIL taken + per-applicant issues) ───
+function EligibilityPanel({ caseDoc, canWrite, patchCase, onGoDocs }: {
+  caseDoc: Crm2Case & { id: string }; canWrite: boolean;
+  patchCase: (body: Record<string, unknown>, msg: string) => Promise<void>; onGoDocs: () => void;
+}) {
+  const e0 = caseDoc.eligibility ?? null;
+  const [cibilTaken, setCibilTaken] = useState(!!e0?.cibilTaken);
+  type Row = { name: string; score: string; overdue: string; settlement: string; writtenOff: string; dpd: string };
+  const [rows, setRows] = useState<Row[]>(
+    e0?.issues?.length ? e0.issues.map((x) => ({ name: x.name, score: x.score?.toString() ?? '', overdue: x.overdue, settlement: x.settlement, writtenOff: x.writtenOff, dpd: x.dpd }))
+      : [{ name: '', score: '', overdue: '', settlement: '', writtenOff: '', dpd: '' }]);
+  const [busy, setBusy] = useState(false);
+  const upd = (i: number, k: keyof Row, v: string) => setRows((p) => p.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
+  const save = async () => {
+    setBusy(true);
+    try {
+      await patchCase({ eligibility: { cibilTaken, issues: rows.map((r) => ({ name: r.name.trim(), score: r.score ? Number(r.score) : null, overdue: r.overdue.trim(), settlement: r.settlement.trim(), writtenOff: r.writtenOff.trim(), dpd: r.dpd.trim() })).filter((r) => r.name || r.score != null || r.overdue || r.settlement || r.writtenOff || r.dpd) } }, 'Eligibility saved');
+    } finally { setBusy(false); }
+  };
+  return (
+    <div className="space-y-4">
+      <div className="glass-panel p-5 flex flex-wrap items-center gap-3">
+        <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Basic docs collected?</span>
+        <button onClick={onGoDocs} className="text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961', border: '1px solid rgba(201,169,97,0.35)' }}>
+          Add / view docs (Stage 3) →
+        </button>
+      </div>
+      <div className="glass-panel p-5 space-y-4">
+        <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-primary)' }}>
+          <input type="checkbox" checked={cibilTaken} onChange={(e) => setCibilTaken(e.target.checked)} style={{ accentColor: '#C9A961' }} disabled={!canWrite} />
+          CIBIL taken (for applicants / owners)
+        </label>
+        <div className="space-y-2">
+          <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#C9A961' }}>CIBIL issues — overdue · settlement · written-off · DPD</p>
+          {rows.map((r, i) => (
+            <div key={i} className="grid grid-cols-1 sm:grid-cols-[1.2fr_70px_1fr_1fr_1fr_1fr_24px] gap-2 items-center">
+              <input className="glass-inp text-sm" placeholder="Applicant / owner" value={r.name} onChange={(e) => upd(i, 'name', e.target.value)} disabled={!canWrite} />
+              <input type="number" className="glass-inp text-sm" placeholder="Score" value={r.score} onChange={(e) => upd(i, 'score', e.target.value)} disabled={!canWrite} />
+              <input className="glass-inp text-sm" placeholder="Overdue" value={r.overdue} onChange={(e) => upd(i, 'overdue', e.target.value)} disabled={!canWrite} />
+              <input className="glass-inp text-sm" placeholder="Settlement" value={r.settlement} onChange={(e) => upd(i, 'settlement', e.target.value)} disabled={!canWrite} />
+              <input className="glass-inp text-sm" placeholder="Written-off" value={r.writtenOff} onChange={(e) => upd(i, 'writtenOff', e.target.value)} disabled={!canWrite} />
+              <input className="glass-inp text-sm" placeholder="DPD" value={r.dpd} onChange={(e) => upd(i, 'dpd', e.target.value)} disabled={!canWrite} />
+              {canWrite && <button onClick={() => setRows((p) => p.filter((_, j) => j !== i))} className="p-1 rounded hover:bg-(--shell-hover-hard)"><X size={13} style={{ color: '#f87171' }} /></button>}
             </div>
           ))}
+          {canWrite && (
+            <div className="flex items-center justify-between pt-1">
+              <button onClick={() => setRows((p) => [...p, { name: '', score: '', overdue: '', settlement: '', writtenOff: '', dpd: '' }])} className="text-xs font-semibold" style={{ color: '#C9A961' }}>+ Add row</button>
+              <button onClick={save} disabled={busy} className="text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-50" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>{busy ? 'Saving…' : 'Save eligibility'}</button>
+            </div>
+          )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Stage 3 — Google Drive client folder link ───────────────────────────────
+function DriveLinkCard({ caseDoc, canWrite, patchCase }: {
+  caseDoc: Crm2Case & { id: string }; canWrite: boolean;
+  patchCase: (body: Record<string, unknown>, msg: string) => Promise<void>;
+}) {
+  return (
+    <div className="glass-panel p-5 space-y-2">
+      <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Client document folder (Google Drive)</p>
+      <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Name the Drive folder with the client id: <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{caseDoc.clientId}</span></p>
+      {canWrite ? (
+        <input className="glass-inp text-sm w-full" placeholder="https://drive.google.com/drive/folders/…" defaultValue={caseDoc.docsFolderUrl ?? ''}
+          onBlur={(e) => { if (e.target.value !== (caseDoc.docsFolderUrl ?? '')) patchCase({ docsFolderUrl: e.target.value.trim() || null }, 'Drive link saved'); }} />
+      ) : caseDoc.docsFolderUrl ? (
+        <a href={caseDoc.docsFolderUrl} target="_blank" rel="noreferrer" className="text-sm underline" style={{ color: '#C9A961' }}>Open folder ↗</a>
+      ) : <span className="text-sm" style={{ color: 'var(--text-muted)' }}>—</span>}
+      {canWrite && caseDoc.docsFolderUrl && (
+        <a href={caseDoc.docsFolderUrl} target="_blank" rel="noreferrer" className="inline-block text-xs underline" style={{ color: '#C9A961' }}>Open current folder ↗</a>
       )}
     </div>
   );

@@ -1859,6 +1859,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         payoutStatus: "NOT_DUE", payoutCycleId: null,
         wealth: null, insurance: null,
         docsCompletePct: 0, nextAction: null, remarks: null, stage1: null,
+        eligibility: null, docsFolderUrl: null,
         ...createAudit(caller.fapl),
       });
 
@@ -2038,7 +2039,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     "amountRequested", "amountSanctioned", "roiPct", "tenureMonths", "processingFee",
     "bankApplicationNo", "loanAccountNo", "connectorCaseRef",
     "bankContact", "nextAction", "remarks", "rejectionReason",
-    "pddStatus", "otcStatus", "pddPendingList", "stage1",
+    "pddStatus", "otcStatus", "pddPendingList", "stage1", "eligibility", "docsFolderUrl",
   ]);
   // Server-calculated / frozen / payout-mirror fields — REJECTED on client input.
   const CASE_PROTECTED_FIELDS = new Set([
@@ -2082,6 +2083,21 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
             return { name: s1str(o?.name) ?? "", mobile: s1str(o?.mobile, 20) ?? "", relation: s1str(o?.relation, 60) ?? "" }; })
             .filter((x) => x.name || x.mobile) : [],
       notes: s1str(r.notes, 4000),
+    };
+  }
+
+  // Shape the Stage-2 eligibility object (CIBIL taken + per-applicant issues table).
+  function sanitizeEligibility(raw: unknown): Record<string, unknown> | null {
+    if (!raw || typeof raw !== "object") return null;
+    const r = raw as Record<string, unknown>;
+    return {
+      cibilTaken: r.cibilTaken === true,
+      issues: Array.isArray(r.issues)
+        ? r.issues.slice(0, 20).map((x) => { const o = x as Record<string, unknown>;
+            return { name: s1str(o?.name) ?? "", score: s1num(o?.score), overdue: s1str(o?.overdue, 500) ?? "",
+              settlement: s1str(o?.settlement, 500) ?? "", writtenOff: s1str(o?.writtenOff, 500) ?? "", dpd: s1str(o?.dpd, 500) ?? "" }; })
+            .filter((x) => x.name || x.score != null || x.overdue || x.settlement || x.writtenOff || x.dpd)
+        : [],
     };
   }
 
@@ -2158,6 +2174,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         payoutStatus: "NOT_DUE", payoutCycleId: null,
         wealth: null, insurance: null,
         docsCompletePct: 0, nextAction: null, remarks: null, stage1: null,
+        eligibility: null, docsFolderUrl: null,
         ...createAudit(caller.fapl),
       });
 
@@ -2222,6 +2239,10 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
           fields.pddPendingList = strArr(b, "pddPendingList");
         } else if (k === "stage1") {
           fields.stage1 = sanitizeStage1(b.stage1);
+        } else if (k === "eligibility") {
+          fields.eligibility = sanitizeEligibility(b.eligibility);
+        } else if (k === "docsFolderUrl") {
+          fields.docsFolderUrl = optStr(b, "docsFolderUrl");
         } else if (k === "pddStatus") {
           const v = reqEnum(b, "pddStatus", ["NA", "PENDING", "PARTIAL", "CLEARED"] as const);
           if (v === "CLEARED" && cur.pddStatus !== "CLEARED") {

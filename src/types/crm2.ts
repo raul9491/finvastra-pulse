@@ -280,8 +280,25 @@ export interface Crm2Case extends Audit {
   nextAction: string | null; remarks: string | null;
   // Stage-1 "Opened" underwriting capture (PLAN §4 stage 1) — editable anytime.
   stage1?: CaseStage1 | null;
+  // Stage-2 "Basic Docs + Eligibility" — CIBIL taken + per-applicant issues table.
+  eligibility?: CaseEligibility | null;
+  // Stage-3 "Docs" — Google Drive client folder link (folder named = client id).
+  docsFolderUrl?: string | null;
   // Phase 6 — RMs collaborating on this case besides handlingRm (FAPL-xxx).
   collaborators?: string[];
+}
+
+/** Stage-2 eligibility — CIBIL pulled? + a per-applicant/owner issues table. */
+export interface CaseEligibility {
+  cibilTaken: boolean;
+  issues: Array<{
+    name: string;                     // applicant / owner name
+    score: number | null;
+    overdue: string;                  // free text: overdues
+    settlement: string;               // settlements
+    writtenOff: string;               // written-off
+    dpd: string;                      // DPD / days-past-due notes
+  }>;
 }
 
 /** cases/{caseId}/tasks/{taskId} — the per-case collaboration thread (PLAN §5). */
@@ -329,6 +346,48 @@ export type LoginStage =
   | 'FILE_LOGIN' | 'CODE_LOGIN_DONE' | 'IN_PROCESS' | 'SANCTIONED' | 'DISBURSED' | 'PDD_OTC' | 'COMPLETED';
 export const LOGIN_STAGE_ORDER: LoginStage[] =
   ['FILE_LOGIN', 'CODE_LOGIN_DONE', 'IN_PROCESS', 'SANCTIONED', 'DISBURSED', 'PDD_OTC', 'COMPLETED'];
+
+// ─── 10-stage case pipeline (the spec's full lifecycle, shown on the workspace) ─
+// Presentation layer over the engine: stages 1–3 + 10 are case-level; stages 4–9
+// are the per-login working zone (case stage = IN_PROGRESS, each login runs 4–9).
+// Lets the user click any stage and work it; advancement is forward-by-one
+// (case-level for 1→3→IN_PROGRESS→10; per-login for 4–9).
+export interface CasePipelineStageDef {
+  n: number;                          // 1..10 (display order)
+  key: string;
+  label: string;
+  level: 'case' | 'login';            // case = single case form; login = per-login zone
+  caseStage?: CaseLevelStage;         // the underlying case stage (level 'case' only)
+  loginStage?: LoginStage;            // the underlying login stage (level 'login' only)
+}
+export const CASE_PIPELINE: CasePipelineStageDef[] = [
+  { n: 1,  key: 'OPENED',          label: 'Opened',               level: 'case',  caseStage: 'OPENED' },
+  { n: 2,  key: 'BASIC_DOCS',      label: 'Basic Docs + Eligibility', level: 'case', caseStage: 'BASIC_DOCS' },
+  { n: 3,  key: 'DOCS',            label: 'Docs',                 level: 'case',  caseStage: 'DOCS' },
+  { n: 4,  key: 'FILE_LOGIN',      label: 'File Login',           level: 'login', loginStage: 'FILE_LOGIN' },
+  { n: 5,  key: 'CODE_LOGIN_DONE', label: 'Code + Login Done',    level: 'login', loginStage: 'CODE_LOGIN_DONE' },
+  { n: 6,  key: 'IN_PROCESS',      label: 'In Process',           level: 'login', loginStage: 'IN_PROCESS' },
+  { n: 7,  key: 'SANCTIONED',      label: 'Sanctioned / Rejected', level: 'login', loginStage: 'SANCTIONED' },
+  { n: 8,  key: 'DISBURSED',       label: 'Disbursement',         level: 'login', loginStage: 'DISBURSED' },
+  { n: 9,  key: 'PDD_OTC',         label: 'PDD / OTC',            level: 'login', loginStage: 'PDD_OTC' },
+  { n: 10, key: 'COMPLETED',       label: 'Case Completed',       level: 'case',  caseStage: 'COMPLETED' },
+];
+const LOGIN_STAGE_TO_N: Record<LoginStage, number> = {
+  FILE_LOGIN: 4, CODE_LOGIN_DONE: 5, IN_PROCESS: 6, SANCTIONED: 7, DISBURSED: 8, PDD_OTC: 9, COMPLETED: 9,
+};
+/** Which of the 10 display stages the case is currently "on" (for highlighting).
+ *  During IN_PROGRESS it points at the earliest-active login (the bottleneck). */
+export function activeCasePipelineStage(caseStage: string, loginStages: LoginStage[]): number {
+  if (caseStage === 'OPENED') return 1;
+  if (caseStage === 'BASIC_DOCS') return 2;
+  if (caseStage === 'DOCS') return 3;
+  if (caseStage === 'COMPLETED' || caseStage === 'CLOSED') return 10;
+  // IN_PROGRESS (per-login zone)
+  if (!loginStages.length) return 4;
+  const active = loginStages.filter((s) => s !== 'COMPLETED');
+  const pool = active.length ? active : loginStages;
+  return Math.min(...pool.map((s) => LOGIN_STAGE_TO_N[s]));
+}
 
 export interface SubProcess {
   status: 'NA' | 'PENDING' | 'IN_PROGRESS' | 'DONE';

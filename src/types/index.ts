@@ -1143,6 +1143,10 @@ export interface Connector {
   firmName?: string;              // if they operate as a firm / DSA entity
   ownDsaCode?: string | null;     // the connector's OWN bank DSA code, if they have one
   verticals: ConnectorVertical[]; // what they bring
+  // Per-product auto-payout rules (CRM 2.0 disbursement creates a connector_payout
+  // from these; 'ALL' productId is the fallback). The disburse step may override
+  // the computed amount per case. See src/lib/crm2/channelPartnerPayout.ts.
+  payoutRules?: import('../lib/crm2/channelPartnerPayout').ChannelPartnerPayoutRule[];
   status: ConnectorStatus;
   notes?: string;
   deleted?: boolean;
@@ -1178,6 +1182,13 @@ export interface ConnectorPayout {
   caseLabel: string;              // free-text reference to the case (loan no / customer / app no)
   leadId?: string;
   opportunityId?: string;
+  // CRM 2.0 auto-payout linkage (set when created by a per-login disbursement).
+  caseId?: string;
+  loginId?: string;
+  payoutCycleId?: string;
+  basis?: import('../lib/crm2/channelPartnerPayout').ChannelPartnerPayoutBasis | 'MANUAL';
+  rate?: number | null;           // the % or flat value the amount was derived from
+  auto?: boolean;                 // true = system-computed, false = overridden at disburse
   amount: number;
   status: ConnectorPayoutStatus;
   notes?: string;

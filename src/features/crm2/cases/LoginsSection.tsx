@@ -211,18 +211,20 @@ function DisburseLoginDialog({ caseId, login, onClose }: { caseId: string; login
     disbursedAmount: login.amountSanctioned?.toString() ?? '', disbursementDate: '',
     loanAccountNo: '', city: '', state: '', roiPct: login.roiPct?.toString() ?? '', processingFee: login.processingFee?.toString() ?? '',
     subDsaPayoutPct: '',
+    channelPartnerPayoutOverride: '',
   });
-  const [preview, setPreview] = useState<{ slab?: { finvastraPayoutPct: number }; expected?: { expectedGross: number } | null; dsaCode?: string } | null>(null);
+  type CpPreview = { id: string; name: string | null; rule: { basis: string; value: number } | null; payout: number | null } | null;
+  const [preview, setPreview] = useState<{ slab?: { finvastraPayoutPct: number }; expected?: { expectedGross: number } | null; dsaCode?: string; channelPartner?: CpPreview } | null>(null);
   const [previewErr, setPreviewErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
 
-  // Live slab preview (best-effort — needs payout.amounts.read).
+  // Live slab + Sub-DSA payout preview (best-effort — needs payout.amounts.read).
   useEffect(() => {
     const amt = Number(f.disbursedAmount); if (!amt || !f.disbursementDate) { setPreview(null); setPreviewErr(''); return; }
     let cancel = false;
-    apiCrm2<{ ok: boolean; slab: { finvastraPayoutPct: number }; expected: { expectedGross: number } | null; dsaCode: string }>(
+    apiCrm2<{ ok: boolean; slab: { finvastraPayoutPct: number }; expected: { expectedGross: number } | null; dsaCode: string; channelPartner: CpPreview }>(
       'GET', `/api/crm2/cases/${caseId}/logins/${login.id}/disburse-preview?amount=${amt}&date=${new Date(f.disbursementDate).toISOString()}`)
       .then((r) => { if (!cancel) { setPreview(r); setPreviewErr(''); } })
       .catch((e) => { if (!cancel) { setPreview(null); setPreviewErr(e instanceof Error ? e.message : ''); } });
@@ -238,6 +240,7 @@ function DisburseLoginDialog({ caseId, login, onClose }: { caseId: string; login
         loanAccountNo: f.loanAccountNo, city: f.city, state: f.state,
         roiPct: f.roiPct ? Number(f.roiPct) : null, processingFee: f.processingFee ? Number(f.processingFee) : null,
         subDsaPayoutPct: f.subDsaPayoutPct ? Number(f.subDsaPayoutPct) : null,
+        channelPartnerPayoutOverride: f.channelPartnerPayoutOverride ? Number(f.channelPartnerPayoutOverride) : null,
       });
       toast.success(`Disbursed → payout cycle ${r.cycleId} created (manage in MIS)`); onClose();
     } catch (e) { setErr(e instanceof Error ? e.message : 'Disburse failed'); } finally { setBusy(false); }
@@ -254,7 +257,20 @@ function DisburseLoginDialog({ caseId, login, onClose }: { caseId: string; login
         <div><FLabel text="State" required /><input className={inp()} value={f.state} onChange={(e) => set('state', e.target.value)} /></div>
         <div><FLabel text="ROI %" /><input type="number" className={inp()} value={f.roiPct} onChange={(e) => set('roiPct', e.target.value)} /></div>
         <div><FLabel text="Processing Fee ₹" /><input type="number" className={inp()} value={f.processingFee} onChange={(e) => set('processingFee', e.target.value)} /></div>
-        <div className="col-span-2"><FLabel text="Sub-DSA payout % override (optional)" /><input type="number" className={inp()} value={f.subDsaPayoutPct} onChange={(e) => set('subDsaPayoutPct', e.target.value)} placeholder="defaults to the Connector's slab %" /></div>
+        <div className="col-span-2"><FLabel text="Connector payout % override (optional)" /><input type="number" className={inp()} value={f.subDsaPayoutPct} onChange={(e) => set('subDsaPayoutPct', e.target.value)} placeholder="defaults to the Connector's slab %" /></div>
+        {preview?.channelPartner && (
+          <div className="col-span-2">
+            <FLabel text={`Sub DSA payout — ${preview.channelPartner.name ?? 'sourcing partner'}`} />
+            <input type="number" className={inp()} value={f.channelPartnerPayoutOverride}
+              onChange={(e) => set('channelPartnerPayoutOverride', e.target.value)}
+              placeholder={preview.channelPartner.payout != null ? `auto ₹${preview.channelPartner.payout.toLocaleString('en-IN')} — leave blank to use it` : 'no rule — enter to pay manually'} />
+            <p className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              {preview.channelPartner.rule
+                ? `Rule: ${preview.channelPartner.rule.basis === 'FLAT' ? `flat ₹${preview.channelPartner.rule.value.toLocaleString('en-IN')}` : `${preview.channelPartner.rule.value}% ${preview.channelPartner.rule.basis === 'DISBURSED_PCT' ? 'of disbursed' : 'of Finvastra payout'}`} → auto ₹${(preview.channelPartner.payout ?? 0).toLocaleString('en-IN')}. Type an amount to override for this case.`
+                : 'No payout rule set for this product — blank = no payout, or enter an amount to pay them for this case.'}
+            </p>
+          </div>
+        )}
       </div>
       {preview?.slab && (
         <div className="px-3 py-2 rounded-lg text-xs" style={{ backgroundColor: 'rgba(201,169,97,0.1)', color: '#C9A961' }}>

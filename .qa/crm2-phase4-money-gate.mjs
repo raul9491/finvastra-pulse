@@ -43,8 +43,14 @@ async function getDoc(path) {
   return r.status === 200 ? r.json() : null;
 }
 async function listDocs(path) {
-  const r = await fetch(`http://${FS}/v1/projects/${PROJECT}/databases/(default)/documents/${path}?pageSize=50`, { headers: { Authorization: 'Bearer owner' } });
+  const r = await fetch(`http://${FS}/v1/projects/${PROJECT}/databases/(default)/documents/${path}?pageSize=80`, { headers: { Authorization: 'Bearer owner' } });
   return (await r.json().catch(() => ({}))).documents ?? [];
+}
+async function setDocFields(path, fields) {
+  await fetch(`http://${FS}/v1/projects/${PROJECT}/databases/(default)/documents/${path}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
+    body: JSON.stringify({ fields }),
+  });
 }
 const fv = (d, f) => d?.fields?.[f]?.stringValue ?? d?.fields?.[f]?.integerValue ?? d?.fields?.[f]?.doubleValue ?? d?.fields?.[f]?.booleanValue ?? null;
 const fnum = (d, f) => { const x = d?.fields?.[f]; return x ? Number(x.integerValue ?? x.doubleValue ?? 0) : null; };
@@ -137,10 +143,34 @@ async function main() {
   fv(lpDoc, 'channelPartnerName') === 'Acme Partners' && fv(lpDoc, 'channelPartnerCode') === 'FAC-001'
     ? ok('login inherits the sourcing Sub DSA (channelPartner) from the case') : bad('login channelPartner', fv(lpDoc, 'channelPartnerName'));
   for (const to of ['CODE_LOGIN_DONE', 'IN_PROCESS', 'SANCTIONED']) await api('POST', `/api/crm2/cases/${kase2.data.caseId}/logins/${lp.data.loginId}/stage`, token, { to });
+
+  // Seed the FAC- connector (HRMS connectors) with a per-product auto-payout rule.
+  await setDocFields('connectors/FAC-001', {
+    connectorCode: { stringValue: 'FAC-001' }, displayName: { stringValue: 'Acme Partners' },
+    status: { stringValue: 'active' }, deleted: { booleanValue: false },
+    payoutRules: { arrayValue: { values: [
+      { mapValue: { fields: { productId: { stringValue: prod.data.id }, basis: { stringValue: 'DISBURSED_PCT' }, value: { doubleValue: 0.2 } } } },
+    ] } },
+  });
+
   await api('POST', `/api/crm2/cases/${kase2.data.caseId}/logins/${lp.data.loginId}/disburse`, token, { disbursedAmount: 1000000, disbursementDate: '2025-06-15', loanAccountNo: 'LN-CP', city: 'X', state: 'Y' });
   const misP = await getDoc(`misRecords/${lp.data.loginId}`);
   fv(misP, 'channelPartnerName') === 'Acme Partners' && fv(misP, 'channelPartnerCode') === 'FAC-001'
     ? ok('misRecord carries the sourcing Sub DSA for MIS reporting (case→login→MIS)') : bad('mis channelPartner', fv(misP, 'channelPartnerName'));
+
+  // Sub DSA AUTO-PAYOUT — disbursement auto-creates a connector_payout from the rule.
+  const cps = await listDocs('connector_payouts');
+  const cp1 = cps.find((d) => fv(d, 'loginId') === lp.data.loginId);
+  cp1 && fnum(cp1, 'amount') === 2000 && fv(cp1, 'basis') === 'DISBURSED_PCT' && fv(cp1, 'auto') === true && fv(cp1, 'status') === 'pending' && fv(cp1, 'connectorId') === 'FAC-001'
+    ? ok('Sub DSA auto-payout: connector_payout ₹2,000 (0.2% of 10L), auto, pending') : bad('cp auto', JSON.stringify(cp1?.fields));
+
+  // Manual override at disbursement wins over the rule.
+  const lp2 = await api('POST', `/api/crm2/cases/${kase2.data.caseId}/logins`, token, { lenderId: lender.data.id, connectorId: conn.data.id });
+  for (const to of ['CODE_LOGIN_DONE', 'IN_PROCESS', 'SANCTIONED']) await api('POST', `/api/crm2/cases/${kase2.data.caseId}/logins/${lp2.data.loginId}/stage`, token, { to });
+  await api('POST', `/api/crm2/cases/${kase2.data.caseId}/logins/${lp2.data.loginId}/disburse`, token, { disbursedAmount: 1000000, disbursementDate: '2025-06-15', loanAccountNo: 'LN-CP2', city: 'X', state: 'Y', channelPartnerPayoutOverride: 9999 });
+  const cp2 = (await listDocs('connector_payouts')).find((d) => fv(d, 'loginId') === lp2.data.loginId);
+  cp2 && fnum(cp2, 'amount') === 9999 && fv(cp2, 'auto') === false
+    ? ok('Sub DSA payout override honored at disbursement (₹9,999, auto=false)') : bad('cp override', JSON.stringify(cp2?.fields));
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail > 0 ? 1 : 0);

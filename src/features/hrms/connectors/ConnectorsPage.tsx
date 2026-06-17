@@ -15,6 +15,13 @@ import {
   addConnectorPayout, markConnectorPayoutPaid, type ConnectorInput,
 } from '../hooks/useConnectors';
 import type { Connector, ConnectorVertical, ConnectorPayout } from '../../../types';
+import type { ChannelPartnerPayoutRule, ChannelPartnerPayoutBasis } from '../../../lib/crm2/channelPartnerPayout';
+
+const BASIS_OPTS: Array<{ v: ChannelPartnerPayoutBasis; label: string }> = [
+  { v: 'FLAT', label: 'Flat ₹' },
+  { v: 'DISBURSED_PCT', label: '% of disbursed' },
+  { v: 'FINVASTRA_PCT', label: '% of Finvastra payout' },
+];
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -40,6 +47,7 @@ const rupee = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 interface FormState {
   connectorCode: string; displayName: string; mobile: string; email: string;
   address: string; firmName: string; ownDsaCode: string; verticals: ConnectorVertical[];
+  payoutRules: ChannelPartnerPayoutRule[];
   status: Connector['status']; notes: string;
   pan: string; accountHolderName: string; accountNumber: string; ifsc: string;
   bankName: string; branch: string;
@@ -48,7 +56,7 @@ interface FormState {
 function emptyForm(code: string): FormState {
   return {
     connectorCode: code, displayName: '', mobile: '', email: '', address: '',
-    firmName: '', ownDsaCode: '', verticals: [], status: 'active', notes: '',
+    firmName: '', ownDsaCode: '', verticals: [], payoutRules: [], status: 'active', notes: '',
     pan: '', accountHolderName: '', accountNumber: '', ifsc: '', bankName: '', branch: '',
   };
 }
@@ -64,6 +72,7 @@ function ConnectorFormModal({ connector, suggestedCode, uid, onClose }: {
       connectorCode: connector.connectorCode, displayName: connector.displayName,
       mobile: connector.mobile, email: connector.email, address: connector.address,
       firmName: connector.firmName ?? '', ownDsaCode: connector.ownDsaCode ?? '', verticals: connector.verticals ?? [],
+      payoutRules: connector.payoutRules ?? [],
       status: connector.status, notes: connector.notes ?? '',
       pan: '', accountHolderName: '', accountNumber: '', ifsc: '', bankName: '', branch: '',
     } : emptyForm(suggestedCode));
@@ -97,6 +106,17 @@ function ConnectorFormModal({ connector, suggestedCode, uid, onClose }: {
     if (errs.verticals) setErrs((p) => { const n = { ...p }; delete n.verticals; return n; });
   };
 
+  // CRM 2.0 products for the auto-payout rule picker.
+  const [products, setProducts] = useState<Array<{ id: string; name: string; shortCode: string }>>([]);
+  useEffect(() => onSnapshot(collection(db, 'products'), (snap) =>
+    setProducts(snap.docs.filter((d) => d.data().status === 'ACTIVE')
+      .map((d) => ({ id: d.id, name: d.data().name as string, shortCode: d.data().shortCode as string }))),
+    () => { /* products are CRM2-gated; tolerated */ }), []);
+  const addRule = () => set('payoutRules', [...form.payoutRules, { productId: 'ALL', basis: 'FLAT', value: 0 }]);
+  const updRule = (i: number, patch: Partial<ChannelPartnerPayoutRule>) =>
+    set('payoutRules', form.payoutRules.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const delRule = (i: number) => set('payoutRules', form.payoutRules.filter((_, j) => j !== i));
+
   const handleSave = async () => {
     const e: Record<string, string> = {};
     if (!form.connectorCode.trim()) e.connectorCode = 'Required';
@@ -121,6 +141,9 @@ function ConnectorFormModal({ connector, suggestedCode, uid, onClose }: {
         firmName: form.firmName.trim() || undefined,
         ownDsaCode: form.ownDsaCode.trim() || undefined,
         verticals: form.verticals,
+        payoutRules: form.payoutRules
+          .filter((r) => r.productId && (r.value > 0 || r.basis !== 'FLAT'))
+          .map((r) => ({ productId: r.productId, basis: r.basis, value: Number(r.value) || 0 })),
         status: form.status,
         notes: form.notes.trim() || undefined,
       };
@@ -225,6 +248,34 @@ function ConnectorFormModal({ connector, suggestedCode, uid, onClose }: {
           <label className={labelCls} style={{ color: 'var(--text-muted)' }}>Address</label>
           <textarea value={form.address} onChange={(e) => set('address', e.target.value)} rows={2}
             className={`${inp} border-(--shell-border) resize-none`} style={{ color: 'var(--text-primary)' }} />
+        </div>
+
+        {sectionLabel('CRM auto-payout — per product (optional)')}
+        <p className="text-[11px] -mt-1" style={{ color: 'var(--text-muted)' }}>
+          When a loan this Sub DSA sourced is disbursed in CRM, Finvastra auto-creates a payout owed to them from these rules
+          (the amount can be overridden per case at disbursement). “All products” is the fallback. Leave empty to keep it manual.
+        </p>
+        <div className="space-y-2">
+          {form.payoutRules.map((r, i) => (
+            <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_110px_28px] gap-2 items-center">
+              <select value={r.productId} onChange={(e) => updRule(i, { productId: e.target.value })}
+                className={`${inp} border-(--shell-border)`} style={{ color: 'var(--text-primary)' }}>
+                <option value="ALL">All products</option>
+                {products.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.shortCode})</option>)}
+              </select>
+              <select value={r.basis} onChange={(e) => updRule(i, { basis: e.target.value as ChannelPartnerPayoutBasis })}
+                className={`${inp} border-(--shell-border)`} style={{ color: 'var(--text-primary)' }}>
+                {BASIS_OPTS.map((b) => <option key={b.v} value={b.v}>{b.label}</option>)}
+              </select>
+              <input type="number" step="0.01" value={r.value}
+                onChange={(e) => updRule(i, { value: Number(e.target.value) })}
+                placeholder={r.basis === 'FLAT' ? '₹' : '%'}
+                className={`${inp} border-(--shell-border)`} style={{ color: 'var(--text-primary)' }} />
+              <button type="button" onClick={() => delRule(i)} className="p-1 rounded hover:bg-(--shell-hover-mid)"
+                style={{ color: '#DC2626' }} aria-label="Remove rule"><Trash2 size={14} /></button>
+            </div>
+          ))}
+          <button type="button" onClick={addRule} className="text-xs font-semibold" style={{ color: '#C9A961' }}>+ Add payout rule</button>
         </div>
 
         {sectionLabel('Financial — PAN & bank (admin/HR only)')}

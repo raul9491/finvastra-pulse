@@ -19,6 +19,7 @@ import type adminNs from "firebase-admin";
 import crypto from "crypto";
 import { encryptField } from "../src/lib/encryption.js";
 import { findSlabOverlaps, resolveSlab, computeExpectedAmounts, SlabResolutionError, type SlabForResolution } from "../src/lib/crm2/slab.js";
+import { resolveChannelPartnerRule, computeChannelPartnerPayout } from "../src/lib/crm2/channelPartnerPayout.js";
 import { buildDupeKeys, normaliseMobile } from "../src/lib/crm2/dedupe.js";
 import { extractClientIp } from "../src/lib/crm2/http.js";
 import {
@@ -3051,6 +3052,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     if (!connectorId || !lenderId) throw new ApiError(400, "Login needs connectorId and lenderId set before disbursement");
     const productId = c.productId as string;
     const subDsaId = (lg.subDsaId as string | null) ?? (c.subDsaId as string | null) ?? null;
+    // FAC- "Sub DSA" sourcing channel partner (HRMS connectors) — auto-payout source.
+    const channelPartnerId = (lg.channelPartnerId as string | null) ?? (c.channelPartnerId as string | null) ?? null;
+    const channelPartnerPayoutOverride = optNum(b, "channelPartnerPayoutOverride");
 
     // Mandatory DISBURSEMENT docs (case-level shared docTracker) must be VERIFIED.
     const trackerSnap = await caseRef.collection("docTracker").get();
@@ -3071,12 +3075,13 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const m = mapping.data();
     if (!m.dsaCode) throw new ApiError(400, "Mapping has no dsaCode set");
 
-    const [aggSnap, lenderSnap, productSnap, clientSnap, subDsaSnap] = await Promise.all([
+    const [aggSnap, lenderSnap, productSnap, clientSnap, subDsaSnap, cpSnap] = await Promise.all([
       db.collection("aggregators").doc(connectorId).get(),
       db.collection("lenders").doc(lenderId).get(),
       db.collection("products").doc(productId).get(),
       db.collection("clients").doc(c.clientId as string).get(),
       subDsaId ? db.collection("subDsas").doc(subDsaId).get() : Promise.resolve(null),
+      channelPartnerId ? db.collection("connectors").doc(channelPartnerId).get() : Promise.resolve(null),
     ]);
 
     const slabResolution = (m.slabs ?? []).map(toResolution);
@@ -3099,6 +3104,14 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     }
     const amounts = computeExpectedAmounts(slab, disbursedAmount, caseSubDsaPct, !!subDsaId);
     const expectedTdsPct = (slab.tdsPct ?? (aggSnap.data()?.standardTdsPct as number | undefined)) ?? 0;
+    // FAC- channel-partner auto-payout (per-product rule, manual override allowed).
+    const cpRule = channelPartnerId && cpSnap?.exists
+      ? resolveChannelPartnerRule(cpSnap.data()!.payoutRules as Parameters<typeof resolveChannelPartnerRule>[0], productId)
+      : null;
+    const cpComputed = computeChannelPartnerPayout(cpRule, disbursedAmount, amounts.expectedGross);
+    const cpAmount = channelPartnerPayoutOverride != null ? channelPartnerPayoutOverride : cpComputed;
+    const prodVertical = (productSnap.data()?.vertical as string) ?? "LOANS";
+    const cpBusinessLine = prodVertical === "WEALTH" ? "wealth" : prodVertical === "INSURANCE" ? "insurance" : "loan";
     const reportingMonth = monthOf(disbDate.toMillis());
     const handlingRmName = await faplDisplayName(c.handlingRm as string);
     const year = new Date().getFullYear();
@@ -3180,6 +3193,32 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         updatedAt: now,
       });
 
+      // 3b. FAC- channel-partner payout — auto-create a connector_payout (pending),
+      //     paid later via the existing HRMS connector-payout flow. Override wins.
+      if (channelPartnerId && cpAmount != null && cpAmount > 0) {
+        const cpRef = db.collection("connector_payouts").doc();
+        tx.set(cpRef, {
+          connectorId: channelPartnerId,
+          connectorCode: (cpSnap?.data()?.connectorCode as string | null) ?? (lg.channelPartnerCode as string | null) ?? null,
+          connectorName: (cpSnap?.data()?.displayName as string | null) ?? (lg.channelPartnerName as string | null) ?? null,
+          businessLine: cpBusinessLine,
+          caseLabel: `${caseId} · ${loginId} · ${loanAccountNo}`,
+          caseId, loginId, payoutCycleId: newCycleId,
+          leadId: (c.leadId as string | null) ?? null,
+          amount: cpAmount,
+          basis: cpRule?.basis ?? "MANUAL", rate: cpRule?.value ?? null,
+          auto: channelPartnerPayoutOverride == null,
+          status: "pending",
+          notes: channelPartnerPayoutOverride != null
+            ? `Auto-created at disbursement of ${loanAccountNo} — amount overridden`
+            : cpRule
+              ? `Auto-created at disbursement of ${loanAccountNo} — ${cpRule.basis} ${cpRule.value}`
+              : `Auto-created at disbursement of ${loanAccountNo}`,
+          createdBy: caller.fapl,
+          createdAt: now,
+        });
+      }
+
       // 4. Stage history (on the case timeline).
       tx.set(caseRef.collection("stageHistory").doc(), {
         from: "SANCTIONED", to: "DISBURSED", at: now, by: caller.fapl,
@@ -3194,7 +3233,8 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     });
     const showMoney = await callerHasPerm(caller.uid, "payout.amounts.read");
     res.json({ ok: true, cycleId, loginId, ...(showMoney
-      ? { expectedGross: amounts.expectedGross, finvastraPayoutPct: slab.finvastraPayoutPct, subDsaExpected: amounts.subDsaExpected }
+      ? { expectedGross: amounts.expectedGross, finvastraPayoutPct: slab.finvastraPayoutPct, subDsaExpected: amounts.subDsaExpected,
+          channelPartnerPayout: (channelPartnerId && cpAmount != null && cpAmount > 0) ? cpAmount : null }
       : {}) });
   }));
 
@@ -3215,10 +3255,12 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       .where("connectorId", "==", connectorId).where("lenderId", "==", lenderId).limit(1).get();
     if (mapSnap.empty) throw new ApiError(400, "No DSA code mapping for this connector × lender");
     const m = mapSnap.docs[0].data();
-    const [agg, lender, product] = await Promise.all([
+    const channelPartnerId = (lg.channelPartnerId as string | null) ?? (c.channelPartnerId as string | null) ?? null;
+    const [agg, lender, product, cp] = await Promise.all([
       db.collection("aggregators").doc(connectorId).get(),
       db.collection("lenders").doc(lenderId).get(),
       db.collection("products").doc(c.productId as string).get(),
+      channelPartnerId ? db.collection("connectors").doc(channelPartnerId).get() : Promise.resolve(null),
     ]);
     try {
       const slab = resolveSlab((m.slabs ?? []).map(toResolution), c.productId as string, date.getTime(), {
@@ -3227,8 +3269,17 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         productName: (product.data()?.shortCode as string) ?? (c.productId as string),
       });
       const amounts = !isNaN(amount) && amount > 0 ? computeExpectedAmounts(slab, amount, null, !!(lg.subDsaId ?? c.subDsaId)) : null;
+      const cpRule = channelPartnerId && cp?.exists
+        ? resolveChannelPartnerRule(cp.data()!.payoutRules as Parameters<typeof resolveChannelPartnerRule>[0], c.productId as string)
+        : null;
+      const channelPartner = channelPartnerId ? {
+        id: channelPartnerId,
+        name: (cp?.data()?.displayName as string | null) ?? (lg.channelPartnerName as string | null) ?? null,
+        rule: cpRule,
+        payout: amounts ? computeChannelPartnerPayout(cpRule, amount, amounts.expectedGross) : null,
+      } : null;
       res.json({ ok: true, connectorName: agg.data()?.name, lenderName: lender.data()?.name,
-        productCode: product.data()?.shortCode, dsaCode: m.dsaCode, slab, expected: amounts });
+        productCode: product.data()?.shortCode, dsaCode: m.dsaCode, slab, expected: amounts, channelPartner });
     } catch (e) {
       if (e instanceof SlabResolutionError) { res.status(422).json({ error: e.message, kind: e.kind }); return; }
       throw e;

@@ -55,6 +55,7 @@ export interface ConnectorInput {
   firmName?: string;
   ownDsaCode?: string;          // the connector's OWN bank DSA code, if they have one
   verticals: ConnectorVertical[];
+  payoutRules?: Connector['payoutRules'];   // per-product CRM 2.0 auto-payout rules
   status: Connector['status'];
   notes?: string;
 }
@@ -66,9 +67,10 @@ export async function createConnector(
 ): Promise<string> {
   const ref = await addDoc(collection(db, 'connectors'), {
     ...input,
-    firmName:   input.firmName || null,
-    ownDsaCode: input.ownDsaCode || null,
-    notes:      input.notes || null,
+    firmName:    input.firmName || null,
+    ownDsaCode:  input.ownDsaCode || null,
+    payoutRules: input.payoutRules ?? [],
+    notes:       input.notes || null,
     deleted:  false,
     createdBy: uid,
     createdAt: serverTimestamp(),
@@ -89,9 +91,10 @@ export async function updateConnector(
 ): Promise<void> {
   await updateDoc(doc(db, 'connectors', id), {
     ...input,
-    firmName:   input.firmName || null,
-    ownDsaCode: input.ownDsaCode || null,
-    notes:      input.notes || null,
+    firmName:    input.firmName || null,
+    ownDsaCode:  input.ownDsaCode || null,
+    payoutRules: input.payoutRules ?? [],
+    notes:       input.notes || null,
     updatedAt: serverTimestamp(),
   });
   await setDoc(doc(db, 'connectors', id, 'private', 'financial'), {

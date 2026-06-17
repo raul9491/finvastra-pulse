@@ -1936,7 +1936,9 @@ After an audit, four real gaps were fixed:
 
 ---
 
-## Meta Lead Ads → CRM 2.0 webhook — Phase 1 (capture + queue) (2026-06-16) — BUILT, NOT deployed
+## Meta Lead Ads → CRM 2.0 webhook — Phase 1 (capture + queue) (2026-06-16) — DEPLOYED 2026-06-17, DORMANT
+
+> **Deploy status (2026-06-17):** code is **LIVE in prod** (rev `pulse-api-00049-nwc`, ruleset `6450072d`, `meta_lead_events`/`meta_lead_deadletters` indexes READY) but the webhook is **intentionally DORMANT** — the four `META_*` env vars are **not set yet** (maintainer has no Meta developer account yet), so the GET handshake + POST both fail-closed with 403. **Deferred Meta wiring** (resume when the dev account exists, NO code change): create app → System User token → set the 4 `META_*` env vars (`gcloud run services update pulse-api --update-env-vars …`) → subscribe the Page to `leadgen` → register Cloud Scheduler `crm2-meta-retry` (`*/10`, OIDC) → `npm run qa:meta:inspect` on the first live lead → merge `chore/remove-legacy-meta-intake`. Full runbook: `docs/go-live/PULSE-LEAD-PIPELINE.md`.
 
 Real-time Meta Lead Ads intake landing as **CRM 2.0 Leads** (`source: ADS`, `status: NEW`) in Pipeline → Leads. **Replaces the broken legacy `GET|POST /api/leads/intake/meta`** (which skipped real webhooks with `if (!val?.field_data) continue;` — Meta only ever sends a `leadgen_id`, never inline `field_data` — and whose verify token was unset, so 0 Meta leads ever flowed). Phase 1 = capture + queue ONLY; **routing (RM assignment) + contact-within-SLA timer are Phase 2; backfill of historical leads is a separate forward-only-webhook limitation**.
 
@@ -1956,7 +1958,9 @@ Real-time Meta Lead Ads intake landing as **CRM 2.0 Leads** (`source: ADS`, `sta
 
 ---
 
-## Two-stage lead SLA engine (2026-06-17) — BUILT, NOT deployed
+## Two-stage lead SLA engine (2026-06-17) — DEPLOYED TO PRODUCTION ✅ (2026-06-17)
+
+> **Deploy status (2026-06-17):** LIVE in prod (rev `pulse-api-00049-nwc`; new composites `leads(firstContactedAt,converted)` + `leads(firstContactedAt,deleted)` READY; firstContactedAt rules allowlist bound). **Cloud Scheduler `crm2-lead-sla-sweep` registered & ENABLED** (`*/15 * * * *`, asia-south1, OIDC SA `787616231546-compute@…`). Runs notify-only against website/manual/queue leads. **Escalation is DYNAMIC** (active `crmRole:'manager'` → super-admin fallback; no `escalationUids` config — see the dynamic-escalation note below). `app_config/{sla,business_hours}` use code defaults unless seeded via `npm run seed:golive`.
 
 Measures + alerts on lead responsiveness across **BOTH lead models** (old-model "Customers" `primaryOwnerId`/`createdAt`/`slaDeadline` + CRM 2.0 "Leads" `assignedRm`/`receivedAt`), every inbound source. **Notify-only — no auto-reassign.** Stage 1 = time-to-assign (capture → manager assigns); Stage 2 = time-to-first-contact (anchor → telecaller logs a first ATTEMPT). All clocks count **working time only**.
 
@@ -1971,7 +1975,9 @@ Measures + alerts on lead responsiveness across **BOTH lead models** (old-model 
 
 ---
 
-## FIFO pull-queue work model (2026-06-17) — BUILT, NOT deployed
+## FIFO pull-queue work model (2026-06-17) — DEPLOYED TO PRODUCTION ✅ (2026-06-17)
+
+> **Deploy status (2026-06-17):** LIVE in prod (rev `pulse-api-00049-nwc`; composite `leads(assignedRm,converted,receivedAt)` READY). Queue endpoints + QueuePanel UI live. **Queue config uses the code default (Loans + SIP) until `app_config/queues` is seeded**; the maintainer chose a single shared `['*']` FIFO — seed via `npm run seed:golive` (or set the doc in the console). Telecaller `queueSkills` empty by default = eligible for all.
 
 Replaces manager-push as the **default** for warm-inbound CRM 2.0 leads (ADS + public website): they stay unassigned in shared, **oldest-first** queues; a free telecaller pulls the front of the line, which **claims** it (stamps owner + `assignedAt`) atomically at pickup. Manual `PATCH …/leads/:id {assignedRm}` remains the **manager override**. **Cold bulk imports stay on the Import-Queue `distribute` path** (untouched). Sits ON TOP of the SLA engine — `captureAt`/`assignedAt`/`firstContactedAt` unchanged; **Stage 1 now measures time-in-queue (claim latency)**, Stage 2 unchanged.
 

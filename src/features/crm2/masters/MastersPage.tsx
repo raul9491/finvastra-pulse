@@ -26,12 +26,47 @@ type WithId<T> = T & { id: string };
 export interface FieldDef {
   key: string;
   label: string;
-  kind: 'text' | 'number' | 'select' | 'multiselect' | 'date';
+  kind: 'text' | 'number' | 'select' | 'multiselect' | 'date' | 'rows' | 'taglist';
   required?: boolean;
   options?: Array<{ value: string; label: string }>;   // select/multiselect
+  rowFields?: Array<{ key: string; label: string; kind?: 'text' | 'number' | 'select'; options?: Array<{ value: string; label: string }> }>;  // for kind: 'rows'
   hint?: string;
   placeholder?: string;
   createOnly?: boolean;     // not editable after create (e.g. raw PAN re-entry optional)
+}
+
+// Repeating object-rows editor (aggregator contacts/emails, lender SM/ASM list).
+function RowsEditor({ rowFields, value, onChange }: {
+  rowFields: NonNullable<FieldDef['rowFields']>;
+  value: Array<Record<string, string>>;
+  onChange: (v: Array<Record<string, string>>) => void;
+}) {
+  const rows = Array.isArray(value) ? value : [];
+  const upd = (i: number, k: string, v: string) => onChange(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
+  const add = () => onChange([...rows, Object.fromEntries(rowFields.map((f) => [f.key, '']))]);
+  const del = (i: number) => onChange(rows.filter((_, j) => j !== i));
+  return (
+    <div className="space-y-2">
+      {rows.map((r, i) => (
+        <div key={i} className="flex flex-wrap gap-2 items-center">
+          {rowFields.map((rf) => (
+            <div key={rf.key} className="flex-1 min-w-24">
+              {rf.kind === 'select' ? (
+                <SearchableSelect value={String(r[rf.key] ?? '')} onChange={(v) => upd(i, rf.key, v)} options={rf.options ?? []} placeholder={rf.label} />
+              ) : (
+                <input className={inp()} type={rf.kind === 'number' ? 'number' : 'text'} placeholder={rf.label}
+                  value={String(r[rf.key] ?? '')} onChange={(e) => upd(i, rf.key, e.target.value)} />
+              )}
+            </div>
+          ))}
+          <button onClick={() => del(i)} className="p-1 rounded hover:bg-(--shell-hover-hard)" aria-label="Remove row">
+            <X size={13} style={{ color: '#f87171' }} />
+          </button>
+        </div>
+      ))}
+      <button onClick={add} className="text-xs font-semibold" style={{ color: '#C9A961' }}>+ Add</button>
+    </div>
+  );
 }
 
 const STATUS_AI = [{ value: 'ACTIVE', label: 'Active' }, { value: 'INACTIVE', label: 'Inactive' }];
@@ -62,6 +97,8 @@ function MasterFormModal({ title, fields, initial, onSubmit, onClose }: {
     for (const f of fields) {
       const cur = initial?.[f.key];
       if (f.kind === 'multiselect') v[f.key] = Array.isArray(cur) ? cur : [];
+      else if (f.kind === 'rows') v[f.key] = Array.isArray(cur) ? cur : [];
+      else if (f.kind === 'taglist') v[f.key] = Array.isArray(cur) ? cur.join(', ') : (cur ?? '');
       else if (f.kind === 'date') {
         const ts = cur as { toDate?: () => Date } | null;
         v[f.key] = ts?.toDate ? ts.toDate().toISOString().slice(0, 10) : (cur ?? '');
@@ -96,7 +133,8 @@ function MasterFormModal({ title, fields, initial, onSubmit, onClose }: {
         if (initial && f.createOnly) continue;
         const v = values[f.key];
         if (f.kind === 'number') out[f.key] = String(v ?? '').trim() === '' ? null : Number(v);
-        else if (f.kind === 'multiselect') out[f.key] = v;
+        else if (f.kind === 'multiselect' || f.kind === 'rows') out[f.key] = v;
+        else if (f.kind === 'taglist') out[f.key] = String(v ?? '').split(',').map((s) => s.trim()).filter(Boolean);
         else out[f.key] = String(v ?? '').trim() || null;
       }
       await onSubmit(out);
@@ -139,6 +177,8 @@ function MasterFormModal({ title, fields, initial, onSubmit, onClose }: {
                   onChange={(v) => set(f.key, v)}
                   placeholder={f.placeholder ?? 'Select…'}
                 />
+              ) : f.kind === 'rows' ? (
+                <RowsEditor rowFields={f.rowFields ?? []} value={values[f.key] as Array<Record<string, string>>} onChange={(v) => set(f.key, v)} />
               ) : (
                 <input
                   type={f.kind === 'number' ? 'number' : f.kind === 'date' ? 'date' : 'text'}
@@ -168,12 +208,14 @@ function MasterFormModal({ title, fields, initial, onSubmit, onClose }: {
 
 // ─── Generic master tab (list + add/edit) ────────────────────────────────────
 function MasterTab<T extends { id: string; name: string; status: string }>({
-  type, label, fields, columns,
+  type, label, fields, columns, expand, transform,
 }: {
   type: string;                       // API master type == collection name
   label: string;
   fields: FieldDef[];
   columns: Array<{ header: string; render: (row: T) => React.ReactNode }>;
+  expand?: (row: T) => Record<string, unknown>;        // flatten nested → form keys (edit)
+  transform?: (values: Record<string, unknown>) => Record<string, unknown>;  // reassemble before submit
 }) {
   const { rows, loading, error } = useCrm2Collection<T>(type);
   const toast = useToast();
@@ -241,14 +283,15 @@ function MasterTab<T extends { id: string; name: string; status: string }>({
         <MasterFormModal
           title={modal.initial ? `Edit ${modal.initial.id}` : `New ${label.replace(/s$/, '')}`}
           fields={fields}
-          initial={modal.initial}
+          initial={modal.initial && expand ? { ...modal.initial, ...expand(modal.initial as unknown as T) } : modal.initial}
           onClose={() => setModal(null)}
           onSubmit={async (values) => {
+            const payload = transform ? transform(values) : values;
             if (modal.initial?.id) {
-              await apiCrm2('PATCH', `/api/crm2/masters/${type}/${modal.initial.id}`, values);
+              await apiCrm2('PATCH', `/api/crm2/masters/${type}/${modal.initial.id}`, payload);
               toast.success('Saved');
             } else {
-              const r = await apiCrm2('POST', `/api/crm2/masters/${type}`, values);
+              const r = await apiCrm2('POST', `/api/crm2/masters/${type}`, payload);
               toast.success(`Created ${r.id}`);
             }
           }}
@@ -275,6 +318,9 @@ export function Crm2MastersPage() {
   const { rows: products } = useCrm2Collection<WithId<Product>>('products');
   const productOptions = useMemo(
     () => products.map((p) => ({ value: p.id, label: `${p.name} (${p.shortCode})` })), [products]);
+  const { rows: docDefs } = useCrm2Collection<WithId<DocumentDef>>('documentMaster');
+  const docOptions = useMemo(
+    () => docDefs.map((d) => ({ value: d.id, label: d.name })), [docDefs]);
 
   const canWrite = hasCrm2Perm(profile, 'crm.masters.write');
 
@@ -324,6 +370,13 @@ export function Crm2MastersPage() {
             { key: 'productsOffered', label: 'Products Offered', kind: 'multiselect', options: productOptions },
             { key: 'loginEmail', label: 'Login Email', kind: 'text', hint: 'File-submission inbox, e.g. iob0432@iob.in' },
             { key: 'tatBenchmarkDays', label: 'TAT Benchmark (days)', kind: 'number', hint: 'Login → sanction SLA' },
+            { key: 'contacts', label: 'Bank SM / ASM Contacts', kind: 'rows',
+              rowFields: [
+                { key: 'name', label: 'Name' },
+                { key: 'role', label: 'Role', kind: 'select', options: [{ value: 'SM', label: 'SM' }, { value: 'ASM', label: 'ASM' }, { value: 'RM', label: 'RM' }, { value: 'OTHER', label: 'Other' }] },
+                { key: 'mobile', label: 'Mobile' }, { key: 'email', label: 'Email' }, { key: 'branch', label: 'Branch' },
+              ],
+              hint: 'Auto-grows from Stage-4 login SM/ASM entries; add manually here too.' },
             { key: 'status', label: 'Status', kind: 'select', options: STATUS_AI },
           ]}
         />
@@ -335,12 +388,15 @@ export function Crm2MastersPage() {
           columns={[
             { header: 'Code', render: (r) => r.shortCode },
             { header: 'Vertical', render: (r) => r.vertical },
+            { header: 'Sub-products', render: (r) => r.subProducts?.length ? r.subProducts.join(', ') : '—' },
           ]}
           fields={[
             { key: 'name', label: 'Product Name', kind: 'text', required: true, placeholder: 'Loan Against Property' },
             { key: 'shortCode', label: 'Short Code', kind: 'text', required: true, placeholder: 'LAP' },
             { key: 'vertical', label: 'Vertical', kind: 'select', required: true,
               options: [{ value: 'LOANS', label: 'Loans' }, { value: 'WEALTH', label: 'Wealth' }, { value: 'INSURANCE', label: 'Insurance' }, { value: 'CHANNEL_PARTNER', label: 'Channel Partner' }, { value: 'VAS', label: 'VAS' }] },
+            { key: 'subProducts', label: 'Sub-products', kind: 'taglist', placeholder: 'Salaried, Self-Employed, BT', hint: 'Comma-separated' },
+            { key: 'defaultDocChecklist', label: 'Default Documents', kind: 'multiselect', options: docOptions, hint: 'Auto-attached to the doc tracker for cases on this product' },
             { key: 'defaultRoiRange', label: 'Default ROI Range', kind: 'text', placeholder: '9.5%–12% (display only)' },
             { key: 'status', label: 'Status', kind: 'select', options: STATUS_AI },
           ]}
@@ -360,7 +416,12 @@ export function Crm2MastersPage() {
             { key: 'type', label: 'Type', kind: 'select', required: true,
               options: [{ value: 'MASTER_AGGREGATOR', label: 'Master Aggregator' }, { value: 'SUB_AGGREGATOR', label: 'Sub Aggregator' }] },
             { key: 'empanelmentDate', label: 'Empanelment Date', kind: 'date' },
-            { key: 'claimsEmail', label: 'Claims Email', kind: 'text', placeholder: 'needconfirmation@ruloans.vip' },
+            { key: 'contacts', label: 'Phone Contacts', kind: 'rows',
+              rowFields: [{ key: 'name', label: 'Name' }, { key: 'dept', label: 'Dept' }, { key: 'mobile', label: 'Mobile' }],
+              hint: 'Multiple ops / claims / accounts contacts' },
+            { key: 'emails', label: 'Email Contacts', kind: 'rows',
+              rowFields: [{ key: 'name', label: 'Name' }, { key: 'dept', label: 'Dept' }, { key: 'email', label: 'Email' }] },
+            { key: 'claimsEmail', label: 'Claims Email (primary)', kind: 'text', placeholder: 'needconfirmation@ruloans.vip' },
             { key: 'accountsEmail', label: 'Accounts Email', kind: 'text' },
             { key: 'billingEntityName', label: 'Billing Entity', kind: 'text', hint: 'Entity Finvastra invoices' },
             { key: 'billingGstin', label: 'Billing GSTIN', kind: 'text' },
@@ -377,10 +438,22 @@ export function Crm2MastersPage() {
       {tab === 'subDsas' && (
         <MasterTab<WithId<SubDsa>>
           type="subDsas" label="Connectors"
+          expand={(r) => ({
+            bankName: r.payoutBank?.bankName ?? '', bankIfsc: r.payoutBank?.ifsc ?? '', bankAccountNo: '',
+          })}
+          transform={(v) => {
+            const { bankAccountNo, bankIfsc, bankName, ...rest } = v;
+            if (String(bankAccountNo ?? '').trim()) {
+              rest.payoutBank = { accountNo: bankAccountNo, ifsc: bankIfsc, bankName };
+            }
+            return rest;
+          }}
           columns={[
             { header: 'Type', render: (r) => r.type.replace('_', ' ') },
             { header: 'Mobile', render: (r) => r.mobile },
             { header: 'PAN', render: (r) => r.panLast4 ? `••••${r.panLast4}` : '—' },
+            { header: 'Bank', render: (r) => r.payoutBank ? `${r.payoutBank.bankName} ••••${r.payoutBank.accountNoLast4}` : '—' },
+            { header: 'TDS %', render: (r) => r.tdsPct != null ? `${r.tdsPct}%` : '—' },
           ]}
           fields={[
             { key: 'name', label: 'Name', kind: 'text', required: true },
@@ -393,6 +466,11 @@ export function Crm2MastersPage() {
             { key: 'pan', label: 'PAN', kind: 'text', createOnly: false, placeholder: 'ABCDE1234F',
               hint: 'Stored encrypted; only the last 4 are shown. Leave blank to keep the existing PAN.' },
             { key: 'gstin', label: 'GSTIN', kind: 'text' },
+            { key: 'bankName', label: 'Payout Bank Name', kind: 'text', placeholder: 'HDFC Bank' },
+            { key: 'bankAccountNo', label: 'Payout Account No', kind: 'text', placeholder: '6–20 digits',
+              hint: 'Stored encrypted; only the last 4 are shown. Leave blank to keep the existing account.' },
+            { key: 'bankIfsc', label: 'Payout IFSC', kind: 'text', placeholder: 'HDFC0001234' },
+            { key: 'tdsPct', label: 'TDS %', kind: 'number', hint: 'TDS deducted on this connector’s payouts' },
             { key: 'relationshipOwner', label: 'Relationship Owner (FAPL-xxx)', kind: 'text', required: true, placeholder: 'FAPL-012' },
             { key: 'onboardingDate', label: 'Onboarding Date', kind: 'date' },
             { key: 'status', label: 'Status', kind: 'select',

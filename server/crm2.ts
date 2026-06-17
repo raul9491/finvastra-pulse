@@ -254,6 +254,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     if (isCreate || b.name !== undefined) out.name = reqStr(b, "name");
     if (isCreate || b.shortCode !== undefined) out.shortCode = reqStr(b, "shortCode").toUpperCase();
     if (isCreate || b.vertical !== undefined) out.vertical = reqEnum(b, "vertical", ["LOANS", "WEALTH", "INSURANCE", "CHANNEL_PARTNER", "VAS"] as const);
+    if (isCreate || b.subProducts !== undefined) out.subProducts = strArr(b, "subProducts");
     if (isCreate || b.defaultDocChecklist !== undefined) out.defaultDocChecklist = strArr(b, "defaultDocChecklist");
     if (isCreate || b.defaultRoiRange !== undefined) out.defaultRoiRange = optStr(b, "defaultRoiRange");
     if (isCreate || b.status !== undefined) out.status = reqEnum({ status: b.status ?? "ACTIVE" }, "status", ["ACTIVE", "INACTIVE"] as const);
@@ -270,6 +271,18 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       out.opsPoc = p && isStr(p.name)
         ? { name: String(p.name).trim(), email: String(p.email ?? "").trim(), mobile: String(p.mobile ?? "").trim() }
         : null;
+    }
+    if (isCreate || b.contacts !== undefined) {
+      const arr = Array.isArray(b.contacts) ? b.contacts : [];
+      out.contacts = arr.slice(0, 50).map((c: Record<string, unknown>) => ({
+        name: String(c?.name ?? "").trim(), dept: String(c?.dept ?? "").trim(), mobile: String(c?.mobile ?? "").trim(),
+      })).filter((c) => c.name || c.mobile);
+    }
+    if (isCreate || b.emails !== undefined) {
+      const arr = Array.isArray(b.emails) ? b.emails : [];
+      out.emails = arr.slice(0, 50).map((c: Record<string, unknown>) => ({
+        name: String(c?.name ?? "").trim(), dept: String(c?.dept ?? "").trim(), email: String(c?.email ?? "").trim(),
+      })).filter((c) => c.name || c.email);
     }
     if (isCreate || b.claimsEmail !== undefined) out.claimsEmail = optStr(b, "claimsEmail");
     if (isCreate || b.accountsEmail !== undefined) out.accountsEmail = optStr(b, "accountsEmail");
@@ -333,6 +346,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         return { productIds: strArr(s, "productIds"), payoutPct: pct };
       });
     }
+    if (isCreate || b.tdsPct !== undefined) out.tdsPct = optNum(b, "tdsPct");
     if (isCreate || b.relationshipOwner !== undefined) out.relationshipOwner = reqStr(b, "relationshipOwner"); // FAPL-xxx
     if (isCreate || b.onboardingDate !== undefined) out.onboardingDate = optTs(b, "onboardingDate");
     if (isCreate || b.status !== undefined) out.status = reqEnum({ status: b.status ?? "ACTIVE" }, "status", ["ACTIVE", "INACTIVE", "BLACKLISTED"] as const);
@@ -2618,6 +2632,31 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     }
     if (Object.keys(fields).length === 0) throw new ApiError(400, "No editable fields in payload");
     await ref.update({ ...fields, ...updateAudit(caller.fapl) });
+
+    // Auto-accumulate the bank SM/ASM into the Lender master's contact sub-list
+    // (PLAN decision G — the SM/ASM list grows from Stage-4 login entries + manual
+    // add). Best-effort, deduped by name+role; never blocks the login update.
+    if (["smName", "smNumber", "asmName", "asmNumber"].some((k) => b[k] !== undefined)) {
+      const merged = { ...cur, ...fields } as Record<string, unknown>;
+      const lenderId = (merged.lenderId as string | null) ?? null;
+      const want: Array<{ name: string; role: string; mobile: string }> = [];
+      if (isStr(merged.smName) && String(merged.smName).trim()) want.push({ name: String(merged.smName).trim(), role: "SM", mobile: isStr(merged.smNumber) ? String(merged.smNumber).trim() : "" });
+      if (isStr(merged.asmName) && String(merged.asmName).trim()) want.push({ name: String(merged.asmName).trim(), role: "ASM", mobile: isStr(merged.asmNumber) ? String(merged.asmNumber).trim() : "" });
+      if (lenderId && want.length > 0) {
+        try {
+          const lref = db.collection("lenders").doc(lenderId);
+          await db.runTransaction(async (tx) => {
+            const ls = await tx.get(lref);
+            if (!ls.exists) return;
+            const existing = ((ls.data()!.contacts as Array<Record<string, unknown>>) ?? []);
+            const have = new Set(existing.map((c) => `${String(c.name).toLowerCase().trim()}|${c.role}`));
+            const add = want.filter((c) => !have.has(`${c.name.toLowerCase()}|${c.role}`))
+              .map((c) => ({ name: c.name, role: c.role, email: "", mobile: c.mobile, branch: isStr(merged.branch) ? String(merged.branch).trim() : "" }));
+            if (add.length > 0) tx.update(lref, { contacts: [...existing, ...add], ...updateAudit(caller.fapl) });
+          });
+        } catch { /* non-fatal — the login update already succeeded */ }
+      }
+    }
     res.json({ ok: true });
   }));
 

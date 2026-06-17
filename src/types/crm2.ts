@@ -64,6 +64,7 @@ export interface Product extends Audit {
   name: string;
   shortCode: string;                  // "LAP", "BL", "HL"
   vertical: ProductVertical;
+  subProducts: string[];              // e.g. ["Salaried", "Self-Employed", "BT"]
   defaultDocChecklist: string[];      // documentMaster ids
   defaultRoiRange: string | null;     // display only
   status: 'ACTIVE' | 'INACTIVE';
@@ -75,7 +76,9 @@ export interface Aggregator extends Audit {
   name: string;
   type: 'MASTER_AGGREGATOR' | 'SUB_AGGREGATOR';
   empanelmentDate: Ts | null;
-  opsPoc: { name: string; email: string; mobile: string } | null;
+  opsPoc: { name: string; email: string; mobile: string } | null;   // legacy single POC
+  contacts: Array<{ name: string; dept: string; mobile: string }>;  // multiple phone contacts
+  emails: Array<{ name: string; dept: string; email: string }>;     // multiple email contacts
   claimsEmail: string | null;
   accountsEmail: string | null;
   billingEntityName: string | null;   // entity Finvastra invoices
@@ -116,6 +119,7 @@ export interface SubDsa extends Audit {
   gstin: string | null;
   payoutBank: { accountNoEnc: EncryptedField; accountNoLast4: string;
                 ifsc: string; bankName: string } | null;
+  tdsPct: number | null;              // TDS deducted on this connector's payouts
   payoutSlabs: Array<{ productIds: string[]; payoutPct: number }>;
   relationshipOwner: string;          // FAPL-xxx
   onboardingDate: Ts | null;

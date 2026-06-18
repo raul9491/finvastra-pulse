@@ -149,6 +149,10 @@ export type Crm2LeadSource =
 
 export interface Crm2LeadFields {
   receivedAt: Ts;
+  // Human-friendly code (LD-YYYY-#####), shown in the UI. For natively-created
+  // leads it equals the doc id; for promoted Customers (which keep their original
+  // random doc id) it is minted separately so every lead reads LD-YYYY-#####.
+  leadCode?: string;
   category: Crm2LeadCategory;
   productId: string | null;
   name: string; mobile: string; email: string | null; city: string | null;

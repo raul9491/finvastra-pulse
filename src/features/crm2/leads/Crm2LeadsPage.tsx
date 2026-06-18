@@ -80,6 +80,7 @@ function useCrm2Leads() {
 
 export function Crm2LeadsPage() {
   const { profile } = useAuth();
+  const toast = useToast();
   const { rows, loading } = useCrm2Leads();
   const { employees } = useAllEmployees();
   const { rows: products } = useCrm2Collection<Product & { id: string }>('products');
@@ -138,13 +139,29 @@ export function Crm2LeadsPage() {
           </h2>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Funnel: received → qualified → converted to client + case</p>
         </div>
-        {canWrite && (
-          <button onClick={() => setShowNew(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold"
-            style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
-            <Plus size={15} /> New Lead
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {isManager && rows.some((r) => !r.leadCode && !/^LD-\d{4}-\d+$/.test(r.id)) && (
+            <button
+              onClick={async () => {
+                try {
+                  const r = await apiCrm2<{ ok: boolean; coded: number; minted: number }>('POST', '/api/crm2/admin/backfill-lead-codes');
+                  toast.success(`Lead codes assigned — ${r.minted} minted, ${r.coded} linked`);
+                } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); }
+              }}
+              title="Give every lead an LD-YYYY-##### code (promoted customers keep their original record id)"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border"
+              style={{ borderColor: 'var(--shell-border)', color: 'var(--text-primary)' }}>
+              Assign LD- codes
+            </button>
+          )}
+          {canWrite && (
+            <button onClick={() => setShowNew(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold"
+              style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+              <Plus size={15} /> New Lead
+            </button>
+          )}
+        </div>
       </div>
 
       {/* FIFO pull queue — Get next lead + (managers) live monitor */}
@@ -198,7 +215,7 @@ export function Crm2LeadsPage() {
                       <div className="flex items-center gap-2">
                         <div>
                           <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{r.name}</p>
-                          <p className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{r.id}</p>
+                          <p className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{r.leadCode ?? r.id}</p>
                         </div>
                         {r.duplicateOfLeadId && (
                           <span title={`Possible duplicate of ${r.duplicateOfLeadId}`}
@@ -519,7 +536,7 @@ function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, c
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${sm.color}1f`, color: sm.color }}>{sm.label}</span>
             </div>
             <p className="text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>
-              {lead.id} · {lead.mobile}{lead.email ? ` · ${lead.email}` : ''} · {lead.source}
+              {lead.leadCode ?? lead.id} · {lead.mobile}{lead.email ? ` · ${lead.email}` : ''} · {lead.source}
             </p>
             {(lead.referredByName || lead.linkedExistingClientId || lead.channelPartnerName) && (
               <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>

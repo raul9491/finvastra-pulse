@@ -851,7 +851,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const id = await db.runTransaction(async (tx) => {
       const newId = await nextIdInTx(tx, leadYearCounter(), `LD-${new Date().getFullYear()}-`, 5);
       tx.set(db.collection("leads").doc(newId), {
-        receivedAt: FieldValue.serverTimestamp(),
+        receivedAt: FieldValue.serverTimestamp(), leadCode: newId,
         category, productId: null,
         name, mobile, email: email ?? null,
         city: optStr(b, "city"),
@@ -1018,7 +1018,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       if (e.status === "done") return (e.leadId as string | null) ?? null;   // already upserted
       const newId = await nextIdInTx(tx, leadYearCounter(), `LD-${year}-`, 5);
       tx.set(db.collection("leads").doc(newId), {
-        receivedAt: FieldValue.serverTimestamp(),
+        receivedAt: FieldValue.serverTimestamp(), leadCode: newId,
         // Deterministic keyword inference of the vertical from the form's product
         // answer (no AI). GENERAL when the Instant Form asked no product question.
         category: m.category ?? "GENERAL", productId: null,
@@ -1555,7 +1555,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const id = await db.runTransaction(async (tx) => {
       const newId = await nextIdInTx(tx, leadYearCounter(), `LD-${new Date().getFullYear()}-`, 5);
       tx.set(db.collection("leads").doc(newId), {
-        receivedAt: FieldValue.serverTimestamp(),
+        receivedAt: FieldValue.serverTimestamp(), leadCode: newId,
         category,
         productId: optStr(b, "productId"),
         name, mobile, email: email ?? null,
@@ -1948,10 +1948,14 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     // Carry over a scheduled callback as the first CRM 2.0 follow-up.
     const followUp = isStr(old.callbackAt) ? Timestamp.fromDate(new Date(String(old.callbackAt))) : null;
     const dupeKeys = buildDupeKeys(mobile, email);
+    // Promoted Customers keep their original (random) doc id, so mint a separate
+    // LD-YYYY-##### code from the shared lead counter for a consistent display id.
+    const promoteYear = new Date().getFullYear();
+    const leadCode = await db.runTransaction(async (tx) => nextIdInTx(tx, `leads-${promoteYear}`, `LD-${promoteYear}-`, 5));
 
     await ref.update({
       // ── new-model fields ──
-      receivedAt: FieldValue.serverTimestamp(),
+      receivedAt: FieldValue.serverTimestamp(), leadCode,
       category, productId,
       name, mobile, email: email ?? null,
       city: optStr(old as Record<string, unknown>, "city"),
@@ -1986,7 +1990,35 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       actor: caller.uid, actorFapl: caller.fapl, action: "crm2_promote_lead",
       targetPath: `/leads/${req.params.id}`, at: FieldValue.serverTimestamp(),
     });
-    res.json({ ok: true, id: req.params.id });
+    res.json({ ok: true, id: req.params.id, leadCode });
+  }));
+
+  // ─── One-time backfill: give every CRM 2.0 lead a leadCode (LD-YYYY-#####) ─────
+  // Natively-created leads already have an LD- doc id (leadCode = id); promoted
+  // Customers kept a random doc id and get a freshly-minted code. Idempotent
+  // (skips leads that already have a leadCode). Admin/manager only.
+  app.post("/api/crm2/admin/backfill-lead-codes", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "crm.leads.write");
+    if (!caller) return;
+    const meta = await getCallerMeta(caller.uid);
+    if (!meta.isAdmin && !meta.isManager) throw new ApiError(403, "Admin or manager only");
+    const snap = await db.collection("leads").get();
+    let coded = 0, minted = 0, skipped = 0;
+    for (const d of snap.docs) {
+      const data = d.data();
+      if (!data.receivedAt) { skipped++; continue; }          // old-model Customer, not a CRM 2.0 lead
+      if (isStr(data.leadCode)) { skipped++; continue; }      // already has a code
+      if (/^LD-\d{4}-\d+$/.test(d.id)) {
+        await d.ref.update({ leadCode: d.id });               // native lead — id is already the code
+        coded++;
+      } else {
+        const year = (data.receivedAt?.toDate?.() ?? new Date()).getFullYear();
+        const code = await db.runTransaction(async (tx) => nextIdInTx(tx, `leads-${year}`, `LD-${year}-`, 5));
+        await d.ref.update({ leadCode: code });
+        minted++;
+      }
+    }
+    res.json({ ok: true, coded, minted, skipped, total: snap.size });
   }));
 
   // ─── Permission editor backend — set a user's perms map + resync claims ──────

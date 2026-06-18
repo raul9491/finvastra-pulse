@@ -104,21 +104,29 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
         const idx = LOGIN_STAGE_ORDER.indexOf(l.stage);
         const next = idx >= 0 && idx < LOGIN_STAGE_ORDER.length - 1 ? LOGIN_STAGE_ORDER[idx + 1] : null;
         const terminal = l.stage === 'COMPLETED';
+        const accent = terminal ? (l.outcome === 'REJECTED' || l.outcome === 'WITHDRAWN' ? '#f87171' : '#34d399') : '#C9A961';
         return (
-          <div key={l.id} className="glass-panel p-4 space-y-3">
+          <div key={l.id} className="glass-panel p-4 pl-5 space-y-3 relative overflow-hidden">
+            {/* state accent bar */}
+            <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: accent }} />
+
             {/* Card header */}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-secondary)' }}>#{l.seq}</span>
-                <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{lenderName(l.lenderId)}</span>
-                <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{l.id}</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                  style={{ backgroundColor: terminal ? (l.outcome === 'REJECTED' || l.outcome === 'WITHDRAWN' ? 'rgba(248,113,113,0.15)' : 'rgba(52,211,153,0.15)') : 'rgba(201,169,97,0.15)', color: terminal ? (l.outcome === 'REJECTED' || l.outcome === 'WITHDRAWN' ? '#f87171' : '#34d399') : '#C9A961' }}>
-                  {STAGE_LABEL[l.stage]}{terminal && l.outcome && l.outcome !== 'COMPLETED' ? ` · ${l.outcome}` : ''}
-                </span>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-secondary)' }}>#{l.seq}</span>
+                  <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{lenderName(l.lenderId)}</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    style={{ backgroundColor: terminal ? (l.outcome === 'REJECTED' || l.outcome === 'WITHDRAWN' ? 'rgba(248,113,113,0.15)' : 'rgba(52,211,153,0.15)') : 'rgba(201,169,97,0.15)', color: accent }}>
+                    {STAGE_LABEL[l.stage]}{terminal && l.outcome && l.outcome !== 'COMPLETED' ? ` · ${l.outcome}` : ''}
+                  </span>
+                </div>
+                <p className="text-[10px] font-mono mt-1" style={{ color: 'var(--text-muted)' }}>
+                  {l.id}{l.branch ? ` · ${l.branch}` : ''}{l.amountRequested != null ? ` · ${fmtMoney(l.amountRequested)}` : ''}
+                </p>
               </div>
               {canWrite && !terminal && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button onClick={() => setEditing(l)} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border" style={{ borderColor: 'var(--shell-border)', color: 'var(--text-primary)' }}>
                     <Pencil size={12} /> Edit
                   </button>
@@ -147,17 +155,23 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
               )}
             </div>
 
-            {/* Stage stepper */}
-            <div className="flex items-center gap-1 flex-wrap">
-              {LOGIN_STAGE_ORDER.map((s, i) => {
-                const done = i < idx, cur = i === idx;
-                return (
-                  <span key={s} className="text-[10px] px-1.5 py-0.5 rounded"
-                    style={{ backgroundColor: cur ? 'rgba(201,169,97,0.2)' : 'transparent', color: cur ? '#C9A961' : done ? '#34d399' : 'var(--text-muted)', fontWeight: cur ? 700 : 400 }}>
-                    {STAGE_LABEL[s]}{i < LOGIN_STAGE_ORDER.length - 1 ? ' ›' : ''}
-                  </span>
-                );
-              })}
+            {/* Stage progress line — dots connected, current ringed (hover a dot for its name) */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center flex-1 min-w-0">
+                {LOGIN_STAGE_ORDER.map((s, i) => {
+                  const done = i < idx, cur = i === idx;
+                  return (
+                    <div key={s} className="flex items-center" style={{ flex: i < LOGIN_STAGE_ORDER.length - 1 ? '1 1 0%' : '0 0 auto' }}>
+                      <div title={STAGE_LABEL[s]} className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: done ? '#34d399' : cur ? '#C9A961' : 'var(--shell-hover-hard)', boxShadow: cur ? '0 0 0 3px rgba(201,169,97,0.25)' : 'none' }} />
+                      {i < LOGIN_STAGE_ORDER.length - 1 && <div className="h-0.5 flex-1 mx-1" style={{ backgroundColor: done ? '#34d399' : 'var(--shell-hover-hard)' }} />}
+                    </div>
+                  );
+                })}
+              </div>
+              <span className="text-[10px] font-semibold shrink-0" style={{ color: 'var(--text-muted)' }}>
+                Step {Math.min(idx + 1, LOGIN_STAGE_ORDER.length)}/{LOGIN_STAGE_ORDER.length}
+              </span>
             </div>
 
             {/* Key fields */}

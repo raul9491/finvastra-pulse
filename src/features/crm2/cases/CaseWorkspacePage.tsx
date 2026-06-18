@@ -121,6 +121,21 @@ export function CaseWorkspacePage() {
     ? CASE_LEVEL_STAGE_ORDER[caseIdxNow + 1] : null;
   const canManageCollab = canWrite && (profile?.role === 'admin' || profile?.crmRole === 'manager' || caseDoc.handlingRm === profile?.employeeId);
 
+  // Active banks (logins) currently sitting at each login stage — drives the
+  // per-stage notification badges (count) + the bank-name tooltip.
+  const activeBanksByStage = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const l of logins) {
+      if (l.outcome === 'REJECTED' || l.outcome === 'WITHDRAWN') continue;
+      const names = m.get(l.stage) ?? [];
+      names.push(lenders.find((x) => x.id === l.lenderId)?.name ?? (l.lenderId ?? 'Bank'));
+      m.set(l.stage, names);
+    }
+    return m;
+  }, [logins, lenders]);
+  const totalActiveBanks = logins.filter((l) => l.outcome !== 'REJECTED' && l.outcome !== 'WITHDRAWN').length;
+  const banksAt = (s: string | undefined) => (s ? (activeBanksByStage.get(s) ?? []) : []);
+
   // The working panel for one of the 10 pipeline stages.
   const stagePanel = (n: number) => {
     const sd = CASE_PIPELINE[n - 1];
@@ -202,25 +217,34 @@ export function CaseWorkspacePage() {
 
   return (
     <div className="space-y-5">
-      <button onClick={() => navigate('/crm/pipeline/cases')}
-        className="flex items-center gap-1.5 text-sm transition-opacity hover:opacity-70" style={{ color: 'var(--text-muted)' }}>
-        <ArrowLeft size={14} /> All cases
-      </button>
-
       {/* Header + 10-stage clickable pipeline */}
       <div className="glass-panel p-5 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-2xl" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-              {client?.name ?? caseDoc.clientId}
-            </h2>
-            <p className="text-[11px] font-mono mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              {caseDoc.id} · RM {caseDoc.handlingRm}
-              {caseDoc.dsaCode ? ` · DSA ${caseDoc.dsaCode}` : ''}
-              {caseDoc.subDsaId ? ` · via ${caseDoc.subDsaId}` : ' · self-sourced'}
-            </p>
+          <div className="flex items-start gap-3 min-w-0">
+            <button onClick={() => navigate('/crm/pipeline/cases')} title="Back to all cases" aria-label="Back to all cases"
+              className="mt-0.5 shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-(--shell-hover-hard)"
+              style={{ border: '1px solid var(--shell-border)', color: 'var(--text-muted)' }}>
+              <ArrowLeft size={16} />
+            </button>
+            <div className="min-w-0">
+              <h2 className="text-2xl truncate" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
+                {client?.name ?? caseDoc.clientId}
+              </h2>
+              <p className="text-[11px] font-mono mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                {caseDoc.id} · RM {caseDoc.handlingRm}
+                {caseDoc.dsaCode ? ` · DSA ${caseDoc.dsaCode}` : ''}
+                {caseDoc.subDsaId ? ` · via ${caseDoc.subDsaId}` : ' · self-sourced'}
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
+            {totalActiveBanks > 0 && (
+              <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full"
+                title={[...activeBanksByStage.values()].flat().join(', ')}
+                style={{ backgroundColor: 'rgba(59,130,246,0.15)', color: '#3B82F6' }}>
+                {totalActiveBanks} {totalActiveBanks === 1 ? 'bank' : 'banks'} active
+              </span>
+            )}
             <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full"
               title="Payout status — mirrored from the Payout Cycle (read-only)"
               style={{ backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-muted)' }}>
@@ -244,9 +268,18 @@ export function CaseWorkspacePage() {
               <button key={sd.key} onClick={() => setView(n)}
                 className="flex flex-col items-center gap-1 shrink-0 w-[94px] px-1 py-1.5 rounded-lg transition-colors"
                 style={selected ? { backgroundColor: 'rgba(201,169,97,0.12)', border: '1px solid rgba(201,169,97,0.5)' } : { border: '1px solid transparent' }}>
-                <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold"
-                  style={{ backgroundColor: done || active ? '#C9A961' : 'var(--shell-hover-hard)', color: done || active ? '#0B1538' : 'var(--text-dim)' }}>
-                  {done ? <Check size={13} /> : n}
+                <div className="relative">
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold"
+                    style={{ backgroundColor: done || active ? '#C9A961' : 'var(--shell-hover-hard)', color: done || active ? '#0B1538' : 'var(--text-dim)' }}>
+                    {done ? <Check size={13} /> : n}
+                  </div>
+                  {sd.level === 'login' && banksAt(sd.loginStage).length > 0 && (
+                    <span title={`${banksAt(sd.loginStage).length} bank(s): ${banksAt(sd.loginStage).join(', ')}`}
+                      className="absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 rounded-full flex items-center justify-center text-[9px] font-bold"
+                      style={{ backgroundColor: '#3B82F6', color: '#fff', border: '1.5px solid var(--glass-panel-bg)' }}>
+                      {banksAt(sd.loginStage).length}
+                    </span>
+                  )}
                 </div>
                 <span className="text-[9px] font-semibold text-center leading-tight"
                   style={{ color: active || selected ? '#C9A961' : 'var(--text-muted)' }}>{sd.label}</span>

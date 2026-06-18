@@ -50,12 +50,17 @@ export default defineConfig({
       output: {
         // Split heavy vendor libraries into their own long-cached chunks so the
         // main entry stays small and route chunks (see router.tsx) load on demand.
+        // NOTE: jspdf is deliberately NOT manual-chunked. As a static (object-form)
+        // manual chunk it was emitted as a <link modulepreload> in the entry HTML
+        // and preheated on every load (~134 kB br) though it's only used by lazy
+        // PDF routes (payslips/letters/MIS payouts/offboarding/…). Left to Rollup,
+        // jspdf is hoisted into a shared ASYNC chunk loaded on demand by those
+        // routes — never on the home/module-picker critical path.
         manualChunks: {
           // Firestore is the bulk of the SDK — give it its own chunk so the rest
           // of Firebase (needed at login) stays small and loads first.
           'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/storage'],
           'vendor-firestore': ['firebase/firestore'],
-          'vendor-pdf': ['jspdf', 'jspdf-autotable'],
           'vendor-ui': ['motion', 'lucide-react'], // project uses `motion`, not framer-motion
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
         },

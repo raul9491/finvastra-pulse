@@ -365,4 +365,9 @@ export const router = createBrowserRouter([
       { path: 'admin/statement-templates', element: s(<StatementTemplatesPage />) },
     ],
   },
+  // Legacy / mistyped deep links → the canonical module path (don't hit the error boundary).
+  { path: '/hr', element: <Navigate to="/hrms/dashboard" replace />, errorElement: <RouteErrorBoundary /> },
+  { path: '/hr/*', element: <Navigate to="/hrms/dashboard" replace />, errorElement: <RouteErrorBoundary /> },
+  // Catch-all — any unknown path goes home instead of showing "Something went wrong".
+  { path: '*', element: <Navigate to="/" replace />, errorElement: <RouteErrorBoundary /> },
 ]);

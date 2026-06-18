@@ -41,6 +41,14 @@ export function RouteErrorBoundary() {
   const error = useRouteError();
   const chunkError = isChunkLoadError(error);
 
+  // Log the underlying error so route failures are diagnosable (the default
+  // boundary swallowed it). Skip the benign stale-deploy chunk case below.
+  useEffect(() => {
+    if (!chunkError) {
+      console.error('[RouteError]', window.location.pathname, error);
+    }
+  }, [chunkError, error]);
+
   // Stale-deploy auto-recovery: hard refresh once. The guard is cleared on any
   // successful lazy load (see lazyPage in router.tsx), so each new deploy gets
   // one fresh attempt without ever looping.

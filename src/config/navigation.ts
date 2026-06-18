@@ -173,6 +173,7 @@ export const NAV_NODES: NavNode[] = [
   { key: 'mis.cases-mis',         label: 'MIS',                 route: '/mis/cases-mis',              module: 'mis', icon: 'BarChart3',       group: 'MIS',       access: misAll, end: true },
   { key: 'mis.recon',             label: 'Reconciliation',      route: '/mis/recon',                  module: 'mis', icon: 'GitMerge',        group: 'MIS',       access: misAll, end: true },
   { key: 'mis.payout-cycles',     label: 'Payout Cycles',       route: '/mis/payout-cycles',          module: 'mis', icon: 'IndianRupee',     group: 'MIS',       access: misAll },
+  { key: 'mis.learn',             label: 'Learn',               route: '/mis/learn',                  module: 'mis', icon: 'GraduationCap',   group: 'MIS',       access: misAll, end: true, keywords: ['guide', 'tour'] },
   { key: 'mis.overview',          label: 'Overview',            route: '/mis/overview',               module: 'mis', icon: 'BarChart3',       group: 'Archive · old MIS', access: misAdmin },
   { key: 'mis.statements',        label: 'Statements',          route: '/mis/statements',             module: 'mis', icon: 'FileText',        group: 'Archive · old MIS', access: misAdmin },
   { key: 'mis.reconciliation',    label: 'Reconciliation (old)',route: '/mis/reconciliation',         module: 'mis', icon: 'GitMerge',        group: 'Archive · old MIS', access: misAdmin },
@@ -223,6 +224,14 @@ const NAV_ICONS: Record<string, LucideIcon> = {
 export function resolveNavIcon(name: string): LucideIcon {
   return NAV_ICONS[name] ?? FileText;
 }
+
+// `data-tour` anchors the first-run guided tours target (src/features/learn).
+// Kept here so the unified sidebar can stamp them on the right nav rows.
+export const NODE_DATA_TOUR: Record<string, string> = {
+  'crm.dashboard': 'crm-dashboard', 'crm.customers': 'crm-customers', 'crm.targets': 'crm-targets', 'crm.team': 'crm-team',
+  'hrms.attendance': 'hrms-attendance', 'hrms.leave': 'hrms-leave', 'hrms.payslips': 'hrms-payslips', 'hrms.claims': 'hrms-claims', 'hrms.announcements': 'hrms-announcements', 'hrms.guide': 'learn',
+  'mis.cases-mis': 'mis-overview', 'mis.recon': 'mis-reconciliation', 'mis.statements': 'mis-statements', 'mis.disputes': 'mis-disputes', 'mis.payouts': 'mis-payouts', 'mis.learn': 'learn',
+};
 
 // ── Selectors ──────────────────────────────────────────────────────────────────
 /** All nodes the user is allowed to see (any module). */

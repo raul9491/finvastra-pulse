@@ -20,6 +20,8 @@ import { ThemeToggle, useTheme } from '../ui/ThemeProvider';
 import { UserMenu } from '../ui/UserMenu';
 import { AppsMenu } from '../ui/AppsMenu';
 import { CommandPalette, CommandSearchButton } from '../ui/CommandPalette';
+import { ModuleSidebar } from './ModuleSidebar';
+import { buildNavCtx } from '../../config/navigation';
 import { SharePageButton } from '../ui/SharePageButton';
 import { MobileTabBar, type MobileTab } from '../ui/MobileTabBar';
 import { SharedNavSection, locationCoveredByShares } from './SharedNavSection';
@@ -237,6 +239,7 @@ export function CrmShell() {
   };
 
   const pageTitle = resolveCrmTitle(location.pathname);
+  const navCtx = buildNavCtx(user, profile);
 
   const initials = profile?.displayName
     ? profile.displayName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
@@ -261,73 +264,18 @@ export function CrmShell() {
           />
         </>
       ) : (
-        /* Full CRM nav — regrouped: Dashboard · Workspace · Pipeline · Team · Admin */
+        /* Full CRM nav — unified registry-driven sidebar (Phase 2) */
         <>
-          {/* Dashboard — top, ungrouped (existing CRM dashboard; merge with CRM 2.0
-              Dashboards is a Phase-2+ content task per business doc) */}
-          <NavItemLive entry={{ path: '/crm/dashboard', label: 'Dashboard', icon: LayoutDashboard, live: true, end: true, dataTour: 'crm-dashboard' }} isActive={location.pathname === '/crm/dashboard'} />
-
-          {/* WORKSPACE — Tasks (My Queue + Meetings) + Targets */}
-          <NavGroup title="Workspace">
-            <NavItemLive entry={{ path: '/crm/tasks', label: 'Tasks', icon: ListChecks, live: true, end: true, badge: isGenerator ? queueOverdue : 0 }} isActive={location.pathname === '/crm/tasks'} />
-            <NavItemLive entry={{ path: '/crm/targets', label: 'Targets', icon: Target, live: true, end: true, badge: targetMissing ? 1 : 0, dataTour: 'crm-targets' }} isActive={location.pathname === '/crm/targets'} />
-          </NavGroup>
-
-          {/* Customers — cold-lead dump (manual + social/website auto-route) */}
-          <NavItemLive entry={{ path: '/crm/leads', label: 'Customers', icon: TrendingUp, live: true, end: false, dataTour: 'crm-customers' }} isActive={location.pathname.startsWith('/crm/leads')} />
-
-          {/* PIPELINE (CRM 2.0): Leads · Clients · Cases. NOTHING LOCKED. */}
-          {(() => {
-            const perms = (profile as { perms?: Record<string, boolean> } | null)?.perms ?? {};
-            const showLeads = isAdmin || perms['crm.leads.read'] === true;
-            const showClients = isAdmin || perms['crm.leads.read'] === true || perms['crm.cases.read'] === true;
-            const showCases = isAdmin || perms['crm.cases.read'] === true;
-            if (!showLeads && !showClients && !showCases) return null;
-            return (
-              <NavGroup title="Pipeline">
-                {showLeads && (
-                  <NavItemLive entry={{ path: '/crm/pipeline/leads', label: 'Leads', icon: Inbox, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/leads'} />
-                )}
-                {showClients && (
-                  <NavItemLive entry={{ path: '/crm/pipeline/clients', label: 'Clients', icon: Building2, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/clients'} />
-                )}
-                {showCases && (
-                  <NavItemLive entry={{ path: '/crm/pipeline/cases', label: 'Cases', icon: Briefcase, live: true, end: true }} isActive={location.pathname.startsWith('/crm/pipeline/cases')} />
-                )}
-              </NavGroup>
-            );
-          })()}
-
-          {/* TEAMS — managers / admins */}
-          {(isAdmin || isManager || canImport) && (
-            <NavGroup title="Teams">
-              {(isManager || isAdmin) && (
-                <NavItemLive entry={{ path: '/crm/team', label: 'My Team', icon: UsersRound, live: true, end: true, dataTour: 'crm-team' }} isActive={location.pathname === '/crm/team'} />
-              )}
-              {(isAdmin || isManager) && (
-                <NavItemLive entry={{ path: '/crm/reports/aging', label: 'Reports', icon: BarChart3, live: true, end: true }} isActive={location.pathname === '/crm/reports/aging'} />
-              )}
-              {canImport && (
-                <NavItemLive entry={{ path: '/crm/import', label: 'Import', icon: Upload, live: true, end: true }} isActive={location.pathname === '/crm/import'} />
-              )}
-              {canImport && (
-                <NavItemLive entry={{ path: '/crm/import/queue', label: 'Import Queue', icon: PackageOpen, live: true, end: true, badge: queueAwaiting }} isActive={location.pathname === '/crm/import/queue'} />
-              )}
-            </NavGroup>
-          )}
-
-          {/* ADMIN — Masters + Permissions + config (admin only, collapsed) */}
-          {isAdmin && (
-            <NavGroup title="Admin" defaultOpen={false}>
-              <NavItemLive entry={{ path: '/crm/pipeline/masters', label: 'Masters', icon: Settings, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/masters'} />
-              <NavItemLive entry={{ path: '/crm/pipeline/permissions', label: 'Permissions', icon: User, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/permissions'} />
-              <NavItemLive entry={{ path: '/crm/pipeline/dashboards', label: 'CRM 2.0 Dashboards', icon: LayoutDashboard, live: true, end: true }} isActive={location.pathname === '/crm/pipeline/dashboards'} />
-              {ADMIN_NAV.map((entry) => (
-                <NavItemLive key={entry.path} entry={entry} isActive={location.pathname === entry.path} />
-              ))}
-            </NavGroup>
-          )}
-
+          <ModuleSidebar
+            module="crm"
+            navCtx={navCtx}
+            pathname={location.pathname}
+            itemBadges={{
+              '/crm/tasks': isGenerator ? queueOverdue : 0,
+              '/crm/targets': targetMissing ? 1 : 0,
+              '/crm/import/queue': queueAwaiting,
+            }}
+          />
           {/* Phase P — full-access user who ALSO holds shares (edge case) */}
           <SharedNavSection shares={crmShares} />
         </>

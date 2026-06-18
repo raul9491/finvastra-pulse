@@ -233,7 +233,8 @@ service cloud.firestore {
           'displayName', 'photoURL', 'location',
           'leaveBalance', 'hasCalendarAccess',
           'mustResetPassword',  // employee clears this after setting their own password
-          'onboarding'          // first-run tour-seen flags (self-marked per module)
+          'onboarding',         // first-run tour-seen flags (self-marked per module)
+          'uiPrefs'             // Phase 6: pinned pages + open sidebar sections (cross-device)
         ])) ||
         // Admin can update any user field, but:
         // (a) crmRole/convertorVertical must be a valid pair

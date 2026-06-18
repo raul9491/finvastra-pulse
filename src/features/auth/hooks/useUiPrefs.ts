@@ -38,9 +38,30 @@ function load(): Prefs {
 let state: Prefs = load();
 const listeners = new Set<() => void>();
 
+// ── Optional cross-device mirror (Phase 6) ──────────────────────────────────
+// localStorage stays the instant, offline-safe primary; when a signed-in writer
+// is registered we ALSO mirror to /users/{uid}.uiPrefs. The JSON-equality guard
+// in hydrateUiPrefsFromCloud prevents a write→snapshot→hydrate loop.
+let cloudWrite: ((p: Prefs) => void) | null = null;
+export function registerUiPrefsCloud(write: ((p: Prefs) => void) | null) { cloudWrite = write; }
+
+/** Adopt a remote prefs doc (another device, or this device's first cloud load). */
+export function hydrateUiPrefsFromCloud(remote: Partial<Prefs> | null | undefined) {
+  if (!remote) return;
+  const merged: Prefs = {
+    pins: Array.isArray(remote.pins) ? remote.pins : state.pins,
+    openSections: remote.openSections && typeof remote.openSections === 'object' ? remote.openSections : state.openSections,
+  };
+  if (JSON.stringify(merged) === JSON.stringify(state)) return; // no change → no loop
+  state = merged;
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* ignore */ }
+  listeners.forEach((l) => l());
+}
+
 function commit(next: Prefs) {
   state = next;
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* full / private mode */ }
+  cloudWrite?.(state);
   listeners.forEach((l) => l());
 }
 function subscribe(l: () => void) { listeners.add(l); return () => { listeners.delete(l); }; }

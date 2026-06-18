@@ -101,6 +101,8 @@ export interface UserProfile {
   // guided tour. Self-writable (rules) so it persists per-user across devices;
   // the Learn tab can always replay regardless of this flag.
   onboarding?: { hrms?: boolean; crm?: boolean; mis?: boolean };
+  // Phase 6 — cross-device UI prefs (pinned nav pages + open sidebar sections).
+  uiPrefs?: { pins?: string[]; openSections?: Record<string, string[]> };
   createdAt?: import('firebase/firestore').Timestamp;
 }
 

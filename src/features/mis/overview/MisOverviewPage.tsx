@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
+import { PageHeader } from '../../../components/ui/primitives';
 import { useMisOverview } from '../hooks/useMisOverview';
 import { usePayoutSlabs, seedDefaultSlabs } from '../hooks/usePayouts';
 import type { CommissionStatement, RmPayout, CommissionRecord } from '../../../types';
@@ -136,25 +137,19 @@ export function MisOverviewPage() {
     <div className="max-w-6xl mx-auto px-4 py-8">
 
       {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div>
-          <h1
-            className="text-3xl mb-1"
-            style={{ fontFamily: 'Fraunces, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}
-          >
-            Management Information System
-          </h1>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Commission reconciliation and RM payout overview.
-          </p>
-        </div>
-        <input
-          type="month"
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-          className="glass-inp text-sm"
-        />
-      </div>
+      <PageHeader
+        title="Management Information System"
+        subtitle="Commission reconciliation and RM payout overview."
+        pinKey="mis.overview"
+        actions={
+          <input
+            type="month"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="glass-inp text-sm"
+          />
+        }
+      />
 
       {/* ── Tab strip ── */}
       <div className="flex gap-1 rounded-lg p-1 mb-6 w-fit"

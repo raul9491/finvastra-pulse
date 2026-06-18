@@ -4,6 +4,7 @@
 // All theme-aware (CSS vars only); no business logic.
 
 import type { ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { PinButton } from './PinButton';
@@ -59,11 +60,13 @@ export function Section({ label, action, children, className }: {
 }
 
 // ── StatCard — unified KPI card (replaces the duplicated CRM/HRMS versions) ────
-export function StatCard({ icon, label, value, sub, accent, color, onClick, loading }: {
+export function StatCard({ icon, label, value, sub, accent, color, onClick, link, loading }: {
   icon?: ReactNode; label: string; value: ReactNode; sub?: ReactNode;
-  accent?: string; color?: string; onClick?: () => void; loading?: boolean;
+  accent?: string; color?: string; onClick?: () => void; link?: string; loading?: boolean;
 }) {
+  const navigate = useNavigate();
   const a = color ?? accent ?? '#C9A961';   // `color` alias keeps existing call sites working
+  const handleClick = onClick ?? (link ? () => navigate(link) : undefined);
   const inner = (
     <div className="glass-panel glass-card p-5 h-full transition-all group-hover:shadow-md" style={{ borderRadius: 'var(--radius-lg)' }}>
       <div className="flex items-center justify-between mb-3">
@@ -72,7 +75,7 @@ export function StatCard({ icon, label, value, sub, accent, color, onClick, load
             {icon}
           </div>
         )}
-        {onClick && <ChevronRight size={14} style={{ color: 'var(--text-dim)' }} className="group-hover:opacity-80 transition-opacity" />}
+        {handleClick && <ChevronRight size={14} style={{ color: 'var(--text-dim)' }} className="group-hover:opacity-80 transition-opacity" />}
       </div>
       <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
       {loading
@@ -81,8 +84,8 @@ export function StatCard({ icon, label, value, sub, accent, color, onClick, load
       {sub && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
     </div>
   );
-  return onClick
-    ? <button onClick={onClick} className="group text-left w-full">{inner}</button>
+  return handleClick
+    ? <button onClick={handleClick} className="group text-left w-full">{inner}</button>
     : <div className="group">{inner}</div>;
 }
 

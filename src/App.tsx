@@ -1,5 +1,6 @@
 import { RouterProvider } from 'react-router-dom';
 import { AuthProvider } from './features/auth/AuthContext';
+import { UiPrefsCloudSync } from './features/auth/UiPrefsCloudSync';
 import { ToastProvider } from './components/ui/Toast';
 import { ThemeProvider } from './components/ui/ThemeProvider';
 import { OfflineIndicator } from './components/ui/OfflineIndicator';
@@ -11,6 +12,8 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
+        {/* Phase 6 — mirror pinned pages / open sections to the user doc (cross-device) */}
+        <UiPrefsCloudSync />
         {/* First-run guided tours — renders a spotlight overlay above everything */}
         <TourProvider>
           <ToastProvider>

@@ -11,6 +11,7 @@ import {
 import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
+import { StatCard, PageHeader } from '../../../components/ui/primitives';
 import { useMyAttendance } from '../hooks/useAttendance';
 import { useMyLeaveBalance, usePendingApprovals } from '../hooks/useLeave';
 import { useHolidays, seedHolidays2026 } from '../hooks/useHolidays';
@@ -477,34 +478,6 @@ function AnnouncementBanner({
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
 
-function StatCard({
-  icon, label, value, sub, accent, link, loading,
-}: {
-  icon: React.ReactNode; label: string; value: React.ReactNode; sub?: string;
-  accent?: string; link: string; loading?: boolean;
-}) {
-  const navigate = useNavigate();
-  return (
-    <button onClick={() => navigate(link)}
-      className="group w-full text-left glass-panel glass-card p-6 transition-all">
-      <div className="flex items-center justify-between mb-4">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961' }}>
-          {icon}
-        </div>
-        <ChevronRight size={14} style={{ color: 'var(--text-dim)' }} className="group-hover:opacity-70 transition-opacity" />
-      </div>
-      <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
-      {loading ? (
-        <div className="h-8 w-24 rounded animate-pulse" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
-      ) : (
-        <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
-      )}
-      {sub && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
-    </button>
-  );
-}
-
 // ─── Leave balance mini-bars ──────────────────────────────────────────────────
 
 function LeaveCard({ loading, balance }: {
@@ -903,20 +876,20 @@ export function HrmsDashboardPage() {
   return (
     <div className="max-w-5xl mx-auto">
       {/* Greeting */}
-      <div className="mb-6">
-        <h2 className="text-4xl mb-1"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-          {profile?.displayName ? greeting(profile.displayName) : 'Welcome back.'}
-        </h2>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          {format(today, 'EEEE, dd MMMM yyyy')}
-          {myPendingLeave > 0 && (
-            <span className="ml-3 inline-flex items-center gap-1" style={{ color: '#C9A961' }}>
-              <AlertCircle size={12} /> {myPendingLeave} leave application{myPendingLeave > 1 ? 's' : ''} pending
-            </span>
-          )}
-        </p>
-      </div>
+      <PageHeader
+        title={profile?.displayName ? greeting(profile.displayName) : 'Welcome back.'}
+        pinKey="hrms.dashboard"
+        subtitle={
+          <>
+            {format(today, 'EEEE, dd MMMM yyyy')}
+            {myPendingLeave > 0 && (
+              <span className="ml-3 inline-flex items-center gap-1" style={{ color: '#C9A961' }}>
+                <AlertCircle size={12} /> {myPendingLeave} leave application{myPendingLeave > 1 ? 's' : ''} pending
+              </span>
+            )}
+          </>
+        }
+      />
 
       {/* Quick Actions — pinned at top below greeting */}
       <div className="glass-panel p-4 mb-6">
@@ -957,7 +930,7 @@ export function HrmsDashboardPage() {
           label="Attendance this month"
           value={`${presentDays + halfDays} / ${workingDays}`}
           sub={halfDays > 0 ? `${presentDays} full · ${halfDays} half-day` : 'working days present'}
-          accent="#0B1538"
+          accent="#5B9BD5"
           link="/hrms/attendance"
           loading={attLoading}
         />
@@ -970,7 +943,7 @@ export function HrmsDashboardPage() {
           sub={latestPayslip
             ? new Date(latestPayslip.month + '-01').toLocaleString('en-IN', { month: 'long', year: 'numeric' })
             : 'No payslips yet'}
-          accent="#166534"
+          accent="#34A853"
           link="/hrms/payslips"
           loading={payLoading}
         />

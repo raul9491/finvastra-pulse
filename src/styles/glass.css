@@ -95,6 +95,20 @@ input, select, textarea {
   --shell-hover-mid:      rgba(255,255,255,0.07); /* header button hover               */
   --shell-hover-hard:     rgba(255,255,255,0.10); /* stronger hover (white/10)         */
 
+  /* ── Design scale (Phase 4 overhaul) — ADDITIVE. Existing vars untouched. ──
+     A tier between primary and muted, plus shared radius / elevation / focus
+     scales so cards + headers stop being ad-hoc. Radii are theme-independent
+     (defined once); text/elevation/focus get a light-mode override below. */
+  --text-secondary: rgba(240,236,224,0.72);
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+  --elev-1: 0 1px 2px rgba(0,0,0,0.18);
+  --elev-2: 0 10px 30px rgba(0,0,0,0.30);
+  --elev-3: 0 24px 64px rgba(0,0,0,0.44);
+  --ring-focus: 0 0 0 3px rgba(201,169,97,0.28);
+
   /* Tell the browser to render native form controls in dark style */
   color-scheme: dark;
 }
@@ -141,6 +155,7 @@ body {
 
 .glass-card {
   position: relative;
+  box-shadow: var(--elev-1);   /* subtle lift on feature cards (Phase 4) */
 }
 .glass-card::before {
   content: '';
@@ -154,6 +169,15 @@ body {
   border-radius: 16px 16px 0 0;
   pointer-events: none;
 }
+
+/* ─── Phase 4 primitives helpers (opt-in) ─────────────────
+   .glass-elevated  — a glass-panel with a soft elevation shadow (use on the
+                      cards that should "lift" off the page, not every panel).
+   .h-display       — the Fraunces editorial display face (titles).
+   .h-section       — small uppercase section label. */
+.glass-elevated { box-shadow: var(--elev-2); }
+.h-display { font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 300; line-height: 1.1; }
+.h-section { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.22em; color: var(--text-dim); }
 
 /* ─── Entry animations ────────────────────────────────── */
 
@@ -444,6 +468,13 @@ body.light-mode {
   --shell-hover-soft:     rgba(0,0,0,0.04);
   --shell-hover-mid:      rgba(0,0,0,0.05);
   --shell-hover-hard:     rgba(0,0,0,0.07);
+
+  /* Design scale — light-mode overrides (radii are theme-independent) */
+  --text-secondary: rgba(26,26,26,0.72);
+  --elev-1: 0 1px 2px rgba(11,21,56,0.06);
+  --elev-2: 0 10px 30px rgba(11,21,56,0.10);
+  --elev-3: 0 24px 64px rgba(11,21,56,0.16);
+  --ring-focus: 0 0 0 3px rgba(201,169,97,0.32);
 
   /* Native form controls: light style */
   color-scheme: light;

@@ -11,6 +11,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useLeads } from '../hooks/useLeads';
 import { useCommissionRecords } from '../hooks/useCommissionRecords';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
+import { StatCard, PageHeader } from '../../../components/ui/primitives';
 import { CommissionDashboardCard } from '../commissions/CommissionDashboardCard';
 import type { Lead, LeadSource, CommissionRecord, UserProfile } from '../../../types';
 
@@ -75,40 +76,6 @@ function useOpenOppsStats() {
 }
 
 // ─── StatCard ─────────────────────────────────────────────────────────────────
-
-function StatCard({
-  icon, label, value, sub, color, onClick, loading,
-}: {
-  icon: React.ReactNode; label: string; value: string | number; sub?: string;
-  color: string; onClick?: () => void; loading?: boolean;
-}) {
-  const inner = (
-    <div className="glass-panel glass-card p-5 h-full transition-all group-hover:shadow-md">
-      <div className="flex items-center justify-between mb-3">
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-          style={{ backgroundColor: color + '22', color }}>
-          {icon}
-        </div>
-        {onClick && (
-          <ChevronRight size={14} style={{ color: 'var(--text-dim)' }} className="group-hover:opacity-80 transition-opacity" />
-        )}
-      </div>
-      <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
-      {loading
-        ? <div className="h-7 w-16 my-0.5 animate-pulse rounded-md" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
-        : <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>}
-      {sub && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
-    </div>
-  );
-  if (onClick) {
-    return (
-      <button onClick={onClick} className="group text-left w-full">
-        {inner}
-      </button>
-    );
-  }
-  return <div>{inner}</div>;
-}
 
 // ─── BizLineCard ──────────────────────────────────────────────────────────────
 
@@ -416,16 +383,11 @@ export function CrmDashboardPage() {
     <div className="max-w-5xl mx-auto space-y-6">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div>
-        <h2 className="text-3xl mb-1"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-          CRM Overview
-        </h2>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          {format(new Date(), 'MMMM yyyy')}
-          {!loading && ` · ${leadStats.total} leads`}
-        </p>
-      </div>
+      <PageHeader
+        title="CRM Overview"
+        subtitle={`${format(new Date(), 'MMMM yyyy')}${!loading ? ` · ${leadStats.total} leads` : ''}`}
+        pinKey="crm.dashboard"
+      />
 
       {/* ════════════════════════════════════════════════════════════════════
           ADMIN / MANAGER VIEW

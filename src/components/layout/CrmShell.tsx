@@ -31,19 +31,6 @@ import { useAutoStartTour } from '../../features/learn/useTour';
 
 type NavEntry = { path: string; label: string; icon: ElementType; live: boolean; end?: boolean; badge?: number; dataTour?: string };
 
-// Admin nav (super-admin / admin). Legacy old-CRM config pages (Commission Slabs,
-// Providers & SLA, Document Types, Eligibility Rules, Rate Memory) were removed
-// from the sidebar 2026-06-15 per the business doc — CRM 2.0 Masters supersedes
-// them. Their routes remain (old CRM still reads that config) but are unlisted.
-const ADMIN_NAV: NavEntry[] = [
-  { path: '/crm/import/history',                label: 'Import History',      icon: Clock,    live: true, end: true },
-  { path: '/crm/admin/commission-leakage',     label: 'Commission Leakage',  icon: Settings, live: true, end: true },
-  { path: '/crm/admin/competitor-intelligence',label: 'Competitor Intel',    icon: Settings, live: true, end: true },
-  { path: '/crm/admin/referrers',              label: 'Referral Intel',      icon: Settings, live: true, end: true },
-  { path: '/crm/admin/access-logs',            label: 'Access Logs',         icon: Settings, live: true, end: true },
-  { path: '/crm/admin/right-to-be-forgotten',  label: 'Right to Erasure',    icon: Settings, live: true, end: true },
-  { path: '/crm/admin/webhooks',               label: 'Webhooks',            icon: Webhook,  live: true, end: true },
-];
 
 function resolveCrmTitle(pathname: string): string {
   if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
@@ -131,27 +118,6 @@ function NavItemLive({ entry, isActive }: { entry: NavEntry; isActive: boolean }
   );
 }
 
-// Collapsible nav group — section header that toggles its children. Keeps the
-// CRM sidebar tidy: daily Workspace open, Admin & Config collapsed by default.
-function NavGroup({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: ReactNode }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-3 pt-4 pb-2 nav-item-hover rounded-lg"
-      >
-        <span className="text-[9px] font-bold uppercase tracking-[0.3em]" style={{ color: 'var(--shell-text-dim)' }}>{title}</span>
-        <ChevronDown
-          size={12}
-          className="shrink-0 transition-transform"
-          style={{ color: 'var(--shell-text-dim)', transform: open ? 'none' : 'rotate(-90deg)' }}
-        />
-      </button>
-      {open && <div className="space-y-0.5">{children}</div>}
-    </div>
-  );
-}
 
 export function CrmShell() {
   const { user, profile, loading } = useAuth();

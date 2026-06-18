@@ -1,9 +1,10 @@
 import { Navigate, useNavigate, Link } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
-import { Users, TrendingUp, BarChart3, ArrowRight, LogOut, Command, Share2, GraduationCap } from 'lucide-react';
+import { Users, TrendingUp, BarChart3, ArrowRight, LogOut, Command, Share2, GraduationCap, Search } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../auth/AuthContext';
 import { VideoLogo } from '../../components/ui/VideoLogo';
+import { CommandPalette, openCommandPalette } from '../../components/ui/CommandPalette';
 import { useMyShares } from '../auth/hooks/useMyShares';
 import { isSuperAdmin } from '../../config/hrmsConfig';
 
@@ -163,6 +164,18 @@ export function LauncherPage() {
             <p style={{ color: 'var(--text-muted)' }}>Select a module to get started.</p>
           </div>
 
+          {/* Global search — jump straight to any page or action (⌘K) */}
+          <div className="mb-10 flex justify-center">
+            <button
+              onClick={openCommandPalette}
+              className="w-full max-w-md flex items-center gap-2.5 px-4 py-3 rounded-xl transition-colors hover:bg-(--shell-hover-soft)"
+              style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid var(--shell-border)', color: 'var(--text-muted)' }}>
+              <Search size={17} />
+              <span className="flex-1 text-left text-sm">Search pages &amp; actions…</span>
+              <kbd className="hidden sm:inline text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ color: 'var(--text-dim)', border: '1px solid var(--shell-border)' }}>⌘K</kbd>
+            </button>
+          </div>
+
           {/* Module tiles */}
           {(() => {
             const tileCount = [showCommand, showHrms, showCrm, showMis, showLms].filter(Boolean).length;
@@ -237,6 +250,9 @@ export function LauncherPage() {
           )}
         </div>
       </main>
+
+      {/* Global ⌘K command palette */}
+      <CommandPalette />
     </div>
   );
 }

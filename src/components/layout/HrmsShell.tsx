@@ -20,6 +20,7 @@ import { NotificationBell } from '../ui/NotificationBell';
 import { ThemeToggle, useTheme } from '../ui/ThemeProvider';
 import { UserMenu } from '../ui/UserMenu';
 import { AppsMenu } from '../ui/AppsMenu';
+import { CommandPalette, CommandSearchButton } from '../ui/CommandPalette';
 import { SharePageButton } from '../ui/SharePageButton';
 import { MobileTabBar } from '../ui/MobileTabBar';
 import { SharedNavSection, locationCoveredByShares } from './SharedNavSection';
@@ -791,6 +792,7 @@ export function HrmsShell() {
 
           {/* Right: share + notifications + user menu */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <CommandSearchButton />
             <SharePageButton pageKey={resolvePageKey(location.pathname, location.search)} />
             <ThemeToggle />
             {user && <NotificationBell uid={user.uid} />}
@@ -840,6 +842,9 @@ export function HrmsShell() {
           onMenu={() => setMobileNavOpen(true)}
         />
       )}
+
+      {/* Global ⌘K command palette */}
+      <CommandPalette />
     </div>
   );
 }

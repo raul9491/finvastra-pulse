@@ -19,17 +19,18 @@ export async function updateProfile(
 }
 
 // ─── Hook: useAllEmployees ────────────────────────────────────────────────────
-export function useAllEmployees(): { employees: UserProfile[]; loading: boolean } {
+export function useAllEmployees(enabled = true): { employees: UserProfile[]; loading: boolean } {
   const [employees, setEmployees] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!enabled) { setLoading(false); return; }
     const q = query(collection(db, 'users'), limit(200));
     return onSnapshot(q, (snap) => {
       setEmployees(snap.docs.map((d) => d.data() as UserProfile));
       setLoading(false);
     });
-  }, []);
+  }, [enabled]);
 
   return { employees, loading };
 }

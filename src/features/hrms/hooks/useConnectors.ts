@@ -11,11 +11,12 @@ import type {
 
 // ─── Connectors list ──────────────────────────────────────────────────────────
 
-export function useConnectors() {
+export function useConnectors(enabled = true) {
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!enabled) { setLoading(false); return; }
     const unsub = onSnapshot(
       collection(db, 'connectors'),
       (snap) => {
@@ -29,7 +30,7 @@ export function useConnectors() {
       () => setLoading(false),
     );
     return unsub;
-  }, []);
+  }, [enabled]);
 
   return { connectors, loading };
 }

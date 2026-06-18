@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Finvastra Pulse</title>
     <link rel="icon" type="image/png" href="/favicon.png" />
+    <!-- Fonts: warm the connection + fetch in PARALLEL with the app CSS. Previously
+         loaded via @import inside the bundled CSS (serial: CSS → parse → fetch fonts),
+         which delayed the first text paint (LCP). display=swap keeps text visible. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,100..900,0..100;1,9..144,100..900,0..100&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" />
     <script>
       // Apply the saved theme BEFORE first paint. Without this, light-mode
       // users see a dark flash on every load/refresh (ThemeProvider only

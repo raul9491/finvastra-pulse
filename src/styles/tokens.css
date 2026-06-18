@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,100..900,0..100;1,9..144,100..900,0..100&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
+/* Google Fonts are loaded via a parallel <link rel="stylesheet"> in index.html
+   (preconnect-warmed) — NOT an @import here, which would serialise the fetch
+   behind the bundled CSS and delay the first text paint (LCP). */
 
 :root {
   --navy:        #0B1538;

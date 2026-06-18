@@ -35,14 +35,15 @@ const fmtTs = (t: { toDate?: () => Date } | null | undefined) =>
   t?.toDate ? t.toDate().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
 const inr = (n: number | null | undefined) => n != null ? `₹${Number(n).toLocaleString('en-IN')}` : '—';
 
-function useSubcollection<T>(path: string[], orderField?: string) {
+function useSubcollection<T>(path: string[], orderField?: string, enabled = true) {
   const [rows, setRows] = useState<Array<T & { id: string }>>([]);
   useEffect(() => {
+    if (!enabled) return;
     const ref = collection(db, path[0], ...path.slice(1));
     const q = orderField ? fsQuery(ref, orderBy(orderField, 'asc')) : ref;
     return onSnapshot(q, (snap) => setRows(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as T & { id: string })),
       () => { /* permission-denied tolerated */ });
-  }, [path.join('/'), orderField]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [path.join('/'), orderField, enabled]); // eslint-disable-line react-hooks/exhaustive-deps
   return rows;
 }
 
@@ -58,17 +59,33 @@ export function CaseWorkspacePage() {
   // view = a pipeline stage number (1..10) or a cross-cutting glance tab; null = follow the active stage.
   type GlanceTab = 'details' | 'collab' | 'clientid' | 'history';
   const [view, setView] = useState<number | GlanceTab | null>(null);
-  const { employees } = useAllEmployees();
 
-  const applicants = useSubcollection<Applicant>(['cases', caseId!, 'applicants']);
-  const logins = useSubcollection<Login>(['cases', caseId!, 'logins'], 'seq');
-  const tracker = useSubcollection<DocTrackerRow>(['cases', caseId!, 'docTracker']);
-  const history = useSubcollection<StageHistoryEntry>(['cases', caseId!, 'stageHistory'], 'at');
-  const vaultDocs = useSubcollection<VaultDoc>(client ? ['clients', client.id, 'vaultDocs'] : ['clients', '_none', 'vaultDocs']);
-  const { rows: docDefs } = useCrm2Collection<WithId<DocumentDef>>('documentMaster');
-  const { rows: lenders } = useCrm2Collection<WithId<Lender>>('lenders');
-  const { rows: aggregators } = useCrm2Collection<WithId<Aggregator>>('aggregators');
-  const { connectors } = useConnectors();   // HRMS Sub-DSAs (FAC-)
+  // Lazy-load: subscribe to a master/subcollection only when the active view needs
+  // it (cuts mount-time Firestore contention — perf, no behaviour change; each view
+  // gets its data the moment it's opened). Eager: caseDoc/client/mirror (header) +
+  // logins + lenders (the stepper badges + tooltips need them on every view).
+  const stage = caseDoc?.stage as string | undefined;
+  const defStageN = stage === 'OPENED' ? 1 : stage === 'BASIC_DOCS' ? 2 : stage === 'DOCS' ? 3
+    : (stage === 'COMPLETED' || stage === 'CLOSED') ? 10 : 4;   // IN_PROGRESS → login zone
+  const shownN = typeof view === 'number' ? view : view == null ? defStageN : 0;
+  const shownTab = typeof view === 'string' ? view : null;
+  const needApplicants = shownN === 1 || shownN === 3;     // Stage 1 (Opened) + Stage 3 (applicantName)
+  const needDocs = shownN === 3;                            // docTracker + vaultDocs + documentMaster
+  const needHistory = shownTab === 'history';
+  const needRouting = shownTab === 'details';               // aggregators + connectors pickers
+  const needEmployees = shownTab === 'collab';
+
+  const { employees } = useAllEmployees(needEmployees);
+
+  const applicants = useSubcollection<Applicant>(['cases', caseId!, 'applicants'], undefined, needApplicants);
+  const logins = useSubcollection<Login>(['cases', caseId!, 'logins'], 'seq');   // eager — stepper badges
+  const tracker = useSubcollection<DocTrackerRow>(['cases', caseId!, 'docTracker'], undefined, needDocs);
+  const history = useSubcollection<StageHistoryEntry>(['cases', caseId!, 'stageHistory'], 'at', needHistory);
+  const vaultDocs = useSubcollection<VaultDoc>(client ? ['clients', client.id, 'vaultDocs'] : ['clients', '_none', 'vaultDocs'], undefined, needDocs);
+  const { rows: docDefs } = useCrm2Collection<WithId<DocumentDef>>('documentMaster', needDocs);
+  const { rows: lenders } = useCrm2Collection<WithId<Lender>>('lenders');   // eager — badge tooltips + details/logins
+  const { rows: aggregators } = useCrm2Collection<WithId<Aggregator>>('aggregators', needRouting);
+  const { connectors } = useConnectors(needRouting);   // HRMS Sub-DSAs (FAC-)
 
   const canWrite = hasCrm2Perm(profile, 'crm.cases.write');
   const canSeeMoney = hasCrm2Perm(profile, 'payout.amounts.read');

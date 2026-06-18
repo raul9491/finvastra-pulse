@@ -27,13 +27,16 @@ export async function apiCrm2<T = { ok: boolean; id?: string }>(
   return data as T;
 }
 
-/** Live subscription to a whole (small) master collection, sorted by doc id. */
-export function useCrm2Collection<T extends { id: string }>(name: string) {
+/** Live subscription to a whole (small) master collection, sorted by doc id.
+ *  Pass `enabled=false` to defer the listener until the data is actually needed
+ *  (cuts mount-time Firestore contention on pages that only use it on a sub-view). */
+export function useCrm2Collection<T extends { id: string }>(name: string, enabled = true) {
   const [rows, setRows] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (!enabled) { setLoading(false); return; }
     return onSnapshot(
       collection(db, name),
       (snap) => {
@@ -44,7 +47,7 @@ export function useCrm2Collection<T extends { id: string }>(name: string) {
       },
       (e) => { setError(e.message); setLoading(false); },
     );
-  }, [name]);
+  }, [name, enabled]);
 
   return { rows, loading, error };
 }

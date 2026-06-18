@@ -106,12 +106,14 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
         const terminal = l.stage === 'COMPLETED';
         const accent = terminal ? (l.outcome === 'REJECTED' || l.outcome === 'WITHDRAWN' ? '#f87171' : '#34d399') : '#C9A961';
         return (
-          <div key={l.id} className="glass-panel p-4 pl-5 space-y-3 relative overflow-hidden">
-            {/* state accent bar */}
-            <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: accent }} />
+          <div key={l.id} className="rounded-xl border overflow-hidden relative"
+            style={{ borderColor: 'var(--shell-border)', backgroundColor: 'var(--glass-panel-bg)', boxShadow: '0 1px 3px rgba(0,0,0,0.18)' }}>
+            {/* state accent bar — spans the whole block */}
+            <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ backgroundColor: accent }} />
 
-            {/* Card header */}
-            <div className="flex flex-wrap items-start justify-between gap-2">
+            {/* Card header strip */}
+            <div className="flex flex-wrap items-start justify-between gap-2 px-4 py-3 pl-5"
+              style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-secondary)' }}>#{l.seq}</span>
@@ -155,6 +157,8 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
               )}
             </div>
 
+            {/* Body */}
+            <div className="p-4 pl-5 space-y-3">
             {/* Stage progress line — dots connected, current ringed (hover a dot for its name) */}
             <div className="flex items-center gap-3">
               <div className="flex items-center flex-1 min-w-0">
@@ -207,6 +211,7 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
                 {(l.secured?.isSecured) && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961' }}>Secured</span>}
               </div>
             )}
+            </div>
           </div>
         );
       })}

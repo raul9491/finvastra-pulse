@@ -434,6 +434,14 @@ function EditProfileModal({ profile, userId, userDetails, sensitiveData, onSave,
   const [salaryMedical,   setSalaryMedical]     = useState(num2str(sensitiveData?.salaryMedical));
   const [salaryOther,     setSalaryOther]       = useState(num2str(sensitiveData?.salaryOther));
 
+  // Identity + work fields live on the /users doc (admin-editable). Editable here
+  // so a bootstrapped account (whose /users doc lacks name/code/dept/designation —
+  // e.g. an admin created via Google first-login) can be completed in place.
+  const [displayName,  setDisplayName]  = useState(profile.displayName ?? '');
+  const [employeeCode, setEmployeeCode] = useState(profile.employeeId ?? '');
+  const [department,   setDepartment]   = useState(profile.department ?? '');
+  const [designation,  setDesignation]  = useState(profile.designation ?? '');
+
   const computedGross =
     (Number(salaryBasic) || 0) + (Number(salaryHra) || 0) +
     (Number(salaryConveyance) || 0) + (Number(salaryMedical) || 0) + (Number(salaryOther) || 0);
@@ -451,9 +459,16 @@ function EditProfileModal({ profile, userId, userDetails, sensitiveData, onSave,
       }
       const num = (s: string) => { const n = Number(s); return isNaN(n) || !s ? undefined : n; };
 
-      // User doc update is now minimal — just the updatedAt timestamp if anything changed
-      await updateDoc(doc(db, 'users', userId), { updatedAt: serverTimestamp() });
-      onSave({});
+      // Identity + work details → /users (admin path). Empty-omit pattern: a
+      // blank field never wipes existing data; a non-empty one backfills it.
+      const userPatch: Record<string, unknown> = { updatedAt: serverTimestamp() };
+      if (displayName.trim())  userPatch.displayName = displayName.trim();
+      if (employeeCode.trim()) userPatch.employeeId  = employeeCode.trim();
+      if (department.trim())   userPatch.department  = department.trim();
+      if (designation.trim())  userPatch.designation = designation.trim();
+      await updateDoc(doc(db, 'users', userId), userPatch);
+      const { updatedAt: _omitTs, ...profileEcho } = userPatch;
+      onSave(profileEcho as Partial<UserProfile>);
 
       // Personal details → /user_details (admin/HR-only)
       const detailsUpdates: UserDetails = {
@@ -508,6 +523,26 @@ function EditProfileModal({ profile, userId, userDetails, sensitiveData, onSave,
         </div>
 
         <div className="overflow-y-auto px-6 py-4 space-y-3 flex-1">
+          {sHead('Work Details')}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--shell-text-dim)' }}>Full Name</label>
+              <input className={inp} value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="e.g. Rahul Vijay Wargia" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--shell-text-dim)' }}>Employee Code</label>
+              <input className={inp} value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} placeholder="e.g. FAPL-022" />
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--shell-text-dim)' }}>Department</label>
+              <input className={inp} value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Technology" />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--shell-text-dim)' }}>Designation</label>
+              <input className={inp} value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="e.g. Tech & Builder" />
+            </div>
+          </div>
+
           {sHead('Contact')}
           <div className="grid grid-cols-2 gap-3">
             <div>

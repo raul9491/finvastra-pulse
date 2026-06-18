@@ -29,6 +29,11 @@ function loadRecents(): string[] {
   try { const v = JSON.parse(localStorage.getItem(RECENTS_KEY) ?? '[]'); return Array.isArray(v) ? v : []; }
   catch { return []; }
 }
+
+/** Recently-visited registry keys (newest first). Reused by the launcher. */
+export function getCommandRecents(): string[] {
+  return loadRecents();
+}
 function pushRecent(key: string) {
   const next = [key, ...loadRecents().filter((k) => k !== key)].slice(0, MAX_RECENTS);
   try { localStorage.setItem(RECENTS_KEY, JSON.stringify(next)); } catch { /* storage full / private mode */ }

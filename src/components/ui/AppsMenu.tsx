@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { Users, TrendingUp, BarChart3, LayoutGrid, ChevronRight, Check, Command, GraduationCap } from 'lucide-react';
 import type { UserProfile } from '../../types';
+import { MODULE_ACCENTS } from '../../config/navigation';
 
 interface AppsMenuProps {
   profile:       UserProfile | null;
@@ -22,7 +23,7 @@ const MODULES = [
     icon:   Users,
     path:   '/hrms/dashboard',
     desc:   'Employees · leave · payslips',
-    accent: '#C9A961',
+    accent: MODULE_ACCENTS.hrms,
     check:  (p: UserProfile | null) => p?.role === 'admin' || p?.hrmsAccess !== false,
   },
   {
@@ -31,7 +32,7 @@ const MODULES = [
     icon:   TrendingUp,
     path:   '/crm/dashboard',
     desc:   'Pipeline · commissions',
-    accent: '#5B9BD5',
+    accent: MODULE_ACCENTS.crm,
     check:  (p: UserProfile | null) => p?.role === 'admin' || p?.crmAccess === true,
   },
   {
@@ -40,7 +41,7 @@ const MODULES = [
     icon:   BarChart3,
     path:   '/mis/overview',
     desc:   'Reconciliation · payouts',
-    accent: '#4FB286',
+    accent: MODULE_ACCENTS.mis,
     check:  (p: UserProfile | null) => p?.role === 'admin' || p?.misAccess != null,
   },
   {
@@ -49,7 +50,7 @@ const MODULES = [
     icon:   Command,
     path:   '/command',
     desc:   'Oversight · compliance',
-    accent: '#C9A961',
+    accent: MODULE_ACCENTS.command,
     check:  (p: UserProfile | null) => p?.role === 'admin' || p?.commandCentreAccess === true || p?.isHrmsManager === true || p?.crmRole === 'manager',
   },
   {
@@ -58,7 +59,7 @@ const MODULES = [
     icon:   GraduationCap,
     path:   '/lms',
     desc:   'Guides · tours · training',
-    accent: '#8B5CF6',
+    accent: MODULE_ACCENTS.lms,
     check:  () => true,
   },
 ];

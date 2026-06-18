@@ -3,6 +3,29 @@ import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, addDoc, updateDoc, collection, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 import type { UserProfile } from '../../types';
+import { SUPER_ADMIN_PROFILES } from '../../config/hrmsConfig';
+
+// Auto-heal a founding super-admin whose bootstrapped /users doc is missing the
+// HRMS identity fields (name shows the email prefix, blank employee code/dept).
+// Writes ONLY the missing canonical fields via the admin path (super admins are
+// admins). Idempotent — once filled the condition is false, so it never loops.
+async function healSuperAdminProfile(uid: string, existing: UserProfile): Promise<UserProfile> {
+  const canon = SUPER_ADMIN_PROFILES[uid];
+  if (!canon) return existing;
+  const patch: Record<string, string> = {};
+  const emailPrefix = existing.email?.split('@')[0];
+  if (!existing.displayName || existing.displayName === emailPrefix) patch.displayName = canon.displayName;
+  if (!existing.employeeId)  patch.employeeId  = canon.employeeId;
+  if (!existing.department)   patch.department   = canon.department;
+  if (!existing.designation)  patch.designation  = canon.designation;
+  if (Object.keys(patch).length === 0) return existing;
+  try {
+    await updateDoc(doc(db, 'users', uid), patch);
+    return { ...existing, ...patch } as UserProfile;
+  } catch {
+    return existing; // non-fatal — the user can still set these via "Edit details"
+  }
+}
 
 // ─── Session timeout ──────────────────────────────────────────────────────────
 // 30 minutes of inactivity → automatic sign-out.
@@ -184,7 +207,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const refreshed = await getDoc(ref);
             setState({ user, profile: refreshed.exists() ? (refreshed.data() as UserProfile) : existing, loading: false, authError: '' });
           } else {
-            setState({ user, profile: existing, loading: false, authError: '' });
+            const healed = await healSuperAdminProfile(user.uid, existing);
+            setState({ user, profile: healed, loading: false, authError: '' });
           }
         }
 

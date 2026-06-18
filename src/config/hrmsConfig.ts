@@ -125,6 +125,19 @@ export const SUPER_ADMIN_LABELS: Record<string, string> = {
   '5lAbJ4CZ5uM0LbU4gUYItNRAlEn2': 'Tech & Builder',
 };
 
+// Canonical identity for the founding super-admins. These accounts were created
+// by bootstrap / Google first-login WITHOUT the HRMS employee fields, so their
+// /users docs show the email prefix as the name and blank work details. We
+// auto-heal them on profile load (AuthContext) from this map so they never have
+// to hand-enter their own identity. They can still override via "Edit details".
+export const SUPER_ADMIN_PROFILES: Record<string, {
+  employeeId: string; displayName: string; department: string; designation: string;
+}> = {
+  '3zdX5QBnTbQAcTdLzUjfXxefP8r2': { employeeId: 'FAPL-000', displayName: 'Ajay Newatia',        department: 'Management', designation: 'Co-Founder & Director' },
+  'ZmZaciATPDYBb1O2blYWBjjbzMv1': { employeeId: 'FAPL-003', displayName: 'Kumar Mangalam',      department: 'Management', designation: 'Director — Operations' },
+  '5lAbJ4CZ5uM0LbU4gUYItNRAlEn2': { employeeId: 'FAPL-022', displayName: 'Rahul Vijay Wargia',  department: 'Technology', designation: 'Director — Technology' },
+};
+
 // Phase P: a user is a super admin if they're in the hardcoded list OR their
 // user doc carries superAdmin:true (set by the in-app Promote flow). The doc
 // flag lets the CLIENT recognise promoted SAs without a redeploy; Firestore

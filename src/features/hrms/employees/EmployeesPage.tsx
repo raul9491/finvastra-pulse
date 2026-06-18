@@ -70,6 +70,8 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
   const [crmCanImport,      setCrmCanImport]      = useState<boolean>(employee.crmCanImport ?? false);
   const [isHrmsManager,     setIsHrmsManager]     = useState<boolean>(employee.isHrmsManager ?? false);
   const [misAccess,         setMisAccess]         = useState<MisAccess | null>(employee.misAccess ?? null);
+  const [displayName,       setDisplayName]       = useState<string>(employee.displayName ?? '');
+  const [employeeCode,      setEmployeeCode]      = useState<string>(employee.employeeId ?? '');
   const [department,        setDepartment]        = useState<string>(employee.department ?? '');
   const [designation,       setDesignation]       = useState<string>(employee.designation ?? '');
   const [reportingMgrUid,   setReportingMgrUid]   = useState<string>(
@@ -112,6 +114,10 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
         crmCanImport,
         isHrmsManager,
         misAccess:          misAccess ?? null,
+        // Identity backfill — empty value never overwrites (e.g. bootstrapped
+        // super-admin accounts created without displayName/employeeId).
+        ...(displayName.trim()  ? { displayName: displayName.trim() } : {}),
+        ...(employeeCode.trim() ? { employeeId:  employeeCode.trim() } : {}),
         ...(department  ? { department }  : {}),
         ...(designation ? { designation } : {}),
         ...(reportingMgrUid
@@ -163,6 +169,15 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
         <div className="pt-1 border-t border-(--shell-border)">
           <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>Profile</p>
           <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Full Name</label>
+              <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={sel} placeholder="e.g. Rahul Vijay Wargia" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Employee Code</label>
+              <input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} className={sel} placeholder="e.g. FAPL-022" />
+              <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>Keys the employee&apos;s HR profile record. Leave as-is unless it&apos;s missing.</p>
+            </div>
             <div>
               <label className="block text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Department</label>
               <select value={department} onChange={(e) => setDepartment(e.target.value)} className={sel}>

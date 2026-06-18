@@ -955,7 +955,7 @@ export function HrmsDashboardPage() {
         <StatCard
           icon={<Clock size={18} />}
           label="Attendance this month"
-          value={attLoading ? '…' : `${presentDays + halfDays} / ${workingDays}`}
+          value={`${presentDays + halfDays} / ${workingDays}`}
           sub={halfDays > 0 ? `${presentDays} full · ${halfDays} half-day` : 'working days present'}
           accent="#0B1538"
           link="/hrms/attendance"
@@ -966,7 +966,7 @@ export function HrmsDashboardPage() {
         <StatCard
           icon={<Receipt size={18} />}
           label="Latest Payslip"
-          value={payLoading ? '…' : latestPayslip ? `₹${latestPayslip.netPay.toLocaleString('en-IN')}` : '—'}
+          value={latestPayslip ? `₹${latestPayslip.netPay.toLocaleString('en-IN')}` : '—'}
           sub={latestPayslip
             ? new Date(latestPayslip.month + '-01').toLocaleString('en-IN', { month: 'long', year: 'numeric' })
             : 'No payslips yet'}

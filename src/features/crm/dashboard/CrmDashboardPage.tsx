@@ -77,10 +77,10 @@ function useOpenOppsStats() {
 // ─── StatCard ─────────────────────────────────────────────────────────────────
 
 function StatCard({
-  icon, label, value, sub, color, onClick,
+  icon, label, value, sub, color, onClick, loading,
 }: {
   icon: React.ReactNode; label: string; value: string | number; sub?: string;
-  color: string; onClick?: () => void;
+  color: string; onClick?: () => void; loading?: boolean;
 }) {
   const inner = (
     <div className="glass-panel glass-card p-5 h-full transition-all group-hover:shadow-md">
@@ -94,7 +94,9 @@ function StatCard({
         )}
       </div>
       <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-muted)' }}>{label}</p>
-      <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
+      {loading
+        ? <div className="h-7 w-16 my-0.5 animate-pulse rounded-md" style={{ backgroundColor: 'var(--shell-hover-hard)' }} />
+        : <p className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>}
       {sub && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
     </div>
   );
@@ -353,12 +355,23 @@ export function CrmDashboardPage() {
 
   // ── Lead-level stats ──────────────────────────────────────────────────────
   const leadStats = useMemo(() => {
-    const active = leads.filter((l) => !l.deleted);
+    // "Active" = non-deleted leads still in an OPEN, actionable state. Leads with
+    // a closing disposition (or converted) drop out — they're done, not pending
+    // work. This is why the old count read in the thousands: it summed the entire
+    // /leads inventory (incl. the closed + bulk-imported backlog).
+    const CLOSED_DISPOSITIONS = new Set<string>(['not_interested', 'no_response', 'wrong_number', 'converted']);
+    const active = leads.filter((l) =>
+      !l.deleted && !(l.leadStatus && CLOSED_DISPOSITIONS.has(l.leadStatus)));
     const newThisMonth = active.filter((l) => {
       const d = (l.createdAt as { toDate?: () => Date } | null)?.toDate?.()?.getTime();
       return d !== undefined && d >= monthStart;
     }).length;
+    // Overdue = an OWNED, open lead whose SLA has lapsed — the genuinely
+    // actionable "needs follow-up" figure. Undistributed import backlog
+    // (primaryOwnerId 'UNASSIGNED') is excluded: it isn't yet anyone's follow-up
+    // to be late on; it surfaces on the Import Queue, not the dashboard.
     const overdueSla = active.filter((l) => {
+      if (!l.primaryOwnerId || l.primaryOwnerId === 'UNASSIGNED') return false;
       const ms = typeof (l.slaDeadline as { toDate?: () => Date } | null)?.toDate === 'function'
         ? (l.slaDeadline as { toDate: () => Date }).toDate().getTime()
         : null;
@@ -410,8 +423,7 @@ export function CrmDashboardPage() {
         </h2>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           {format(new Date(), 'MMMM yyyy')}
-          {' · '}
-          {loading ? 'Loading…' : `${leadStats.total} leads`}
+          {!loading && ` · ${leadStats.total} leads`}
         </p>
       </div>
 
@@ -426,7 +438,8 @@ export function CrmDashboardPage() {
             <StatCard
               icon={<Users size={16} />}
               label="Total Leads"
-              value={loading ? '…' : leadStats.total}
+              value={leadStats.total}
+              loading={loading}
               sub="all active leads"
               color="#60a5fa"
               onClick={() => navigate('/crm/leads')}
@@ -434,14 +447,16 @@ export function CrmDashboardPage() {
             <StatCard
               icon={<TrendingUp size={16} />}
               label="New This Month"
-              value={loading ? '…' : leadStats.newThisMonth}
+              value={leadStats.newThisMonth}
+              loading={loading}
               sub={format(new Date(), 'MMMM yyyy')}
               color="#34d399"
             />
             <StatCard
               icon={<AlertTriangle size={16} />}
               label="SLA Overdue"
-              value={loading ? '…' : leadStats.overdueSla}
+              value={leadStats.overdueSla}
+              loading={loading}
               sub={leadStats.overdueSla > 0 ? 'need follow-up' : 'all within SLA'}
               color={leadStats.overdueSla > 0 ? '#f87171' : '#34d399'}
               onClick={leadStats.overdueSla > 0 ? () => navigate('/crm/leads') : undefined}
@@ -449,7 +464,8 @@ export function CrmDashboardPage() {
             <StatCard
               icon={<IndianRupee size={16} />}
               label="Open Pipeline"
-              value={oppsLoading ? '…' : fmtRupees(bizLine.total.value)}
+              value={fmtRupees(bizLine.total.value)}
+              loading={oppsLoading}
               sub={`${bizLine.total.count} open deal${bizLine.total.count !== 1 ? 's' : ''}`}
               color="#C9A961"
               onClick={() => navigate('/crm/pipeline')}
@@ -556,7 +572,8 @@ export function CrmDashboardPage() {
             <StatCard
               icon={<Users size={16} />}
               label="My Leads"
-              value={loading ? '…' : leadStats.total}
+              value={leadStats.total}
+              loading={loading}
               sub="total assigned"
               color="#60a5fa"
               onClick={() => navigate('/crm/leads')}
@@ -564,7 +581,8 @@ export function CrmDashboardPage() {
             <StatCard
               icon={<Target size={16} />}
               label="Open Deals"
-              value={oppsLoading ? '…' : myOpps.length}
+              value={myOpps.length}
+              loading={oppsLoading}
               sub="active opportunities"
               color="#C9A961"
               onClick={() => navigate('/crm/pipeline')}
@@ -572,7 +590,8 @@ export function CrmDashboardPage() {
             <StatCard
               icon={<AlertTriangle size={16} />}
               label="SLA Overdue"
-              value={loading ? '…' : leadStats.overdueSla}
+              value={leadStats.overdueSla}
+              loading={loading}
               sub={leadStats.overdueSla > 0 ? 'need follow-up' : 'all within SLA'}
               color={leadStats.overdueSla > 0 ? '#f87171' : '#34d399'}
               onClick={leadStats.overdueSla > 0 ? () => navigate('/crm/leads') : undefined}
@@ -580,7 +599,8 @@ export function CrmDashboardPage() {
             <StatCard
               icon={<IndianRupee size={16} />}
               label="My Pipeline"
-              value={oppsLoading ? '…' : fmtRupees(myOpps.reduce((s, o) => s + (o.dealSize || 0), 0))}
+              value={fmtRupees(myOpps.reduce((s, o) => s + (o.dealSize || 0), 0))}
+              loading={oppsLoading}
               sub="open deal value"
               color="#34d399"
             />

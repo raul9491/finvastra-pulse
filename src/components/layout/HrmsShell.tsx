@@ -17,7 +17,7 @@ import { useAuth } from '../../features/auth/AuthContext';
 import { isSuperAdmin } from '../../config/hrmsConfig';
 import { VideoLogo } from '../ui/VideoLogo';
 import { NotificationBell } from '../ui/NotificationBell';
-import { ThemeToggle } from '../ui/ThemeProvider';
+import { ThemeToggle, useTheme } from '../ui/ThemeProvider';
 import { UserMenu } from '../ui/UserMenu';
 import { AppsMenu } from '../ui/AppsMenu';
 import { SharePageButton } from '../ui/SharePageButton';
@@ -348,6 +348,7 @@ function FullPageLoader() {
 
 export function HrmsShell() {
   const { user, profile, loading } = useAuth();
+  const { theme } = useTheme();   // wordmark needs dark text on the light-mode header
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -719,7 +720,7 @@ export function HrmsShell() {
       >
         {/* Logo */}
         <div className="h-16 flex items-center px-4 shrink-0" style={{ borderBottom: '1px solid var(--shell-border)' }}>
-          <VideoLogo size="xs" showText={true} />
+          <VideoLogo size="xs" showText={true} dark={theme === 'light'} />
         </div>
 
         {navSearchBox}
@@ -749,7 +750,7 @@ export function HrmsShell() {
             >
               {/* Logo + close button */}
               <div className="h-16 flex items-center justify-between px-4 shrink-0" style={{ borderBottom: '1px solid var(--shell-border)' }}>
-                <VideoLogo size="xs" showText={true} />
+                <VideoLogo size="xs" showText={true} dark={theme === 'light'} />
                 <button
                   onClick={() => setMobileNavOpen(false)}
                   className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard) transition-colors"

@@ -16,7 +16,7 @@ import { useImportHistory } from '../../features/crm/hooks/useImportJobs';
 import { ImportProgressDock } from '../../features/crm/import/ImportProgressDock';
 import { VideoLogo } from '../ui/VideoLogo';
 import { NotificationBell } from '../ui/NotificationBell';
-import { ThemeToggle } from '../ui/ThemeProvider';
+import { ThemeToggle, useTheme } from '../ui/ThemeProvider';
 import { UserMenu } from '../ui/UserMenu';
 import { AppsMenu } from '../ui/AppsMenu';
 import { SharePageButton } from '../ui/SharePageButton';
@@ -152,6 +152,7 @@ function NavGroup({ title, defaultOpen = true, children }: { title: string; defa
 
 export function CrmShell() {
   const { user, profile, loading } = useAuth();
+  const { theme } = useTheme();   // wordmark needs dark text on the light-mode header
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -360,7 +361,7 @@ export function CrmShell() {
       <nav className="hidden md:flex md:flex-col w-60 shrink-0 glass-sidebar">
 
         <div className="h-16 flex items-center px-4 shrink-0" style={{ borderBottom: '1px solid var(--shell-border)' }}>
-          <VideoLogo size="xs" showText={true} />
+          <VideoLogo size="xs" showText={true} dark={theme === 'light'} />
         </div>
 
         <div className="px-5 pt-5 pb-3">
@@ -392,7 +393,7 @@ export function CrmShell() {
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             >
               <div className="h-16 flex items-center justify-between px-4 shrink-0" style={{ borderBottom: '1px solid var(--shell-border)' }}>
-                <VideoLogo size="xs" showText={true} />
+                <VideoLogo size="xs" showText={true} dark={theme === 'light'} />
                 <button
                   onClick={() => setMobileNavOpen(false)}
                   className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard) transition-colors"

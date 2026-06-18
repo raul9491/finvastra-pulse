@@ -12,7 +12,7 @@ import { MobileTabBar } from '../ui/MobileTabBar';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { VideoLogo } from '../ui/VideoLogo';
-import { ThemeToggle } from '../ui/ThemeProvider';
+import { ThemeToggle, useTheme } from '../ui/ThemeProvider';
 import { UserMenu } from '../ui/UserMenu';
 import { AppsMenu } from '../ui/AppsMenu';
 import { SharePageButton } from '../ui/SharePageButton';
@@ -73,6 +73,7 @@ function FullPageLoader() {
 
 export function MisShell() {
   const { user, profile, loading } = useAuth();
+  const { theme } = useTheme();   // wordmark needs dark text on the light-mode header
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -129,8 +130,11 @@ export function MisShell() {
     ? profile.displayName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
     : '?';
 
-  // Only show adminOnly items to mis admins (and platform admins)
-  const visibleNav = NAV.filter((entry) => !entry.adminOnly || isMisAdmin);
+  // Only show adminOnly items to mis admins (and platform admins). The legacy
+  // "Archive · old MIS" section (superseded by CRM 2.0) is hidden from regular
+  // users to cut clutter — its routes stay live for admins who need the history.
+  const visibleNav = NAV.filter((entry) =>
+    (!entry.adminOnly || isMisAdmin) && (entry.section !== 'archive' || isMisAdmin));
 
   // ── Shared nav scroll body ────────────────────────────────────────────────────
   const navBody = (
@@ -210,7 +214,7 @@ export function MisShell() {
       >
         {/* Logo */}
         <div className="h-16 flex items-center px-4 shrink-0" style={{ borderBottom: '1px solid var(--shell-border)' }}>
-          <VideoLogo size="xs" showText={true} />
+          <VideoLogo size="xs" showText={true} dark={theme === 'light'} />
         </div>
 
         {/* Module label */}
@@ -243,7 +247,7 @@ export function MisShell() {
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             >
               <div className="h-16 flex items-center justify-between px-4 shrink-0" style={{ borderBottom: '1px solid var(--shell-border)' }}>
-                <VideoLogo size="xs" showText={true} />
+                <VideoLogo size="xs" showText={true} dark={theme === 'light'} />
                 <button
                   onClick={() => setMobileNavOpen(false)}
                   className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard) transition-colors"

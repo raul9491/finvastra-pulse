@@ -2011,6 +2011,19 @@ With ⌘K + the unified sidebar live, deleted the redundant/dead code: HrmsShell
 - **Adoption (Phase 5 start)**: the **CRM dashboard** now uses `<PageHeader pinKey="crm.dashboard">` (header is pinnable) + the shared `StatCard` (its duplicated local copy removed). **HRMS/MIS dashboards keep their current headers** (HRMS is a deliberately larger personalised greeting; MIS's primary surface is `/mis/cases-mis`) — adopt the primitives there incrementally as those pages are next touched. No routes/rules/index change. tsc+build+hook-scan clean.
 - **Remaining: Phase 5 (further dashboard adoption of the primitives) · optional Phase 6 (cross-device pins via a one-line rules deploy).** The structural + navigational overhaul (Phases 1–4) is complete and live.
 
+### Phase 5 ✅ DEPLOYED (2026-06-18, hosting-only, verify:deploy 3/3) — dashboards adopt the primitives
+- **HRMS dashboard**: greeting header → `<PageHeader pinKey="hrms.dashboard">` (now pinnable); the duplicated **local StatCard removed** for the shared primitive (which gained an optional `link` prop so `link=`/`onClick=` both work). The 2 stat accents switched off the **dark-invisible navy/dark-green** (`#0B1538`/`#166534`, which the old local card silently ignored) to theme-safe **blue/green** (`#5B9BD5`/`#34A853`) now that the shared card honours `accent`.
+- **MIS overview**: header → `<PageHeader pinKey="mis.overview">` with the month picker as the `actions` slot.
+- CRM dashboard already adopted in Phase 4. No routes/rules/index change. tsc+build clean.
+
+### Phase 6 ✅ DEPLOYED (2026-06-18) — cross-device pins (the overhaul's only rules change)
+Pinned pages + open sidebar sections now follow the user across devices. **`deploy:rules` → verify → hosting** (new ruleset `76097565…` bound to `pulse`, verify:deploy 3/3).
+- `src/features/auth/hooks/useUiPrefs.ts` — `commit()` now also calls a registered `cloudWrite`; `localStorage` stays the instant, offline-safe primary. **`hydrateUiPrefsFromCloud(remote)`** adopts another device's prefs with a **JSON-equality guard** → loop-safe (our own write returns via the profile snapshot, compares equal, no-op).
+- NEW **`src/features/auth/UiPrefsCloudSync.tsx`** (mounted once in `App.tsx` inside `AuthProvider`) — registers a writer that `updateDoc(users/{uid}, {uiPrefs})` while signed in, and hydrates from the live `profile.uiPrefs` snapshot.
+- `UserProfile.uiPrefs?` added (`{pins?, openSections?}`); **`firestore.rules` `/users` self-update allowlist gains `'uiPrefs'`** (precedent: `onboarding`). This is the ONLY rules change across the whole UI/UX overhaul.
+
+**UI/UX OVERHAUL COMPLETE — all 6 phases live** (command palette · unified sidebar+pins · launcher redesign · design tokens+primitives · dashboard adoption · cross-device pins).
+
 ### Render-performance fix — LCP render-delay (2026-06-18, hosting-only)
 A DevTools trace flagged **LCP ≈ 1.7 s, 99.7 % render DELAY** on a CRM list page (the `h2.text-3xl` header), main-thread long tasks + layout thrash. An earlier "perf audit" only checked **bundle size** (small) and missed the real RENDER drivers. Fixes (presentation/loading-only — **no logic/rules/data change**):
 - **Fonts (biggest, zero-risk):** Google Fonts were loaded via **`@import` inside the bundled CSS** (serial: download CSS → parse → fetch fonts) with **no preconnect**. Moved to a **parallel `<link rel="stylesheet">` in `index.html` `<head>`** + `<link rel="preconnect">` to `fonts.googleapis.com`/`fonts.gstatic.com`; removed the `@import` from `src/styles/tokens.css`. The font now fetches in parallel on a warmed connection; `display=swap` (kept) keeps text visible. Helps text paint on **every** page.

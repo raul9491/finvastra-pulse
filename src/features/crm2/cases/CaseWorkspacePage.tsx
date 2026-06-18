@@ -116,6 +116,21 @@ export function CaseWorkspacePage() {
     catch (e) { toast.error(e instanceof Error ? e.message : 'Update failed'); }
   };
 
+  // Active banks (logins) currently sitting at each login stage — drives the
+  // per-stage notification badges (count) + the bank-name tooltip. MUST be
+  // declared before the early return below so the hook order stays stable
+  // across the loading → loaded transition (React error #310 otherwise).
+  const activeBanksByStage = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const l of logins) {
+      if (l.outcome === 'REJECTED' || l.outcome === 'WITHDRAWN') continue;
+      const names = m.get(l.stage) ?? [];
+      names.push(lenders.find((x) => x.id === l.lenderId)?.name ?? (l.lenderId ?? 'Bank'));
+      m.set(l.stage, names);
+    }
+    return m;
+  }, [logins, lenders]);
+
   if (!caseDoc) {
     return <div className="glass-panel p-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Loading case…</div>;
   }
@@ -138,18 +153,6 @@ export function CaseWorkspacePage() {
     ? CASE_LEVEL_STAGE_ORDER[caseIdxNow + 1] : null;
   const canManageCollab = canWrite && (profile?.role === 'admin' || profile?.crmRole === 'manager' || caseDoc.handlingRm === profile?.employeeId);
 
-  // Active banks (logins) currently sitting at each login stage — drives the
-  // per-stage notification badges (count) + the bank-name tooltip.
-  const activeBanksByStage = useMemo(() => {
-    const m = new Map<string, string[]>();
-    for (const l of logins) {
-      if (l.outcome === 'REJECTED' || l.outcome === 'WITHDRAWN') continue;
-      const names = m.get(l.stage) ?? [];
-      names.push(lenders.find((x) => x.id === l.lenderId)?.name ?? (l.lenderId ?? 'Bank'));
-      m.set(l.stage, names);
-    }
-    return m;
-  }, [logins, lenders]);
   const totalActiveBanks = logins.filter((l) => l.outcome !== 'REJECTED' && l.outcome !== 'WITHDRAWN').length;
   const banksAt = (s: string | undefined) => (s ? (activeBanksByStage.get(s) ?? []) : []);
 

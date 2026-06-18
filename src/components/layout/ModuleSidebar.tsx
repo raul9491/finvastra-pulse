@@ -25,11 +25,19 @@ const BADGE_STYLE: Record<BadgeColor, { bg: string; fg: string }> = {
   amber: { bg: 'rgba(217,119,6,0.20)',  fg: '#fbbf24' },
 };
 
+type BadgeValue = number | { count: number; color?: BadgeColor };
+function normBadge(v: BadgeValue | undefined): { count: number; color: BadgeColor } | null {
+  if (v === undefined) return null;
+  const count = typeof v === 'number' ? v : v.count;
+  if (!count || count <= 0) return null;
+  return { count, color: typeof v === 'number' ? 'red' : (v.color ?? 'red') };
+}
+
 export interface ModuleSidebarProps {
   module: ModuleKey;
   navCtx: NavAccessCtx;
   pathname: string;
-  itemBadges?: Record<string, number>;                                   // node.route -> count (red)
+  itemBadges?: Record<string, BadgeValue>;                               // node.route -> badge
   sectionBadges?: Record<string, { count: number; color?: BadgeColor }>; // group -> badge
   onNavigate?: () => void;                                               // close mobile drawer
 }
@@ -40,10 +48,11 @@ function isActive(pathname: string, node: NavNode): boolean {
 }
 
 function NavRow({ node, pathname, badge, onNavigate, tour = true }: {
-  node: NavNode; pathname: string; badge?: number; onNavigate?: () => void; tour?: boolean;
+  node: NavNode; pathname: string; badge?: BadgeValue; onNavigate?: () => void; tour?: boolean;
 }) {
   const Icon = resolveNavIcon(node.icon);
   const active = isActive(pathname, node);
+  const b = normBadge(badge);
   return (
     <div className="group/navrow relative">
       <NavLink
@@ -58,8 +67,8 @@ function NavRow({ node, pathname, badge, onNavigate, tour = true }: {
       >
         <Icon size={17} className="shrink-0" />
         <span className="text-sm flex-1 truncate">{node.label}</span>
-        {badge !== undefined && badge > 0 && (
-          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none" style={{ backgroundColor: 'rgba(248,113,113,0.20)', color: '#f87171' }}>{badge}</span>
+        {b && (
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none" style={{ backgroundColor: BADGE_STYLE[b.color].bg, color: BADGE_STYLE[b.color].fg }}>{b.count}</span>
         )}
         {/* reserve room for the hover pin so the label never sits under it */}
         <span className="w-5 shrink-0" aria-hidden />
@@ -71,7 +80,7 @@ function NavRow({ node, pathname, badge, onNavigate, tour = true }: {
 
 function Section({ module, group, nodes, pathname, itemBadges, badge, onNavigate }: {
   module: ModuleKey; group: string; nodes: NavNode[]; pathname: string;
-  itemBadges: Record<string, number>; badge?: { count: number; color?: BadgeColor }; onNavigate?: () => void;
+  itemBadges: Record<string, BadgeValue>; badge?: { count: number; color?: BadgeColor }; onNavigate?: () => void;
 }) {
   const { isGroupOpen, toggleGroup } = useUiPrefs();
   const hasActive = nodes.some((n) => isActive(pathname, n));

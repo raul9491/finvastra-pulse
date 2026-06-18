@@ -16,6 +16,8 @@ import { ThemeToggle, useTheme } from '../ui/ThemeProvider';
 import { UserMenu } from '../ui/UserMenu';
 import { AppsMenu } from '../ui/AppsMenu';
 import { CommandPalette, CommandSearchButton } from '../ui/CommandPalette';
+import { ModuleSidebar } from './ModuleSidebar';
+import { buildNavCtx } from '../../config/navigation';
 import { SharePageButton } from '../ui/SharePageButton';
 import { SharedNavSection, locationCoveredByShares } from './SharedNavSection';
 import { useMyShares } from '../../features/auth/hooks/useMyShares';
@@ -126,6 +128,7 @@ export function MisShell() {
   };
 
   const pageTitle = resolveMisTitle(location.pathname);
+  const navCtx = buildNavCtx(user, profile);
 
   const initials = profile?.displayName
     ? profile.displayName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
@@ -144,41 +147,14 @@ export function MisShell() {
         /* Phase P — share-only users see ONLY their shared pages */
         <SharedNavSection shares={misShares} />
       ) : (
+        /* Unified registry-driven sidebar (Phase 2) */
         <>
-          {visibleNav.map(({ path, label, icon: Icon, dataTour, section }, i) => {
-            const firstArchive = section === 'archive' && (i === 0 || visibleNav[i - 1].section !== 'archive');
-            return (
-              <div key={path}>
-                {firstArchive && (
-                  <p className="px-3 pt-4 pb-1.5 text-[9px] font-bold uppercase tracking-[0.28em]" style={{ color: 'var(--shell-text-dim)' }}>
-                    Archive · old MIS
-                  </p>
-                )}
-                <NavLink
-                  to={path}
-                  data-tour={dataTour}
-                  end
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 py-2.5 rounded-lg transition-colors ${isActive ? 'pl-2.5 border-l-2' : 'pl-3 nav-item-hover'}`
-                  }
-                  style={({ isActive }) =>
-                    isActive
-                      ? { backgroundColor: 'rgba(201,169,97,0.12)', color: '#C9A961', borderColor: '#C9A961' }
-                      : { color: 'var(--shell-text-secondary)' }
-                  }
-                >
-                  <Icon size={17} className="shrink-0" />
-                  <span className="text-sm flex-1">{label}</span>
-                  {path === '/mis/disputes' && openDisputes > 0 && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
-                      style={{ backgroundColor: 'rgba(248,113,113,0.18)', color: '#f87171' }}>
-                      {openDisputes}
-                    </span>
-                  )}
-                </NavLink>
-              </div>
-            );
-          })}
+          <ModuleSidebar
+            module="mis"
+            navCtx={navCtx}
+            pathname={location.pathname}
+            itemBadges={{ '/mis/disputes': openDisputes }}
+          />
           {/* Phase P — full-access user who ALSO holds shares (edge case) */}
           <SharedNavSection shares={misShares} />
         </>

@@ -21,6 +21,8 @@ import { ThemeToggle, useTheme } from '../ui/ThemeProvider';
 import { UserMenu } from '../ui/UserMenu';
 import { AppsMenu } from '../ui/AppsMenu';
 import { CommandPalette, CommandSearchButton } from '../ui/CommandPalette';
+import { ModuleSidebar } from './ModuleSidebar';
+import { buildNavCtx } from '../../config/navigation';
 import { SharePageButton } from '../ui/SharePageButton';
 import { MobileTabBar } from '../ui/MobileTabBar';
 import { SharedNavSection, locationCoveredByShares } from './SharedNavSection';
@@ -484,6 +486,43 @@ export function HrmsShell() {
   const dashboardBadge = unreadAnnouncements + undismissedBirthdays + undismissedAnniversaries;
   const onAccessRequestsPage = location.pathname === '/hrms/admin/access-requests';
 
+  // ── Badge maps for the unified ModuleSidebar (computed in-shell; same values as
+  //    the old hand-rolled nav) ───────────────────────────────────────────────
+  const navCtx = buildNavCtx(user, profile);
+  const hrmsSectionBadges = {
+    'My Work':            { count: pendingRegularizations, color: 'gold' as const },
+    'Company':            { count: unreadAnnouncements + holidayBadge + pendingAckCount, color: 'gold' as const },
+    'Growth':             { count: itDeclEmployeeBadge + selfAssessmentBadge + myTrainingBadge, color: 'gold' as const },
+    'Support':            { count: myOpenTickets, color: 'gold' as const },
+    'People':             { count: pendingRequests, color: 'red' as const },
+    'Time & Leave':       { count: pendingRegularizations + pendingEncashCount + leaveResetBadge, color: 'red' as const },
+    'Payroll & Finance':  { count: itDeclAdminBadge, color: 'red' as const },
+    'Performance':        { count: pendingReviewCount + trainingAdminBadge + openTicketCount, color: 'red' as const },
+    'Statutory':          { count: overdueCompliance, color: 'red' as const },
+    'Lifecycle':          { count: interviewBadge + onboardingBadge + probationBadge + offboardingBadge, color: 'amber' as const },
+  };
+  const hrmsItemBadges = {
+    '/hrms/dashboard':              { count: dashboardBadge, color: 'gold' as const },
+    '/hrms/documents':              { count: pendingAckCount, color: 'gold' as const },
+    '/hrms/announcements':          { count: unreadAnnouncements + holidayBadge, color: 'gold' as const },
+    '/hrms/it-declaration':         { count: itDeclEmployeeBadge, color: 'gold' as const },
+    '/hrms/performance':            { count: selfAssessmentBadge, color: 'gold' as const },
+    '/hrms/training':               { count: myTrainingBadge, color: 'gold' as const },
+    '/hrms/hr-helpdesk':            { count: myOpenTickets, color: 'gold' as const },
+    '/hrms/admin/access-requests':  { count: !onAccessRequestsPage ? pendingRequests : 0, color: 'red' as const },
+    '/hrms/admin/attendance':       { count: pendingRegularizations, color: 'red' as const },
+    '/hrms/leave/admin':            { count: pendingEncashCount, color: 'red' as const },
+    '/hrms/admin/leave-year-end':   { count: leaveResetBadge, color: 'red' as const },
+    '/hrms/admin/it-declarations':  { count: itDeclAdminBadge, color: 'red' as const },
+    '/hrms/admin/performance':      { count: pendingReviewCount, color: 'red' as const },
+    '/hrms/admin/training':         { count: trainingAdminBadge, color: 'red' as const },
+    '/hrms/admin/hr-helpdesk':      { count: openTicketCount, color: 'red' as const },
+    '/hrms/admin/recruitment':      { count: interviewBadge, color: 'gold' as const },
+    '/hrms/admin/onboarding':       { count: onboardingBadge, color: 'gold' as const },
+    '/hrms/admin/probation':        { count: probationBadge, color: 'amber' as const },
+    '/hrms/admin/offboarding':      { count: offboardingBadge, color: 'red' as const },
+  };
+
   const handleLogout = async () => {
     await signOut(auth);
     navigate('/login', { replace: true });
@@ -584,105 +623,13 @@ export function HrmsShell() {
         )
       ) : (
       <>
-      {/* Dashboard — always visible standalone */}
-      {navLink('/hrms/dashboard', 'Dashboard', LayoutDashboard, dashboardBadge)}
-
-      {/* ── Employee self-service groups ─────────────────────────── */}
-      <NavSection label="My Work" badge={pendingRegularizations} isOpen={openSections.has('My Work')} onToggle={() => toggleSection('My Work')}>
-        {navLink('/hrms/attendance',     'Attendance',    Clock,       0, 'gold', 'hrms-attendance')}
-        {navLink('/hrms/leave',          'Leave',         CalendarOff, 0, 'gold', 'hrms-leave')}
-        {navLink('/hrms/payslips',       'Payslips',      Receipt,     0, 'gold', 'hrms-payslips')}
-        {navLink('/hrms/claims',         'My Claims',     ReceiptText, 0, 'gold', 'hrms-claims')}
-      </NavSection>
-
-      <NavSection label="Company" badge={unreadAnnouncements + holidayBadge + pendingAckCount} isOpen={openSections.has('Company')} onToggle={() => toggleSection('Company')}>
-        {navLink('/hrms/directory',      'Directory',          BookUser, 0, 'gold', 'hrms-directory')}
-        {navLink('/hrms/documents',      'Documents',          FolderOpen,  pendingAckCount)}
-        {navLink('/hrms/announcements',  'Announcements',      Megaphone,   unreadAnnouncements + holidayBadge, 'gold', 'hrms-announcements')}
-        {navLink('/hrms/org-chart',      'Organisation Chart', Network)}
-      </NavSection>
-
-      <NavSection label="Growth" badge={itDeclEmployeeBadge + selfAssessmentBadge + myTrainingBadge} isOpen={openSections.has('Growth')} onToggle={() => toggleSection('Growth')}>
-        {navLink('/hrms/it-declaration', 'IT Declaration', FileSearch2, itDeclEmployeeBadge)}
-        {navLink('/hrms/performance',    'My Review',      TrendingUp,  selfAssessmentBadge)}
-        {navLink('/hrms/training',       'My Training',    BookOpen,    myTrainingBadge)}
-      </NavSection>
-
-      <NavSection label="Support" badge={myOpenTickets} isOpen={openSections.has('Support')} onToggle={() => toggleSection('Support')}>
-        {navLink('/hrms/hr-helpdesk', 'HR Helpdesk', LifeBuoy, myOpenTickets)}
-        {navLink('/hrms/guide',       'Pulse Guide', HelpCircle, 0, 'gold', 'learn')}
-        {navLink('/hrms/settings',    'Settings',    Settings)}
-      </NavSection>
-
-      {/* ── Admin sections ───────────────────────────────────────── */}
-      {(isAdmin || isHrmsManager) && (
-        <>
-          {/* Divider */}
-          <div className="mx-3 my-2" style={{ borderTop: '1px solid var(--shell-border)' }} />
-
-          {/* Super-admin tools — gold, only for the 3 SAs */}
-          {isSA && (
-            <>
-              {navLink('/hrms/admin/permissions', 'Permission Manager', Lock)}
-              {navLink('/hrms/admin/data-import',  'Data Import',        Database)}
-            </>
-          )}
-
-          <NavSection label="People" badge={pendingRequests} badgeColor="red" isOpen={openSections.has('People')} onToggle={() => toggleSection('People')}>
-            {navLink('/hrms/employees',             'Employees',       Users)}
-            {navLink('/hrms/admin/access-requests', 'Access Requests', Inbox, !onAccessRequestsPage ? pendingRequests : 0, 'red')}
-            {navLink('/hrms/admin/import-employees','Import Employees', UserPlus)}
-            {navLink('/hrms/admin/connectors',      'Sub DSA',         Handshake)}
-          </NavSection>
-
-          <NavSection label="Time & Leave" badge={pendingRegularizations + pendingEncashCount + leaveResetBadge} badgeColor="red" isOpen={openSections.has('Time & Leave')} onToggle={() => toggleSection('Time & Leave')}>
-            {navLink('/hrms/admin/attendance',     'Attendance',       Clock,         pendingRegularizations, 'red')}
-            {navLink('/hrms/leave/admin',          'Leave Approvals',  ClipboardList, pendingEncashCount,     'red')}
-            {navLink('/hrms/admin/comp-off',       'Comp Off Credits', CalendarDays)}
-            {navLink('/hrms/admin/leave-year-end', 'Year-End Reset',   RotateCcw,     leaveResetBadge,        'red')}
-            {navLink('/hrms/admin/holidays',       'Manage Holidays',  CalendarDays)}
-          </NavSection>
-
-          <NavSection label="Payroll & Finance" badge={itDeclAdminBadge} badgeColor="red" isOpen={openSections.has('Payroll & Finance')} onToggle={() => toggleSection('Payroll & Finance')}>
-            {navLink('/hrms/admin/payslips',        'Generate Payslips', FileText)}
-            {navLink('/hrms/admin/claims',          'Claims',            ReceiptText)}
-            {navLink('/hrms/admin/claims-analytics','Claims Analytics',  TrendingUp)}
-            {navLink('/hrms/admin/salary-history',  'Salary History',    TrendingUp)}
-            {navLink('/hrms/admin/it-declarations', 'IT Declarations',   FileSearch2, itDeclAdminBadge, 'red')}
-          </NavSection>
-
-          <NavSection label="Content" isOpen={openSections.has('Content')} onToggle={() => toggleSection('Content')}>
-            {navLink('/hrms/admin/letters',       'HR Letters',    ScrollText)}
-            {navLink('/hrms/admin/documents',     'Documents',     FolderOpen)}
-            {navLink('/hrms/admin/announcements', 'Announcements', Megaphone)}
-          </NavSection>
-
-          <NavSection label="Performance" badge={pendingReviewCount + trainingAdminBadge + openTicketCount} badgeColor="red" isOpen={openSections.has('Performance')} onToggle={() => toggleSection('Performance')}>
-            {navLink('/hrms/admin/performance', 'Performance Reviews', TrendingUp,  pendingReviewCount,  'red')}
-            {navLink('/hrms/admin/training',    'Training',            BookOpen,    trainingAdminBadge,  'red')}
-            {navLink('/hrms/admin/hr-helpdesk', 'HR Helpdesk',         LifeBuoy,    openTicketCount,     'red')}
-          </NavSection>
-
-          <NavSection label="Statutory" badge={overdueCompliance} badgeColor="red" isOpen={openSections.has('Statutory')} onToggle={() => toggleSection('Statutory')}>
-            {navLink('/hrms/admin/compliance', 'Compliance Calendar', Building2)}
-            {navLink('/hrms/admin/pf-tracker', 'PF Tracker',          Calculator)}
-          </NavSection>
-
-          <NavSection
-            label="Lifecycle"
-            badge={interviewBadge + onboardingBadge + probationBadge + offboardingBadge}
-            badgeColor="amber"
-            isOpen={openSections.has('Lifecycle')}
-            onToggle={() => toggleSection('Lifecycle')}
-          >
-            {navLink('/hrms/admin/recruitment', 'Recruitment', Briefcase,    interviewBadge,   'gold')}
-            {navLink('/hrms/admin/assets',      'Assets',      Laptop)}
-            {navLink('/hrms/admin/onboarding',  'Onboarding',  UserPlus,     onboardingBadge,  'gold')}
-            {navLink('/hrms/admin/probation',   'Probation',   GraduationCap,probationBadge,   'amber')}
-            {navLink('/hrms/admin/offboarding', 'Offboarding', UserMinus,    offboardingBadge, 'red')}
-          </NavSection>
-        </>
-      )}
+      <ModuleSidebar
+        module="hrms"
+        navCtx={navCtx}
+        pathname={location.pathname}
+        itemBadges={hrmsItemBadges}
+        sectionBadges={hrmsSectionBadges}
+      />
       {/* Phase P — full-access user who ALSO holds shares (edge case) */}
       <SharedNavSection shares={hrmsShares} />
       </>

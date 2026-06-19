@@ -215,6 +215,9 @@ export function Crm2LeadsPage() {
                       <div className="flex items-center gap-2">
                         <div>
                           <p className="font-medium" style={{ color: 'var(--text-primary)' }}>{r.name}</p>
+                          {r.customerName && r.customerName !== r.name && (
+                            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Contact: {r.customerName}</p>
+                          )}
                           <p className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{r.leadCode ?? r.id}</p>
                         </div>
                         {r.duplicateOfLeadId && (
@@ -297,11 +300,12 @@ function NewLeadModal({ faplOptions, productOptions, clientOptions, subDsaOption
 }) {
   const toast = useToast();
   const [f, setF] = useState({
-    name: '', mobile: '', email: '', city: '', category: 'LOAN', source: 'WALKIN',
+    name: '', customerName: '', mobile: '', email: '', city: '', category: 'LOAN', source: 'WALKIN',
     productId: '', amountRequired: '', assignedRm: '',
     linkedExistingClientId: '', refSubDsaId: '', refClientId: '', channelPartnerId: '',
     cpConstitution: '', cpBusinessName: '', cpTurnover: '', cpRequirements: '',
   });
+  const [sameAsEntity, setSameAsEntity] = useState(true);
   const [showMore, setShowMore] = useState(false);
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState('');
@@ -320,7 +324,8 @@ function NewLeadModal({ faplOptions, productOptions, clientOptions, subDsaOption
     setBusy(true); setServerError('');
     try {
       const r = await apiCrm2<{ ok: boolean; id: string; duplicateOf: { id: string } | null }>('POST', '/api/crm2/leads', {
-        name: f.name, mobile: f.mobile, email: f.email || null, city: f.city || null,
+        name: f.name, customerName: (sameAsEntity ? f.name : f.customerName.trim()) || f.name,
+        mobile: f.mobile, email: f.email || null, city: f.city || null,
         category: f.category, source: f.source, productId: f.productId || null,
         amountRequired: f.amountRequired ? Number(f.amountRequired) : null,
         assignedRm: f.assignedRm || null,
@@ -357,8 +362,21 @@ function NewLeadModal({ faplOptions, productOptions, clientOptions, subDsaOption
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <FLabel text="Name" required error={errs.name} />
-              <input className={inp(!!errs.name)} value={f.name} onChange={(e) => set('name', e.target.value)} />
+              <FLabel text="Entity Name" required error={errs.name} />
+              <input className={inp(!!errs.name)} value={f.name} onChange={(e) => set('name', e.target.value)}
+                placeholder="Business / applicant entity" />
+            </div>
+            <div className="col-span-2">
+              <label className="flex items-center gap-2 mb-1.5 cursor-pointer select-none">
+                <input type="checkbox" checked={sameAsEntity} onChange={(e) => setSameAsEntity(e.target.checked)} className="w-4 h-4 rounded" />
+                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                  Customer name same as entity name
+                </span>
+              </label>
+              {!sameAsEntity && (
+                <input className={inp()} value={f.customerName} onChange={(e) => set('customerName', e.target.value)}
+                  placeholder="Contact person's name" />
+              )}
             </div>
             <div>
               <FLabel text="Mobile" required error={errs.mobile} />
@@ -535,6 +553,9 @@ function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, c
               <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>{lead.name}</h3>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${sm.color}1f`, color: sm.color }}>{sm.label}</span>
             </div>
+            {lead.customerName && lead.customerName !== lead.name && (
+              <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Contact: <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>{lead.customerName}</span></p>
+            )}
             <p className="text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>
               {lead.leadCode ?? lead.id} · {lead.mobile}{lead.email ? ` · ${lead.email}` : ''} · {lead.source}
             </p>

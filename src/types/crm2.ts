@@ -155,7 +155,9 @@ export interface Crm2LeadFields {
   leadCode?: string;
   category: Crm2LeadCategory;
   productId: string | null;
-  name: string; mobile: string; email: string | null; city: string | null;
+  // `name` = the ENTITY name (business / applicant entity). `customerName` is the
+  // contact person — often identical (a "same as entity name" tick mirrors it).
+  name: string; customerName?: string | null; mobile: string; email: string | null; city: string | null;
   source: Crm2LeadSource;
   sourceMeta: { formId: string | null; sourceUrl: string | null;
                 utm: { source?: string; medium?: string; campaign?: string } | null };

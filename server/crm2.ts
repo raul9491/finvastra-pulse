@@ -1558,7 +1558,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         receivedAt: FieldValue.serverTimestamp(), leadCode: newId,
         category,
         productId: optStr(b, "productId"),
-        name, mobile, email: email ?? null,
+        name, customerName: optStr(b, "customerName") ?? name, mobile, email: email ?? null,
         city: optStr(b, "city"),
         source,
         sourceMeta: { formId: null, sourceUrl: null, utm: null },
@@ -1633,6 +1633,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       fields.dropReason = b.dropReason === null ? null : reqEnum(b, "dropReason", DROP_REASONS);
     }
     if (b.name !== undefined) fields.name = reqStr(b, "name");
+    if (b.customerName !== undefined) fields.customerName = optStr(b, "customerName");
     if (b.mobile !== undefined || b.email !== undefined) {
       const mobile = b.mobile !== undefined ? normaliseMobile(String(b.mobile ?? "")) : (cur.mobile as string | null);
       if (b.mobile !== undefined && !mobile) throw new ApiError(400, "mobile must be a valid 10-digit Indian mobile");
@@ -1827,7 +1828,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
               panEnc: null, panLast4: null,
               gstin: null, udyam: null, cin: null, incorporationDate: null,
               regAddress: emptyAddress, commAddress: emptyAddress,
-              primaryContact: { name: lead.name, mobile: lead.mobile ?? "", email: lead.email ?? null },
+              primaryContact: { name: (lead.customerName as string | null) ?? lead.name, mobile: lead.mobile ?? "", email: lead.email ?? null },
               latestCibil: null, existingRelationships: [],
               sourceLeadId: leadRef.id, sourcedById: subDsaId,
               ownerRm: handlingRm, kycStatus: "PENDING", status: "ACTIVE",

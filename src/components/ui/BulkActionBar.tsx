@@ -27,14 +27,14 @@ export function BulkActionBar({
   return (
     <div
       className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl"
-      style={{ backgroundColor: '#0B1538', color: '#FFFFFF', border: '1px solid #1B2A4E' }}
+      style={{ backgroundColor: 'var(--ss-bg)', color: 'var(--text-primary)', border: '1px solid #1B2A4E' }}
     >
       {/* Selection count */}
       <span className="text-sm font-semibold" style={{ color: '#C9A961' }}>
         {selectedCount} selected
       </span>
 
-      <div className="w-px h-5 shrink-0" style={{ backgroundColor: '#1B2A4E' }} />
+      <div className="w-px h-5 shrink-0" style={{ backgroundColor: 'var(--shell-border)' }} />
 
       {/* Move to stage */}
       <select
@@ -50,9 +50,9 @@ export function BulkActionBar({
         className="text-sm px-3 py-1.5 rounded-lg outline-none bg-transparent cursor-pointer disabled:opacity-50"
         style={{ color: 'var(--text-muted)', border: '1px solid #1B2A4E' }}
       >
-        <option value="" disabled style={{ backgroundColor: '#0B1538' }}>Move to stage…</option>
+        <option value="" disabled style={{ backgroundColor: 'var(--ss-bg)' }}>Move to stage…</option>
         {stageOptions.map((s) => (
-          <option key={s.value} value={s.value} style={{ backgroundColor: '#0B1538' }}>
+          <option key={s.value} value={s.value} style={{ backgroundColor: 'var(--ss-bg)' }}>
             {s.label}
           </option>
         ))}
@@ -71,9 +71,9 @@ export function BulkActionBar({
         className="text-sm px-3 py-1.5 rounded-lg outline-none bg-transparent cursor-pointer disabled:opacity-50"
         style={{ color: 'var(--text-muted)', border: '1px solid #1B2A4E' }}
       >
-        <option value="" disabled style={{ backgroundColor: '#0B1538' }}>Assign to RM…</option>
+        <option value="" disabled style={{ backgroundColor: 'var(--ss-bg)' }}>Assign to RM…</option>
         {rmOptions.map((r) => (
-          <option key={r.value} value={r.value} style={{ backgroundColor: '#0B1538' }}>
+          <option key={r.value} value={r.value} style={{ backgroundColor: 'var(--ss-bg)' }}>
             {r.label}
           </option>
         ))}

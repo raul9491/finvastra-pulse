@@ -454,8 +454,8 @@ function BulkEditBar({ selectedIds, onApply, onClear }: {
 
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 md:left-[calc(50%+7.5rem)]
-      flex flex-wrap items-center gap-2 sm:gap-3 px-4 py-3 sm:px-5 sm:py-3.5 rounded-2xl shadow-2xl glass-panel"
-      style={{ maxWidth: 'calc(100vw - 2rem)' }}>
+      flex flex-wrap items-center gap-2 sm:gap-3 px-4 py-3 sm:px-5 sm:py-3.5 rounded-2xl shadow-2xl"
+      style={{ maxWidth: 'calc(100vw - 2rem)', backgroundColor: 'var(--ss-bg)', border: '1px solid var(--shell-border)' }}>
       <CheckSquare size={14} style={{ color: '#C9A961' }} />
       <span className="text-sm font-semibold shrink-0" style={{ color: '#C9A961' }}>
         {count} {count === 1 ? 'employee' : 'employees'} selected

@@ -25,27 +25,27 @@ export function useToast(): ToastContextValue {
 const CONFIG: Record<ToastType, { icon: React.ReactNode; bg: string; border: string; title: string }> = {
   success: {
     icon: <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />,
-    bg: 'bg-white',
+    bg: 'bg-(--ss-bg)',
     border: 'border-l-4 border-emerald-500',
-    title: 'text-emerald-700',
+    title: 'text-emerald-600',
   },
   error: {
     icon: <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />,
-    bg: 'bg-white',
+    bg: 'bg-(--ss-bg)',
     border: 'border-l-4 border-red-500',
-    title: 'text-red-700',
+    title: 'text-red-600',
   },
   info: {
     icon: <Info className="w-5 h-5 text-blue-500 flex-shrink-0" />,
-    bg: 'bg-white',
+    bg: 'bg-(--ss-bg)',
     border: 'border-l-4 border-blue-500',
-    title: 'text-blue-700',
+    title: 'text-blue-600',
   },
   warning: {
     icon: <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0" />,
-    bg: 'bg-white',
+    bg: 'bg-(--ss-bg)',
     border: 'border-l-4 border-amber-500',
-    title: 'text-amber-700',
+    title: 'text-amber-600',
   },
 };
 

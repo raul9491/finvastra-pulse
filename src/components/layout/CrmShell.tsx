@@ -47,7 +47,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/crm/referrals/import':                'Import from CSV',
   '/crm/command-centre':                 'Command Centre',
   '/crm/team':                           'My Team',
-  '/crm/dashboard':                      'Dashboard',
+  '/crm/dashboard':                      'Overview',
   '/crm/import/history':                 'Import History',
   '/crm/my-queue':                       'My Queue',
   '/crm/leads':                          'Customers',
@@ -66,7 +66,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/crm/pipeline/payouts':               'Payout Cycles',
   '/crm/pipeline/mis':                   'MIS',
   '/crm/pipeline/recon':                 'Reconciliation',
-  '/crm/pipeline/dashboards':            'Dashboards',
+  '/crm/pipeline/dashboards':            'Analytics',
   '/crm/pipeline/permissions':           'Pipeline Permissions',
   '/crm/admin/commission-slabs':         'Commission Slabs',
   '/crm/admin/providers':                'Providers & SLA',
@@ -415,7 +415,7 @@ export function CrmShell() {
                   { label: 'Submit',    path: '/crm/referrals/new', Icon: Plus },
                 ] as MobileTab[])
               : ([
-                  { label: 'Dashboard', path: '/crm/dashboard', Icon: LayoutDashboard, end: true },
+                  { label: 'Overview', path: '/crm/dashboard', Icon: LayoutDashboard, end: true },
                   { label: 'Tasks',     path: '/crm/tasks',     Icon: ListChecks, end: true },
                   { label: 'Customers', path: '/crm/leads',     Icon: Inbox },
                   { label: 'Cases',     path: '/crm/pipeline/cases', Icon: Briefcase },

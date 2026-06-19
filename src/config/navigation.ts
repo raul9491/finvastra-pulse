@@ -147,7 +147,8 @@ export const NAV_NODES: NavNode[] = [
   { key: 'hrms.data-import',      label: 'Data Import',         route: '/hrms/admin/data-import',     module: 'hrms', icon: 'Database',        group: 'Admin Tools', access: sa },
 
   // ════════════════════════════ CRM ════════════════════════════
-  { key: 'crm.dashboard',         label: 'Dashboard',           route: '/crm/dashboard',              module: 'crm', icon: 'LayoutDashboard', group: 'Dashboard', access: crm, end: true },
+  { key: 'crm.dashboard',         label: 'Overview',            route: '/crm/dashboard',              module: 'crm', icon: 'LayoutDashboard', group: 'Dashboard', access: crm, end: true, keywords: ['dashboard', 'snapshot'] },
+  { key: 'crm.dashboards',        label: 'Analytics',           route: '/crm/pipeline/dashboards',    module: 'crm', icon: 'BarChart3',       group: 'Dashboard', access: crmAdmin, keywords: ['crm 2.0 dashboards', 'funnel', 'payout health', 'receivables', 'margin', 'scorecard', 'reports'] },
   { key: 'crm.tasks',             label: 'Tasks',               route: '/crm/tasks',                  module: 'crm', icon: 'ListChecks',      group: 'Workspace', access: crm, keywords: ['my queue', 'meetings'], badgeKey: 'crm.queueOverdue' },
   { key: 'crm.targets',           label: 'Targets',             route: '/crm/targets',                module: 'crm', icon: 'Target',          group: 'Workspace', access: crm, badgeKey: 'crm.targetMissing' },
   { key: 'crm.customers',         label: 'Customers',           route: '/crm/leads',                  module: 'crm', icon: 'TrendingUp',      group: 'Customers', access: crm, keywords: ['leads'] },
@@ -160,7 +161,6 @@ export const NAV_NODES: NavNode[] = [
   { key: 'crm.import-queue',      label: 'Import Queue',        route: '/crm/import/queue',           module: 'crm', icon: 'PackageOpen',     group: 'Teams',     access: crmImport, badgeKey: 'crm.queueAwaiting' },
   { key: 'crm.masters',           label: 'Masters',             route: '/crm/pipeline/masters',       module: 'crm', icon: 'Settings',        group: 'Admin',     access: crmAdmin },
   { key: 'crm.permissions',       label: 'Permissions',         route: '/crm/pipeline/permissions',   module: 'crm', icon: 'User',            group: 'Admin',     access: crmAdmin },
-  { key: 'crm.dashboards',        label: 'CRM 2.0 Dashboards',  route: '/crm/pipeline/dashboards',    module: 'crm', icon: 'LayoutDashboard', group: 'Admin',     access: crmAdmin },
   { key: 'crm.import-history',    label: 'Import History',      route: '/crm/import/history',         module: 'crm', icon: 'Clock',           group: 'Admin',     access: crmAdmin },
   { key: 'crm.commission-leakage',label: 'Commission Leakage',  route: '/crm/admin/commission-leakage',module: 'crm', icon: 'Settings',       group: 'Admin',     access: crmAdmin },
   { key: 'crm.competitor-intel',  label: 'Competitor Intel',    route: '/crm/admin/competitor-intelligence', module: 'crm', icon: 'Settings', group: 'Admin',     access: crmAdmin },

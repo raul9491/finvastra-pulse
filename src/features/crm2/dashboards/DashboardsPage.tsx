@@ -77,7 +77,7 @@ export function DashboardsPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>Dashboards</h2>
+          <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>Analytics</h2>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Funnel · pipeline · disbursals · payout health · receivables · margin</p>
         </div>
         <div className="flex items-center gap-2">

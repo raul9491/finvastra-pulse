@@ -8,7 +8,6 @@ import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { useOpportunityTypes, createOpportunity } from '../hooks/useOpportunities';
 import { useConnectors } from '../../hrms/hooks/useConnectors';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
-import { QuickAddConnectorModal } from '../components/QuickAddConnectorModal';
 import { opportunitySchema, type OpportunityFormValues } from '../leads/opportunitySchema';
 import type { OpportunityType, OpportunityTypeConfig, CustomFieldDefinition, ConditionalDocumentRule, Connector, DsaCodeUsed } from '../../../types';
 
@@ -248,7 +247,6 @@ function Step3({
   connectors,
   connectorId,
   onConnectorChange,
-  onAddConnector,
   dsaCodeUsed,
   onDsaCodeUsedChange,
   defaultOwnerId,
@@ -264,7 +262,6 @@ function Step3({
   connectors: Connector[];
   connectorId: string;
   onConnectorChange: (id: string) => void;
-  onAddConnector: () => void;
   dsaCodeUsed: DsaCodeUsed;
   onDsaCodeUsedChange: (v: DsaCodeUsed) => void;
   defaultOwnerId: string;
@@ -342,31 +339,22 @@ function Step3({
           <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
             Sourced by Connector
           </label>
-          <div className="flex items-start gap-2">
-            <div className="flex-1 min-w-0">
-              <SearchableSelect
-                options={[
-                  { value: '', label: 'Direct / no Connector' },
-                  ...connectors.map((c) => ({
-                    value: c.id,
-                    label: `${c.displayName} · ${c.connectorCode}`,
-                    description: c.firmName ?? undefined,
-                    searchKeywords: [c.connectorCode, c.mobile],
-                  })),
-                ]}
-                value={connectorId}
-                onChange={onConnectorChange}
-                placeholder="Select connector…"
-              />
-            </div>
-            <button type="button" onClick={onAddConnector}
-              className="shrink-0 px-3 py-2.5 rounded-lg text-xs font-semibold border transition-opacity hover:opacity-80 whitespace-nowrap"
-              style={{ borderColor: 'rgba(201,169,97,0.35)', color: '#C9A961' }}>
-              + New
-            </button>
-          </div>
+          <SearchableSelect
+            options={[
+              { value: '', label: 'Direct / no Connector' },
+              ...connectors.map((c) => ({
+                value: c.id,
+                label: `${c.displayName} · ${c.connectorCode}`,
+                description: c.firmName ?? undefined,
+                searchKeywords: [c.connectorCode, c.mobile],
+              })),
+            ]}
+            value={connectorId}
+            onChange={onConnectorChange}
+            placeholder="Select connector…"
+          />
           <p className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-            The channel partner who brought this case (manage in HRMS → Connectors).
+            The connector who brought this case (manage in CRM → Admin → Masters → Connectors).
           </p>
         </div>
 
@@ -483,7 +471,6 @@ export function AddOpportunityPage() {
   const [submitError, setSubmitError] = useState('');
   const [customFields, setCustomFields] = useState<Record<string, unknown>>({});
   const [connectorId, setConnectorId] = useState('');
-  const [showAddConnector, setShowAddConnector] = useState(false);
   const [dsaCodeUsed, setDsaCodeUsed] = useState<DsaCodeUsed>('finvastra');
 
   // Active connectors that cover the chosen business line — for the source picker.
@@ -584,7 +571,6 @@ export function AddOpportunityPage() {
           connectors={connectorOptions}
           connectorId={connectorId}
           onConnectorChange={setConnectorId}
-          onAddConnector={() => setShowAddConnector(true)}
           dsaCodeUsed={dsaCodeUsed}
           onDsaCodeUsedChange={setDsaCodeUsed}
           defaultOwnerId={profile?.userId ?? ''}
@@ -594,19 +580,6 @@ export function AddOpportunityPage() {
           submitError={submitError}
           customFields={customFields}
           onCustomFieldsChange={setCustomFields}
-        />
-      )}
-
-      {/* Quick-add a walk-in channel partner without leaving the wizard */}
-      {user && (
-        <QuickAddConnectorModal
-          open={showAddConnector}
-          onClose={() => setShowAddConnector(false)}
-          connectors={connectors}
-          defaultVertical={selectedType ?? undefined}
-          uid={user.uid}
-          entityLabel="Connector"
-          onCreated={(id) => setConnectorId(id)}
         />
       )}
     </div>

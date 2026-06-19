@@ -194,7 +194,6 @@ const COMPLIANCE_NAV: NavEntry[] = [
 const PAGE_TITLES: Record<string, string> = {
   '/hrms/dashboard':             'Dashboard',
   '/hrms/employees':             'Employees',
-  '/hrms/admin/connectors':      'Sub DSA',
   '/hrms/directory':             'Employee Directory',
   '/hrms/attendance':            'Attendance',
   '/hrms/leave':                 'Leave',

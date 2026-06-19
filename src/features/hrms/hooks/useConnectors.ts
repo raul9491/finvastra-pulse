@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import {
   collection, query, where, onSnapshot,
-  addDoc, updateDoc, setDoc, getDoc, doc, serverTimestamp,
+  addDoc, updateDoc, doc, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import type {
-  Connector, ConnectorFinancial, ConnectorBankDetails, ConnectorVertical,
-  ConnectorPayout,
+  Connector, ConnectorVertical, ConnectorPayout,
 } from '../../../types';
 
 // ─── Connectors list ──────────────────────────────────────────────────────────
@@ -46,81 +45,21 @@ export function nextConnectorCode(connectors: Connector[]): string {
 }
 
 // ─── Mutations ──────────────────────────────────────────────────────────────
+// Connectors are managed in ONE place: CRM → Admin → Masters → Connectors.
+// The FAC-### code is auto-assigned (never client-editable). The main record
+// is all there is — there is no PAN/bank financial sub-doc anymore.
 
-export interface ConnectorInput {
-  connectorCode: string;
-  displayName: string;
-  mobile: string;
-  email: string;
-  address: string;
-  firmName?: string;
-  ownDsaCode?: string;          // the connector's OWN bank DSA code, if they have one
-  verticals: ConnectorVertical[];
-  payoutRules?: Connector['payoutRules'];   // per-product CRM 2.0 auto-payout rules
-  status: Connector['status'];
-  notes?: string;
-}
-
-export async function createConnector(
-  input: ConnectorInput,
-  financial: { pan: string; bank: ConnectorBankDetails },
-  uid: string,
-): Promise<string> {
-  const ref = await addDoc(collection(db, 'connectors'), {
-    ...input,
-    firmName:    input.firmName || null,
-    ownDsaCode:  input.ownDsaCode || null,
-    payoutRules: input.payoutRules ?? [],
-    notes:       input.notes || null,
-    deleted:  false,
-    createdBy: uid,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-  await setDoc(doc(db, 'connectors', ref.id, 'private', 'financial'), {
-    pan:  financial.pan,
-    bank: financial.bank,
-    updatedAt: serverTimestamp(),
-  });
-  return ref.id;
-}
-
-export async function updateConnector(
-  id: string,
-  input: ConnectorInput,
-  financial: { pan: string; bank: ConnectorBankDetails },
-): Promise<void> {
-  await updateDoc(doc(db, 'connectors', id), {
-    ...input,
-    firmName:    input.firmName || null,
-    ownDsaCode:  input.ownDsaCode || null,
-    payoutRules: input.payoutRules ?? [],
-    notes:       input.notes || null,
-    updatedAt: serverTimestamp(),
-  });
-  await setDoc(doc(db, 'connectors', id, 'private', 'financial'), {
-    pan:  financial.pan,
-    bank: financial.bank,
-    updatedAt: serverTimestamp(),
-  });
-}
-
-// ─── Quick-add from CRM ─────────────────────────────────────────────────────
-// CRM users can register a connector on the spot when a new channel partner
-// walks in with a case — main record only. PAN + bank details (the /private
-// financial sub-doc) stay admin/HR-only and are completed later in
-// HRMS → Connectors before any payout is made.
-export interface QuickConnectorInput {
+export interface MasterConnectorInput {
   displayName: string;
   mobile: string;
   email?: string;
   firmName?: string;
-  ownDsaCode?: string;
   verticals: ConnectorVertical[];
+  status?: Connector['status'];
 }
 
-export async function quickAddConnector(
-  input: QuickConnectorInput,
+export async function addMasterConnector(
+  input: MasterConnectorInput,
   connectorCode: string,
   uid: string,
 ): Promise<string> {
@@ -131,10 +70,10 @@ export async function quickAddConnector(
     email:       input.email?.trim() || '',
     address:     '',
     firmName:    input.firmName?.trim() || null,
-    ownDsaCode:  input.ownDsaCode?.trim() || null,
+    ownDsaCode:  null,
     verticals:   input.verticals,
-    status:      'active',
-    notes:       'Added from CRM — HR to complete PAN/bank details before payout.',
+    status:      input.status ?? 'active',
+    notes:       null,
     deleted:     false,
     createdBy:   uid,
     createdAt:   serverTimestamp(),
@@ -143,9 +82,19 @@ export async function quickAddConnector(
   return ref.id;
 }
 
-export async function getConnectorFinancial(id: string): Promise<ConnectorFinancial | null> {
-  const snap = await getDoc(doc(db, 'connectors', id, 'private', 'financial'));
-  return snap.exists() ? (snap.data() as ConnectorFinancial) : null;
+export async function updateMasterConnector(
+  id: string,
+  input: MasterConnectorInput,
+): Promise<void> {
+  await updateDoc(doc(db, 'connectors', id), {
+    displayName: input.displayName.trim(),
+    mobile:      input.mobile.trim(),
+    email:       input.email?.trim() || '',
+    firmName:    input.firmName?.trim() || null,
+    verticals:   input.verticals,
+    ...(input.status ? { status: input.status } : {}),
+    updatedAt:   serverTimestamp(),
+  });
 }
 
 export async function setConnectorStatus(id: string, status: Connector['status']): Promise<void> {

@@ -9,7 +9,6 @@ import { createLead } from '../hooks/useLeads';
 import { useConnectors } from '../../hrms/hooks/useConnectors';
 import { leadSchema, type LeadFormValues } from './leadSchema';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
-import { QuickAddConnectorModal } from '../components/QuickAddConnectorModal';
 import { checkForDuplicates } from './duplicateDetection';
 import { getCurrentPosition, mapsLink, type GeoPoint } from '../../../lib/geo';
 
@@ -38,7 +37,6 @@ export function NewLeadPage() {
   const { connectors } = useConnectors();
   const [submitError, setSubmitError] = useState('');
   const [connectorId, setConnectorId] = useState('');
-  const [showAddConnector, setShowAddConnector] = useState(false);
 
   // Field ops — RM captures the meeting spot when adding a customer on the go
   const [meetingLoc, setMeetingLoc] = useState<GeoPoint | null>(null);
@@ -200,30 +198,21 @@ export function NewLeadPage() {
           )}
 
           {watchedSource === 'sub_dsa' && (
-            <Field label="Sourced by Connector" hint="Channel partner who brought this customer. Carries through to the commission record &amp; MIS.">
-              <div className="flex items-start gap-2">
-                <div className="flex-1 min-w-0">
-                  <SearchableSelect
-                    options={[
-                      { value: '', label: 'Direct / no Connector' },
-                      ...activeConnectors.map((c) => ({
-                        value: c.id,
-                        label: `${c.displayName} · ${c.connectorCode}`,
-                        description: c.firmName ?? undefined,
-                        searchKeywords: [c.connectorCode, c.mobile],
-                      })),
-                    ]}
-                    value={connectorId}
-                    onChange={setConnectorId}
-                    placeholder="Select connector…"
-                  />
-                </div>
-                <button type="button" onClick={() => setShowAddConnector(true)}
-                  className="shrink-0 px-3 py-2.5 rounded-lg text-xs font-semibold border transition-opacity hover:opacity-80 whitespace-nowrap"
-                  style={{ borderColor: 'rgba(201,169,97,0.35)', color: '#C9A961' }}>
-                  + New
-                </button>
-              </div>
+            <Field label="Sourced by Connector" hint="The connector who brought this customer. Manage the list in CRM → Admin → Masters → Connectors.">
+              <SearchableSelect
+                options={[
+                  { value: '', label: 'Direct / no Connector' },
+                  ...activeConnectors.map((c) => ({
+                    value: c.id,
+                    label: `${c.displayName} · ${c.connectorCode}`,
+                    description: c.firmName ?? undefined,
+                    searchKeywords: [c.connectorCode, c.mobile],
+                  })),
+                ]}
+                value={connectorId}
+                onChange={setConnectorId}
+                placeholder="Select connector…"
+              />
             </Field>
           )}
 
@@ -324,18 +313,6 @@ export function NewLeadPage() {
           </button>
         </div>
       </form>
-
-      {/* Quick-add a walk-in channel partner without leaving the form */}
-      {user && (
-        <QuickAddConnectorModal
-          open={showAddConnector}
-          onClose={() => setShowAddConnector(false)}
-          connectors={connectors}
-          uid={user.uid}
-          entityLabel="Connector"
-          onCreated={(id) => setConnectorId(id)}
-        />
-      )}
     </div>
   );
 }

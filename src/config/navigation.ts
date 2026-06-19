@@ -120,7 +120,6 @@ export const NAV_NODES: NavNode[] = [
   { key: 'hrms.employees',        label: 'Employees',           route: '/hrms/employees',             module: 'hrms', icon: 'Users',           group: 'People',   access: hrmsAdmin },
   { key: 'hrms.access-requests',  label: 'Access Requests',     route: '/hrms/admin/access-requests', module: 'hrms', icon: 'Inbox',           group: 'People',   access: hrmsAdmin },
   { key: 'hrms.import-employees', label: 'Import Employees',    route: '/hrms/admin/import-employees',module: 'hrms', icon: 'UserPlus',        group: 'People',   access: hrmsAdmin },
-  { key: 'hrms.connectors',       label: 'Sub DSA',             route: '/hrms/admin/connectors',      module: 'hrms', icon: 'Handshake',       group: 'People',   access: hrmsAdmin, keywords: ['connector', 'channel partner', 'fac'] },
   { key: 'hrms.admin-attendance', label: 'Attendance — Admin',  route: '/hrms/admin/attendance',      module: 'hrms', icon: 'Clock',           group: 'Time & Leave', access: hrmsAdmin },
   { key: 'hrms.leave-admin',      label: 'Leave Approvals',     route: '/hrms/leave/admin',           module: 'hrms', icon: 'ClipboardList',   group: 'Time & Leave', access: hrmsAdmin },
   { key: 'hrms.comp-off',         label: 'Comp Off Credits',    route: '/hrms/admin/comp-off',        module: 'hrms', icon: 'CalendarDays',    group: 'Time & Leave', access: hrmsAdmin },

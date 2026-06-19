@@ -12,12 +12,17 @@
  * mapping editor (slab timeline, end-and-add flow) is purpose-built.
  */
 import { useMemo, useState } from 'react';
-import { Plus, Pencil, X, Landmark, Package, Network, Users2, FileText, GitBranch } from 'lucide-react';
+import { Plus, Pencil, X, Landmark, Package, Network, Users2, FileText, GitBranch, Handshake } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect, MultiSearchableSelect } from '../../../components/ui/SearchableSelect';
 import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
 import { MappingsTab } from './MappingsTab';
+import {
+  useConnectors, nextConnectorCode, addMasterConnector, updateMasterConnector,
+  setConnectorStatus, type MasterConnectorInput,
+} from '../../hrms/hooks/useConnectors';
+import type { Connector, ConnectorVertical } from '../../../types';
 import type { Lender, Product, Aggregator, SubDsa, DocumentDef } from '../../../types/crm2';
 
 type WithId<T> = T & { id: string };
@@ -301,19 +306,268 @@ function MasterTab<T extends { id: string; name: string; status: string }>({
   );
 }
 
+// ─── Connectors (FAC-) tab ────────────────────────────────────────────────────
+// The ONE place to add/manage connectors (channel partners who source customers).
+// Backed by the `/connectors` registry the Add Customer form reads — so anything
+// added here syncs into that picker automatically. The FAC-### code is
+// auto-assigned and never editable; super admins toggle active/inactive.
+const VERTICAL_OPTS: Array<{ value: ConnectorVertical; label: string }> = [
+  { value: 'loan', label: 'Loan' }, { value: 'wealth', label: 'Wealth' }, { value: 'insurance', label: 'Insurance' },
+];
+
+function ConnectorFormModal({ initial, autoCode, uid, onClose, onSaved }: {
+  initial: Connector | null;
+  autoCode: string;
+  uid: string;
+  onClose: () => void;
+  onSaved: (msg: string) => void;
+}) {
+  const [displayName, setDisplayName] = useState(initial?.displayName ?? '');
+  const [mobile, setMobile] = useState(initial?.mobile ?? '');
+  const [email, setEmail] = useState(initial?.email ?? '');
+  const [firmName, setFirmName] = useState(initial?.firmName ?? '');
+  const [verticals, setVerticals] = useState<ConnectorVertical[]>(initial?.verticals ?? []);
+  const [status, setStatus] = useState<Connector['status']>(initial?.status ?? 'active');
+  const [errs, setErrs] = useState<Record<string, string>>({});
+  const [serverError, setServerError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const toggleV = (v: ConnectorVertical) =>
+    setVerticals((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v]));
+
+  const save = async () => {
+    const e: Record<string, string> = {};
+    if (!displayName.trim()) e.displayName = 'Required';
+    const m = mobile.replace(/[\s-]/g, '').replace(/^\+91/, '');
+    if (!m) e.mobile = 'Required';
+    else if (!/^[6-9]\d{9}$/.test(m)) e.mobile = '10-digit Indian mobile';
+    if (verticals.length === 0) e.verticals = 'Pick at least one';
+    if (Object.keys(e).length) { setErrs(e); return; }
+    setErrs({}); setServerError(''); setBusy(true);
+    try {
+      const input: MasterConnectorInput = { displayName, mobile: m, email, firmName, verticals, status };
+      if (initial) { await updateMasterConnector(initial.id, input); onSaved('Saved'); }
+      else { await addMasterConnector(input, autoCode, uid); onSaved(`Created ${autoCode}`); }
+      onClose();
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : 'Save failed');
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="glass-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="glass-modal-panel w-full max-w-md rounded-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="glass-modal-header flex items-center justify-between px-5 py-4">
+          <div>
+            <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {initial ? `Edit ${initial.connectorCode}` : 'New Connector'}
+            </h3>
+            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              Code <span className="font-mono font-semibold" style={{ color: '#C9A961' }}>{initial?.connectorCode ?? autoCode}</span> · auto-assigned, not editable
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard)" aria-label="Close">
+            <X size={17} style={{ color: 'var(--text-muted)' }} />
+          </button>
+        </div>
+        <div className="p-5 space-y-4">
+          {serverError && (
+            <div className="px-3.5 py-2.5 rounded-lg text-sm"
+              style={{ backgroundColor: 'rgba(248,113,113,0.10)', border: '1px solid rgba(248,113,113,0.30)', color: '#f87171' }}>
+              {serverError}
+            </div>
+          )}
+          <div>
+            <FLabel text="Name" required error={errs.displayName} />
+            <input className={inp(!!errs.displayName)} value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)} placeholder="Connector's name" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FLabel text="Mobile" required error={errs.mobile} />
+              <input className={inp(!!errs.mobile)} value={mobile} maxLength={13}
+                onChange={(e) => setMobile(e.target.value)} placeholder="9876543210" />
+            </div>
+            <div>
+              <FLabel text="Email" />
+              <input className={inp()} type="email" value={email}
+                onChange={(e) => setEmail(e.target.value)} placeholder="optional" />
+            </div>
+          </div>
+          <div>
+            <FLabel text="Firm / DSA Entity" />
+            <input className={inp()} value={firmName}
+              onChange={(e) => setFirmName(e.target.value)} placeholder="optional" />
+          </div>
+          <div>
+            <FLabel text="Verticals" required error={errs.verticals} />
+            <div className="flex gap-2">
+              {VERTICAL_OPTS.map(({ value, label }) => {
+                const on = verticals.includes(value);
+                return (
+                  <button key={value} type="button" onClick={() => toggleV(value)}
+                    className="px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors"
+                    style={on
+                      ? { backgroundColor: 'rgba(201,169,97,0.15)', borderColor: '#C9A961', color: '#C9A961' }
+                      : { borderColor: 'var(--shell-border)', color: 'var(--text-muted)' }}>
+                    {on ? '✓ ' : ''}{label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <FLabel text="Status" />
+            <SearchableSelect options={STATUS_AI.map((s) => ({ value: s.value.toLowerCase(), label: s.label }))}
+              value={status} onChange={(v) => setStatus(v as Connector['status'])} />
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button onClick={onClose} className="flex-1 py-2.5 rounded-lg text-sm font-semibold border"
+              style={{ borderColor: 'var(--shell-border)', color: 'var(--text-muted)' }}>Cancel</button>
+            <button onClick={save} disabled={busy}
+              className="flex-1 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50"
+              style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+              {busy ? 'Saving…' : initial ? 'Save Changes' : 'Create'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConnectorsMasterTab({ uid }: { uid: string }) {
+  const { connectors, loading } = useConnectors();
+  const toast = useToast();
+  const [filter, setFilter] = useState<'active' | 'inactive' | 'all'>('active');
+  const [search, setSearch] = useState('');
+  const [modal, setModal] = useState<{ initial: Connector | null } | null>(null);
+
+  const autoCode = nextConnectorCode(connectors);
+  const activeN = connectors.filter((c) => c.status === 'active').length;
+  const inactiveN = connectors.filter((c) => c.status === 'inactive').length;
+  const filtered = connectors.filter((c) =>
+    (filter === 'all' || c.status === filter) &&
+    (!search || c.displayName.toLowerCase().includes(search.toLowerCase()) || c.connectorCode.toLowerCase().includes(search.toLowerCase())));
+
+  const toggleStatus = async (c: Connector) => {
+    const next = c.status === 'active' ? 'inactive' : 'active';
+    try { await setConnectorStatus(c.id, next); toast.success(next === 'active' ? 'Activated' : 'Deactivated'); }
+    catch { toast.error('Could not update status'); }
+  };
+
+  const FILTERS: Array<{ key: typeof filter; label: string }> = [
+    { key: 'active', label: `Active (${activeN})` },
+    { key: 'inactive', label: `Inactive (${inactiveN})` },
+    { key: 'all', label: `All (${connectors.length})` },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5">
+          {FILTERS.map((f) => (
+            <button key={f.key} onClick={() => setFilter(f.key)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+              style={filter === f.key
+                ? { backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961', border: '1px solid rgba(201,169,97,0.35)' }
+                : { color: 'var(--text-muted)', border: '1px solid var(--shell-border)' }}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <input className="glass-inp text-sm w-56" placeholder="Search connectors…"
+            value={search} onChange={(e) => setSearch(e.target.value)} />
+          <button onClick={() => setModal({ initial: null })}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold"
+            style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+            <Plus size={15} /> Add Connector
+          </button>
+        </div>
+      </div>
+
+      <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+        Connectors source customers. Next code: <span className="font-mono font-semibold" style={{ color: '#C9A961' }}>{autoCode}</span>.
+        They appear in the Add Customer “Connector” picker once active.
+      </p>
+
+      <div className="glass-panel p-0 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                <th className="text-left font-semibold px-4 py-2.5">Code</th>
+                <th className="text-left font-semibold px-3 py-2.5">Name</th>
+                <th className="text-left font-semibold px-3 py-2.5">Mobile</th>
+                <th className="text-left font-semibold px-3 py-2.5">Verticals</th>
+                <th className="text-left font-semibold px-3 py-2.5">Status</th>
+                <th className="px-3 py-2.5" />
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={6} className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>Loading…</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={6} className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>
+                  No connectors {filter !== 'all' ? `(${filter})` : ''} yet — add the first one.
+                </td></tr>
+              ) : filtered.map((c) => (
+                <tr key={c.id} style={{ borderTop: '1px solid var(--shell-border)', opacity: c.status === 'active' ? 1 : 0.55 }}>
+                  <td className="px-4 py-2.5 font-mono text-xs font-semibold" style={{ color: '#C9A961' }}>{c.connectorCode}</td>
+                  <td className="px-3 py-2.5 font-medium" style={{ color: 'var(--text-primary)' }}>
+                    {c.displayName}{c.firmName ? <span className="text-xs" style={{ color: 'var(--text-muted)' }}> · {c.firmName}</span> : null}
+                  </td>
+                  <td className="px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{c.mobile}</td>
+                  <td className="px-3 py-2.5 capitalize" style={{ color: 'var(--text-secondary)' }}>{c.verticals?.join(', ') || '—'}</td>
+                  <td className="px-3 py-2.5">
+                    <span className={c.status === 'active' ? 'badge-glass-success' : 'badge-glass-muted'}>{c.status}</span>
+                  </td>
+                  <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                    <button onClick={() => toggleStatus(c)}
+                      className="text-xs font-semibold mr-3 transition-opacity hover:opacity-80"
+                      style={{ color: c.status === 'active' ? '#f87171' : '#34d399' }}>
+                      {c.status === 'active' ? 'Deactivate' : 'Activate'}
+                    </button>
+                    <button onClick={() => setModal({ initial: c })}
+                      className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard) align-middle" aria-label="Edit">
+                      <Pencil size={14} style={{ color: 'var(--text-muted)' }} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {modal && (
+        <ConnectorFormModal
+          initial={modal.initial}
+          autoCode={autoCode}
+          uid={uid}
+          onClose={() => setModal(null)}
+          onSaved={(msg) => toast.success(msg)}
+        />
+      )}
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 const TABS = [
+  { key: 'connectors',     label: 'Connectors', Icon: Handshake },
   { key: 'lenders',        label: 'Lenders',    Icon: Landmark },
   { key: 'products',       label: 'Products',   Icon: Package },
   { key: 'aggregators',    label: 'Aggregators', Icon: Network },
   { key: 'mappings',       label: 'DSA Codes',  Icon: GitBranch },
-  { key: 'subDsas',        label: 'Connectors', Icon: Users2 },
+  { key: 'subDsas',        label: 'Sub-DSAs',   Icon: Users2 },
   { key: 'documentMaster', label: 'Documents',  Icon: FileText },
 ] as const;
 
 export function Crm2MastersPage() {
-  const { profile } = useAuth();
-  const [tab, setTab] = useState<typeof TABS[number]['key']>('lenders');
+  const { profile, user } = useAuth();
+  const [tab, setTab] = useState<typeof TABS[number]['key']>('connectors');
 
   const { rows: products } = useCrm2Collection<WithId<Product>>('products');
   const productOptions = useMemo(
@@ -355,6 +609,8 @@ export function Crm2MastersPage() {
           </button>
         ))}
       </div>
+
+      {tab === 'connectors' && <ConnectorsMasterTab uid={user?.uid ?? ''} />}
 
       {tab === 'lenders' && (
         <MasterTab<WithId<Lender>>

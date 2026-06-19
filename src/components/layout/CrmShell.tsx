@@ -67,7 +67,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/crm/pipeline/mis':                   'MIS',
   '/crm/pipeline/recon':                 'Reconciliation',
   '/crm/pipeline/dashboards':            'Analytics',
-  '/crm/pipeline/permissions':           'Pipeline Permissions',
+  '/crm/pipeline/permissions':           'CRM Permissions',
   '/crm/admin/commission-slabs':         'Commission Slabs',
   '/crm/admin/providers':                'Providers & SLA',
   '/crm/admin/document-types':           'Document Types',

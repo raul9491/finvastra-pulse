@@ -27,7 +27,7 @@ type NavEntry = { path: string; label: string; icon: ElementType; adminOnly: boo
 
 const NAV: NavEntry[] = [
   // CRM 2.0 financial pages (primary) — moved here from the CRM Pipeline group.
-  { path: '/mis/cases-mis',           label: 'MIS',            icon: BarChart3,       adminOnly: false, dataTour: 'mis-overview' },
+  { path: '/mis/cases-mis',           label: 'Case Financials', icon: BarChart3,      adminOnly: false, dataTour: 'mis-overview' },
   { path: '/mis/recon',               label: 'Reconciliation', icon: GitMerge,        adminOnly: false, dataTour: 'mis-reconciliation' },
   { path: '/mis/payout-cycles',       label: 'Payout Cycles',  icon: IndianRupee,     adminOnly: false },
   { path: '/mis/learn',               label: 'Learn',          icon: GraduationCap,   adminOnly: false, dataTour: 'learn' },
@@ -50,7 +50,7 @@ function resolveMisTitle(pathname: string): string {
 }
 
 const PAGE_TITLES: Record<string, string> = {
-  '/mis/cases-mis':          'MIS',
+  '/mis/cases-mis':          'Case Financials',
   '/mis/recon':              'Reconciliation',
   '/mis/payout-cycles':      'Payout Cycles',
   '/mis/commissions':        'Commissions (archive)',
@@ -317,7 +317,7 @@ export function MisShell() {
       {!isShareOnly && (
         <MobileTabBar
           tabs={[
-            { label: 'MIS',       path: '/mis/cases-mis',     Icon: BarChart3 },
+            { label: 'Financials', path: '/mis/cases-mis',    Icon: BarChart3 },
             { label: 'Reconcile', path: '/mis/recon',         Icon: GitMerge, end: true },
             { label: 'Payouts',   path: '/mis/payout-cycles', Icon: IndianRupee },
             { label: 'Overview',  path: '/mis/overview',      Icon: LayoutDashboard },

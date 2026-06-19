@@ -5,6 +5,8 @@ import { Download, Loader2, Clock } from 'lucide-react';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import { DataView } from '../../../components/ui/DataView';
+import { RePie } from '../../../components/ui/charts';
 import type { LeadAgingBucket } from '../../../types';
 
 const BUCKET_META: Record<LeadAgingBucket, { label: string; color: string; range: string }> = {
@@ -135,20 +137,25 @@ export function LeadAgingPage() {
         <p className="text-sm" style={{ color: 'var(--shell-text-dim)' }}>How long leads have sat since creation. Click a bucket to filter.</p>
       </div>
 
-      {/* Summary strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {ORDER.map((b) => {
-          const active = bucketFilter === b;
-          return (
-            <button key={b} onClick={() => setBucketFilter(active ? null : b)}
-              className="glass-panel p-4 text-left transition-all" style={{ border: `1px solid ${active ? BUCKET_META[b].color : 'var(--shell-border)'}` }}>
-              <p className="text-2xl font-bold" style={{ color: BUCKET_META[b].color }}>{counts[b]}</p>
-              <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{BUCKET_META[b].label}</p>
-              <p className="text-[10px]" style={{ color: 'var(--shell-text-dim)' }}>{BUCKET_META[b].range}</p>
-            </button>
-          );
-        })}
-      </div>
+      {/* Summary strip — cards (interactive filters) ⇄ donut */}
+      <DataView headless
+        graph={<RePie height={240} colors={ORDER.map((b) => BUCKET_META[b].color)} data={ORDER.map((b) => ({ name: BUCKET_META[b].label, value: counts[b] }))} />}
+        table={
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {ORDER.map((b) => {
+              const active = bucketFilter === b;
+              return (
+                <button key={b} onClick={() => setBucketFilter(active ? null : b)}
+                  className="glass-panel p-4 text-left transition-all" style={{ border: `1px solid ${active ? BUCKET_META[b].color : 'var(--shell-border)'}` }}>
+                  <p className="text-2xl font-bold" style={{ color: BUCKET_META[b].color }}>{counts[b]}</p>
+                  <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{BUCKET_META[b].label}</p>
+                  <p className="text-[10px]" style={{ color: 'var(--shell-text-dim)' }}>{BUCKET_META[b].range}</p>
+                </button>
+              );
+            })}
+          </div>
+        }
+      />
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">

@@ -5,6 +5,8 @@ import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { PageHeader } from '../../../components/ui/primitives';
+import { DataView, SimpleTable, type Column } from '../../../components/ui/DataView';
+import { RePie, fmtINR } from '../../../components/ui/charts';
 import { useMisOverview } from '../hooks/useMisOverview';
 import { usePayoutSlabs, seedDefaultSlabs } from '../hooks/usePayouts';
 import type { CommissionStatement, RmPayout, CommissionRecord } from '../../../types';
@@ -199,6 +201,28 @@ export function MisOverviewPage() {
                   </p>
                 </div>
               </div>
+              {/* Disbursed by Sub DSA — Table ⇄ Graph */}
+              {(() => {
+                const byDsa: Array<{ name: string; value: number }> = Object.entries(
+                  filteredDisbursals.reduce((m, r) => {
+                    const k = r.dsaName || 'Direct';
+                    m[k] = (m[k] ?? 0) + (r.disbursedAmount ?? 0);
+                    return m;
+                  }, {} as Record<string, number>),
+                ).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+                const cols: Column<{ name: string; value: number }>[] = [
+                  { key: 'name', label: 'Sub DSA' },
+                  { key: 'value', label: 'Disbursed', align: 'right', render: (r) => fmtINR(r.value) },
+                ];
+                return (
+                  <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--shell-border)' }}>
+                    <DataView headless
+                      graph={<RePie money height={260} data={byDsa} />}
+                      table={<SimpleTable columns={cols} rows={byDsa} />}
+                    />
+                  </div>
+                );
+              })()}
               <table className="w-full text-xs min-w-175">
                 <thead>
                   <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>

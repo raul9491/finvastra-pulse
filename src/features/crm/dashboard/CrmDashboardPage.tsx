@@ -12,6 +12,8 @@ import { useLeads } from '../hooks/useLeads';
 import { useCommissionRecords } from '../hooks/useCommissionRecords';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { StatCard, PageHeader } from '../../../components/ui/primitives';
+import { DataView } from '../../../components/ui/DataView';
+import { RePie } from '../../../components/ui/charts';
 import { CommissionDashboardCard } from '../commissions/CommissionDashboardCard';
 import type { Lead, LeadSource, CommissionRecord, UserProfile } from '../../../types';
 
@@ -128,18 +130,23 @@ function SourceBreakdown({ leads }: { leads: Lead[] }) {
   if (counts.length === 0) return <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No leads yet.</p>;
 
   return (
-    <div className="space-y-2.5">
-      {counts.map(([source, count]) => (
-        <div key={source} className="flex items-center gap-3">
-          <span className="text-xs w-24 shrink-0 truncate" style={{ color: 'var(--text-muted)' }}>{source}</span>
-          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--shell-hover-hard)' }}>
-            <div className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${(count / total) * 100}%`, backgroundColor: '#C9A961' }} />
-          </div>
-          <span className="text-xs font-semibold w-8 text-right shrink-0" style={{ color: 'var(--text-primary)' }}>{count}</span>
+    <DataView headless
+      graph={<RePie height={230} data={counts.map(([name, value]) => ({ name, value }))} />}
+      table={
+        <div className="space-y-2.5">
+          {counts.map(([source, count]) => (
+            <div key={source} className="flex items-center gap-3">
+              <span className="text-xs w-24 shrink-0 truncate" style={{ color: 'var(--text-muted)' }}>{source}</span>
+              <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--shell-hover-hard)' }}>
+                <div className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${(count / total) * 100}%`, backgroundColor: '#C9A961' }} />
+              </div>
+              <span className="text-xs font-semibold w-8 text-right shrink-0" style={{ color: 'var(--text-primary)' }}>{count}</span>
+            </div>
+          ))}
         </div>
-      ))}
-    </div>
+      }
+    />
   );
 }
 

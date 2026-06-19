@@ -6,6 +6,8 @@ import {
 import { Target, Loader2, Pencil, FileText } from 'lucide-react';
 import { db, auth } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
+import { DataView } from '../../../components/ui/DataView';
+import { ReBar } from '../../../components/ui/charts';
 import {
   useMyTargets, useTeamTargets, setTarget, achievementPct,
   type TeamTargetRow,
@@ -241,7 +243,15 @@ function TeamView({ period, isAdmin, setBy, onEdit }: {
       <p className="text-sm mb-4" style={{ color: 'var(--text-primary)' }}>
         Team is at <strong style={{ color: teamDisbursalPct >= 75 ? '#34d399' : '#C9A961' }}>{teamDisbursalPct}%</strong> of the monthly disbursal target.
       </p>
-      <div className="overflow-x-auto">
+      <DataView headless
+        graph={<ReBar
+          data={rows.map((r) => ({ name: r.rmName, Disbursed: r.actuals.disbursalAmount, Target: r.target?.targets.disbursalAmount ?? 0 }))}
+          xKey="name" money legend horizontal
+          series={[{ key: 'Disbursed', name: 'Disbursed', color: '#C9A961' }, { key: 'Target', name: 'Target', color: '#5B9BD5' }]}
+          height={Math.max(220, rows.length * 44 + 24)}
+        />}
+        table={
+        <div className="overflow-x-auto">
         <table className="w-full text-left">
           <thead>
             <tr style={{ borderBottom: '1px solid var(--shell-border)' }}>
@@ -277,7 +287,9 @@ function TeamView({ period, isAdmin, setBy, onEdit }: {
             </tr>
           </tbody>
         </table>
-      </div>
+        </div>
+        }
+      />
       <span className="sr-only">{setBy}</span>
     </div>
   );

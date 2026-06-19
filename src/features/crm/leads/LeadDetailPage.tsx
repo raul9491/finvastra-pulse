@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, Plus, TrendingUp, Briefcase, ShieldCheck, ChevronRight, Calendar } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Briefcase, ShieldCheck, ChevronRight, Calendar } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useLead } from '../hooks/useLeads';
 import { formatSlaStatus } from '../../../lib/slaUtils';
@@ -420,13 +420,9 @@ export function LeadDetailPage() {
 
       {/* Just-created banner */}
       {justCreated && (
-        <div className="rounded-xl px-5 py-3 text-sm font-medium flex items-center justify-between"
+        <div className="rounded-xl px-5 py-3 text-sm font-medium"
           style={{ backgroundColor: 'rgba(201,169,97,0.10)', color: '#C9A961', border: '1px solid rgba(201,169,97,0.30)' }}>
-          <span>Customer saved. Now add the first opportunity.</span>
-          <button onClick={() => navigate(`/crm/leads/${leadId}/opportunities/new`)}
-            className="font-bold underline ml-4">
-            Add Opportunity →
-          </button>
+          Customer saved. Set the status to <strong>Interested</strong> to move them into Leads.
         </div>
       )}
 
@@ -526,14 +522,6 @@ export function LeadDetailPage() {
               <option value="no_response">No response / not reachable</option>
               <option value="wrong_number">Wrong number</option>
             </select>
-            {canPromote && (
-              <button onClick={() => setPromoteOpen(true)}
-                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
-                style={{ backgroundColor: '#C9A961', color: '#0B1538' }}
-                title="Move this customer into the CRM 2.0 Leads funnel">
-                <TrendingUp size={13} /> Move to Leads
-              </button>
-            )}
             {savingStatus && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Saving…</span>}
             {!savingStatus && lead.leadStatus && lead.leadStatus !== 'new' && (
               <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold"
@@ -678,46 +666,33 @@ export function LeadDetailPage() {
       {/* FOIR snapshot — shown only when there is an open loan opportunity */}
       <FOIRCalculator lead={lead} opportunities={opportunities} />
 
-      {/* Opportunities section */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-            Opportunities ({opportunities.length})
-          </h3>
-          <button
-            onClick={() => navigate(`/crm/leads/${leadId}/opportunities/new`)}
-            className="flex items-center gap-1.5 text-sm font-semibold px-3.5 py-2 rounded-lg transition-opacity hover:opacity-80"
-            style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
-          >
-            <Plus size={14} /> Add Opportunity
-          </button>
-        </div>
+      {/* Opportunities section — legacy model; shown only for customers that already
+          carry opportunities (history). New deals go through Move to Leads → Case. */}
+      {(oppsLoading || opportunities.length > 0) && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+              Opportunities ({opportunities.length})
+            </h3>
+          </div>
 
-        {oppsLoading ? (
-          <div className="space-y-3">
-            {[1, 2].map((i) => <div key={i} className="h-24 rounded-xl animate-pulse" style={{ backgroundColor: 'var(--glass-panel-bg)' }} />)}
-          </div>
-        ) : opportunities.length === 0 ? (
-          <div className="glass-panel py-14 text-center" style={{ borderStyle: 'dashed' }}>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No opportunities yet.</p>
-            <button
-              onClick={() => navigate(`/crm/leads/${leadId}/opportunities/new`)}
-              className="mt-3 text-sm font-semibold underline" style={{ color: '#C9A961' }}>
-              Add the first opportunity →
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {opportunities.map((opp) => {
-              const stages = types.find((t) => t.name === opp.product)?.stages ?? [];
-              return (
-                <OpportunityCard key={opp.id} opp={opp} leadId={lead.id}
-                  ownerName={ownerName(opp.ownerId)} stages={stages} />
-              );
-            })}
-          </div>
-        )}
-      </div>
+          {oppsLoading ? (
+            <div className="space-y-3">
+              {[1, 2].map((i) => <div key={i} className="h-24 rounded-xl animate-pulse" style={{ backgroundColor: 'var(--glass-panel-bg)' }} />)}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {opportunities.map((opp) => {
+                const stages = types.find((t) => t.name === opp.product)?.stages ?? [];
+                return (
+                  <OpportunityCard key={opp.id} opp={opp} leadId={lead.id}
+                    ownerName={ownerName(opp.ownerId)} stages={stages} />
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Meetings → the scheduler's own Google Calendar (any CRM user can schedule) */}
       <div className="mt-4">

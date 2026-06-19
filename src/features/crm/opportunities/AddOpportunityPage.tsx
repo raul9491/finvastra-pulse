@@ -340,13 +340,13 @@ function Step3({
 
         <div>
           <label className="block text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-muted)' }}>
-            Sourced by Sub DSA
+            Sourced by Connector
           </label>
           <div className="flex items-start gap-2">
             <div className="flex-1 min-w-0">
               <SearchableSelect
                 options={[
-                  { value: '', label: 'Direct / no Sub DSA' },
+                  { value: '', label: 'Direct / no Connector' },
                   ...connectors.map((c) => ({
                     value: c.id,
                     label: `${c.displayName} · ${c.connectorCode}`,
@@ -356,7 +356,7 @@ function Step3({
                 ]}
                 value={connectorId}
                 onChange={onConnectorChange}
-                placeholder="Direct / no Sub DSA"
+                placeholder="Select connector…"
               />
             </div>
             <button type="button" onClick={onAddConnector}
@@ -366,7 +366,7 @@ function Step3({
             </button>
           </div>
           <p className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-            The channel partner who brought this case (manage in HRMS → Sub DSA).
+            The channel partner who brought this case (manage in HRMS → Connectors).
           </p>
         </div>
 
@@ -389,7 +389,7 @@ function Step3({
                     {dsaCodeUsed === 'finvastra' ? '✓ ' : ''}Finvastra's DSA code
                   </span>
                   <span className="block text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                    Bank pays Finvastra — we owe the Sub DSA a payout
+                    Bank pays Finvastra — we owe the Connector a payout
                   </span>
                 </button>
                 <button type="button" onClick={() => onDsaCodeUsedChange('connector_own')}
@@ -399,11 +399,11 @@ function Step3({
                     : { borderColor: 'var(--shell-border)' }}>
                   <span className="block text-sm font-semibold"
                     style={{ color: dsaCodeUsed === 'connector_own' ? '#C9A961' : 'var(--text-primary)' }}>
-                    {dsaCodeUsed === 'connector_own' ? '✓ ' : ''}Sub DSA's own code
+                    {dsaCodeUsed === 'connector_own' ? '✓ ' : ''}Connector's own code
                     {conn?.ownDsaCode ? <span className="font-mono font-normal text-xs"> · {conn.ownDsaCode}</span> : null}
                   </span>
                   <span className="block text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                    Bank pays the Sub DSA directly under their code
+                    Bank pays the Connector directly under their code
                   </span>
                 </button>
               </div>
@@ -605,6 +605,7 @@ export function AddOpportunityPage() {
           connectors={connectors}
           defaultVertical={selectedType ?? undefined}
           uid={user.uid}
+          entityLabel="Connector"
           onCreated={(id) => setConnectorId(id)}
         />
       )}

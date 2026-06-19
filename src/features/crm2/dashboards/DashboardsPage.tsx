@@ -1,12 +1,18 @@
 /**
  * Pipeline → Dashboards (spec §7.4). All sections from GET /api/crm2/dashboards
  * (server-aggregated; money sections present only with payout.amounts.read).
+ *
+ * Presentation note: each data series is shown via <DataView> — a Table ⇄ Graph
+ * toggle (graph default on mobile, table on desktop). This file does NOT compute
+ * or change any business value; it only renders the server-aggregated `d`.
  */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { apiCrm2, hasCrm2Perm } from '../lib';
+import { DataView, SimpleTable, type Column } from '../../../components/ui/DataView';
+import { ReBar, fmtINR, fmtNum } from '../../../components/ui/charts';
 
 const inr = (n: number | null | undefined) => n != null ? `₹${Number(n).toLocaleString('en-IN')}` : '—';
 const thisMonth = () => new Date().toISOString().slice(0, 7);
@@ -25,27 +31,30 @@ interface Dash {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="glass-panel p-4">
+    <div className="glass-panel glass-card p-4 sm:p-5" style={{ borderRadius: 'var(--radius-lg)' }}>
       <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>{title}</p>
       {children}
     </div>
   );
 }
-function Bars({ data, money }: { data: Record<string, number>; money?: boolean }) {
-  const entries = Object.entries(data).sort((a, b) => b[1] - a[1]);
-  const max = Math.max(1, ...entries.map(([, v]) => v));
+
+type Row = { name: string; value: number };
+const recToArr = (rec: Record<string, number>): Row[] =>
+  Object.entries(rec).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+
+/** A single-series breakdown shown as a Table or a horizontal Bar graph. */
+function SeriesView({ title, rec, money, valueLabel }: { title: string; rec: Record<string, number>; money?: boolean; valueLabel?: string }) {
+  const rows = recToArr(rec);
+  const cols: Column<Row>[] = [
+    { key: 'name', label: title },
+    { key: 'value', label: valueLabel ?? (money ? 'Amount' : 'Count'), align: 'right', render: (r) => money ? fmtINR(r.value) : fmtNum(r.value) },
+  ];
   return (
-    <div className="space-y-1.5">
-      {entries.length === 0 ? <p className="text-xs" style={{ color: 'var(--text-muted)' }}>No data</p> : entries.map(([k, v]) => (
-        <div key={k} className="flex items-center gap-2">
-          <span className="text-[11px] w-28 truncate" style={{ color: 'var(--text-secondary)' }}>{k}</span>
-          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--shell-hover-hard)' }}>
-            <div className="h-full rounded-full" style={{ width: `${(v / max) * 100}%`, backgroundColor: '#C9A961' }} />
-          </div>
-          <span className="text-[11px] w-20 text-right font-semibold" style={{ color: 'var(--text-primary)' }}>{money ? inr(v) : v}</span>
-        </div>
-      ))}
-    </div>
+    <DataView
+      title={title}
+      table={<SimpleTable columns={cols} rows={rows} />}
+      graph={<ReBar data={rows} xKey="name" series={[{ key: 'value', name: title }]} horizontal money={money} height={Math.max(180, Math.min(rows.length, 12) * 32 + 24)} />}
+    />
   );
 }
 
@@ -97,35 +106,56 @@ export function DashboardsPage() {
           )}
 
           <div className="grid md:grid-cols-2 gap-4">
-            <Card title="Leads by source"><Bars data={d.funnel.bySource} /></Card>
-            <Card title="Leads by category"><Bars data={d.funnel.byCategory} /></Card>
+            <SeriesView title="Leads by source" rec={d.funnel.bySource} />
+            <SeriesView title="Leads by category" rec={d.funnel.byCategory} />
 
-            <Card title="Pipeline by stage (count)">
-              <Bars data={Object.fromEntries(d.pipeline.filter((p) => p.count > 0).map((p) => [p.stage, p.count]))} />
-            </Card>
-            <Card title="Payout health (by status)"><Bars data={d.payoutHealth.byStatus} /></Card>
+            {/* Pipeline by stage — count graph + a richer table (count · avg age · value) */}
+            {(() => {
+              const stages = d.pipeline.filter((p) => p.count > 0);
+              const cols: Column<typeof stages[number]>[] = [
+                { key: 'stage', label: 'Stage' },
+                { key: 'count', label: 'Count', align: 'right' },
+                { key: 'avgAgeDays', label: 'Avg age', align: 'right', render: (r) => `${r.avgAgeDays}d` },
+                ...(canMoney ? [{ key: 'value', label: 'Value', align: 'right' as const, render: (r: typeof stages[number]) => fmtINR(r.value ?? 0) }] : []),
+              ];
+              return (
+                <DataView
+                  title="Pipeline by stage"
+                  table={<SimpleTable columns={cols} rows={stages} />}
+                  graph={<ReBar data={stages.map((p) => ({ name: p.stage, value: p.count }))} xKey="name" series={[{ key: 'value', name: 'Cases' }]} horizontal height={Math.max(180, stages.length * 32 + 24)} />}
+                />
+              );
+            })()}
+
+            <SeriesView title="Payout health (by status)" rec={d.payoutHealth.byStatus} />
 
             {canMoney && d.disbursement && (
-              <Card title="Disbursed by connector">
-                <Bars data={Object.fromEntries(Object.entries(d.disbursement.byConnector).map(([k, v]) => [k, v.disbursed ?? 0]))} money />
-              </Card>
+              <SeriesView title="Disbursed by connector" money rec={Object.fromEntries(Object.entries(d.disbursement.byConnector).map(([k, v]) => [k, v.disbursed ?? 0]))} />
             )}
             {canMoney && d.margin && (
-              <Card title="Net margin by connector"><Bars data={d.margin.byConnector} money /></Card>
+              <SeriesView title="Net margin by connector" money rec={d.margin.byConnector} />
             )}
 
-            {canMoney && d.receivables && (
-              <Card title="Receivables by connector">
-                <div className="space-y-1.5">
-                  {d.receivables.byConnector.map((r) => (
-                    <div key={r.connector} className="flex items-center justify-between gap-2 text-xs py-1" style={{ borderBottom: '1px solid var(--shell-border)' }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>{r.connector}</span>
-                      <span style={{ color: 'var(--text-muted)' }}>exp {inr(r.expected)} · rec {inr(r.received)} · <span style={{ color: '#fbbf24' }}>pend {inr(r.pendingReceivable)}</span></span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            )}
+            {canMoney && d.receivables && (() => {
+              const cols: Column<typeof d.receivables.byConnector[number]>[] = [
+                { key: 'connector', label: 'Connector' },
+                { key: 'expected', label: 'Expected', align: 'right', render: (r) => fmtINR(r.expected) },
+                { key: 'received', label: 'Received', align: 'right', render: (r) => fmtINR(r.received) },
+                { key: 'pendingReceivable', label: 'Pending', align: 'right', render: (r) => <span style={{ color: '#fbbf24' }}>{fmtINR(r.pendingReceivable)}</span> },
+              ];
+              return (
+                <DataView
+                  title="Receivables by connector"
+                  table={<SimpleTable columns={cols} rows={d.receivables.byConnector} />}
+                  graph={<ReBar
+                    data={d.receivables.byConnector.map((r) => ({ name: r.connector, received: r.received, pending: r.pendingReceivable }))}
+                    xKey="name" money stacked legend
+                    series={[{ key: 'received', name: 'Received', color: '#34A853' }, { key: 'pending', name: 'Pending', color: '#F59E0B' }]}
+                    height={Math.max(200, d.receivables.byConnector.length * 36 + 24)} horizontal
+                  />}
+                />
+              );
+            })()}
 
             <Card title="Payout cycle ageing">
               <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Avg disbursement → received: <strong>{d.payoutHealth.avgDisbToReceivedDays ?? '—'} days</strong></p>
@@ -143,56 +173,54 @@ export function DashboardsPage() {
           </div>
 
           {/* RM performance */}
-          <Card title="RM performance">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-                  <th className="text-left font-semibold px-2 py-1.5">RM</th>
-                  <th className="text-right font-semibold px-2 py-1.5">Leads</th>
-                  <th className="text-right font-semibold px-2 py-1.5">Conv %</th>
-                  {canMoney && <th className="text-right font-semibold px-2 py-1.5">Disbursed</th>}
-                  {canMoney && <th className="text-right font-semibold px-2 py-1.5">Revenue</th>}
-                </tr></thead>
-                <tbody>
-                  {d.rmPerformance.filter((r) => r.rm !== '—' && r.rm !== 'unassigned').map((r) => (
-                    <tr key={r.rm} style={{ borderTop: '1px solid var(--shell-border)' }}>
-                      <td className="px-2 py-1.5 font-mono text-xs" style={{ color: 'var(--text-primary)' }}>{r.rm}</td>
-                      <td className="px-2 py-1.5 text-right" style={{ color: 'var(--text-secondary)' }}>{r.leadsHandled}</td>
-                      <td className="px-2 py-1.5 text-right" style={{ color: 'var(--text-secondary)' }}>{r.conversionPct}%</td>
-                      {canMoney && <td className="px-2 py-1.5 text-right" style={{ color: '#C9A961' }}>{inr(r.disbursedValue)}</td>}
-                      {canMoney && <td className="px-2 py-1.5 text-right" style={{ color: '#34d399' }}>{inr(r.revenue)}</td>}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+          {(() => {
+            const rows = d.rmPerformance.filter((r) => r.rm !== '—' && r.rm !== 'unassigned');
+            const cols: Column<typeof rows[number]>[] = [
+              { key: 'rm', label: 'RM', render: (r) => <span className="font-mono text-xs">{r.rm}</span> },
+              { key: 'leadsHandled', label: 'Leads', align: 'right' },
+              { key: 'conversionPct', label: 'Conv %', align: 'right', render: (r) => `${r.conversionPct}%` },
+              ...(canMoney ? [
+                { key: 'disbursedValue', label: 'Disbursed', align: 'right' as const, render: (r: typeof rows[number]) => <span style={{ color: '#C9A961' }}>{inr(r.disbursedValue)}</span> },
+                { key: 'revenue', label: 'Revenue', align: 'right' as const, render: (r: typeof rows[number]) => <span style={{ color: '#34d399' }}>{inr(r.revenue)}</span> },
+              ] : []),
+            ];
+            return (
+              <DataView
+                title="RM performance"
+                table={<SimpleTable columns={cols} rows={rows} />}
+                graph={<ReBar
+                  data={rows.map((r) => ({ name: r.rm, value: canMoney ? (r.disbursedValue ?? 0) : r.leadsHandled }))}
+                  xKey="name" money={canMoney} horizontal
+                  series={[{ key: 'value', name: canMoney ? 'Disbursed' : 'Leads handled' }]}
+                  height={Math.max(200, rows.length * 30 + 24)}
+                />}
+              />
+            );
+          })()}
 
           {/* Sub-DSA scorecard */}
-          {d.subDsaScorecard.length > 0 && (
-            <Card title="Sub-DSA scorecard">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
-                    <th className="text-left font-semibold px-2 py-1.5">Sub-DSA</th>
-                    <th className="text-right font-semibold px-2 py-1.5">Cases</th>
-                    {canMoney && <th className="text-right font-semibold px-2 py-1.5">Disbursed</th>}
-                    {canMoney && <th className="text-right font-semibold px-2 py-1.5">Margin</th>}
-                  </tr></thead>
-                  <tbody>
-                    {d.subDsaScorecard.map((s) => (
-                      <tr key={s.subDsaId} style={{ borderTop: '1px solid var(--shell-border)' }}>
-                        <td className="px-2 py-1.5" style={{ color: 'var(--text-primary)' }}>{s.name}</td>
-                        <td className="px-2 py-1.5 text-right" style={{ color: 'var(--text-secondary)' }}>{s.casesSourced}</td>
-                        {canMoney && <td className="px-2 py-1.5 text-right" style={{ color: '#C9A961' }}>{inr(s.disbursedValue)}</td>}
-                        {canMoney && <td className="px-2 py-1.5 text-right" style={{ color: '#34d399' }}>{inr(s.payoutMargin)}</td>}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          )}
+          {d.subDsaScorecard.length > 0 && (() => {
+            const cols: Column<typeof d.subDsaScorecard[number]>[] = [
+              { key: 'name', label: 'Sub-DSA' },
+              { key: 'casesSourced', label: 'Cases', align: 'right' },
+              ...(canMoney ? [
+                { key: 'disbursedValue', label: 'Disbursed', align: 'right' as const, render: (r: typeof d.subDsaScorecard[number]) => <span style={{ color: '#C9A961' }}>{inr(r.disbursedValue)}</span> },
+                { key: 'payoutMargin', label: 'Margin', align: 'right' as const, render: (r: typeof d.subDsaScorecard[number]) => <span style={{ color: '#34d399' }}>{inr(r.payoutMargin)}</span> },
+              ] : []),
+            ];
+            return (
+              <DataView
+                title="Sub-DSA scorecard"
+                table={<SimpleTable columns={cols} rows={d.subDsaScorecard} />}
+                graph={<ReBar
+                  data={d.subDsaScorecard.map((s) => ({ name: s.name, value: canMoney ? (s.disbursedValue ?? 0) : s.casesSourced }))}
+                  xKey="name" money={canMoney} horizontal
+                  series={[{ key: 'value', name: canMoney ? 'Disbursed' : 'Cases sourced' }]}
+                  height={Math.max(200, d.subDsaScorecard.length * 30 + 24)}
+                />}
+              />
+            );
+          })()}
         </>
       )}
     </div>

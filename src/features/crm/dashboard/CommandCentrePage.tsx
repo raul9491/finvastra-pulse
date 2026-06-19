@@ -10,6 +10,8 @@ import {
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useTeamTargets, achievementPct } from '../hooks/useRmTargets';
+import { DataView } from '../../../components/ui/DataView';
+import { RePie } from '../../../components/ui/charts';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmtINR = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString('en-IN')}`;
@@ -247,24 +249,35 @@ export function CommandCentrePage() {
               <span><b style={{ color: '#C9A961' }}>{data.onLeave.length}</b> On Leave</span>
               <span><b style={{ color: '#f87171' }}>{data.notCheckedIn.length}</b> Not checked in</span>
             </div>
-            {([
-              ['Present', data.present, '#34d399'],
-              ['On Leave', data.onLeave, '#C9A961'],
-              ['Not checked in', data.notCheckedIn, '#f87171'],
-            ] as const).filter(([, list]) => list.length > 0).map(([label, list, color]) => (
-              <div key={label} className="mb-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--shell-text-dim)' }}>{label}</p>
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  {list.map((e) => (
-                    <button key={e.uid} onClick={() => navigate(`/hrms/employees/${e.uid}`)} title={e.name}
-                      className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold"
-                      style={{ border: `2px solid ${color}`, color: 'var(--text-primary)', backgroundColor: 'var(--shell-hover-soft)' }}>
-                      {e.photoURL ? <img src={e.photoURL} alt={e.name} className="w-full h-full rounded-full object-cover" /> : avatar(e)}
-                    </button>
+            <DataView headless
+              graph={<RePie height={220} colors={['#34A853', '#C9A961', '#EF4444']} data={[
+                { name: 'Present', value: data.present.length },
+                { name: 'On Leave', value: data.onLeave.length },
+                { name: 'Not checked in', value: data.notCheckedIn.length },
+              ]} />}
+              table={
+                <>
+                  {([
+                    ['Present', data.present, '#34d399'],
+                    ['On Leave', data.onLeave, '#C9A961'],
+                    ['Not checked in', data.notCheckedIn, '#f87171'],
+                  ] as const).filter(([, list]) => list.length > 0).map(([label, list, color]) => (
+                    <div key={label} className="mb-3">
+                      <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--shell-text-dim)' }}>{label}</p>
+                      <div className="flex gap-2 overflow-x-auto pb-1">
+                        {list.map((e) => (
+                          <button key={e.uid} onClick={() => navigate(`/hrms/employees/${e.uid}`)} title={e.name}
+                            className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold"
+                            style={{ border: `2px solid ${color}`, color: 'var(--text-primary)', backgroundColor: 'var(--shell-hover-soft)' }}>
+                            {e.photoURL ? <img src={e.photoURL} alt={e.name} className="w-full h-full rounded-full object-cover" /> : avatar(e)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   ))}
-                </div>
-              </div>
-            ))}
+                </>
+              }
+            />
           </section>
 
           {/* ── PART 3 — Pending approvals ── */}
@@ -308,21 +321,30 @@ export function CommandCentrePage() {
                 </div>
               ))}
             </div>
-            <div className="hidden md:block space-y-1.5 mb-3">
-              {(['loan', 'wealth', 'insurance'] as const).map((line) => {
-                const max = Math.max(data.byLine.loan.value, data.byLine.wealth.value, data.byLine.insurance.value, 1);
-                const w = Math.round((data.byLine[line].value / max) * 100);
-                return (
-                  <div key={line} className="flex items-center gap-3">
-                    <span className="text-xs capitalize w-16" style={{ color: 'var(--shell-text-secondary)' }}>{line}</span>
-                    <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--glass-panel-bg)' }}>
-                      <div className="h-full rounded-full" style={{ width: `${w}%`, backgroundColor: '#C9A961' }} />
-                    </div>
-                    <span className="text-xs w-28 text-right" style={{ color: 'var(--text-primary)' }}>{fmtCompact(data.byLine[line].value)} <span style={{ color: 'var(--shell-text-dim)' }}>({data.byLine[line].count})</span></span>
-                  </div>
-                );
-              })}
-            </div>
+            <DataView headless className="mb-3"
+              table={
+                <div className="space-y-1.5">
+                  {(['loan', 'wealth', 'insurance'] as const).map((line) => {
+                    const max = Math.max(data.byLine.loan.value, data.byLine.wealth.value, data.byLine.insurance.value, 1);
+                    const w = Math.round((data.byLine[line].value / max) * 100);
+                    return (
+                      <div key={line} className="flex items-center gap-3">
+                        <span className="text-xs capitalize w-16" style={{ color: 'var(--shell-text-secondary)' }}>{line}</span>
+                        <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--glass-panel-bg)' }}>
+                          <div className="h-full rounded-full" style={{ width: `${w}%`, backgroundColor: '#C9A961' }} />
+                        </div>
+                        <span className="text-xs w-28 text-right" style={{ color: 'var(--text-primary)' }}>{fmtCompact(data.byLine[line].value)} <span style={{ color: 'var(--shell-text-dim)' }}>({data.byLine[line].count})</span></span>
+                      </div>
+                    );
+                  })}
+                </div>
+              }
+              graph={<RePie money height={240} data={[
+                { name: 'Loan', value: data.byLine.loan.value },
+                { name: 'Wealth', value: data.byLine.wealth.value },
+                { name: 'Insurance', value: data.byLine.insurance.value },
+              ]} />}
+            />
             <button onClick={() => navigate('/crm/leads?filter=overdue')} className="text-sm font-semibold flex items-center gap-1.5" style={{ color: data.overdueSla > 0 ? '#f87171' : 'var(--shell-text-dim)' }}>
               <AlertTriangle size={14} /> {data.overdueSla} leads overdue SLA →
             </button>
@@ -358,18 +380,26 @@ export function CommandCentrePage() {
             {data.compliance.length === 0 ? (
               <p className="text-sm flex items-center gap-2" style={{ color: '#34d399' }}><CheckCircle2 size={16} /> All compliance on track</p>
             ) : (
-              <div className="space-y-2">
-                {data.compliance.map((c) => {
-                  const red = c.status === 'overdue';
-                  return (
-                    <button key={c.id} onClick={() => navigate('/hrms/admin/compliance')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors hover:bg-(--shell-hover-soft)"
-                      style={{ border: `1px solid ${red ? 'rgba(248,113,113,0.4)' : 'rgba(251,191,36,0.4)'}` }}>
-                      <span className="text-sm flex-1" style={{ color: 'var(--text-primary)' }}>{c.label} — <span style={{ color: red ? '#f87171' : '#fbbf24' }}>{red ? `overdue by ${c.days}d` : `due in ${c.days}d`}</span></span>
-                      <span className="text-xs font-semibold flex items-center gap-1" style={{ color: '#C9A961' }}>Mark as Filed <ArrowRight size={12} /></span>
-                    </button>
-                  );
-                })}
-              </div>
+              <DataView headless
+                graph={<RePie height={220} colors={['#EF4444', '#F59E0B']} data={[
+                  { name: 'Overdue', value: data.compliance.filter((c) => c.status === 'overdue').length },
+                  { name: 'Due soon', value: data.compliance.filter((c) => c.status !== 'overdue').length },
+                ]} />}
+                table={
+                  <div className="space-y-2">
+                    {data.compliance.map((c) => {
+                      const red = c.status === 'overdue';
+                      return (
+                        <button key={c.id} onClick={() => navigate('/hrms/admin/compliance')} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors hover:bg-(--shell-hover-soft)"
+                          style={{ border: `1px solid ${red ? 'rgba(248,113,113,0.4)' : 'rgba(251,191,36,0.4)'}` }}>
+                          <span className="text-sm flex-1" style={{ color: 'var(--text-primary)' }}>{c.label} — <span style={{ color: red ? '#f87171' : '#fbbf24' }}>{red ? `overdue by ${c.days}d` : `due in ${c.days}d`}</span></span>
+                          <span className="text-xs font-semibold flex items-center gap-1" style={{ color: '#C9A961' }}>Mark as Filed <ArrowRight size={12} /></span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                }
+              />
             )}
           </section>
 

@@ -37,6 +37,7 @@ export const SHAREABLE_PAGES = {
   'crm.commissions':    { title: 'Commission Records',    route: '/crm/commissions',            module: 'crm',  icon: 'IndianRupee',     description: 'Expected commissions per disbursal with status.' },
   'crm.referrals':      { title: 'My Referrals',          route: '/crm/referrals',              module: 'crm',  icon: 'Share2',          description: 'Employee-submitted referral leads and their status.' },
   'crm.import-queue':   { title: 'Import Queue',          route: '/crm/import/queue',           module: 'crm',  icon: 'Upload',          description: 'Bulk-imported lead batches awaiting distribution.' },
+  'crm.crm2-dashboards':{ title: 'CRM 2.0 Dashboards',     route: '/crm/pipeline/dashboards',    module: 'crm',  icon: 'BarChart2',       description: 'Funnel, pipeline, disbursement, payout health and RM scorecards.' },
 
   // ── HRMS ─────────────────────────────────────────────────────────────────
   'hrms.dashboard':     { title: 'HRMS Dashboard',        route: '/hrms/dashboard',             module: 'hrms', icon: 'Home',            description: 'Announcements, birthdays and HR pending actions.' },

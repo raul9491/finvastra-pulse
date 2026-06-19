@@ -1910,7 +1910,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   const OLD_TO_NEW_SOURCE: Record<string, typeof LEAD_SOURCES[number]> = {
     website: "WEBSITE", instagram: "ADS", facebook: "ADS", social_meta: "ADS",
     walkin: "WALKIN", referral: "REFERRAL_CLIENT", employee_referral: "REFERRAL_CLIENT",
-    broker: "REFERRAL_SUBDSA", offline_bulk: "COLD_CALL",
+    sub_dsa: "REFERRAL_SUBDSA", broker: "REFERRAL_SUBDSA", offline_bulk: "COLD_CALL",
   };
   const TRIAGE_TO_PRIORITY: Record<string, "HOT" | "WARM" | "COLD"> = {
     high: "HOT", medium: "WARM", low: "COLD",
@@ -1963,6 +1963,12 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       sourceMeta: { formId: null, sourceUrl: null, utm: null },
       amountRequired: typeof old.monthlyIncome === "number" ? null : (optNum(b, "amountRequired") ?? null),
       referredById: null, referredByType: null, referredByName: null, referredByCode: null,
+      // Carry the customer's connector (FAC-) straight through as the lead's
+      // sourcing channel partner — it flows on to the Case, so the rep never
+      // re-picks a connector the customer was already sourced by.
+      channelPartnerId: optStr(old as Record<string, unknown>, "connectorId"),
+      channelPartnerCode: optStr(old as Record<string, unknown>, "connectorCode"),
+      channelPartnerName: optStr(old as Record<string, unknown>, "connectorName"),
       linkedExistingClientId: null, customerProfile: null,
       assignedRm, assignedAt: assignedRm ? FieldValue.serverTimestamp() : null,
       status: "NEW", priority,

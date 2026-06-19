@@ -34,7 +34,7 @@ const SOURCE_LABELS: Record<LeadSource, string> = {
   offline_bulk:      'Offline',
   walkin:            'Walk-in',
   referral:          'Referral',
-  sub_dsa:           'Sub DSA',
+  sub_dsa:           'Connector',
   broker:            'Broker',
   employee_referral: 'Employee Ref',
 };

@@ -47,7 +47,7 @@ const STATUS_STYLES: Record<OpportunityStatus, string> = {
 
 const SOURCE_LABELS: Record<string, string> = {
   website: 'Website', instagram: 'Instagram', facebook: 'Facebook',
-  walkin: 'Walk-in', referral: 'Referral', sub_dsa: 'Sub DSA', broker: 'Broker',
+  walkin: 'Walk-in', referral: 'Referral', sub_dsa: 'Connector', broker: 'Broker',
 };
 
 // ─── Mini stage progress dots ─────────────────────────────────────────────────
@@ -438,7 +438,7 @@ export function LeadDetailPage() {
               {lead.displayName}
             </h2>
             <p className="text-sm mt-0.5 flex items-center gap-2 flex-wrap" style={{ color: 'var(--text-muted)' }}>
-              <span>{SOURCE_LABELS[lead.source] ?? lead.source} · Primary RM: {ownerName(lead.primaryOwnerId)}{lead.connectorName ? ` · Sub DSA: ${lead.connectorName}${lead.connectorCode ? ` (${lead.connectorCode})` : ''}` : ''}</span>
+              <span>{SOURCE_LABELS[lead.source] ?? lead.source} · Primary RM: {ownerName(lead.primaryOwnerId)}{lead.connectorName ? ` · Connector: ${lead.connectorName}${lead.connectorCode ? ` (${lead.connectorCode})` : ''}` : ''}</span>
               {isAdmin && lead.primaryOwnerId && (
                 <Link
                   to={`/hrms/employees/${lead.primaryOwnerId}`}

@@ -18,7 +18,7 @@ import { ContactActions, PhoneLink } from '../components/ContactActions';
 
 const SOURCE_LABELS: Record<LeadSource, string> = {
   website: 'Website', instagram: 'Instagram', facebook: 'Facebook',
-  walkin: 'Walk-in', referral: 'Referral', sub_dsa: 'Sub DSA', broker: 'Broker',
+  walkin: 'Walk-in', referral: 'Referral', sub_dsa: 'Connector', broker: 'Broker',
   offline_bulk: 'Offline Bulk', social_meta: 'Social Meta',
   employee_referral: 'Employee Referral',
 };

@@ -32,10 +32,12 @@ interface Props {
   uid: string;
   /** Called with the new connector's id so the caller can auto-select it. */
   onCreated: (id: string) => void;
+  /** What this channel partner is called on the calling surface (e.g. "Connector"). Defaults to "Sub DSA". */
+  entityLabel?: string;
 }
 
 export function QuickAddConnectorModal({
-  open, onClose, connectors, defaultVertical, uid, onCreated,
+  open, onClose, connectors, defaultVertical, uid, onCreated, entityLabel = 'Sub DSA',
 }: Props) {
   const [form, setForm] = useState<QuickConnectorInput>({
     displayName: '', mobile: '', email: '', firmName: '', ownDsaCode: '',
@@ -111,7 +113,7 @@ export function QuickAddConnectorModal({
 
         <div className="glass-modal-header flex items-center justify-between px-5 py-4">
           <div>
-            <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>New Sub DSA</h3>
+            <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>New {entityLabel}</h3>
             <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
               Code <span className="font-mono font-semibold" style={{ color: '#C9A961' }}>{code}</span> · PAN &amp; bank details added later by HR
             </p>
@@ -132,7 +134,7 @@ export function QuickAddConnectorModal({
           <div>
             {fLabel('Full Name', 'displayName', true)}
             <input className={inp('displayName')} value={form.displayName}
-              onChange={(e) => set('displayName', e.target.value)} placeholder="Sub DSA's name" />
+              onChange={(e) => set('displayName', e.target.value)} placeholder={`${entityLabel}'s name`} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -190,7 +192,7 @@ export function QuickAddConnectorModal({
             <button onClick={handleSave} disabled={saving}
               className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
               style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
-              {saving ? 'Adding…' : 'Add Sub DSA'}
+              {saving ? 'Adding…' : `Add ${entityLabel}`}
             </button>
           </div>
         </div>

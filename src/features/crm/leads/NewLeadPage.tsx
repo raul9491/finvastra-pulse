@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -79,6 +79,12 @@ export function NewLeadPage() {
   const consentGiven = watch('consentGiven');
   const watchedSource = watch('source');
 
+  // The connector picker is only relevant when the source is a Connector —
+  // clear any selection if the user switches to a different source.
+  useEffect(() => {
+    if (watchedSource !== 'sub_dsa' && connectorId) setConnectorId('');
+  }, [watchedSource, connectorId]);
+
   const onSubmit = async (values: LeadFormValues) => {
     if (!user) return;
     setSubmitError('');
@@ -97,7 +103,9 @@ export function NewLeadPage() {
     }
 
     try {
-      const conn = connectorId ? activeConnectors.find((c) => c.id === connectorId) : null;
+      const conn = values.source === 'sub_dsa' && connectorId
+        ? activeConnectors.find((c) => c.id === connectorId)
+        : null;
       const newId = await createLead(values, user.uid,
         conn ? { id: conn.id, code: conn.connectorCode, name: conn.displayName } : null,
         meetingLoc ? { lat: meetingLoc.lat, lng: meetingLoc.lng } : null);
@@ -159,7 +167,7 @@ export function NewLeadPage() {
                 <option value="facebook">Facebook</option>
                 <option value="walkin">Walk-in</option>
                 <option value="referral">Referral</option>
-                <option value="sub_dsa">Sub DSA</option>
+                <option value="sub_dsa">Connector</option>
               </select>
             </Field>
 
@@ -191,31 +199,33 @@ export function NewLeadPage() {
             </Field>
           )}
 
-          <Field label="Sourced by Sub DSA" hint="Channel partner who brought this customer. Carries through to the commission record &amp; MIS.">
-            <div className="flex items-start gap-2">
-              <div className="flex-1 min-w-0">
-                <SearchableSelect
-                  options={[
-                    { value: '', label: 'Direct / no Sub DSA' },
-                    ...activeConnectors.map((c) => ({
-                      value: c.id,
-                      label: `${c.displayName} · ${c.connectorCode}`,
-                      description: c.firmName ?? undefined,
-                      searchKeywords: [c.connectorCode, c.mobile],
-                    })),
-                  ]}
-                  value={connectorId}
-                  onChange={setConnectorId}
-                  placeholder="Direct / no Sub DSA"
-                />
+          {watchedSource === 'sub_dsa' && (
+            <Field label="Sourced by Connector" hint="Channel partner who brought this customer. Carries through to the commission record &amp; MIS.">
+              <div className="flex items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  <SearchableSelect
+                    options={[
+                      { value: '', label: 'Direct / no Connector' },
+                      ...activeConnectors.map((c) => ({
+                        value: c.id,
+                        label: `${c.displayName} · ${c.connectorCode}`,
+                        description: c.firmName ?? undefined,
+                        searchKeywords: [c.connectorCode, c.mobile],
+                      })),
+                    ]}
+                    value={connectorId}
+                    onChange={setConnectorId}
+                    placeholder="Select connector…"
+                  />
+                </div>
+                <button type="button" onClick={() => setShowAddConnector(true)}
+                  className="shrink-0 px-3 py-2.5 rounded-lg text-xs font-semibold border transition-opacity hover:opacity-80 whitespace-nowrap"
+                  style={{ borderColor: 'rgba(201,169,97,0.35)', color: '#C9A961' }}>
+                  + New
+                </button>
               </div>
-              <button type="button" onClick={() => setShowAddConnector(true)}
-                className="shrink-0 px-3 py-2.5 rounded-lg text-xs font-semibold border transition-opacity hover:opacity-80 whitespace-nowrap"
-                style={{ borderColor: 'rgba(201,169,97,0.35)', color: '#C9A961' }}>
-                + New
-              </button>
-            </div>
-          </Field>
+            </Field>
+          )}
 
           {/* Field-meeting location — optional GPS tag for on-site customer additions */}
           <Field label="Meeting Location" hint={meetingLoc ? undefined : 'On a field visit? Tag where you met the customer.'}>
@@ -322,6 +332,7 @@ export function NewLeadPage() {
           onClose={() => setShowAddConnector(false)}
           connectors={connectors}
           uid={user.uid}
+          entityLabel="Connector"
           onCreated={(id) => setConnectorId(id)}
         />
       )}

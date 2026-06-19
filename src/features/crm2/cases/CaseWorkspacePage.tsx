@@ -85,7 +85,7 @@ export function CaseWorkspacePage() {
   const { rows: docDefs } = useCrm2Collection<WithId<DocumentDef>>('documentMaster', needDocs);
   const { rows: lenders } = useCrm2Collection<WithId<Lender>>('lenders');   // eager — badge tooltips + details/logins
   const { rows: aggregators } = useCrm2Collection<WithId<Aggregator>>('aggregators', needRouting);
-  const { connectors } = useConnectors(needRouting);   // HRMS Sub-DSAs (FAC-)
+  const { connectors } = useConnectors(needRouting);   // connectors (FAC-)
 
   const canWrite = hasCrm2Perm(profile, 'crm.cases.write');
   const canSeeMoney = hasCrm2Perm(profile, 'payout.amounts.read');
@@ -688,12 +688,12 @@ function DetailsTab({ caseDoc, lenders, aggregators, connectors, canWrite, canSe
               options={[{ value: '', label: '—' }, ...aggregators.filter((a) => a.status === 'ACTIVE').map((a) => ({ value: a.id, label: a.name }))]} />
           ) : (aggregators.find((a) => a.id === caseDoc.connectorId)?.name ?? '—')}
         </Row>
-        <Row label="Sub DSA (Sourced By)">
+        <Row label="Connector (Sourced By)">
           {canWrite ? (
             <SearchableSelect value={caseDoc.channelPartnerId ?? ''} placeholder="— self-sourced —"
               onChange={(v) => { const p = connectors.find((c) => c.id === v);
                 patchCase(p ? { channelPartnerId: p.id, channelPartnerCode: p.connectorCode, channelPartnerName: p.displayName }
-                            : { channelPartnerId: null, channelPartnerCode: null, channelPartnerName: null }, 'Sub DSA saved'); }}
+                            : { channelPartnerId: null, channelPartnerCode: null, channelPartnerName: null }, 'Connector saved'); }}
               options={[{ value: '', label: '— self-sourced —' }, ...connectors.filter((c) => c.status === 'active').map((c) => ({ value: c.id, label: `${c.displayName} (${c.connectorCode})` }))]} />
           ) : (caseDoc.channelPartnerName ?? '— self-sourced —')}
         </Row>

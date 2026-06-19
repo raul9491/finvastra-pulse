@@ -26,7 +26,7 @@ import { useConnectors } from '../../hrms/hooks/useConnectors';
 import type { Connector } from '../../../types';
 import type { Crm2LeadFields, Crm2LeadStatus, Product, Client, SubDsa } from '../../../types/crm2';
 
-/** Resolve a HRMS Sub-DSA (FAC-) id → the channelPartner* attribution fields. */
+/** Resolve a connector (FAC-) id → the channelPartner* attribution fields. */
 function buildChannelPartner(partnerId: string, connectors: Connector[]) {
   const p = connectors.find((c) => c.id === partnerId);
   return p
@@ -86,7 +86,7 @@ export function Crm2LeadsPage() {
   const { rows: products } = useCrm2Collection<Product & { id: string }>('products');
   const { rows: clients } = useCrm2Collection<Client & { id: string }>('clients');
   const { rows: subDsas } = useCrm2Collection<SubDsa & { id: string }>('subDsas');
-  const { connectors } = useConnectors();   // HRMS Sub-DSAs (FAC-)
+  const { connectors } = useConnectors();   // connectors (FAC-)
 
   const [funnel, setFunnel] = useState<Crm2LeadStatus | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
@@ -406,7 +406,7 @@ function NewLeadModal({ faplOptions, productOptions, clientOptions, subDsaOption
                 options={[{ value: '', label: 'Unassigned' }, ...faplOptions]} placeholder="Unassigned" />
             </div>
             <div className="col-span-2">
-              <FLabel text="Sourced by Sub DSA (channel partner)" />
+              <FLabel text="Sourced by Connector" />
               <SearchableSelect value={f.channelPartnerId} onChange={(v) => set('channelPartnerId', v)}
                 options={[{ value: '', label: '— none (self-sourced) —' }, ...partnerOptions]} placeholder="— none —" />
             </div>
@@ -540,7 +540,7 @@ function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, c
             </p>
             {(lead.referredByName || lead.linkedExistingClientId || lead.channelPartnerName) && (
               <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                {lead.channelPartnerName && <>Sub DSA <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>{lead.channelPartnerName}{lead.channelPartnerCode ? ` (${lead.channelPartnerCode})` : ''}</span></>}
+                {lead.channelPartnerName && <>Connector <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>{lead.channelPartnerName}{lead.channelPartnerCode ? ` (${lead.channelPartnerCode})` : ''}</span></>}
                 {lead.referredByName && <>{lead.channelPartnerName ? ' · ' : ''}Referred by <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>{lead.referredByName}{lead.referredByCode ? ` (${lead.referredByCode})` : ''}</span></>}
                 {lead.linkedExistingClientId && <> · Linked client <span className="font-mono" style={{ color: '#C9A961' }}>{lead.linkedExistingClientId}</span></>}
               </p>
@@ -607,9 +607,9 @@ function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, c
                   placeholder="e.g. Confirm income docs, discuss 9.2% offer" />
               </div>
               <div>
-                <FLabel text="Sourced by Sub DSA" />
+                <FLabel text="Sourced by Connector" />
                 <SearchableSelect value={lead.channelPartnerId ?? ''} disabled={busy}
-                  onChange={(v) => patch(v ? buildChannelPartner(v, refData.connectors) : { channelPartnerId: null, channelPartnerCode: null, channelPartnerName: null }, 'Sub DSA updated')}
+                  onChange={(v) => patch(v ? buildChannelPartner(v, refData.connectors) : { channelPartnerId: null, channelPartnerCode: null, channelPartnerName: null }, 'Connector updated')}
                   options={[{ value: '', label: '— none —' }, ...partnerOptions]} placeholder="— none —" />
               </div>
               <div>
@@ -641,7 +641,7 @@ function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, c
             <button onClick={() => setShowConvert(true)}
               className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold"
               style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
-              Convert {lead.category === 'PARTNER_DSA' ? 'to Sub-DSA' : 'to Client + Case'} <ArrowRight size={15} />
+              Convert {lead.category === 'PARTNER_DSA' ? 'to Connector' : 'to Client + Case'} <ArrowRight size={15} />
             </button>
           )}
           {canConvert && !lead.converted && lead.status !== 'QUALIFIED' && (
@@ -789,11 +789,11 @@ function ConvertModal({ lead, faplOptions, productOptions, clients, onClose, onD
       <div className={`glass-modal-panel w-full ${wide ? 'max-w-2xl' : 'max-w-md'} rounded-2xl max-h-[92vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
         <div className="glass-modal-header px-5 py-4 sticky top-0 z-10">
           <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
-            {isPartner ? 'Convert to Sub-DSA' : 'Convert Lead → Client + Case'}
+            {isPartner ? 'Convert to Connector' : 'Convert Lead → Client + Case'}
           </h3>
           <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
             {isPartner
-              ? 'Creates the sub-DSA master record from this partner application.'
+              ? 'Creates the connector master record from this partner application.'
               : 'Resolve the client (new or existing), then open the case in one transaction.'}
           </p>
         </div>

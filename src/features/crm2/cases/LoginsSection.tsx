@@ -239,7 +239,7 @@ function DisburseLoginDialog({ caseId, login, onClose }: { caseId: string; login
   const [err, setErr] = useState('');
   const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
 
-  // Live slab + Sub-DSA payout preview (best-effort — needs payout.amounts.read).
+  // Live slab + connector payout preview (best-effort — needs payout.amounts.read).
   useEffect(() => {
     const amt = Number(f.disbursedAmount); if (!amt || !f.disbursementDate) { setPreview(null); setPreviewErr(''); return; }
     let cancel = false;
@@ -279,7 +279,7 @@ function DisburseLoginDialog({ caseId, login, onClose }: { caseId: string; login
         <div className="col-span-2"><FLabel text="Connector payout % override (optional)" /><input type="number" className={inp()} value={f.subDsaPayoutPct} onChange={(e) => set('subDsaPayoutPct', e.target.value)} placeholder="defaults to the Connector's slab %" /></div>
         {preview?.channelPartner && (
           <div className="col-span-2">
-            <FLabel text={`Sub DSA payout — ${preview.channelPartner.name ?? 'sourcing partner'}`} />
+            <FLabel text={`Connector payout — ${preview.channelPartner.name ?? 'sourcing partner'}`} />
             <input type="number" className={inp()} value={f.channelPartnerPayoutOverride}
               onChange={(e) => set('channelPartnerPayoutOverride', e.target.value)}
               placeholder={preview.channelPartner.payout != null ? `auto ₹${preview.channelPartner.payout.toLocaleString('en-IN')} — leave blank to use it` : 'no rule — enter to pay manually'} />

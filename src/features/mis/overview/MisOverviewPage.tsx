@@ -201,7 +201,7 @@ export function MisOverviewPage() {
                   </p>
                 </div>
               </div>
-              {/* Disbursed by Sub DSA — Table ⇄ Graph */}
+              {/* Disbursed by Connector — Table ⇄ Graph */}
               {(() => {
                 const byDsa: Array<{ name: string; value: number }> = Object.entries(
                   filteredDisbursals.reduce((m, r) => {
@@ -211,7 +211,7 @@ export function MisOverviewPage() {
                   }, {} as Record<string, number>),
                 ).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
                 const cols: Column<{ name: string; value: number }>[] = [
-                  { key: 'name', label: 'Sub DSA' },
+                  { key: 'name', label: 'Connector' },
                   { key: 'value', label: 'Disbursed', align: 'right', render: (r) => fmtINR(r.value) },
                 ];
                 return (
@@ -233,7 +233,7 @@ export function MisOverviewPage() {
                     <th className="px-4 py-3 text-right font-semibold" style={{ color: 'var(--text-muted)' }}>Amount</th>
                     <th className="px-4 py-3 text-right font-semibold" style={{ color: 'var(--text-muted)' }}>Commission</th>
                     <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>DSA Code</th>
-                    <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Sub DSA</th>
+                    <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Connector</th>
                     <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>Status</th>
                     <th className="px-4 py-3 text-left font-semibold" style={{ color: 'var(--text-muted)' }}>CRM</th>
                   </tr>

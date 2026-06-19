@@ -12,7 +12,7 @@
  * mapping editor (slab timeline, end-and-add flow) is purpose-built.
  */
 import { useMemo, useState } from 'react';
-import { Plus, Pencil, X, Landmark, Package, Network, Users2, FileText, GitBranch, Handshake } from 'lucide-react';
+import { Plus, Pencil, X, Landmark, Package, Network, FileText, GitBranch, Handshake } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect, MultiSearchableSelect } from '../../../components/ui/SearchableSelect';
@@ -23,7 +23,7 @@ import {
   setConnectorStatus, type MasterConnectorInput,
 } from '../../hrms/hooks/useConnectors';
 import type { Connector, ConnectorVertical } from '../../../types';
-import type { Lender, Product, Aggregator, SubDsa, DocumentDef } from '../../../types/crm2';
+import type { Lender, Product, Aggregator, DocumentDef } from '../../../types/crm2';
 
 type WithId<T> = T & { id: string };
 
@@ -561,7 +561,6 @@ const TABS = [
   { key: 'products',       label: 'Products',   Icon: Package },
   { key: 'aggregators',    label: 'Aggregators', Icon: Network },
   { key: 'mappings',       label: 'DSA Codes',  Icon: GitBranch },
-  { key: 'subDsas',        label: 'Sub-DSAs',   Icon: Users2 },
   { key: 'documentMaster', label: 'Documents',  Icon: FileText },
 ] as const;
 
@@ -594,7 +593,7 @@ export function Crm2MastersPage() {
           Pipeline Masters
         </h2>
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Lenders, products, connectors, DSA code mappings, sub-DSAs and the document checklist
+          Connectors, lenders, products, aggregators, DSA code mappings and the document checklist
         </p>
       </div>
 
@@ -690,50 +689,6 @@ export function Crm2MastersPage() {
       )}
 
       {tab === 'mappings' && <MappingsTab productOptions={productOptions} />}
-
-      {tab === 'subDsas' && (
-        <MasterTab<WithId<SubDsa>>
-          type="subDsas" label="Connectors"
-          expand={(r) => ({
-            bankName: r.payoutBank?.bankName ?? '', bankIfsc: r.payoutBank?.ifsc ?? '', bankAccountNo: '',
-          })}
-          transform={(v) => {
-            const { bankAccountNo, bankIfsc, bankName, ...rest } = v;
-            if (String(bankAccountNo ?? '').trim()) {
-              rest.payoutBank = { accountNo: bankAccountNo, ifsc: bankIfsc, bankName };
-            }
-            return rest;
-          }}
-          columns={[
-            { header: 'Type', render: (r) => r.type.replace('_', ' ') },
-            { header: 'Mobile', render: (r) => r.mobile },
-            { header: 'PAN', render: (r) => r.panLast4 ? `••••${r.panLast4}` : '—' },
-            { header: 'Bank', render: (r) => r.payoutBank ? `${r.payoutBank.bankName} ••••${r.payoutBank.accountNoLast4}` : '—' },
-            { header: 'TDS %', render: (r) => r.tdsPct != null ? `${r.tdsPct}%` : '—' },
-          ]}
-          fields={[
-            { key: 'name', label: 'Name', kind: 'text', required: true },
-            { key: 'type', label: 'Type', kind: 'select', required: true,
-              options: [{ value: 'INDIVIDUAL', label: 'Individual' }, { value: 'CORPORATE', label: 'Corporate' }, { value: 'REFERRAL_CLIENT', label: 'Referral Client' }, { value: 'WALKIN_REFERRER', label: 'Walk-in Referrer' }] },
-            { key: 'mobile', label: 'Mobile', kind: 'text', required: true, placeholder: '9876543210' },
-            { key: 'email', label: 'Email', kind: 'text' },
-            { key: 'city', label: 'City', kind: 'text' },
-            { key: 'state', label: 'State', kind: 'text' },
-            { key: 'pan', label: 'PAN', kind: 'text', createOnly: false, placeholder: 'ABCDE1234F',
-              hint: 'Stored encrypted; only the last 4 are shown. Leave blank to keep the existing PAN.' },
-            { key: 'gstin', label: 'GSTIN', kind: 'text' },
-            { key: 'bankName', label: 'Payout Bank Name', kind: 'text', placeholder: 'HDFC Bank' },
-            { key: 'bankAccountNo', label: 'Payout Account No', kind: 'text', placeholder: '6–20 digits',
-              hint: 'Stored encrypted; only the last 4 are shown. Leave blank to keep the existing account.' },
-            { key: 'bankIfsc', label: 'Payout IFSC', kind: 'text', placeholder: 'HDFC0001234' },
-            { key: 'tdsPct', label: 'TDS %', kind: 'number', hint: 'TDS deducted on this connector’s payouts' },
-            { key: 'relationshipOwner', label: 'Relationship Owner (FAPL-xxx)', kind: 'text', required: true, placeholder: 'FAPL-012' },
-            { key: 'onboardingDate', label: 'Onboarding Date', kind: 'date' },
-            { key: 'status', label: 'Status', kind: 'select',
-              options: [...STATUS_AI, { value: 'BLACKLISTED', label: 'Blacklisted' }] },
-          ]}
-        />
-      )}
 
       {tab === 'documentMaster' && (
         <MasterTab<WithId<DocumentDef>>

@@ -198,10 +198,10 @@ export function DashboardsPage() {
             );
           })()}
 
-          {/* Sub-DSA scorecard */}
+          {/* Connector scorecard */}
           {d.subDsaScorecard.length > 0 && (() => {
             const cols: Column<typeof d.subDsaScorecard[number]>[] = [
-              { key: 'name', label: 'Sub-DSA' },
+              { key: 'name', label: 'Connector' },
               { key: 'casesSourced', label: 'Cases', align: 'right' },
               ...(canMoney ? [
                 { key: 'disbursedValue', label: 'Disbursed', align: 'right' as const, render: (r: typeof d.subDsaScorecard[number]) => <span style={{ color: '#C9A961' }}>{inr(r.disbursedValue)}</span> },
@@ -210,7 +210,7 @@ export function DashboardsPage() {
             ];
             return (
               <DataView
-                title="Sub-DSA scorecard"
+                title="Connector scorecard"
                 table={<SimpleTable columns={cols} rows={d.subDsaScorecard} />}
                 graph={<ReBar
                   data={d.subDsaScorecard.map((s) => ({ name: s.name, value: canMoney ? (s.disbursedValue ?? 0) : s.casesSourced }))}

@@ -16,7 +16,8 @@ import { Plus, Pencil, X, Landmark, Package, Network, FileText, GitBranch, Hands
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect, MultiSearchableSelect } from '../../../components/ui/SearchableSelect';
-import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
+import { apiCrm2, useCrm2Collection } from '../lib';
+import { isSuperAdmin } from '../../../config/hrmsConfig';
 import { MappingsTab } from './MappingsTab';
 import {
   useConnectors, nextConnectorCode, addMasterConnector, updateMasterConnector,
@@ -575,13 +576,15 @@ export function Crm2MastersPage() {
   const docOptions = useMemo(
     () => docDefs.map((d) => ({ value: d.id, label: d.name })), [docDefs]);
 
-  const canWrite = hasCrm2Perm(profile, 'crm.masters.write');
+  // Masters add + view is super-admin only. Lender contacts/login-email etc. are
+  // surfaced read-only to RMs/managers inside the case (see LoginsSection).
+  const canWrite = isSuperAdmin(user?.uid ?? '', profile);
 
   if (!canWrite) {
-    // NOTHING LOCKED rule: this page is only reachable via direct URL without the perm.
+    // NOTHING LOCKED rule: this page is only reachable via direct URL without access.
     return (
       <div className="glass-panel p-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-        Masters access not granted. Ask an admin for the <strong>crm.masters.write</strong> permission.
+        Masters is restricted to <strong>super admins</strong>.
       </div>
     );
   }
@@ -616,6 +619,8 @@ export function Crm2MastersPage() {
           type="lenders" label="Lenders"
           columns={[
             { header: 'Type', render: (r) => r.type?.replace('_', ' ') },
+            { header: 'Login Email', render: (r) => r.loginEmail || '—' },
+            { header: 'Contacts', render: (r) => r.contacts?.length ? `${r.contacts.length} contact${r.contacts.length > 1 ? 's' : ''}` : '—' },
             { header: 'TAT (days)', render: (r) => r.tatBenchmarkDays ?? '—' },
           ]}
           fields={[

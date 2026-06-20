@@ -159,7 +159,7 @@ export const NAV_NODES: NavNode[] = [
   { key: 'crm.reports',           label: 'Lead Aging',             route: '/crm/reports/aging',          module: 'crm', icon: 'Hourglass',       group: 'Teams',     access: crmManager, keywords: ['lead aging'] },
   { key: 'crm.import',            label: 'Import',              route: '/crm/import',                 module: 'crm', icon: 'Upload',          group: 'Teams',     access: crmImport, end: true },
   { key: 'crm.import-queue',      label: 'Import Queue',        route: '/crm/import/queue',           module: 'crm', icon: 'PackageOpen',     group: 'Teams',     access: crmImport, badgeKey: 'crm.queueAwaiting' },
-  { key: 'crm.masters',           label: 'Masters',             route: '/crm/pipeline/masters',       module: 'crm', icon: 'Layers',        group: 'Admin',     access: crmAdmin },
+  { key: 'crm.masters',           label: 'Masters',             route: '/crm/pipeline/masters',       module: 'crm', icon: 'Layers',        group: 'Admin',     access: sa },
   { key: 'crm.permissions',       label: 'CRM Permissions',         route: '/crm/pipeline/permissions',   module: 'crm', icon: 'User',            group: 'Admin',     access: crmAdmin },
   { key: 'crm.import-history',    label: 'Import History',      route: '/crm/import/history',         module: 'crm', icon: 'Clock',           group: 'Admin',     access: crmAdmin },
   { key: 'crm.commission-leakage',label: 'Commission Leakage',  route: '/crm/admin/commission-leakage',module: 'crm', icon: 'AlertTriangle',       group: 'Admin',     access: crmAdmin },

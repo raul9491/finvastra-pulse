@@ -194,6 +194,9 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
               )}
             </div>
 
+            {/* Bank reference (read-only) — login inbox + SM/ASM contacts from Masters */}
+            <LenderInfo lender={lenders.find((x) => x.id === l.lenderId)} />
+
             {/* In-Process sub-process summary (stage 6 onward) */}
             {idx >= LOGIN_STAGE_ORDER.indexOf('IN_PROCESS') && l.subProcesses && (
               <div className="flex flex-wrap gap-1.5">
@@ -308,6 +311,51 @@ function KV({ label, v }: { label: string; v: string | null | undefined }) {
       <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{label}</p>
       <p style={{ color: 'var(--text-primary)' }}>{v || '—'}</p>
     </div>
+  );
+}
+
+// Read-only bank reference shown to anyone working the case (RM / manager /
+// telecaller): the lender's login inbox, TAT and SM/ASM/RM contacts. The data
+// is maintained by super admins in Masters → Lenders; here it's view-only.
+function LenderInfo({ lender }: { lender?: (Lender & { id: string }) }) {
+  if (!lender) return null;
+  const contacts = lender.contacts ?? [];
+  const hasInfo = !!lender.loginEmail || lender.tatBenchmarkDays != null || contacts.length > 0;
+  if (!hasInfo) return null;
+  return (
+    <details className="rounded-lg" style={{ border: '1px solid var(--shell-border)' }}>
+      <summary className="cursor-pointer px-3 py-2 text-xs font-semibold select-none" style={{ color: 'var(--text-secondary)' }}>
+        🏦 Bank contacts &amp; details
+      </summary>
+      <div className="px-3 pb-3 pt-1 space-y-2 text-xs">
+        <div className="flex flex-wrap gap-x-6 gap-y-1" style={{ color: 'var(--text-muted)' }}>
+          {lender.type && <span>Type: <span style={{ color: 'var(--text-secondary)' }}>{lender.type.replace(/_/g, ' ')}</span></span>}
+          {lender.tatBenchmarkDays != null && <span>TAT: <span style={{ color: 'var(--text-secondary)' }}>{lender.tatBenchmarkDays} days</span></span>}
+          {lender.loginEmail && <span>Login email: <a href={`mailto:${lender.loginEmail}`} className="font-medium" style={{ color: '#C9A961' }}>{lender.loginEmail}</a></span>}
+        </div>
+        {contacts.length > 0 && (
+          <table className="w-full">
+            <thead>
+              <tr className="text-[10px] uppercase" style={{ color: 'var(--text-muted)' }}>
+                <th className="text-left py-1">Name</th><th className="text-left">Role</th>
+                <th className="text-left">Mobile</th><th className="text-left">Email</th><th className="text-left">Branch</th>
+              </tr>
+            </thead>
+            <tbody>
+              {contacts.map((c, i) => (
+                <tr key={i} style={{ borderTop: '1px solid var(--shell-border)' }}>
+                  <td className="py-1" style={{ color: 'var(--text-primary)' }}>{c.name || '—'}</td>
+                  <td style={{ color: 'var(--text-secondary)' }}>{c.role}</td>
+                  <td>{c.mobile ? <a href={`tel:${c.mobile}`} style={{ color: '#C9A961' }}>{c.mobile}</a> : '—'}</td>
+                  <td style={{ color: 'var(--text-secondary)' }}>{c.email || '—'}</td>
+                  <td style={{ color: 'var(--text-secondary)' }}>{c.branch || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </details>
   );
 }
 

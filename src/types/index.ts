@@ -1127,6 +1127,8 @@ export interface Asset {
 
 export type ConnectorVertical = 'loan' | 'wealth' | 'insurance';
 export type ConnectorStatus = 'active' | 'inactive';
+// Legal entity type — same option set as the Client master constitution.
+export type ConnectorEntityType = 'INDIVIDUAL' | 'PROPRIETORSHIP' | 'PARTNERSHIP' | 'LLP' | 'PVT_LTD' | 'HUF';
 
 // Which DSA code a connector-sourced case runs under at the bank:
 // 'finvastra'     → our code; the bank pays Finvastra and we owe the connector a payout
@@ -1137,12 +1139,15 @@ export type DsaCodeUsed = 'finvastra' | 'connector_own';
 // Sensitive PAN + bank live in /connectors/{id}/private/financial (admin/HR only).
 export interface Connector {
   id: string;
-  connectorCode: string;          // FAC-001
+  connectorCode: string;          // CON-001 (legacy FAC-/CONN-)
   displayName: string;
-  mobile: string;
+  entityType?: ConnectorEntityType | null;  // legal entity type (constitution)
+  mobile: string;                 // primary; == mobiles[0] (back-compat for pickers)
+  mobiles?: string[];             // one or more contact mobiles
   email: string;                  // personal/business email — NOT a Workspace login
   address: string;
   firmName?: string;              // if they operate as a firm / DSA entity
+  gstin?: string | null;          // optional
   ownDsaCode?: string | null;     // the connector's OWN bank DSA code, if they have one
   verticals: ConnectorVertical[]; // what they bring
   // Per-product auto-payout rules (CRM 2.0 disbursement creates a connector_payout
@@ -1157,18 +1162,24 @@ export interface Connector {
   updatedAt: import('firebase/firestore').Timestamp;
 }
 
-export interface ConnectorBankDetails {
-  accountHolderName: string;
-  accountNumber: string;
-  ifsc: string;
+// Payout bank — account number stored encrypted; only the last 4 are shown.
+export interface ConnectorPayoutBank {
   bankName: string;
-  branch?: string;
+  accountHolderName: string;      // name as per account
+  ifsc: string;
+  accountNoEnc?: import('../lib/encryption').EncryptedField | null;
+  accountNoLast4?: string | null;
+  branchName?: string | null;
 }
 
-// /connectors/{id}/private/financial — admin/HR only.
+// /connectors/{id}/private/financial — admin/HR only. PAN encrypted (last-4
+// shown); Aadhaar stored as last-4 ONLY (full Aadhaar is never stored — UIDAI).
 export interface ConnectorFinancial {
-  pan: string;                    // stored raw; UI always masks via maskPan()
-  bank: ConnectorBankDetails;
+  panEnc?: import('../lib/encryption').EncryptedField | null;
+  panLast4?: string | null;
+  aadhaarLast4?: string | null;
+  payoutBank?: ConnectorPayoutBank | null;
+  tdsPct?: number | null;         // deduction % applied to this connector's payouts
   updatedAt: import('firebase/firestore').Timestamp;
 }
 

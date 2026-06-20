@@ -530,22 +530,144 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     res.json({ ok: true, migrated });
   }));
 
-  // ─── One-time: rename legacy connector codes FAC-### → CONN-### ───────────────
-  // Connectors (HRMS `/connectors`, FAC-###) are now coded CONN-### (CONN- was
-  // freed up when aggregators moved to AGG-). connectorCode is a display FIELD
-  // (the real link is the doc id / channelPartnerId), so this just rewrites the
-  // code on the connector + the denormalised channelPartnerCode on leads/cases/
-  // logins. Idempotent; super-admin UI.
+  // ─── Connector master (HRMS /connectors, CON-###) — rich, encrypted ──────────
+  // PAN encrypted (last-4 shown), Aadhaar last-4 ONLY (UIDAI — full never stored),
+  // bank account encrypted (last-4 shown). Sensitive financial lives in the
+  // admin/HR-only /connectors/{id}/private/financial sub-doc; the main doc holds
+  // display-safe fields (read by CRM users for the Add Customer picker).
+  const CONNECTOR_ENTITY_TYPES = ["INDIVIDUAL", "PROPRIETORSHIP", "PARTNERSHIP", "LLP", "PVT_LTD", "HUF"];
+  const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+
+  async function nextConnectorCodeServer(): Promise<string> {
+    const snap = await db.collection("connectors").get();
+    let max = 0;
+    snap.docs.forEach((d) => {
+      const m = /^(?:CON|CONN|FAC)-(\d+)$/.exec(String(d.data().connectorCode ?? ""));
+      if (m) max = Math.max(max, Number(m[1]));
+    });
+    return `CON-${String(max + 1).padStart(3, "0")}`;
+  }
+
+  function connectorMainFields(b: Record<string, unknown>, isCreate: boolean): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    if (isCreate || b.displayName !== undefined) out.displayName = reqStr(b, "displayName");
+    if (isCreate || b.entityType !== undefined) {
+      const et = optStr(b, "entityType");
+      if (et && !CONNECTOR_ENTITY_TYPES.includes(et)) throw new ApiError(400, "invalid entityType");
+      out.entityType = et;
+    }
+    if (isCreate || b.mobiles !== undefined || b.mobile !== undefined) {
+      const raw = Array.isArray(b.mobiles) ? b.mobiles.map(String) : (b.mobile ? [String(b.mobile)] : []);
+      const arr = raw.map((m) => m.replace(/[\s-]/g, "").replace(/^\+91/, "")).filter(Boolean);
+      if (isCreate && arr.length === 0) throw new ApiError(400, "at least one mobile is required");
+      for (const m of arr) if (!MOBILE_RE.test(m)) throw new ApiError(400, `mobile ${m} must be a 10-digit Indian mobile`);
+      out.mobiles = arr;
+      out.mobile = arr[0] ?? "";   // back-compat for the Add Customer / case pickers
+    }
+    if (isCreate || b.email !== undefined) out.email = optStr(b, "email") ?? "";
+    if (isCreate || b.firmName !== undefined) out.firmName = optStr(b, "firmName");
+    if (isCreate || b.gstin !== undefined) out.gstin = optStr(b, "gstin");
+    if (isCreate || b.verticals !== undefined) {
+      const v = Array.isArray(b.verticals) ? b.verticals.filter((x) => ["loan", "wealth", "insurance"].includes(String(x))) : [];
+      if (isCreate && v.length === 0) throw new ApiError(400, "pick at least one vertical");
+      out.verticals = v;
+    }
+    if (isCreate || b.status !== undefined) out.status = b.status === "inactive" ? "inactive" : "active";
+    return out;
+  }
+
+  // Merge/encrypt the payout bank. `raw` null clears it; a blank accountNo keeps
+  // the existing encrypted account; other fields merge over `existing`.
+  function buildPayoutBank(raw: unknown, existing: Record<string, unknown> | null): Record<string, unknown> | null {
+    if (raw === null) return null;
+    if (!raw || typeof raw !== "object") return existing;
+    const pb = raw as Record<string, unknown>;
+    const ex = existing ?? {};
+    const bankName = isStr(pb.bankName) ? String(pb.bankName).trim() : String(ex.bankName ?? "");
+    const accountHolderName = isStr(pb.accountHolderName) ? String(pb.accountHolderName).trim() : String(ex.accountHolderName ?? "");
+    const branchName = isStr(pb.branchName) ? (String(pb.branchName).trim() || null) : ((ex.branchName as string | null) ?? null);
+    const ifsc = isStr(pb.ifsc) && String(pb.ifsc).trim() ? String(pb.ifsc).trim().toUpperCase() : String(ex.ifsc ?? "");
+    let accountNoEnc = (ex.accountNoEnc as unknown) ?? null;
+    let accountNoLast4 = (ex.accountNoLast4 as string | null) ?? null;
+    if (isStr(pb.accountNo) && String(pb.accountNo).trim()) {
+      const acc = String(pb.accountNo).replace(/\s/g, "");
+      if (!/^\d{6,20}$/.test(acc)) throw new ApiError(400, "bank.accountNo must be 6–20 digits");
+      accountNoEnc = encryptField(acc); accountNoLast4 = acc.slice(-4);
+    }
+    if (!bankName && !accountHolderName && !ifsc && !accountNoEnc) return existing;
+    if (ifsc && !IFSC_RE.test(ifsc)) throw new ApiError(400, "bank.ifsc format invalid (e.g. HDFC0001234)");
+    return { bankName, accountHolderName, ifsc, accountNoEnc, accountNoLast4, branchName };
+  }
+
+  app.post("/api/crm2/connectors", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "crm.masters.write");
+    if (!caller) return;
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    rejectFullAadhaar(b);
+    const main = connectorMainFields(b, true);
+
+    // Financial (private) — PAN required.
+    const pan = String(b.pan ?? "").trim().toUpperCase();
+    if (!pan) throw new ApiError(400, "PAN is required for a connector");
+    if (!PAN_RE.test(pan)) throw new ApiError(400, "PAN format invalid (expected ABCDE1234F)");
+    const fin: Record<string, unknown> = { panEnc: encryptField(pan), panLast4: pan.slice(-4) };
+    const a = String(b.aadhaarLast4 ?? "").trim();
+    if (a && !/^\d{4}$/.test(a)) throw new ApiError(400, "aadhaarLast4 must be exactly 4 digits — full Aadhaar is never stored");
+    fin.aadhaarLast4 = a || null;
+    fin.tdsPct = optNum(b, "tdsPct");
+    fin.payoutBank = buildPayoutBank(b.bank, null);
+
+    const code = await nextConnectorCodeServer();
+    const ref = db.collection("connectors").doc();
+    await ref.set({ connectorCode: code, address: "", ownDsaCode: null, payoutRules: [], deleted: false, ...main, ...createAudit(caller.fapl) });
+    await ref.collection("private").doc("financial").set({ ...fin, updatedAt: FieldValue.serverTimestamp() });
+    res.json({ ok: true, id: ref.id, connectorCode: code });
+  }));
+
+  app.patch("/api/crm2/connectors/:id", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "crm.masters.write");
+    if (!caller) return;
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    rejectFullAadhaar(b);
+    const ref = db.collection("connectors").doc(req.params.id);
+    if (!(await ref.get()).exists) throw new ApiError(404, "connector not found");
+    const main = connectorMainFields(b, false);
+    if (Object.keys(main).length) await ref.update({ ...main, ...updateAudit(caller.fapl) });
+
+    const finRef = ref.collection("private").doc("financial");
+    const cur = (await finRef.get()).data() ?? {};
+    const fin: Record<string, unknown> = {};
+    if (isStr(b.pan) && String(b.pan).trim()) {
+      const pan = String(b.pan).trim().toUpperCase();
+      if (!PAN_RE.test(pan)) throw new ApiError(400, "PAN format invalid (expected ABCDE1234F)");
+      fin.panEnc = encryptField(pan); fin.panLast4 = pan.slice(-4);
+    }
+    if (b.aadhaarLast4 !== undefined) {
+      const a = String(b.aadhaarLast4 ?? "").trim();
+      if (a && !/^\d{4}$/.test(a)) throw new ApiError(400, "aadhaarLast4 must be exactly 4 digits — full Aadhaar is never stored");
+      fin.aadhaarLast4 = a || null;
+    }
+    if (b.tdsPct !== undefined) fin.tdsPct = optNum(b, "tdsPct");
+    if (b.bank !== undefined) fin.payoutBank = buildPayoutBank(b.bank, (cur.payoutBank as Record<string, unknown> | null) ?? null);
+    if (Object.keys(fin).length) await finRef.set({ ...fin, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    res.json({ ok: true });
+  }));
+
+  // ─── One-time: rename legacy connector codes FAC-/CONN-### → CON-### ──────────
+  // Connectors (HRMS `/connectors`) are now coded CON-### (CON- chosen by Rahul;
+  // earlier FAC-/CONN-). connectorCode is a display FIELD (the real link is the
+  // doc id / channelPartnerId), so this rewrites the code on the connector + the
+  // denormalised channelPartnerCode on leads/cases/logins. Idempotent; SA UI.
   app.post("/api/crm2/admin/migrate-connector-codes", route(async (req, res) => {
     const caller = await requirePerm(req, res, "crm.masters.write");
     if (!caller) return;
     const snap = await db.collection("connectors").get();
-    const legacy = snap.docs.filter((d) => /^FAC-\d+$/.test(String(d.data().connectorCode ?? "")));
+    const legacy = snap.docs.filter((d) => /^(?:FAC|CONN)-\d+$/.test(String(d.data().connectorCode ?? "")));
     const migrated: Array<{ id: string; old: string; new: string; repointed: number }> = [];
 
     for (const d of legacy) {
       const oldCode = String(d.data().connectorCode);
-      const newCode = oldCode.replace(/^FAC-/, "CONN-");
+      const newCode = oldCode.replace(/^(?:FAC|CONN)-/, "CON-");
       await d.ref.update({ connectorCode: newCode, updatedAt: FieldValue.serverTimestamp() });
       let repointed = 0;
       // Denormalised channelPartnerCode (keyed by channelPartnerId == connector doc id).

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import {
   collection, query, where, onSnapshot,
-  addDoc, updateDoc, doc, serverTimestamp,
+  addDoc, updateDoc, getDoc, doc, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import type {
-  Connector, ConnectorVertical, ConnectorPayout,
+  Connector, ConnectorVertical, ConnectorPayout, ConnectorFinancial,
 } from '../../../types';
 
 // ─── Connectors list ──────────────────────────────────────────────────────────
@@ -35,68 +35,30 @@ export function useConnectors(enabled = true) {
 }
 
 // Next FAC-### code from the existing set (client-side; fine at this scale).
-// Connectors are coded CONN-### (legacy ones were FAC-### — both are counted so
-// the next number never collides; a one-time migration renames FAC- → CONN-).
+// Connectors are coded CON-### (legacy ones were FAC-/CONN-### — all counted so
+// the next number never collides; a one-time migration renames them to CON-).
 export function nextConnectorCode(connectors: Connector[]): string {
   let max = 0;
   for (const c of connectors) {
-    const m = /^(?:CONN|FAC)-(\d+)$/.exec(c.connectorCode ?? '');
+    const m = /^(?:CON|CONN|FAC)-(\d+)$/.exec(c.connectorCode ?? '');
     if (m) max = Math.max(max, Number(m[1]));
   }
-  return `CONN-${String(max + 1).padStart(3, '0')}`;
+  return `CON-${String(max + 1).padStart(3, '0')}`;
 }
 
 // ─── Mutations ──────────────────────────────────────────────────────────────
 // Connectors are managed in ONE place: CRM → Admin → Masters → Connectors.
-// The FAC-### code is auto-assigned (never client-editable). The main record
-// is all there is — there is no PAN/bank financial sub-doc anymore.
+// Create/edit go through the server (POST/PATCH /api/crm2/connectors) so PAN +
+// bank account are encrypted (last-4 shown) and Aadhaar is last-4 only. The
+// CON-### code is auto-assigned server-side. Status toggle stays client-side.
 
-export interface MasterConnectorInput {
-  displayName: string;
-  mobile: string;
-  email?: string;
-  firmName?: string;
-  verticals: ConnectorVertical[];
-  status?: Connector['status'];
-}
-
-export async function addMasterConnector(
-  input: MasterConnectorInput,
-  connectorCode: string,
-  uid: string,
-): Promise<string> {
-  const ref = await addDoc(collection(db, 'connectors'), {
-    connectorCode,
-    displayName: input.displayName.trim(),
-    mobile:      input.mobile.trim(),
-    email:       input.email?.trim() || '',
-    address:     '',
-    firmName:    input.firmName?.trim() || null,
-    ownDsaCode:  null,
-    verticals:   input.verticals,
-    status:      input.status ?? 'active',
-    notes:       null,
-    deleted:     false,
-    createdBy:   uid,
-    createdAt:   serverTimestamp(),
-    updatedAt:   serverTimestamp(),
-  });
-  return ref.id;
-}
-
-export async function updateMasterConnector(
-  id: string,
-  input: MasterConnectorInput,
-): Promise<void> {
-  await updateDoc(doc(db, 'connectors', id), {
-    displayName: input.displayName.trim(),
-    mobile:      input.mobile.trim(),
-    email:       input.email?.trim() || '',
-    firmName:    input.firmName?.trim() || null,
-    verticals:   input.verticals,
-    ...(input.status ? { status: input.status } : {}),
-    updatedAt:   serverTimestamp(),
-  });
+// Read the admin/HR-only financial sub-doc (PAN last-4, Aadhaar last-4, bank,
+// TDS) for the connector detail/edit dialog. Returns null if none / no access.
+export async function getConnectorFinancial(id: string): Promise<ConnectorFinancial | null> {
+  try {
+    const snap = await getDoc(doc(db, 'connectors', id, 'private', 'financial'));
+    return snap.exists() ? (snap.data() as ConnectorFinancial) : null;
+  } catch { return null; }
 }
 
 export async function setConnectorStatus(id: string, status: Connector['status']): Promise<void> {

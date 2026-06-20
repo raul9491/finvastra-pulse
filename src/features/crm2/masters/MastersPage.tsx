@@ -11,7 +11,7 @@
  * Generic schema-driven forms keep the five simple masters compact; the
  * mapping editor (slab timeline, end-and-add flow) is purpose-built.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Plus, Pencil, X, Landmark, Package, Network, FileText, GitBranch, Handshake } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
@@ -20,10 +20,10 @@ import { apiCrm2, useCrm2Collection } from '../lib';
 import { isSuperAdmin } from '../../../config/hrmsConfig';
 import { MappingsTab } from './MappingsTab';
 import {
-  useConnectors, nextConnectorCode, addMasterConnector, updateMasterConnector,
-  setConnectorStatus, type MasterConnectorInput,
+  useConnectors, nextConnectorCode, setConnectorStatus, getConnectorFinancial,
 } from '../../hrms/hooks/useConnectors';
-import type { Connector, ConnectorVertical } from '../../../types';
+import { CONSTITUTION_OPTS } from '../clients/ClientFormModal';
+import type { Connector, ConnectorVertical, ConnectorFinancial } from '../../../types';
 import type { Lender, Product, Aggregator, DocumentDef } from '../../../types/crm2';
 
 type WithId<T> = T & { id: string };
@@ -382,48 +382,92 @@ function MasterTab<T extends { id: string; name: string; status: string }>({
   );
 }
 
-// ─── Connectors (FAC-) tab ────────────────────────────────────────────────────
+// ─── Connectors (CON-) tab ────────────────────────────────────────────────────
 // The ONE place to add/manage connectors (channel partners who source customers).
-// Backed by the `/connectors` registry the Add Customer form reads — so anything
-// added here syncs into that picker automatically. The FAC-### code is
-// auto-assigned and never editable; super admins toggle active/inactive.
+// Backed by `/connectors` (read by the Add Customer picker). Create/edit go via
+// the server so PAN + bank account are encrypted (last-4 shown) and Aadhaar is
+// last-4 only. The CON-### code is auto-assigned; super admins toggle status.
 const VERTICAL_OPTS: Array<{ value: ConnectorVertical; label: string }> = [
   { value: 'loan', label: 'Loan' }, { value: 'wealth', label: 'Wealth' }, { value: 'insurance', label: 'Insurance' },
 ];
+const EMPTY_BANK = { bankName: '', accountHolderName: '', ifsc: '', accountNo: '', branchName: '' };
+const SectionLabel = ({ text }: { text: string }) => (
+  <p className="text-[11px] font-bold uppercase tracking-widest pt-1" style={{ color: '#C9A961' }}>{text}</p>
+);
 
-function ConnectorFormModal({ initial, autoCode, uid, onClose, onSaved }: {
+function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
   initial: Connector | null;
   autoCode: string;
-  uid: string;
   onClose: () => void;
   onSaved: (msg: string) => void;
 }) {
+  const [entityType, setEntityType] = useState<string>(initial?.entityType ?? '');
   const [displayName, setDisplayName] = useState(initial?.displayName ?? '');
-  const [mobile, setMobile] = useState(initial?.mobile ?? '');
+  const [mobiles, setMobiles] = useState<string[]>(initial?.mobiles?.length ? initial.mobiles : [initial?.mobile ?? '']);
   const [email, setEmail] = useState(initial?.email ?? '');
   const [firmName, setFirmName] = useState(initial?.firmName ?? '');
+  const [gstin, setGstin] = useState(initial?.gstin ?? '');
   const [verticals, setVerticals] = useState<ConnectorVertical[]>(initial?.verticals ?? []);
   const [status, setStatus] = useState<Connector['status']>(initial?.status ?? 'active');
+  const [pan, setPan] = useState('');
+  const [aadhaar, setAadhaar] = useState('');
+  const [bank, setBank] = useState({ ...EMPTY_BANK });
+  const [tdsPct, setTdsPct] = useState('');
+  const [fin, setFin] = useState<ConnectorFinancial | null>(null);   // existing — for last-4 hints
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const toggleV = (v: ConnectorVertical) =>
-    setVerticals((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v]));
+  // On edit, load the admin-only financial sub-doc for last-4 hints + prefills.
+  useEffect(() => {
+    if (!initial) return;
+    getConnectorFinancial(initial.id).then((f) => {
+      if (!f) return;
+      setFin(f);
+      setAadhaar(f.aadhaarLast4 ?? '');
+      setTdsPct(f.tdsPct != null ? String(f.tdsPct) : '');
+      if (f.payoutBank) setBank({
+        bankName: f.payoutBank.bankName ?? '', accountHolderName: f.payoutBank.accountHolderName ?? '',
+        ifsc: f.payoutBank.ifsc ?? '', accountNo: '', branchName: f.payoutBank.branchName ?? '',
+      });
+    });
+  }, [initial]);
+
+  const toggleV = (v: ConnectorVertical) => setVerticals((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v]));
+  const setMobileAt = (i: number, v: string) => setMobiles((p) => p.map((m, j) => (j === i ? v : m)));
+  const setB = (k: keyof typeof EMPTY_BANK, v: string) => setBank((p) => ({ ...p, [k]: v }));
 
   const save = async () => {
     const e: Record<string, string> = {};
     if (!displayName.trim()) e.displayName = 'Required';
-    const m = mobile.replace(/[\s-]/g, '').replace(/^\+91/, '');
-    if (!m) e.mobile = 'Required';
-    else if (!/^[6-9]\d{9}$/.test(m)) e.mobile = '10-digit Indian mobile';
+    const cleanMobiles = mobiles.map((m) => m.replace(/[\s-]/g, '').replace(/^\+91/, '')).filter(Boolean);
+    if (cleanMobiles.length === 0) e.mobile = 'At least one mobile';
+    else if (cleanMobiles.some((m) => !/^[6-9]\d{9}$/.test(m))) e.mobile = 'Each must be a 10-digit mobile';
     if (verticals.length === 0) e.verticals = 'Pick at least one';
+    const panUp = pan.trim().toUpperCase();
+    if (!initial && !panUp) e.pan = 'PAN is required';
+    else if (panUp && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(panUp)) e.pan = 'Invalid PAN (ABCDE1234F)';
+    if (aadhaar.trim() && !/^\d{4}$/.test(aadhaar.trim())) e.aadhaar = 'Last 4 digits only';
+    if (bank.ifsc.trim() && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(bank.ifsc.trim().toUpperCase())) e.ifsc = 'Invalid IFSC';
+    if (bank.accountNo.trim() && !/^\d{6,20}$/.test(bank.accountNo.replace(/\s/g, ''))) e.accountNo = '6–20 digits';
     if (Object.keys(e).length) { setErrs(e); return; }
     setErrs({}); setServerError(''); setBusy(true);
     try {
-      const input: MasterConnectorInput = { displayName, mobile: m, email, firmName, verticals, status };
-      if (initial) { await updateMasterConnector(initial.id, input); onSaved('Saved'); }
-      else { await addMasterConnector(input, autoCode, uid); onSaved(`Created ${autoCode}`); }
+      const payload = {
+        entityType: entityType || null, displayName: displayName.trim(), mobiles: cleanMobiles,
+        email: email.trim() || null, firmName: firmName.trim() || null, gstin: gstin.trim() || null,
+        verticals, status,
+        ...(panUp ? { pan: panUp } : {}),
+        aadhaarLast4: aadhaar.trim() || null,
+        tdsPct: tdsPct.trim() ? Number(tdsPct) : null,
+        bank: {
+          bankName: bank.bankName.trim(), accountHolderName: bank.accountHolderName.trim(),
+          ifsc: bank.ifsc.trim().toUpperCase(), branchName: bank.branchName.trim(),
+          ...(bank.accountNo.trim() ? { accountNo: bank.accountNo.replace(/\s/g, '') } : {}),
+        },
+      };
+      if (initial) { await apiCrm2('PATCH', `/api/crm2/connectors/${initial.id}`, payload); onSaved('Saved'); }
+      else { const r = await apiCrm2<{ ok: boolean; id: string; connectorCode: string }>('POST', '/api/crm2/connectors', payload); onSaved(`Created ${r.connectorCode}`); }
       onClose();
     } catch (err) {
       setServerError(err instanceof Error ? err.message : 'Save failed');
@@ -432,7 +476,7 @@ function ConnectorFormModal({ initial, autoCode, uid, onClose, onSaved }: {
 
   return (
     <div className="glass-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="glass-modal-panel w-full max-w-md rounded-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="glass-modal-panel w-full max-w-lg rounded-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="glass-modal-header flex items-center justify-between px-5 py-4">
           <div>
             <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
@@ -453,28 +497,53 @@ function ConnectorFormModal({ initial, autoCode, uid, onClose, onSaved }: {
               {serverError}
             </div>
           )}
-          <div>
-            <FLabel text="Name" required error={errs.displayName} />
-            <input className={inp(!!errs.displayName)} value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)} placeholder="Connector's name" />
-          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <FLabel text="Mobile" required error={errs.mobile} />
-              <input className={inp(!!errs.mobile)} value={mobile} maxLength={13}
-                onChange={(e) => setMobile(e.target.value)} placeholder="9876543210" />
+              <FLabel text="Name" required error={errs.displayName} />
+              <input className={inp(!!errs.displayName)} value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)} placeholder="Connector's name" />
             </div>
             <div>
-              <FLabel text="Email" />
-              <input className={inp()} type="email" value={email}
-                onChange={(e) => setEmail(e.target.value)} placeholder="optional" />
+              <FLabel text="Entity Type" />
+              <SearchableSelect options={[{ value: '', label: '—' }, ...CONSTITUTION_OPTS]} value={entityType} onChange={setEntityType} placeholder="—" />
             </div>
           </div>
+
+          {/* Mobiles — one or more, with + to add */}
           <div>
-            <FLabel text="Firm / DSA Entity" />
-            <input className={inp()} value={firmName}
-              onChange={(e) => setFirmName(e.target.value)} placeholder="optional" />
+            <FLabel text="Mobile" required error={errs.mobile} />
+            <div className="space-y-2">
+              {mobiles.map((m, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input className={inp(!!errs.mobile)} value={m} maxLength={13}
+                    onChange={(e) => setMobileAt(i, e.target.value)} placeholder="9876543210" />
+                  {mobiles.length > 1 && (
+                    <button type="button" onClick={() => setMobiles((p) => p.filter((_, j) => j !== i))}
+                      className="p-2 rounded-lg hover:bg-(--shell-hover-hard)" aria-label="Remove">
+                      <X size={14} style={{ color: '#f87171' }} />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button type="button" onClick={() => setMobiles((p) => [...p, ''])}
+                className="inline-flex items-center gap-1 text-xs font-semibold" style={{ color: '#C9A961' }}>
+                <Plus size={13} /> Add another mobile
+              </button>
+            </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FLabel text="Email" />
+              <input className={inp()} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="optional" />
+            </div>
+            <div>
+              <FLabel text="Firm / DSA Entity" />
+              <input className={inp()} value={firmName} onChange={(e) => setFirmName(e.target.value)} placeholder="optional" />
+            </div>
+          </div>
+
           <div>
             <FLabel text="Verticals" required error={errs.verticals} />
             <div className="flex gap-2">
@@ -492,11 +561,64 @@ function ConnectorFormModal({ initial, autoCode, uid, onClose, onSaved }: {
               })}
             </div>
           </div>
+
+          <SectionLabel text="KYC" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FLabel text="PAN" required={!initial} error={errs.pan} />
+              <input className={`${inp(!!errs.pan)} uppercase`} value={pan} maxLength={10}
+                onChange={(e) => setPan(e.target.value.toUpperCase())}
+                placeholder={fin?.panLast4 ? `current ••••${fin.panLast4} — blank keeps it` : 'ABCDE1234F'} />
+            </div>
+            <div>
+              <FLabel text="Aadhaar (last 4)" error={errs.aadhaar} />
+              <input className={inp(!!errs.aadhaar)} value={aadhaar} maxLength={4}
+                onChange={(e) => setAadhaar(e.target.value.replace(/\D/g, ''))} placeholder="1234" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FLabel text="GSTIN" />
+              <input className={`${inp()} uppercase`} value={gstin} onChange={(e) => setGstin(e.target.value.toUpperCase())} placeholder="optional" />
+            </div>
+          </div>
+
+          <SectionLabel text="Payout Account" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FLabel text="Bank Name" />
+              <input className={inp()} value={bank.bankName} onChange={(e) => setB('bankName', e.target.value)} placeholder="HDFC Bank" />
+            </div>
+            <div>
+              <FLabel text="Name as per Account" />
+              <input className={inp()} value={bank.accountHolderName} onChange={(e) => setB('accountHolderName', e.target.value)} />
+            </div>
+            <div>
+              <FLabel text="Account Number" error={errs.accountNo} />
+              <input className={inp(!!errs.accountNo)} value={bank.accountNo}
+                onChange={(e) => setB('accountNo', e.target.value)}
+                placeholder={fin?.payoutBank?.accountNoLast4 ? `current ••••${fin.payoutBank.accountNoLast4} — blank keeps it` : '6–20 digits'} />
+            </div>
+            <div>
+              <FLabel text="IFSC Code" error={errs.ifsc} />
+              <input className={`${inp(!!errs.ifsc)} uppercase`} value={bank.ifsc} onChange={(e) => setB('ifsc', e.target.value.toUpperCase())} placeholder="HDFC0001234" />
+            </div>
+            <div>
+              <FLabel text="Branch Name" />
+              <input className={inp()} value={bank.branchName} onChange={(e) => setB('branchName', e.target.value)} placeholder="optional" />
+            </div>
+            <div>
+              <FLabel text="TDS %" />
+              <input type="number" className={inp()} value={tdsPct} onChange={(e) => setTdsPct(e.target.value)} placeholder="e.g. 5" />
+            </div>
+          </div>
+
           <div>
             <FLabel text="Status" />
             <SearchableSelect options={STATUS_AI.map((s) => ({ value: s.value.toLowerCase(), label: s.label }))}
               value={status} onChange={(v) => setStatus(v as Connector['status'])} />
           </div>
+
           <div className="flex gap-3 pt-1">
             <button onClick={onClose} className="flex-1 py-2.5 rounded-lg text-sm font-semibold border"
               style={{ borderColor: 'var(--shell-border)', color: 'var(--text-muted)' }}>Cancel</button>
@@ -512,7 +634,7 @@ function ConnectorFormModal({ initial, autoCode, uid, onClose, onSaved }: {
   );
 }
 
-function ConnectorsMasterTab({ uid }: { uid: string }) {
+function ConnectorsMasterTab() {
   const { connectors, loading } = useConnectors();
   const toast = useToast();
   const [filter, setFilter] = useState<'active' | 'inactive' | 'all'>('active');
@@ -532,14 +654,14 @@ function ConnectorsMasterTab({ uid }: { uid: string }) {
     catch { toast.error('Could not update status'); }
   };
 
-  // Legacy codes were FAC-### — offer a one-time rename to CONN-###.
+  // Legacy codes were FAC-/CONN-### — offer a one-time rename to CON-###.
   const [migBusy, setMigBusy] = useState(false);
-  const legacyCount = connectors.filter((c) => /^FAC-/.test(c.connectorCode ?? '')).length;
+  const legacyCount = connectors.filter((c) => /^(?:FAC|CONN)-/.test(c.connectorCode ?? '')).length;
   const renameCodes = async () => {
     setMigBusy(true);
     try {
       const r = await apiCrm2<{ ok: boolean; migrated: unknown[] }>('POST', '/api/crm2/admin/migrate-connector-codes', {});
-      toast.success(`Renamed ${r.migrated.length} connector code(s) to CONN-`);
+      toast.success(`Renamed ${r.migrated.length} connector code(s) to CON-`);
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Rename failed'); }
     finally { setMigBusy(false); }
   };
@@ -584,12 +706,12 @@ function ConnectorsMasterTab({ uid }: { uid: string }) {
         <div className="rounded-lg px-4 py-3 flex flex-wrap items-center justify-between gap-3"
           style={{ backgroundColor: 'rgba(201,169,97,0.10)', border: '1px solid rgba(201,169,97,0.3)' }}>
           <span className="text-sm" style={{ color: '#C9A961' }}>
-            {legacyCount} connector{legacyCount > 1 ? 's' : ''} still use the old <strong>FAC-</strong> code. Rename to <strong>CONN-</strong>?
+            {legacyCount} connector{legacyCount > 1 ? 's' : ''} still use an old <strong>FAC-/CONN-</strong> code. Rename to <strong>CON-</strong>?
           </span>
           <button onClick={renameCodes} disabled={migBusy}
             className="text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
             style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
-            {migBusy ? 'Renaming…' : 'Rename to CONN-'}
+            {migBusy ? 'Renaming…' : 'Rename to CON-'}
           </button>
         </div>
       )}
@@ -601,6 +723,7 @@ function ConnectorsMasterTab({ uid }: { uid: string }) {
               <tr className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                 <th className="text-left font-semibold px-4 py-2.5">Code</th>
                 <th className="text-left font-semibold px-3 py-2.5">Name</th>
+                <th className="text-left font-semibold px-3 py-2.5">Entity Type</th>
                 <th className="text-left font-semibold px-3 py-2.5">Mobile</th>
                 <th className="text-left font-semibold px-3 py-2.5">Verticals</th>
                 <th className="text-left font-semibold px-3 py-2.5">Status</th>
@@ -609,9 +732,9 @@ function ConnectorsMasterTab({ uid }: { uid: string }) {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>Loading…</td></tr>
+                <tr><td colSpan={7} className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>Loading…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>
+                <tr><td colSpan={7} className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>
                   No connectors {filter !== 'all' ? `(${filter})` : ''} yet — add the first one.
                 </td></tr>
               ) : filtered.map((c) => (
@@ -622,7 +745,8 @@ function ConnectorsMasterTab({ uid }: { uid: string }) {
                   <td className="px-3 py-2.5 font-medium" style={{ color: 'var(--text-primary)' }}>
                     {c.displayName}{c.firmName ? <span className="text-xs" style={{ color: 'var(--text-muted)' }}> · {c.firmName}</span> : null}
                   </td>
-                  <td className="px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{c.mobile}</td>
+                  <td className="px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{CONSTITUTION_OPTS.find((o) => o.value === c.entityType)?.label ?? '—'}</td>
+                  <td className="px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{c.mobile}{c.mobiles && c.mobiles.length > 1 ? <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}> +{c.mobiles.length - 1}</span> : null}</td>
                   <td className="px-3 py-2.5 capitalize" style={{ color: 'var(--text-secondary)' }}>{c.verticals?.join(', ') || '—'}</td>
                   <td className="px-3 py-2.5">
                     <span className={c.status === 'active' ? 'badge-glass-success' : 'badge-glass-muted'}>{c.status}</span>
@@ -645,7 +769,6 @@ function ConnectorsMasterTab({ uid }: { uid: string }) {
         <ConnectorFormModal
           initial={modal.initial}
           autoCode={autoCode}
-          uid={uid}
           onClose={() => setModal(null)}
           onSaved={(msg) => toast.success(msg)}
         />
@@ -742,7 +865,7 @@ export function Crm2MastersPage() {
         ))}
       </div>
 
-      {tab === 'connectors' && <ConnectorsMasterTab uid={user?.uid ?? ''} />}
+      {tab === 'connectors' && <ConnectorsMasterTab />}
 
       {tab === 'lenders' && (
         <MasterTab<WithId<Lender>>

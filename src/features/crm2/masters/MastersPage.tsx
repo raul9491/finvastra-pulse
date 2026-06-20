@@ -212,6 +212,75 @@ function MasterFormModal({ title, fields, initial, onSubmit, onClose }: {
   );
 }
 
+// ─── Read-only detail popup (click a row to see everything entered) ───────────
+function fmtDetailValue(f: FieldDef, row: Record<string, unknown>): React.ReactNode {
+  const v = row[f.key];
+  if (f.kind === 'select') return f.options?.find((o) => o.value === v)?.label ?? (v ? String(v) : '—');
+  if (f.kind === 'multiselect') {
+    const arr = Array.isArray(v) ? v : [];
+    return arr.length ? arr.map((x) => f.options?.find((o) => o.value === x)?.label ?? String(x)).join(', ') : '—';
+  }
+  if (f.kind === 'taglist') { const arr = Array.isArray(v) ? v : []; return arr.length ? arr.join(', ') : '—'; }
+  if (f.kind === 'rows') {
+    const rows = Array.isArray(v) ? (v as Array<Record<string, unknown>>) : [];
+    if (!rows.length) return '—';
+    return (
+      <table className="w-full text-xs mt-1">
+        <thead><tr className="text-[10px] uppercase" style={{ color: 'var(--text-muted)' }}>
+          {f.rowFields?.map((rf) => <th key={rf.key} className="text-left py-0.5 pr-3">{rf.label}</th>)}
+        </tr></thead>
+        <tbody>{rows.map((r, i) => (
+          <tr key={i} style={{ borderTop: '1px solid var(--shell-border)' }}>
+            {f.rowFields?.map((rf) => <td key={rf.key} className="py-0.5 pr-3" style={{ color: 'var(--text-secondary)' }}>{String(r[rf.key] ?? '') || '—'}</td>)}
+          </tr>
+        ))}</tbody>
+      </table>
+    );
+  }
+  if (f.kind === 'date') {
+    const ts = v as { toDate?: () => Date } | string | null;
+    if (!ts) return '—';
+    if (typeof ts === 'string') return ts;
+    if (ts.toDate) { try { return ts.toDate().toLocaleDateString('en-IN'); } catch { return '—'; } }
+    return '—';
+  }
+  return (v === 0 || v) ? String(v) : '—';
+}
+
+function MasterDetailModal({ title, fields, row, onClose, onEdit }: {
+  title: string; fields: FieldDef[]; row: Record<string, unknown> & { id: string; status?: string };
+  onClose: () => void; onEdit: () => void;
+}) {
+  return (
+    <div className="glass-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="glass-modal-panel w-full max-w-lg rounded-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="glass-modal-header flex items-center justify-between px-5 py-4">
+          <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h3>
+          <div className="flex items-center gap-2">
+            <button onClick={onEdit} className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg"
+              style={{ backgroundColor: '#C9A961', color: '#0B1538' }}><Pencil size={12} /> Edit</button>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard)" aria-label="Close">
+              <X size={17} style={{ color: 'var(--text-muted)' }} />
+            </button>
+          </div>
+        </div>
+        <div className="p-5 space-y-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>ID</p>
+            <p className="font-mono font-semibold text-sm" style={{ color: '#C9A961' }}>{row.id}</p>
+          </div>
+          {fields.map((f) => (
+            <div key={f.key}>
+              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{f.label}</p>
+              <div className="text-sm" style={{ color: 'var(--text-primary)' }}>{fmtDetailValue(f, row)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Generic master tab (list + add/edit) ────────────────────────────────────
 function MasterTab<T extends { id: string; name: string; status: string }>({
   type, label, fields, columns, expand, transform,
@@ -226,6 +295,7 @@ function MasterTab<T extends { id: string; name: string; status: string }>({
   const { rows, loading, error } = useCrm2Collection<T>(type);
   const toast = useToast();
   const [modal, setModal] = useState<{ initial: (Record<string, unknown> & { id?: string }) | null } | null>(null);
+  const [detail, setDetail] = useState<(Record<string, unknown> & { id: string }) | null>(null);
   const [search, setSearch] = useState('');
 
   const filtered = rows.filter((r) =>
@@ -265,7 +335,9 @@ function MasterTab<T extends { id: string; name: string; status: string }>({
                   No {label.toLowerCase()} yet — add the first one.
                 </td></tr>
               ) : filtered.map((r) => (
-                <tr key={r.id} style={{ borderTop: '1px solid var(--shell-border)', opacity: r.status === 'ACTIVE' ? 1 : 0.55 }}>
+                <tr key={r.id} onClick={() => setDetail(r as unknown as Record<string, unknown> & { id: string })}
+                  className="cursor-pointer hover:bg-(--shell-hover-soft) transition-colors"
+                  style={{ borderTop: '1px solid var(--shell-border)', opacity: r.status === 'ACTIVE' ? 1 : 0.55 }}>
                   <td className="px-4 py-2.5 font-mono text-xs font-semibold" style={{ color: '#C9A961' }}>{r.id}</td>
                   <td className="px-3 py-2.5 font-medium" style={{ color: 'var(--text-primary)' }}>{r.name}</td>
                   {columns.map((c) => <td key={c.header} className="px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{c.render(r)}</td>)}
@@ -273,7 +345,7 @@ function MasterTab<T extends { id: string; name: string; status: string }>({
                     <span className={r.status === 'ACTIVE' ? 'badge-glass-success' : 'badge-glass-muted'}>{r.status}</span>
                   </td>
                   <td className="px-3 py-2.5 text-right">
-                    <button onClick={() => setModal({ initial: r as unknown as Record<string, unknown> & { id: string } })}
+                    <button onClick={(e) => { e.stopPropagation(); setModal({ initial: r as unknown as Record<string, unknown> & { id: string } }); }}
                       className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard)" aria-label="Edit">
                       <Pencil size={14} style={{ color: 'var(--text-muted)' }} />
                     </button>
@@ -284,6 +356,16 @@ function MasterTab<T extends { id: string; name: string; status: string }>({
           </table>
         </div>
       </div>
+
+      {detail && (
+        <MasterDetailModal
+          title={detail.id}
+          fields={fields}
+          row={detail}
+          onClose={() => setDetail(null)}
+          onEdit={() => { setModal({ initial: detail }); setDetail(null); }}
+        />
+      )}
 
       {modal && (
         <MasterFormModal
@@ -514,7 +596,9 @@ function ConnectorsMasterTab({ uid }: { uid: string }) {
                   No connectors {filter !== 'all' ? `(${filter})` : ''} yet — add the first one.
                 </td></tr>
               ) : filtered.map((c) => (
-                <tr key={c.id} style={{ borderTop: '1px solid var(--shell-border)', opacity: c.status === 'active' ? 1 : 0.55 }}>
+                <tr key={c.id} onClick={() => setModal({ initial: c })}
+                  className="cursor-pointer hover:bg-(--shell-hover-soft) transition-colors"
+                  style={{ borderTop: '1px solid var(--shell-border)', opacity: c.status === 'active' ? 1 : 0.55 }}>
                   <td className="px-4 py-2.5 font-mono text-xs font-semibold" style={{ color: '#C9A961' }}>{c.connectorCode}</td>
                   <td className="px-3 py-2.5 font-medium" style={{ color: 'var(--text-primary)' }}>
                     {c.displayName}{c.firmName ? <span className="text-xs" style={{ color: 'var(--text-muted)' }}> · {c.firmName}</span> : null}
@@ -525,12 +609,12 @@ function ConnectorsMasterTab({ uid }: { uid: string }) {
                     <span className={c.status === 'active' ? 'badge-glass-success' : 'badge-glass-muted'}>{c.status}</span>
                   </td>
                   <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                    <button onClick={() => toggleStatus(c)}
+                    <button onClick={(e) => { e.stopPropagation(); toggleStatus(c); }}
                       className="text-xs font-semibold mr-3 transition-opacity hover:opacity-80"
                       style={{ color: c.status === 'active' ? '#f87171' : '#34d399' }}>
                       {c.status === 'active' ? 'Deactivate' : 'Activate'}
                     </button>
-                    <button onClick={() => setModal({ initial: c })}
+                    <button onClick={(e) => { e.stopPropagation(); setModal({ initial: c }); }}
                       className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard) align-middle" aria-label="Edit">
                       <Pencil size={14} style={{ color: 'var(--text-muted)' }} />
                     </button>
@@ -551,6 +635,37 @@ function ConnectorsMasterTab({ uid }: { uid: string }) {
           onSaved={(msg) => toast.success(msg)}
         />
       )}
+    </div>
+  );
+}
+
+// One-time helper: aggregators historically minted as CONN-### are renamed to
+// AGG-### (reference-safe, server-side). Button shows only while a CONN- exists.
+function AggregatorMigrationBanner() {
+  const { rows } = useCrm2Collection<{ id: string }>('aggregators');
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const legacy = rows.filter((r) => /^CONN-/.test(r.id));
+  if (legacy.length === 0) return null;
+  const run = async () => {
+    setBusy(true);
+    try {
+      const r = await apiCrm2<{ ok: boolean; migrated: unknown[] }>('POST', '/api/crm2/admin/migrate-aggregator-ids', {});
+      toast.success(`Renamed ${r.migrated.length} aggregator id(s) to AGG-`);
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Rename failed'); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="rounded-lg px-4 py-3 flex flex-wrap items-center justify-between gap-3"
+      style={{ backgroundColor: 'rgba(201,169,97,0.10)', border: '1px solid rgba(201,169,97,0.3)' }}>
+      <span className="text-sm" style={{ color: '#C9A961' }}>
+        {legacy.length} aggregator{legacy.length > 1 ? 's' : ''} still use the old <strong>CONN-</strong> code. Rename to <strong>AGG-</strong>?
+      </span>
+      <button onClick={run} disabled={busy}
+        className="text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
+        style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+        {busy ? 'Renaming…' : 'Rename to AGG-'}
+      </button>
     </div>
   );
 }
@@ -663,6 +778,7 @@ export function Crm2MastersPage() {
         />
       )}
 
+      {tab === 'aggregators' && <AggregatorMigrationBanner />}
       {tab === 'aggregators' && (
         <MasterTab<WithId<Aggregator>>
           type="aggregators" label="Aggregators"

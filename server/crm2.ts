@@ -437,7 +437,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     lenders:        { collection: "lenders",        counterId: "lenders",        prefix: "LEN-",  pad: 3, sanitize: sanitizeLender },
     products:       { collection: "products",       counterId: "products",       prefix: "PRD-",  pad: 3, sanitize: sanitizeProduct },
     // Spec's upstream "connectors" — stored in `aggregators` (PLAN.md decision 1).
-    aggregators:    { collection: "aggregators",    counterId: "aggregators",    prefix: "CONN-", pad: 3, sanitize: sanitizeAggregator },
+    aggregators:    { collection: "aggregators",    counterId: "aggregators",    prefix: "AGG-",  pad: 3, sanitize: sanitizeAggregator },
     subDsas:        { collection: "subDsas",        counterId: "subDsas",        prefix: "SDSA-", pad: 3, sanitize: sanitizeSubDsa },
     documentMaster: { collection: "documentMaster", counterId: "documentMaster", prefix: "DOC-",  pad: 3, sanitize: sanitizeDocumentDef },
   };
@@ -484,6 +484,50 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       targetPath: `/${cfg.collection}/${req.params.id}`, at: FieldValue.serverTimestamp(),
     });
     res.json({ ok: true });
+  }));
+
+  // ─── One-time: rename legacy aggregator ids CONN-### → AGG-### ────────────────
+  // Aggregators were historically minted with a CONN- prefix (PLAN decision E).
+  // They are now AGG-. This migrates any existing CONN- aggregator doc to the same
+  // number under AGG-, repointing every `connectorId` reference (mappings, cases,
+  // logins, misRecords, payoutCycles). Idempotent + reference-safe; super-admin UI.
+  app.post("/api/crm2/admin/migrate-aggregator-ids", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "crm.masters.write");
+    if (!caller) return;
+    const snap = await db.collection("aggregators").get();
+    const legacy = snap.docs.filter((d) => /^CONN-\d+$/.test(d.id));
+    const migrated: Array<{ old: string; new: string; repointed: number; skipped?: string }> = [];
+
+    for (const d of legacy) {
+      const newId = d.id.replace(/^CONN-/, "AGG-");
+      const newRef = db.collection("aggregators").doc(newId);
+      if ((await newRef.get()).exists) { migrated.push({ old: d.id, new: newId, repointed: 0, skipped: "target exists" }); continue; }
+      await newRef.set(d.data()!);
+      let repointed = 0;
+      // Top-level collections that store the aggregator ref as `connectorId`.
+      for (const coll of ["dsaCodeMappings", "cases", "misRecords", "payoutCycles"]) {
+        const refs = await db.collection(coll).where("connectorId", "==", d.id).get();
+        for (let i = 0; i < refs.docs.length; i += 400) {
+          const batch = db.batch();
+          refs.docs.slice(i, i + 400).forEach((r) => batch.update(r.ref, { connectorId: newId }));
+          await batch.commit();
+        }
+        repointed += refs.size;
+      }
+      // Logins live under cases/{id}/logins — iterate each case's subcollection.
+      const cases = await db.collection("cases").get();
+      for (const c of cases.docs) {
+        const lg = await c.ref.collection("logins").where("connectorId", "==", d.id).get();
+        if (lg.empty) continue;
+        const batch = db.batch();
+        lg.docs.forEach((r) => batch.update(r.ref, { connectorId: newId }));
+        await batch.commit();
+        repointed += lg.size;
+      }
+      await d.ref.delete();
+      migrated.push({ old: d.id, new: newId, repointed });
+    }
+    res.json({ ok: true, migrated });
   }));
 
   // ─── Clients — direct CRUD (Client Master) ───────────────────────────────────

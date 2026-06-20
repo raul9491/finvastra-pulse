@@ -281,30 +281,35 @@ export function CaseWorkspacePage() {
         </div>
 
         {/* ── 10-stage clickable pipeline — click any stage to open + work it ── */}
-        {/* Desktop / tablet: horizontal chip path. */}
-        <div className="hidden md:flex items-stretch gap-1 overflow-x-auto pb-1">
-          {CASE_PIPELINE.map((sd) => {
+        {/* Desktop / tablet: horizontal chip path with a green progress rail that
+            fills as each case stage completes (done = green, current = gold). */}
+        <div className="hidden md:flex items-start overflow-x-auto pb-1">
+          {CASE_PIPELINE.map((sd, i) => {
             const n = sd.n, done = n < activeN, active = n === activeN, selected = n === selStageN;
+            const isLast = i === CASE_PIPELINE.length - 1;
             return (
-              <button key={sd.key} onClick={() => setView(n)}
-                className="flex flex-col items-center gap-1 shrink-0 w-[94px] px-1 py-1.5 rounded-lg transition-colors"
-                style={selected ? { backgroundColor: 'rgba(201,169,97,0.12)', border: '1px solid rgba(201,169,97,0.5)' } : { border: '1px solid transparent' }}>
-                <div className="relative">
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold"
-                    style={{ backgroundColor: done || active ? '#C9A961' : 'var(--shell-hover-hard)', color: done || active ? '#0B1538' : 'var(--text-dim)' }}>
-                    {done ? <Check size={13} /> : n}
+              <div key={sd.key} className="flex items-start" style={{ flex: isLast ? '0 0 auto' : '1 1 0%' }}>
+                <button onClick={() => setView(n)}
+                  className="flex flex-col items-center gap-1 shrink-0 w-[88px] px-1 py-1.5 rounded-lg transition-colors"
+                  style={selected ? { backgroundColor: 'rgba(201,169,97,0.12)', border: '1px solid rgba(201,169,97,0.5)' } : { border: '1px solid transparent' }}>
+                  <div className="relative">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold"
+                      style={{ backgroundColor: done ? '#34d399' : active ? '#C9A961' : 'var(--shell-hover-hard)', color: done || active ? '#0B1538' : 'var(--text-dim)' }}>
+                      {done ? <Check size={13} /> : n}
+                    </div>
+                    {sd.level === 'login' && banksAt(sd.loginStage).length > 0 && (
+                      <span title={`${banksAt(sd.loginStage).length} bank(s): ${banksAt(sd.loginStage).join(', ')}`}
+                        className="absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 rounded-full flex items-center justify-center text-[9px] font-bold"
+                        style={{ backgroundColor: '#3B82F6', color: '#fff', border: '1.5px solid var(--glass-panel-bg)' }}>
+                        {banksAt(sd.loginStage).length}
+                      </span>
+                    )}
                   </div>
-                  {sd.level === 'login' && banksAt(sd.loginStage).length > 0 && (
-                    <span title={`${banksAt(sd.loginStage).length} bank(s): ${banksAt(sd.loginStage).join(', ')}`}
-                      className="absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 rounded-full flex items-center justify-center text-[9px] font-bold"
-                      style={{ backgroundColor: '#3B82F6', color: '#fff', border: '1.5px solid var(--glass-panel-bg)' }}>
-                      {banksAt(sd.loginStage).length}
-                    </span>
-                  )}
-                </div>
-                <span className="text-[9px] font-semibold text-center leading-tight"
-                  style={{ color: active || selected ? '#C9A961' : 'var(--text-muted)' }}>{sd.label}</span>
-              </button>
+                  <span className="text-[9px] font-semibold text-center leading-tight"
+                    style={{ color: active || selected ? '#C9A961' : 'var(--text-muted)' }}>{sd.label}</span>
+                </button>
+                {!isLast && <div className="h-0.5 flex-1 min-w-2 mt-[19px]" style={{ backgroundColor: done ? '#34d399' : 'var(--shell-hover-hard)' }} />}
+              </div>
             );
           })}
         </div>
@@ -321,13 +326,13 @@ export function CaseWorkspacePage() {
                 <div className="flex flex-col items-center w-7 shrink-0">
                   <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
                     style={{
-                      backgroundColor: done || active ? '#C9A961' : 'var(--shell-hover-hard)',
+                      backgroundColor: done ? '#34d399' : active ? '#C9A961' : 'var(--shell-hover-hard)',
                       color: done || active ? '#0B1538' : 'var(--text-dim)',
                       boxShadow: active ? '0 0 0 3px rgba(201,169,97,0.22)' : 'none',
                     }}>
                     {done ? <Check size={14} /> : n}
                   </div>
-                  {!isLast && <div className="w-0.5 flex-1 min-h-3 my-0.5" style={{ backgroundColor: done ? '#C9A961' : 'var(--shell-hover-hard)' }} />}
+                  {!isLast && <div className="w-0.5 flex-1 min-h-3 my-0.5" style={{ backgroundColor: done ? '#34d399' : 'var(--shell-hover-hard)' }} />}
                 </div>
                 {/* stage row */}
                 <div className="flex-1 min-w-0 pb-2">
@@ -351,28 +356,27 @@ export function CaseWorkspacePage() {
           })}
         </div>
 
-        {canWrite && caseDoc.stage !== 'CLOSED' && caseDoc.stage !== 'COMPLETED' && (
-          <div className="flex flex-wrap gap-2">
+        {/* Glance tabs on the LEFT (in the old Close spot) · Close on the RIGHT */}
+        <div className="flex items-center justify-between gap-3 flex-wrap pt-1">
+          <div className="flex gap-1.5 flex-wrap">
+            {([['details', 'Details'], ['collab', 'Collaboration'], ['clientid', 'Client-ID data'], ['history', 'History']] as const).map(([t, label]) => (
+              <button key={t} onClick={() => setView(t)}
+                className="px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors"
+                style={effView === t
+                  ? { backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961', border: '1px solid rgba(201,169,97,0.35)' }
+                  : { color: 'var(--text-muted)', border: '1px solid var(--shell-border)' }}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {canWrite && caseDoc.stage !== 'CLOSED' && caseDoc.stage !== 'COMPLETED' && (
             <button onClick={() => { const r = prompt('Close early — reason (recorded):'); if (r !== null) advance('CLOSED', r.toLowerCase().includes('withdraw') ? 'WITHDRAWN' : 'REJECTED'); }}
               className="px-4 py-2 rounded-lg text-sm font-semibold border"
               style={{ borderColor: 'rgba(248,113,113,0.4)', color: '#f87171' }}>
               Close (reject/withdraw)
             </button>
-          </div>
-        )}
-      </div>
-
-      {/* Glance tabs (cross-stage views) */}
-      <div className="flex gap-1.5 flex-wrap">
-        {([['details', 'Details'], ['collab', 'Collaboration'], ['clientid', 'Client-ID data'], ['history', 'History']] as const).map(([t, label]) => (
-          <button key={t} onClick={() => setView(t)}
-            className="px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors"
-            style={effView === t
-              ? { backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961', border: '1px solid rgba(201,169,97,0.35)' }
-              : { color: 'var(--text-muted)', border: '1px solid var(--shell-border)' }}>
-            {label}
-          </button>
-        ))}
+          )}
+        </div>
       </div>
 
       {/* Main panel — either a pipeline stage workspace or a glance view */}

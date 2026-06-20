@@ -2986,6 +2986,12 @@ External partners who **source loan / insurance / wealth cases**. NOT employees 
 
 > **Connector now flows end-to-end (2026-06-10):** selected on the **New Customer** form (lead-level) → carried onto the **commission_record** when a bank submission is marked primary/disbursed (`setPrimarySubmission` reads `opportunity.connector` else falls back to `lead.connector`) → visible in **MIS → Disbursals** (Connector column), so each commission is traceable to its channel partner through to payout. `Lead` and `CommissionRecord` types gained `connectorId/connectorCode/connectorName`. The commission_records create rule has no `hasOnly`, so the extra fields write cleanly.
 
+### Case stepper: green progress rail + Close-on-right / tabs-on-left (2026-06-19) — ✅ DEPLOYED (hosting-only, verify:deploy 3/3 green)
+Case workspace header layout, per Rahul (`CaseWorkspacePage.tsx` only — no logic change):
+- **Green progress rail on the 10-stage case stepper.** Desktop chips now have a connecting line that **turns green (#34d399) as each case stage completes** (like the per-login cards); done circles are green, the current stage gold, future grey. Mobile vertical timeline matched (green done circles + green connector). Stage-click/`setView` behaviour unchanged.
+- **Close button moved to the RIGHT; glance tabs moved into its old spot (left).** The Details / Collaboration / Client-ID data / History tabs and the "Close (reject/withdraw)" button now share one `justify-between` row at the bottom of the stepper panel — tabs left, Close right (was: Close left, tabs in a separate row below). Same handlers (`setView`, early-close `advance('CLOSED', …)`); the separate tabs row was removed.
+tsc + `build:prod` clean.
+
 ### Login form: opaque header · SM/ASM email + manager-only · docs-sent channel + advance gate (2026-06-19) — ✅ DEPLOYED (Cloud Run `pulse-api-00064-tvr` + hosting, verify:deploy 3/3 green)
 Five fixes on the case Login form (`LoginsSection.tsx` + `types/crm2.ts` + `server/crm2.ts`):
 - **Transparent header fixed** — the shared `Modal`'s sticky `glass-modal-header` was translucent so the scrolled intro note bled through under the title. Gave it an **opaque `var(--ss-bg)` background + bottom border**.

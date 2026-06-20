@@ -2872,7 +2872,8 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   const LOGIN_EDITABLE = new Set([
     "lenderId", "connectorId", "subDsaId", "channelPartnerId", "channelPartnerCode", "channelPartnerName",
     "branch", "amountRequested",
-    "smName", "smNumber", "asmName", "asmNumber", "docsSent", "directFromBank",
+    "smName", "smNumber", "smEmail", "asmName", "asmNumber", "asmEmail",
+    "docsSent", "docsSentVia", "directFromBank",
     "dsaCodeUsed", "codeName", "loginDone", "loanApplicationNo",
     "amountSanctioned", "roiPct", "tenureMonths", "processingFee", "insuranceAmount",
     "otherCharges", "sanctionDate", "sanctionLetterPath", "verifiedAppNo", "customerDecision",
@@ -3054,6 +3055,11 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       const from = snap.data()!.stage as string;
       const chk = validateLoginTransition(from as never, to as never, outcome);
       if (!chk.ok) throw new ApiError(422, chk.reason ?? "Invalid login transition");
+      // Gate: a file can't move forward out of File Login until docs are confirmed
+      // sent to the bank (early-close to COMPLETED is still allowed).
+      if (from === "FILE_LOGIN" && to !== "COMPLETED" && snap.data()!.docsSent !== true) {
+        throw new ApiError(422, "Confirm “Docs sent to bank” on this login before advancing it.");
+      }
 
       const upd: Record<string, unknown> = { stage: to, ...updateAudit(caller.fapl) };
       const kd = keyDateForLoginStage(to as never);

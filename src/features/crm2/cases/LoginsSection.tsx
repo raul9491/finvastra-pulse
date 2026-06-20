@@ -13,6 +13,7 @@ import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
 import { FLabel, inp } from '../masters/MastersPage';
+import { isSuperAdmin } from '../../../config/hrmsConfig';
 import { rollUpCaseStatus } from '../../../lib/crm2/logins';
 import { formatIndianNumber, digitsOnly, amountInWords } from '../../../lib/numberToWords';
 import { LOGIN_STAGE_ORDER, type Login, type LoginStage, type Lender } from '../../../types/crm2';
@@ -56,8 +57,10 @@ const isoOrNull = (s: string) => (s ? new Date(s).toISOString() : null);
 
 export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: boolean }) {
   const toast = useToast();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const canDisburse = hasCrm2Perm(profile, 'payout.write');
+  // Bank SM/ASM contacts are sensitive — managers/admins only, not telecallers.
+  const canSeeBankContacts = profile?.role === 'admin' || profile?.crmRole === 'manager' || isSuperAdmin(user?.uid ?? '', profile);
   const { rows: lenders } = useCrm2Collection<Lender & { id: string }>('lenders');
   const [logins, setLogins] = useState<LoginRow[]>([]);
   const [showAdd, setShowAdd] = useState(false);
@@ -144,9 +147,16 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
                       </span>
                     )
                   ) : next ? (
-                    <button onClick={() => advance(l, next)} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
-                      Advance → {STAGE_LABEL[next]} <ArrowRight size={12} />
-                    </button>
+                    (l.stage === 'FILE_LOGIN' && !l.docsSent) ? (
+                      <span className="text-[11px] px-2.5 py-1.5 rounded-lg" title="Tick 'Docs sent to bank' on this login first"
+                        style={{ backgroundColor: 'var(--shell-hover-soft)', color: 'var(--text-muted)' }}>
+                        Confirm docs sent to advance
+                      </span>
+                    ) : (
+                      <button onClick={() => advance(l, next)} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+                        Advance → {STAGE_LABEL[next]} <ArrowRight size={12} />
+                      </button>
+                    )
                   ) : null}
                   {l.stage !== 'COMPLETED' && (
                     <button onClick={() => { if (confirm('Close this login as rejected/withdrawn?')) advance(l, 'COMPLETED', 'REJECTED'); }}
@@ -182,7 +192,7 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
             {/* Key fields */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <KV label="Branch" v={l.branch} />
-              <KV label="SM" v={l.smName ? `${l.smName}${l.smNumber ? ` · ${l.smNumber}` : ''}` : null} />
+              {canSeeBankContacts && <KV label="SM" v={l.smName ? `${l.smName}${l.smNumber ? ` · ${l.smNumber}` : ''}` : null} />}
               <KV label="App No" v={l.loanApplicationNo} />
               <KV label="Requested" v={fmtMoney(l.amountRequested)} />
               {idx >= LOGIN_STAGE_ORDER.indexOf('SANCTIONED') && (
@@ -220,8 +230,8 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
         );
       })}
 
-      {showAdd && <LoginFormModal caseId={caseId} login={null} lenders={lenders} onClose={() => setShowAdd(false)} />}
-      {editing && <LoginFormModal caseId={caseId} login={editing} lenders={lenders} onClose={() => setEditing(null)} />}
+      {showAdd && <LoginFormModal caseId={caseId} login={null} lenders={lenders} canSeeBankContacts={canSeeBankContacts} onClose={() => setShowAdd(false)} />}
+      {editing && <LoginFormModal caseId={caseId} login={editing} lenders={lenders} canSeeBankContacts={canSeeBankContacts} onClose={() => setEditing(null)} />}
       {disbursing && <DisburseLoginDialog caseId={caseId} login={disbursing} onClose={() => setDisbursing(null)} />}
     </div>
   );
@@ -399,15 +409,16 @@ type QLog = Array<{ raisedAt: unknown; detail: string; resolvedAt: unknown }>;
 // ONE form for both adding and editing a login — bank/branch/amount + SM/ASM and
 // every stage's fields together. On add it creates the login then applies the
 // details in a single Save; on edit it patches. (login === null ⇒ add mode.)
-function LoginFormModal({ caseId, login, lenders, onClose }: { caseId: string; login: LoginRow | null; lenders: Array<Lender & { id: string }>; onClose: () => void }) {
+function LoginFormModal({ caseId, login, lenders, canSeeBankContacts, onClose }: { caseId: string; login: LoginRow | null; lenders: Array<Lender & { id: string }>; canSeeBankContacts: boolean; onClose: () => void }) {
   const toast = useToast();
   const isEdit = !!login;
   const [f, setF] = useState({
     // Stage 4 — File Login
     lenderId: login?.lenderId ?? '', branch: login?.branch ?? '',
     amountRequested: login?.amountRequested?.toString() ?? '',
-    smName: login?.smName ?? '', smNumber: login?.smNumber ?? '', asmName: login?.asmName ?? '', asmNumber: login?.asmNumber ?? '',
-    docsSent: !!login?.docsSent, directFromBank: !!login?.directFromBank,
+    smName: login?.smName ?? '', smNumber: login?.smNumber ?? '', smEmail: login?.smEmail ?? '',
+    asmName: login?.asmName ?? '', asmNumber: login?.asmNumber ?? '', asmEmail: login?.asmEmail ?? '',
+    docsSent: !!login?.docsSent, docsSentVia: login?.docsSentVia ?? '', directFromBank: !!login?.directFromBank,
     // Stage 5 — Code + Login
     codeName: login?.codeName ?? '', dsaCodeUsed: login?.dsaCodeUsed ?? '', loginDone: !!login?.loginDone,
     loanApplicationNo: login?.loanApplicationNo ?? '',
@@ -482,8 +493,10 @@ function LoginFormModal({ caseId, login, lenders, onClose }: { caseId: string; l
     try {
       const payload = {
         lenderId: f.lenderId || null, branch: f.branch || null, amountRequested: numOrNull(f.amountRequested),
-        smName: f.smName || null, smNumber: f.smNumber || null, asmName: f.asmName || null, asmNumber: f.asmNumber || null,
-        docsSent: f.docsSent, directFromBank: f.directFromBank, loginDone: f.loginDone,
+        smName: f.smName || null, smNumber: f.smNumber || null, smEmail: f.smEmail || null,
+        asmName: f.asmName || null, asmNumber: f.asmNumber || null, asmEmail: f.asmEmail || null,
+        docsSent: f.docsSent, docsSentVia: f.docsSent ? (f.docsSentVia || null) : null,
+        directFromBank: f.directFromBank, loginDone: f.loginDone,
         codeName: f.codeName || null, dsaCodeUsed: f.dsaCodeUsed || null, loanApplicationNo: f.loanApplicationNo || null,
         amountSanctioned: numOrNull(f.amountSanctioned), roiPct: numOrNull(f.roiPct),
         tenureMonths: numOrNull(f.tenureMonths), processingFee: numOrNull(f.processingFee),
@@ -527,15 +540,37 @@ function LoginFormModal({ caseId, login, lenders, onClose }: { caseId: string; l
           <div><FLabel text="Bank / NBFC (Lender)" /><SearchableSelect value={f.lenderId} onChange={(v) => set('lenderId', v)} placeholder="Select lender…" options={[{ value: '', label: '—' }, ...lenders.filter((l) => l.status === 'ACTIVE' || l.id === f.lenderId).map((l) => ({ value: l.id, label: l.name }))]} /></div>
           <div><FLabel text="Branch" /><BranchInput value={f.branch} onChange={(v) => set('branch', v)} lender={selectedLender} /></div>
           <div className="col-span-2"><FLabel text="Amount Requested ₹" /><AmountInput value={f.amountRequested} onChange={(v) => set('amountRequested', v)} words placeholder="30,00,000" /></div>
-          <div><FLabel text="SM Name" /><input className={inp()} value={f.smName} onChange={(e) => set('smName', e.target.value)} /></div>
-          <div><FLabel text="SM Number" /><input className={inp()} value={f.smNumber} onChange={(e) => set('smNumber', e.target.value)} /></div>
-          <div><FLabel text="ASM Name" /><input className={inp()} value={f.asmName} onChange={(e) => set('asmName', e.target.value)} /></div>
-          <div><FLabel text="ASM Number" /><input className={inp()} value={f.asmNumber} onChange={(e) => set('asmNumber', e.target.value)} /></div>
+          {canSeeBankContacts && (<>
+            <div className="col-span-2"><p className="text-[10px] font-bold uppercase tracking-widest pt-1" style={{ color: '#C9A961' }}>Bank Contacts <span className="font-normal normal-case" style={{ color: 'var(--text-muted)' }}>· company-confidential</span></p></div>
+            <div><FLabel text="SM Name" /><input className={inp()} value={f.smName} onChange={(e) => set('smName', e.target.value)} /></div>
+            <div><FLabel text="SM Number" /><input className={inp()} value={f.smNumber} onChange={(e) => set('smNumber', e.target.value)} /></div>
+            <div className="col-span-2"><FLabel text="SM Email" /><input type="email" className={inp()} value={f.smEmail} onChange={(e) => set('smEmail', e.target.value)} placeholder="sm@bank.com" /></div>
+            <div><FLabel text="ASM Name" /><input className={inp()} value={f.asmName} onChange={(e) => set('asmName', e.target.value)} /></div>
+            <div><FLabel text="ASM Number" /><input className={inp()} value={f.asmNumber} onChange={(e) => set('asmNumber', e.target.value)} /></div>
+            <div className="col-span-2"><FLabel text="ASM Email" /><input type="email" className={inp()} value={f.asmEmail} onChange={(e) => set('asmEmail', e.target.value)} placeholder="asm@bank.com" /></div>
+          </>)}
         </div>
-        <div className="flex flex-wrap gap-5 pt-1">
+        {!canSeeBankContacts && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Bank SM/ASM contacts are restricted to managers.</p>}
+
+        <div className="flex flex-wrap items-center gap-4 pt-1">
           <Check label="Docs sent to bank" checked={f.docsSent} onChange={(b) => set('docsSent', b)} />
-          <Check label="Direct from bank (bank pays Finvastra)" checked={f.directFromBank} onChange={(b) => set('directFromBank', b)} />
+          {f.docsSent && (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Sent via</span>
+              {([['email', 'Email'], ['whatsapp', 'WhatsApp']] as const).map(([val, label]) => {
+                const on = f.docsSentVia === val;
+                return (
+                  <button key={val} type="button" onClick={() => set('docsSentVia', val)}
+                    className="px-3 py-1 rounded-full text-xs font-semibold border transition-colors"
+                    style={on ? { backgroundColor: 'rgba(201,169,97,0.15)', borderColor: '#C9A961', color: '#C9A961' } : { borderColor: 'var(--shell-border)', color: 'var(--text-muted)' }}>
+                    {on ? '✓ ' : ''}{label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
+        {!f.docsSent && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Tick once the file is sent to the bank — required before this login can advance.</p>}
       </Section>
 
       {stageIdx >= 1 && (
@@ -674,7 +709,8 @@ function Modal({ title, onClose, wide, children }: { title: string; onClose: () 
   return (
     <div className="glass-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className={`glass-modal-panel w-full ${wide ? 'max-w-2xl' : 'max-w-sm'} rounded-2xl max-h-[92vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
-        <div className="glass-modal-header flex items-center justify-between px-5 py-4 sticky top-0 z-10">
+        <div className="glass-modal-header flex items-center justify-between px-5 py-4 sticky top-0 z-10"
+          style={{ backgroundColor: 'var(--ss-bg)', borderBottom: '1px solid var(--shell-border)' }}>
           <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard)"><X size={17} style={{ color: 'var(--text-muted)' }} /></button>
         </div>

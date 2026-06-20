@@ -413,9 +413,10 @@ export interface Login extends Audit {
   branch: string | null;
   // Stage 4 — File / Bank Login
   amountRequested: number | null;
-  smName: string | null; smNumber: string | null;     // bank Sales Manager
-  asmName: string | null; asmNumber: string | null;   // bank Area Sales Manager
+  smName: string | null; smNumber: string | null; smEmail: string | null;     // bank Sales Manager
+  asmName: string | null; asmNumber: string | null; asmEmail: string | null;  // bank Area Sales Manager
   docsSent: boolean;
+  docsSentVia: 'email' | 'whatsapp' | null;   // how the file was sent to the bank
   directFromBank: boolean;             // structure now; payout-routing logic later (decision I)
   // Stage 5 — Code + bank login done
   dsaCodeUsed: 'finvastra' | 'connector_own' | null;

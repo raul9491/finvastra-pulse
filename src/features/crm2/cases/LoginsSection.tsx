@@ -6,7 +6,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
-import { Plus, X, ArrowRight, Pencil } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
@@ -64,7 +64,8 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
   const { rows: lenders } = useCrm2Collection<Lender & { id: string }>('lenders');
   const [logins, setLogins] = useState<LoginRow[]>([]);
   const [showAdd, setShowAdd] = useState(false);
-  const [editing, setEditing] = useState<LoginRow | null>(null);
+  // Open a single login stage: click a past stage to view, the current to edit.
+  const [work, setWork] = useState<{ login: LoginRow; stage: LoginStage; readOnly: boolean } | null>(null);
   const [disbursing, setDisbursing] = useState<LoginRow | null>(null);
 
   useEffect(() => {
@@ -133,10 +134,8 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
               </div>
               {canWrite && !terminal && (
                 <div className="flex items-center gap-2 flex-wrap">
-                  <button onClick={() => setEditing(l)} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border" style={{ borderColor: 'var(--shell-border)', color: 'var(--text-primary)' }}>
-                    <Pencil size={12} /> Edit
-                  </button>
-                  {next === 'DISBURSED' ? (
+                  <span className="text-[10px] hidden sm:inline" style={{ color: 'var(--text-muted)' }}>Click the current stage on the line to work it →</span>
+                  {next === 'DISBURSED' && (
                     canDisburse ? (
                       <button onClick={() => setDisbursing(l)} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
                         Record Disbursement
@@ -146,18 +145,7 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
                         Disbursement needs payout.write
                       </span>
                     )
-                  ) : next ? (
-                    (l.stage === 'FILE_LOGIN' && !l.docsSent) ? (
-                      <span className="text-[11px] px-2.5 py-1.5 rounded-lg" title="Tick 'Docs sent to bank' on this login first"
-                        style={{ backgroundColor: 'var(--shell-hover-soft)', color: 'var(--text-muted)' }}>
-                        Confirm docs sent to advance
-                      </span>
-                    ) : (
-                      <button onClick={() => advance(l, next)} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
-                        Advance → {STAGE_LABEL[next]} <ArrowRight size={12} />
-                      </button>
-                    )
-                  ) : null}
+                  )}
                   {l.stage !== 'COMPLETED' && (
                     <button onClick={() => { if (confirm('Close this login as rejected/withdrawn?')) advance(l, 'COMPLETED', 'REJECTED'); }}
                       className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border" style={{ borderColor: 'rgba(248,113,113,0.4)', color: '#f87171' }}>
@@ -174,16 +162,22 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
             <div className="flex items-start gap-3 overflow-x-auto">
               <div className="flex items-start flex-1 min-w-0">
                 {LOGIN_STAGE_ORDER.map((s, i) => {
-                  const done = i < idx, cur = i === idx;
+                  const done = i < idx, cur = i === idx, future = i > idx;
                   const isLast = i === LOGIN_STAGE_ORDER.length - 1;
+                  // Click a reached stage: current → edit (writers), past → view.
+                  const editable = canWrite && cur && l.stage !== 'COMPLETED';
+                  const open = () => !future && setWork({ login: l, stage: s, readOnly: !editable });
                   return (
                     <div key={s} className="flex items-start" style={{ flex: isLast ? '0 0 auto' : '1 1 0%' }}>
-                      <div className="flex flex-col items-center gap-1 w-14 shrink-0">
-                        <div title={STAGE_LABEL[s]} className="w-3 h-3 rounded-full shrink-0"
+                      <button type="button" disabled={future} onClick={open}
+                        title={future ? 'Not reached yet' : editable ? `Work ${STAGE_LABEL[s]}` : `View ${STAGE_LABEL[s]}`}
+                        className="flex flex-col items-center gap-1 w-14 shrink-0 rounded-md transition-opacity"
+                        style={{ cursor: future ? 'default' : 'pointer', opacity: future ? 0.5 : 1 }}>
+                        <div className="w-3 h-3 rounded-full shrink-0"
                           style={{ backgroundColor: done ? '#34d399' : cur ? '#C9A961' : 'var(--shell-hover-hard)', boxShadow: cur ? '0 0 0 3px rgba(201,169,97,0.25)' : 'none' }} />
                         <span className="text-[8px] font-semibold text-center leading-tight"
                           style={{ color: cur ? '#C9A961' : done ? '#34d399' : 'var(--text-muted)' }}>{STAGE_LABEL[s]}</span>
-                      </div>
+                      </button>
                       {!isLast && <div className="h-0.5 flex-1 min-w-1 mt-[5px]" style={{ backgroundColor: done ? '#34d399' : 'var(--shell-hover-hard)' }} />}
                     </div>
                   );
@@ -235,8 +229,8 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
         );
       })}
 
-      {showAdd && <LoginFormModal caseId={caseId} login={null} lenders={lenders} canSeeBankContacts={canSeeBankContacts} onClose={() => setShowAdd(false)} />}
-      {editing && <LoginFormModal caseId={caseId} login={editing} lenders={lenders} canSeeBankContacts={canSeeBankContacts} onClose={() => setEditing(null)} />}
+      {showAdd && <LoginFormModal caseId={caseId} login={null} focusStage="FILE_LOGIN" readOnly={false} lenders={lenders} canSeeBankContacts={canSeeBankContacts} onClose={() => setShowAdd(false)} />}
+      {work && <LoginFormModal caseId={caseId} login={work.login} focusStage={work.stage} readOnly={work.readOnly} lenders={lenders} canSeeBankContacts={canSeeBankContacts} onClose={() => setWork(null)} />}
       {disbursing && <DisburseLoginDialog caseId={caseId} login={disbursing} onClose={() => setDisbursing(null)} />}
     </div>
   );
@@ -411,10 +405,10 @@ function BranchInput({ value, onChange, lender }: {
 type SpState = Record<string, { status: string; query: string; remarks: string }>;
 type QLog = Array<{ raisedAt: unknown; detail: string; resolvedAt: unknown }>;
 
-// ONE form for both adding and editing a login — bank/branch/amount + SM/ASM and
-// every stage's fields together. On add it creates the login then applies the
-// details in a single Save; on edit it patches. (login === null ⇒ add mode.)
-function LoginFormModal({ caseId, login, lenders, canSeeBankContacts, onClose }: { caseId: string; login: LoginRow | null; lenders: Array<Lender & { id: string }>; canSeeBankContacts: boolean; onClose: () => void }) {
+// Works ONE stage of a login (focusStage): create a new login (login===null),
+// edit the current stage, or view a past stage (readOnly). Saving the current
+// stage offers "Save & advance" → a confirm second screen → patch + advance.
+function LoginFormModal({ caseId, login, lenders, canSeeBankContacts, focusStage, readOnly, onClose }: { caseId: string; login: LoginRow | null; lenders: Array<Lender & { id: string }>; canSeeBankContacts: boolean; focusStage: LoginStage; readOnly: boolean; onClose: () => void }) {
   const toast = useToast();
   const isEdit = !!login;
   const [f, setF] = useState({
@@ -463,11 +457,13 @@ function LoginFormModal({ caseId, login, lenders, canSeeBankContacts, onClose }:
   const setSpField = (key: string, field: 'status' | 'query' | 'remarks', v: string) =>
     setSp((p) => ({ ...p, [key]: { ...p[key], [field]: v } }));
   const selectedLender = lenders.find((l) => l.id === f.lenderId);
-  // Stage-gating: a section's fields show only once the login has reached that
-  // stage. A fresh login is at File Login, so only ① shows; later stages reveal
-  // as the login advances (via "Advance →" on the card).
-  const stageIdx = LOGIN_STAGE_ORDER.indexOf(login?.stage ?? 'FILE_LOGIN');
-  const curStage = login?.stage ?? 'FILE_LOGIN';
+  const [confirming, setConfirming] = useState(false);
+  const isCreate = !login;
+  const focusIdx = LOGIN_STAGE_ORDER.indexOf(focusStage);
+  const nextStage: LoginStage | null = LOGIN_STAGE_ORDER[focusIdx + 1] ?? null;
+  // SANCTIONED → DISBURSED happens only via "Record Disbursement" (money engine).
+  const advanceable = !readOnly && !isCreate && !!nextStage && focusStage !== 'SANCTIONED';
+  const title = isCreate ? 'Add Login — File Login' : `${login!.id} · ${STAGE_LABEL[focusStage]}${readOnly ? ' · view' : ''}`;
 
   useEffect(() => (
     onSnapshot(collection(db, 'cases', caseId, 'applicants'), (snap) =>
@@ -493,35 +489,36 @@ function LoginFormModal({ caseId, login, lenders, canSeeBankContacts, onClose }:
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); }
   };
 
-  const save = async () => {
+  const buildPayload = () => ({
+    lenderId: f.lenderId || null, branch: f.branch || null, amountRequested: numOrNull(f.amountRequested),
+    smName: f.smName || null, smNumber: f.smNumber || null, smEmail: f.smEmail || null,
+    asmName: f.asmName || null, asmNumber: f.asmNumber || null, asmEmail: f.asmEmail || null,
+    docsSent: f.docsSent, docsSentVia: f.docsSent ? (f.docsSentVia || null) : null,
+    directFromBank: f.directFromBank, loginDone: f.loginDone,
+    codeName: f.codeName || null, dsaCodeUsed: f.dsaCodeUsed || null, loanApplicationNo: f.loanApplicationNo || null,
+    amountSanctioned: numOrNull(f.amountSanctioned), roiPct: numOrNull(f.roiPct),
+    tenureMonths: numOrNull(f.tenureMonths), processingFee: numOrNull(f.processingFee),
+    insuranceAmount: numOrNull(f.insuranceAmount), otherCharges: numOrNull(f.otherCharges),
+    sanctionDate: isoOrNull(f.sanctionDate), verifiedAppNo: f.verifiedAppNo || null,
+    customerDecision: f.customerDecision || null,
+    pddStatus: f.pddStatus, otcStatus: f.otcStatus,
+    pddPendingList: f.pddPendingList.split(',').map((s) => s.trim()).filter(Boolean),
+    applicantIds: picked,
+    remarks: f.remarks || null,
+    subProcesses: Object.fromEntries(SUB_PROCS.map(({ key }) => [key, {
+      status: sp[key].status, query: sp[key].query || null, remarks: sp[key].remarks || null,
+    }])),
+    bt: bt.isBt
+      ? { isBt: true, amount: numOrNull(bt.amount), date: isoOrNull(bt.date), mode: bt.mode || null, kind: bt.kind || null }
+      : { isBt: false, amount: null, date: null, mode: null, kind: null },
+    secured: sec.isSecured
+      ? { isSecured: true, modtDate: isoOrNull(sec.modtDate), agreementDate: isoOrNull(sec.agreementDate), mode: sec.mode || null }
+      : { isSecured: false, modtDate: null, agreementDate: null, mode: null },
+  });
+
+  const save = async () => {   // create or save current stage — no advance
     setBusy(true);
     try {
-      const payload = {
-        lenderId: f.lenderId || null, branch: f.branch || null, amountRequested: numOrNull(f.amountRequested),
-        smName: f.smName || null, smNumber: f.smNumber || null, smEmail: f.smEmail || null,
-        asmName: f.asmName || null, asmNumber: f.asmNumber || null, asmEmail: f.asmEmail || null,
-        docsSent: f.docsSent, docsSentVia: f.docsSent ? (f.docsSentVia || null) : null,
-        directFromBank: f.directFromBank, loginDone: f.loginDone,
-        codeName: f.codeName || null, dsaCodeUsed: f.dsaCodeUsed || null, loanApplicationNo: f.loanApplicationNo || null,
-        amountSanctioned: numOrNull(f.amountSanctioned), roiPct: numOrNull(f.roiPct),
-        tenureMonths: numOrNull(f.tenureMonths), processingFee: numOrNull(f.processingFee),
-        insuranceAmount: numOrNull(f.insuranceAmount), otherCharges: numOrNull(f.otherCharges),
-        sanctionDate: isoOrNull(f.sanctionDate), verifiedAppNo: f.verifiedAppNo || null,
-        customerDecision: f.customerDecision || null,
-        pddStatus: f.pddStatus, otcStatus: f.otcStatus,
-        pddPendingList: f.pddPendingList.split(',').map((s) => s.trim()).filter(Boolean),
-        applicantIds: picked,
-        remarks: f.remarks || null,
-        subProcesses: Object.fromEntries(SUB_PROCS.map(({ key }) => [key, {
-          status: sp[key].status, query: sp[key].query || null, remarks: sp[key].remarks || null,
-        }])),
-        bt: bt.isBt
-          ? { isBt: true, amount: numOrNull(bt.amount), date: isoOrNull(bt.date), mode: bt.mode || null, kind: bt.kind || null }
-          : { isBt: false, amount: null, date: null, mode: null, kind: null },
-        secured: sec.isSecured
-          ? { isSecured: true, modtDate: isoOrNull(sec.modtDate), agreementDate: isoOrNull(sec.agreementDate), mode: sec.mode || null }
-          : { isSecured: false, modtDate: null, agreementDate: null, mode: null },
-      };
       let loginId = login?.id;
       if (!loginId) {
         const r = await apiCrm2<{ ok: boolean; loginId: string }>('POST', `/api/crm2/cases/${caseId}/logins`, {
@@ -529,17 +526,49 @@ function LoginFormModal({ caseId, login, lenders, canSeeBankContacts, onClose }:
         });
         loginId = r.loginId;
       }
-      await apiCrm2('PATCH', `/api/crm2/cases/${caseId}/logins/${loginId}`, payload);
-      toast.success(isEdit ? 'Login updated' : `Login ${loginId} opened`); onClose();
+      await apiCrm2('PATCH', `/api/crm2/cases/${caseId}/logins/${loginId}`, buildPayload());
+      toast.success(isCreate ? `Login ${loginId} opened` : 'Saved'); onClose();
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); } finally { setBusy(false); }
   };
 
+  const requestAdvance = () => {
+    if (focusStage === 'FILE_LOGIN' && !f.docsSent) { toast.error('Tick “Docs sent to bank” before advancing.'); return; }
+    setConfirming(true);
+  };
+  const confirmAdvance = async () => {   // save current stage, then move to next
+    if (!login || !nextStage) return;
+    setBusy(true);
+    try {
+      await apiCrm2('PATCH', `/api/crm2/cases/${caseId}/logins/${login.id}`, buildPayload());
+      await apiCrm2('POST', `/api/crm2/cases/${caseId}/logins/${login.id}/stage`, { to: nextStage });
+      toast.success(`${login.id} → ${STAGE_LABEL[nextStage]}`); onClose();
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); setConfirming(false); } finally { setBusy(false); }
+  };
+
   return (
-    <Modal title={isEdit ? `Edit ${login!.id} · all details` : 'Add Login · all details'} onClose={onClose} wide>
+    <Modal title={title} onClose={onClose} wide>
+      {confirming && nextStage ? (
+        <div className="space-y-4 py-6 text-center">
+          <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
+            Move this login from <strong style={{ color: '#C9A961' }}>{STAGE_LABEL[focusStage]}</strong> to <strong style={{ color: '#C9A961' }}>{STAGE_LABEL[nextStage]}</strong>?
+          </p>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            Make sure every <strong>{STAGE_LABEL[focusStage]}</strong> detail is entered — once advanced, this stage becomes view-only.
+          </p>
+          <div className="flex gap-3 justify-center pt-1 flex-wrap">
+            <button onClick={() => setConfirming(false)} className="px-5 py-2.5 rounded-lg text-sm font-semibold border" style={{ borderColor: 'var(--shell-border)', color: 'var(--text-muted)' }}>← Go back &amp; edit</button>
+            <button onClick={confirmAdvance} disabled={busy} className="px-5 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>{busy ? 'Advancing…' : 'Confirm & advance →'}</button>
+          </div>
+        </div>
+      ) : (<>
       <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-        Currently at <strong style={{ color: '#C9A961' }}>{STAGE_LABEL[curStage]}</strong>. You fill each stage's fields when the login reaches it — later stages appear as you “Advance →” on the card. Saving here does not advance the login.
+        {readOnly ? <>Viewing <strong style={{ color: '#C9A961' }}>{STAGE_LABEL[focusStage]}</strong> — a completed stage (read-only).</>
+          : isCreate ? <>Opening a new login at <strong style={{ color: '#C9A961' }}>File Login</strong>.</>
+          : <>Working <strong style={{ color: '#C9A961' }}>{STAGE_LABEL[focusStage]}</strong> — enter the details, then save{advanceable && nextStage ? ` & advance to ${STAGE_LABEL[nextStage]}` : ''}.</>}
       </p>
 
+      <div className={readOnly ? 'pointer-events-none opacity-90' : ''}>
+      {focusStage === 'FILE_LOGIN' && (
       <Section title="① File / Bank Login">
         <div className="grid grid-cols-2 gap-3">
           <div><FLabel text="Bank / NBFC (Lender)" /><SearchableSelect value={f.lenderId} onChange={(v) => set('lenderId', v)} placeholder="Select lender…" options={[{ value: '', label: '—' }, ...lenders.filter((l) => l.status === 'ACTIVE' || l.id === f.lenderId).map((l) => ({ value: l.id, label: l.name }))]} /></div>
@@ -577,8 +606,9 @@ function LoginFormModal({ caseId, login, lenders, canSeeBankContacts, onClose }:
         </div>
         {!f.docsSent && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Tick once the file is sent to the bank — required before this login can advance.</p>}
       </Section>
+      )}
 
-      {stageIdx >= 1 && (
+      {focusStage === 'CODE_LOGIN_DONE' && (
       <Section title="② Code + Bank Login Done">
         <div className="grid grid-cols-2 gap-3">
           <div><FLabel text="Code Name" /><input className={inp()} value={f.codeName} onChange={(e) => set('codeName', e.target.value)} /></div>
@@ -589,7 +619,7 @@ function LoginFormModal({ caseId, login, lenders, canSeeBankContacts, onClose }:
       </Section>
       )}
 
-      {stageIdx >= 2 && (
+      {focusStage === 'IN_PROCESS' && (
       <Section title="③ In Process — parallel sub-processes">
         <div className="space-y-2">
           {SUB_PROCS.map(({ key, label }) => (
@@ -627,7 +657,7 @@ function LoginFormModal({ caseId, login, lenders, canSeeBankContacts, onClose }:
       </Section>
       )}
 
-      {stageIdx >= 3 && (
+      {focusStage === 'SANCTIONED' && (
       <Section title="④ Sanctioned">
         <div className="grid grid-cols-2 gap-3">
           <div><FLabel text="Sanctioned ₹" /><AmountInput value={f.amountSanctioned} onChange={(v) => set('amountSanctioned', v)} words /></div>
@@ -643,7 +673,7 @@ function LoginFormModal({ caseId, login, lenders, canSeeBankContacts, onClose }:
       </Section>
       )}
 
-      {stageIdx >= 4 && (
+      {focusStage === 'DISBURSED' && (
       <Section title="⑤ Disbursement extras (BT · Secured)">
         <Check label="Balance Transfer (BT)" checked={bt.isBt} onChange={(b) => setBt((p) => ({ ...p, isBt: b }))} />
         {bt.isBt && (
@@ -666,7 +696,7 @@ function LoginFormModal({ caseId, login, lenders, canSeeBankContacts, onClose }:
       </Section>
       )}
 
-      {stageIdx >= 5 && (
+      {focusStage === 'PDD_OTC' && (
       <Section title="⑥ PDD / OTC">
         <div className="grid grid-cols-2 gap-3">
           <div><FLabel text="PDD Status" /><SearchableSelect value={f.pddStatus} onChange={(v) => set('pddStatus', v)} options={PDD_OPTS} /></div>
@@ -676,7 +706,11 @@ function LoginFormModal({ caseId, login, lenders, canSeeBankContacts, onClose }:
       </Section>
       )}
 
-      {applicants.length > 0 && (
+      {focusStage === 'COMPLETED' && (
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>This login is completed{login?.outcome && login.outcome !== 'COMPLETED' ? ` · ${login.outcome}` : ''}.</p>
+      )}
+
+      {focusStage === 'FILE_LOGIN' && applicants.length > 0 && (
         <Section title="Applicants on this file">
           <div className="flex flex-wrap gap-3">
             {applicants.map((a) => (
@@ -688,7 +722,29 @@ function LoginFormModal({ caseId, login, lenders, canSeeBankContacts, onClose }:
       )}
 
       <div><FLabel text="Remarks" /><input className={inp()} value={f.remarks} onChange={(e) => set('remarks', e.target.value)} /></div>
-      <ModalButtons busy={busy} onClose={onClose} onSave={save} saveLabel={isEdit ? 'Save Changes' : 'Open Login'} />
+      </div>
+
+      {readOnly ? (
+        <div className="flex pt-1"><button onClick={onClose} className="flex-1 py-2.5 rounded-lg text-sm font-semibold border" style={{ borderColor: 'var(--shell-border)', color: 'var(--text-muted)' }}>Close</button></div>
+      ) : isCreate ? (
+        <ModalButtons busy={busy} onClose={onClose} onSave={save} saveLabel="Open Login" />
+      ) : focusStage === 'SANCTIONED' ? (
+        <>
+          <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>To disburse, use <strong>Record Disbursement</strong> on the login card.</p>
+          <ModalButtons busy={busy} onClose={onClose} onSave={save} saveLabel="Save Sanctioned details" />
+        </>
+      ) : (
+        <div className="flex flex-wrap gap-3 pt-1">
+          <button onClick={onClose} className="py-2.5 px-4 rounded-lg text-sm font-semibold border" style={{ borderColor: 'var(--shell-border)', color: 'var(--text-muted)' }}>Cancel</button>
+          <button onClick={save} disabled={busy} className="py-2.5 px-4 rounded-lg text-sm font-semibold border" style={{ borderColor: 'var(--shell-border)', color: 'var(--text-primary)' }}>{busy ? '…' : 'Save'}</button>
+          {advanceable && nextStage && (
+            <button onClick={requestAdvance} disabled={busy} className="flex-1 min-w-40 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+              Save &amp; advance to {STAGE_LABEL[nextStage]} →
+            </button>
+          )}
+        </div>
+      )}
+      </>)}
     </Modal>
   );
 }

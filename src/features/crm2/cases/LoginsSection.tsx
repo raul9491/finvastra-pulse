@@ -447,6 +447,11 @@ function LoginFormModal({ caseId, login, lenders, onClose }: { caseId: string; l
   const setSpField = (key: string, field: 'status' | 'query' | 'remarks', v: string) =>
     setSp((p) => ({ ...p, [key]: { ...p[key], [field]: v } }));
   const selectedLender = lenders.find((l) => l.id === f.lenderId);
+  // Stage-gating: a section's fields show only once the login has reached that
+  // stage. A fresh login is at File Login, so only ① shows; later stages reveal
+  // as the login advances (via "Advance →" on the card).
+  const stageIdx = LOGIN_STAGE_ORDER.indexOf(login?.stage ?? 'FILE_LOGIN');
+  const curStage = login?.stage ?? 'FILE_LOGIN';
 
   useEffect(() => (
     onSnapshot(collection(db, 'cases', caseId, 'applicants'), (snap) =>
@@ -514,7 +519,7 @@ function LoginFormModal({ caseId, login, lenders, onClose }: { caseId: string; l
   return (
     <Modal title={isEdit ? `Edit ${login!.id} · all details` : 'Add Login · all details'} onClose={onClose} wide>
       <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-        One form — fill everything you have (only the bank is needed to open). Saving does not advance the login; use “Advance →” on the card to move stages.
+        Currently at <strong style={{ color: '#C9A961' }}>{STAGE_LABEL[curStage]}</strong>. You fill each stage's fields when the login reaches it — later stages appear as you “Advance →” on the card. Saving here does not advance the login.
       </p>
 
       <Section title="① File / Bank Login">
@@ -533,6 +538,7 @@ function LoginFormModal({ caseId, login, lenders, onClose }: { caseId: string; l
         </div>
       </Section>
 
+      {stageIdx >= 1 && (
       <Section title="② Code + Bank Login Done">
         <div className="grid grid-cols-2 gap-3">
           <div><FLabel text="Code Name" /><input className={inp()} value={f.codeName} onChange={(e) => set('codeName', e.target.value)} /></div>
@@ -541,7 +547,9 @@ function LoginFormModal({ caseId, login, lenders, onClose }: { caseId: string; l
         </div>
         <Check label="Login done" checked={f.loginDone} onChange={(b) => set('loginDone', b)} />
       </Section>
+      )}
 
+      {stageIdx >= 2 && (
       <Section title="③ In Process — parallel sub-processes">
         <div className="space-y-2">
           {SUB_PROCS.map(({ key, label }) => (
@@ -577,7 +585,9 @@ function LoginFormModal({ caseId, login, lenders, onClose }: { caseId: string; l
           </div>
         )}
       </Section>
+      )}
 
+      {stageIdx >= 3 && (
       <Section title="④ Sanctioned">
         <div className="grid grid-cols-2 gap-3">
           <div><FLabel text="Sanctioned ₹" /><AmountInput value={f.amountSanctioned} onChange={(v) => set('amountSanctioned', v)} words /></div>
@@ -591,7 +601,9 @@ function LoginFormModal({ caseId, login, lenders, onClose }: { caseId: string; l
           <div className="col-span-2"><FLabel text="Customer Decision" /><SearchableSelect value={f.customerDecision} onChange={(v) => set('customerDecision', v)} options={DECISION_OPTS} /></div>
         </div>
       </Section>
+      )}
 
+      {stageIdx >= 4 && (
       <Section title="⑤ Disbursement extras (BT · Secured)">
         <Check label="Balance Transfer (BT)" checked={bt.isBt} onChange={(b) => setBt((p) => ({ ...p, isBt: b }))} />
         {bt.isBt && (
@@ -612,7 +624,9 @@ function LoginFormModal({ caseId, login, lenders, onClose }: { caseId: string; l
         )}
         <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Disbursed amount / date / loan a/c are captured via “Record Disbursement” (the money engine).</p>
       </Section>
+      )}
 
+      {stageIdx >= 5 && (
       <Section title="⑥ PDD / OTC">
         <div className="grid grid-cols-2 gap-3">
           <div><FLabel text="PDD Status" /><SearchableSelect value={f.pddStatus} onChange={(v) => set('pddStatus', v)} options={PDD_OPTS} /></div>
@@ -620,6 +634,7 @@ function LoginFormModal({ caseId, login, lenders, onClose }: { caseId: string; l
           <div className="col-span-2"><FLabel text="PDD Pending List (comma-separated)" /><input className={inp()} value={f.pddPendingList} onChange={(e) => set('pddPendingList', e.target.value)} placeholder="e.g. Original sale deed, NACH" /></div>
         </div>
       </Section>
+      )}
 
       {applicants.length > 0 && (
         <Section title="Applicants on this file">

@@ -419,7 +419,10 @@ export interface Login extends Audit {
   docsSentVia: 'email' | 'whatsapp' | null;   // how the file was sent to the bank
   directFromBank: boolean;             // structure now; payout-routing logic later (decision I)
   // Stage 5 — Code + bank login done
+  // Whose DSA code the file is logged under: Finvastra's own code, or an
+  // aggregator's code — `dsaAggregatorId` then names which aggregator (master).
   dsaCodeUsed: 'finvastra' | 'connector_own' | null;
+  dsaAggregatorId: string | null;     // aggregators master id (e.g. AGG-001) when dsaCodeUsed='connector_own'
   codeName: string | null;
   loginDone: boolean;
   loanApplicationNo: string | null;

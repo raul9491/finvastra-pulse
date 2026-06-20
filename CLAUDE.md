@@ -2986,6 +2986,12 @@ External partners who **source loan / insurance / wealth cases**. NOT employees 
 
 > **Connector now flows end-to-end (2026-06-10):** selected on the **New Customer** form (lead-level) → carried onto the **commission_record** when a bank submission is marked primary/disbursed (`setPrimarySubmission` reads `opportunity.connector` else falls back to `lead.connector`) → visible in **MIS → Disbursals** (Connector column), so each commission is traceable to its channel partner through to payout. `Lead` and `CommissionRecord` types gained `connectorId/connectorCode/connectorName`. The commission_records create rule has no `hasOnly`, so the extra fields write cleanly.
 
+### Login "DSA Code Used" → Finvastra's code or an Aggregator (picked from the master) (2026-06-19) — ✅ DEPLOYED (Cloud Run `pulse-api-00065-djc` + hosting, verify:deploy 3/3 green)
+On the per-login **Code + Login** stage, the "DSA Code Used" dropdown's second option **"Connector's own code" → "Aggregator code"**, and choosing it reveals an **Aggregator picker sourced from Pipeline → Masters → Aggregators** (e.g. *RU Loans · AGG-001*) so the file's code-source syncs with the master.
+- **Type** (`types/crm2.ts`): new `Login.dsaAggregatorId: string | null` (the aggregators-master id when `dsaCodeUsed==='connector_own'`). `dsaCodeUsed` enum value unchanged (relabel only).
+- **Server** (`server/crm2.ts`): `dsaAggregatorId` added to `LOGIN_EDITABLE`.
+- **UI** (`LoginsSection.tsx`): the modal now loads the **aggregators** master (`useCrm2Collection('aggregators')`, passed into `LoginFormModal`); the picker lists active aggregators by `name · id`, **defaults to the case's `connectorId` aggregator** (smooth sync), and `dsaAggregatorId` is only persisted when "Aggregator code" is selected (cleared otherwise). Attribution only — no payout-math/`connectorId` change. tsc + `build:prod` clean.
+
 ### Per-login: click-a-stage to work it (remove Edit; view past / edit current / lock future; confirm-to-advance) (2026-06-19) — ✅ DEPLOYED (hosting-only, verify:deploy 3/3 green)
 Reworked the per-login interaction (`LoginsSection.tsx` only — server/types unchanged), per Rahul:
 - **Edit + Advance buttons removed** from the login card. The card keeps **Record Disbursement** (SANCTIONED→DISBURSED money engine) + **Reject** (early close), plus a hint "Click the current stage on the line to work it →".

@@ -2874,7 +2874,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     "branch", "amountRequested",
     "smName", "smNumber", "smEmail", "asmName", "asmNumber", "asmEmail",
     "docsSent", "docsSentVia", "directFromBank",
-    "dsaCodeUsed", "codeName", "loginDone", "loanApplicationNo",
+    "dsaCodeUsed", "dsaAggregatorId", "codeName", "loginDone", "loanApplicationNo",
     "amountSanctioned", "roiPct", "tenureMonths", "processingFee", "insuranceAmount",
     "otherCharges", "sanctionDate", "sanctionLetterPath", "verifiedAppNo", "customerDecision",
     "pddStatus", "otcStatus", "pddPendingList", "applicantIds", "remarks",

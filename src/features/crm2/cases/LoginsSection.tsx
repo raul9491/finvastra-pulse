@@ -16,7 +16,7 @@ import { FLabel, inp } from '../masters/MastersPage';
 import { isSuperAdmin } from '../../../config/hrmsConfig';
 import { rollUpCaseStatus } from '../../../lib/crm2/logins';
 import { formatIndianNumber, digitsOnly, amountInWords } from '../../../lib/numberToWords';
-import { LOGIN_STAGE_ORDER, type Login, type LoginStage, type Lender } from '../../../types/crm2';
+import { LOGIN_STAGE_ORDER, type Login, type LoginStage, type Lender, type Aggregator } from '../../../types/crm2';
 
 type LoginRow = Login & { id: string };
 
@@ -62,6 +62,7 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
   // Bank SM/ASM contacts are sensitive — managers/admins only, not telecallers.
   const canSeeBankContacts = profile?.role === 'admin' || profile?.crmRole === 'manager' || isSuperAdmin(user?.uid ?? '', profile);
   const { rows: lenders } = useCrm2Collection<Lender & { id: string }>('lenders');
+  const { rows: aggregators } = useCrm2Collection<Aggregator & { id: string }>('aggregators');
   const [logins, setLogins] = useState<LoginRow[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   // Open a single login stage: click a past stage to view, the current to edit.
@@ -229,8 +230,8 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
         );
       })}
 
-      {showAdd && <LoginFormModal caseId={caseId} login={null} focusStage="FILE_LOGIN" readOnly={false} lenders={lenders} canSeeBankContacts={canSeeBankContacts} onClose={() => setShowAdd(false)} />}
-      {work && <LoginFormModal caseId={caseId} login={work.login} focusStage={work.stage} readOnly={work.readOnly} lenders={lenders} canSeeBankContacts={canSeeBankContacts} onClose={() => setWork(null)} />}
+      {showAdd && <LoginFormModal caseId={caseId} login={null} focusStage="FILE_LOGIN" readOnly={false} lenders={lenders} aggregators={aggregators} canSeeBankContacts={canSeeBankContacts} onClose={() => setShowAdd(false)} />}
+      {work && <LoginFormModal caseId={caseId} login={work.login} focusStage={work.stage} readOnly={work.readOnly} lenders={lenders} aggregators={aggregators} canSeeBankContacts={canSeeBankContacts} onClose={() => setWork(null)} />}
       {disbursing && <DisburseLoginDialog caseId={caseId} login={disbursing} onClose={() => setDisbursing(null)} />}
     </div>
   );
@@ -408,7 +409,7 @@ type QLog = Array<{ raisedAt: unknown; detail: string; resolvedAt: unknown }>;
 // Works ONE stage of a login (focusStage): create a new login (login===null),
 // edit the current stage, or view a past stage (readOnly). Saving the current
 // stage offers "Save & advance" → a confirm second screen → patch + advance.
-function LoginFormModal({ caseId, login, lenders, canSeeBankContacts, focusStage, readOnly, onClose }: { caseId: string; login: LoginRow | null; lenders: Array<Lender & { id: string }>; canSeeBankContacts: boolean; focusStage: LoginStage; readOnly: boolean; onClose: () => void }) {
+function LoginFormModal({ caseId, login, lenders, aggregators, canSeeBankContacts, focusStage, readOnly, onClose }: { caseId: string; login: LoginRow | null; lenders: Array<Lender & { id: string }>; aggregators: Array<Aggregator & { id: string }>; canSeeBankContacts: boolean; focusStage: LoginStage; readOnly: boolean; onClose: () => void }) {
   const toast = useToast();
   const isEdit = !!login;
   const [f, setF] = useState({
@@ -420,6 +421,7 @@ function LoginFormModal({ caseId, login, lenders, canSeeBankContacts, focusStage
     docsSent: !!login?.docsSent, docsSentVia: login?.docsSentVia ?? '', directFromBank: !!login?.directFromBank,
     // Stage 5 — Code + Login
     codeName: login?.codeName ?? '', dsaCodeUsed: login?.dsaCodeUsed ?? '', loginDone: !!login?.loginDone,
+    dsaAggregatorId: login?.dsaAggregatorId ?? login?.connectorId ?? '',   // defaults to the case's aggregator
     loanApplicationNo: login?.loanApplicationNo ?? '',
     // Stage 7 — Sanctioned
     amountSanctioned: login?.amountSanctioned?.toString() ?? '', roiPct: login?.roiPct?.toString() ?? '',
@@ -495,7 +497,9 @@ function LoginFormModal({ caseId, login, lenders, canSeeBankContacts, focusStage
     asmName: f.asmName || null, asmNumber: f.asmNumber || null, asmEmail: f.asmEmail || null,
     docsSent: f.docsSent, docsSentVia: f.docsSent ? (f.docsSentVia || null) : null,
     directFromBank: f.directFromBank, loginDone: f.loginDone,
-    codeName: f.codeName || null, dsaCodeUsed: f.dsaCodeUsed || null, loanApplicationNo: f.loanApplicationNo || null,
+    codeName: f.codeName || null, dsaCodeUsed: f.dsaCodeUsed || null,
+    dsaAggregatorId: f.dsaCodeUsed === 'connector_own' ? (f.dsaAggregatorId || null) : null,
+    loanApplicationNo: f.loanApplicationNo || null,
     amountSanctioned: numOrNull(f.amountSanctioned), roiPct: numOrNull(f.roiPct),
     tenureMonths: numOrNull(f.tenureMonths), processingFee: numOrNull(f.processingFee),
     insuranceAmount: numOrNull(f.insuranceAmount), otherCharges: numOrNull(f.otherCharges),
@@ -612,7 +616,15 @@ function LoginFormModal({ caseId, login, lenders, canSeeBankContacts, focusStage
       <Section title="② Code + Bank Login Done">
         <div className="grid grid-cols-2 gap-3">
           <div><FLabel text="Code Name" /><input className={inp()} value={f.codeName} onChange={(e) => set('codeName', e.target.value)} /></div>
-          <div><FLabel text="DSA Code Used" /><SearchableSelect value={f.dsaCodeUsed} onChange={(v) => set('dsaCodeUsed', v)} options={[{ value: '', label: '—' }, { value: 'finvastra', label: "Finvastra's code" }, { value: 'connector_own', label: "Connector's own code" }]} /></div>
+          <div><FLabel text="DSA Code Used" /><SearchableSelect value={f.dsaCodeUsed} onChange={(v) => set('dsaCodeUsed', v)} options={[{ value: '', label: '—' }, { value: 'finvastra', label: "Finvastra's code" }, { value: 'connector_own', label: 'Aggregator code' }]} /></div>
+          {f.dsaCodeUsed === 'connector_own' && (
+            <div className="col-span-2">
+              <FLabel text="Aggregator (whose code)" />
+              <SearchableSelect value={f.dsaAggregatorId} onChange={(v) => set('dsaAggregatorId', v)} placeholder="Select aggregator from master…"
+                options={[{ value: '', label: '— select —' }, ...aggregators.filter((a) => a.status === 'ACTIVE' || a.id === f.dsaAggregatorId).map((a) => ({ value: a.id, label: `${a.name} · ${a.id}` }))]} />
+              <p className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>From Pipeline → Masters → Aggregators. e.g. RU Loans · AGG-001.</p>
+            </div>
+          )}
           <div className="col-span-2"><FLabel text="Loan Application No" /><input className={inp()} value={f.loanApplicationNo} onChange={(e) => set('loanApplicationNo', e.target.value)} /></div>
         </div>
         <Check label="Login done" checked={f.loginDone} onChange={(b) => set('loginDone', b)} />

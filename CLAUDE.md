@@ -2986,6 +2986,9 @@ External partners who **source loan / insurance / wealth cases**. NOT employees 
 
 > **Connector now flows end-to-end (2026-06-10):** selected on the **New Customer** form (lead-level) → carried onto the **commission_record** when a bank submission is marked primary/disbursed (`setPrimarySubmission` reads `opportunity.connector` else falls back to `lead.connector`) → visible in **MIS → Disbursals** (Connector column), so each commission is traceable to its channel partner through to payout. `Lead` and `CommissionRecord` types gained `connectorId/connectorCode/connectorName`. The commission_records create rule has no `hasOnly`, so the extra fields write cleanly.
 
+### Per-login progress line: stage names under each dot (2026-06-19) — ✅ DEPLOYED (hosting-only, verify:deploy 3/3 green)
+The per-login green progress rail on each login card (`LoginsSection.tsx`) was bare dots + "Step N/7" (stage name only on hover). Restructured to show the **stage name under each dot** (File Login · Code + Login · In Process · Sanctioned · Disbursed · PDD / OTC · Completed) — flex-col dot+label with green connectors (done = green #34d399, current = gold), `overflow-x-auto`, "Step N/7" still on the right. (The case-level stepper already labelled its circles.) Pure UI. tsc + `build:prod` clean.
+
 ### Case stepper: green progress rail + Close-on-right / tabs-on-left (2026-06-19) — ✅ DEPLOYED (hosting-only, verify:deploy 3/3 green)
 Case workspace header layout, per Rahul (`CaseWorkspacePage.tsx` only — no logic change):
 - **Green progress rail on the 10-stage case stepper.** Desktop chips now have a connecting line that **turns green (#34d399) as each case stage completes** (like the per-login cards); done circles are green, the current stage gold, future grey. Mobile vertical timeline matched (green done circles + green connector). Stage-click/`setView` behaviour unchanged.

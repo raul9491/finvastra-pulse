@@ -170,21 +170,26 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
 
             {/* Body */}
             <div className="p-4 pl-5 space-y-3">
-            {/* Stage progress line — dots connected, current ringed (hover a dot for its name) */}
-            <div className="flex items-center gap-3">
-              <div className="flex items-center flex-1 min-w-0">
+            {/* Stage progress line — green rail with the stage name under each dot */}
+            <div className="flex items-start gap-3 overflow-x-auto">
+              <div className="flex items-start flex-1 min-w-0">
                 {LOGIN_STAGE_ORDER.map((s, i) => {
                   const done = i < idx, cur = i === idx;
+                  const isLast = i === LOGIN_STAGE_ORDER.length - 1;
                   return (
-                    <div key={s} className="flex items-center" style={{ flex: i < LOGIN_STAGE_ORDER.length - 1 ? '1 1 0%' : '0 0 auto' }}>
-                      <div title={STAGE_LABEL[s]} className="w-2.5 h-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: done ? '#34d399' : cur ? '#C9A961' : 'var(--shell-hover-hard)', boxShadow: cur ? '0 0 0 3px rgba(201,169,97,0.25)' : 'none' }} />
-                      {i < LOGIN_STAGE_ORDER.length - 1 && <div className="h-0.5 flex-1 mx-1" style={{ backgroundColor: done ? '#34d399' : 'var(--shell-hover-hard)' }} />}
+                    <div key={s} className="flex items-start" style={{ flex: isLast ? '0 0 auto' : '1 1 0%' }}>
+                      <div className="flex flex-col items-center gap-1 w-14 shrink-0">
+                        <div title={STAGE_LABEL[s]} className="w-3 h-3 rounded-full shrink-0"
+                          style={{ backgroundColor: done ? '#34d399' : cur ? '#C9A961' : 'var(--shell-hover-hard)', boxShadow: cur ? '0 0 0 3px rgba(201,169,97,0.25)' : 'none' }} />
+                        <span className="text-[8px] font-semibold text-center leading-tight"
+                          style={{ color: cur ? '#C9A961' : done ? '#34d399' : 'var(--text-muted)' }}>{STAGE_LABEL[s]}</span>
+                      </div>
+                      {!isLast && <div className="h-0.5 flex-1 min-w-1 mt-[5px]" style={{ backgroundColor: done ? '#34d399' : 'var(--shell-hover-hard)' }} />}
                     </div>
                   );
                 })}
               </div>
-              <span className="text-[10px] font-semibold shrink-0" style={{ color: 'var(--text-muted)' }}>
+              <span className="text-[10px] font-semibold shrink-0 mt-0.5" style={{ color: 'var(--text-muted)' }}>
                 Step {Math.min(idx + 1, LOGIN_STAGE_ORDER.length)}/{LOGIN_STAGE_ORDER.length}
               </span>
             </div>

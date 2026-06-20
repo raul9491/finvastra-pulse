@@ -14,6 +14,7 @@ import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
 import { FLabel, inp } from '../masters/MastersPage';
 import { rollUpCaseStatus } from '../../../lib/crm2/logins';
+import { formatIndianNumber, digitsOnly, amountInWords } from '../../../lib/numberToWords';
 import { LOGIN_STAGE_ORDER, type Login, type LoginStage, type Lender } from '../../../types/crm2';
 
 type LoginRow = Login & { id: string };
@@ -219,8 +220,8 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
         );
       })}
 
-      {showAdd && <AddLoginModal caseId={caseId} lenders={lenders} onClose={() => setShowAdd(false)} />}
-      {editing && <EditLoginModal caseId={caseId} login={editing} lenders={lenders} onClose={() => setEditing(null)} />}
+      {showAdd && <LoginFormModal caseId={caseId} login={null} lenders={lenders} onClose={() => setShowAdd(false)} />}
+      {editing && <LoginFormModal caseId={caseId} login={editing} lenders={lenders} onClose={() => setEditing(null)} />}
       {disbursing && <DisburseLoginDialog caseId={caseId} login={disbursing} onClose={() => setDisbursing(null)} />}
     </div>
   );
@@ -359,93 +360,103 @@ function LenderInfo({ lender }: { lender?: (Lender & { id: string }) }) {
   );
 }
 
-function AddLoginModal({ caseId, lenders, onClose }: { caseId: string; lenders: Array<Lender & { id: string }>; onClose: () => void }) {
-  const toast = useToast();
-  const [lenderId, setLenderId] = useState('');
-  const [branch, setBranch] = useState('');
-  const [amount, setAmount] = useState('');
-  const [busy, setBusy] = useState(false);
-  const save = async () => {
-    setBusy(true);
-    try {
-      const r = await apiCrm2<{ ok: boolean; loginId: string }>('POST', `/api/crm2/cases/${caseId}/logins`, {
-        lenderId: lenderId || null, branch: branch || null, amountRequested: amount ? Number(amount) : null,
-      });
-      toast.success(`Login ${r.loginId} opened`); onClose();
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); } finally { setBusy(false); }
-  };
+// Money input — Indian comma grouping + (optionally) the amount in words below.
+// Stores the raw digit string; numOrNull parses it unchanged on save.
+function AmountInput({ value, onChange, words, placeholder }: {
+  value: string; onChange: (rawDigits: string) => void; words?: boolean; placeholder?: string;
+}) {
+  const raw = Number(digitsOnly(value || '0'));
   return (
-    <Modal title="Add Login" onClose={onClose}>
-      <div>
-        <FLabel text="Bank / NBFC (Lender)" />
-        <SearchableSelect value={lenderId} onChange={setLenderId} placeholder="Select lender…"
-          options={[{ value: '', label: '— select —' }, ...lenders.filter((l) => l.status === 'ACTIVE').map((l) => ({ value: l.id, label: l.name }))]} />
-      </div>
-      <div><FLabel text="Branch" /><input className={inp()} value={branch} onChange={(e) => setBranch(e.target.value)} /></div>
-      <div><FLabel text="Amount Requested ₹" /><input type="number" className={inp()} value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
-      <ModalButtons busy={busy} onClose={onClose} onSave={save} saveLabel="Open Login" />
-    </Modal>
+    <>
+      <input className={inp()} inputMode="numeric" value={value ? formatIndianNumber(value) : ''}
+        onChange={(e) => onChange(digitsOnly(e.target.value))} placeholder={placeholder ?? '0'} />
+      {words && raw > 0 && (
+        <p className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>≈ {amountInWords(raw)} Rupees</p>
+      )}
+    </>
+  );
+}
+
+// Branch input — free text + a datalist of the selected lender's known branches
+// (from its SM/ASM contacts), so the branch auto-suggests like the bank does.
+function BranchInput({ value, onChange, lender }: {
+  value: string; onChange: (v: string) => void; lender?: (Lender & { id: string });
+}) {
+  const listId = `branches-${lender?.id ?? 'none'}`;
+  const branches = Array.from(new Set((lender?.contacts ?? []).map((c) => (c.branch ?? '').trim()).filter(Boolean)));
+  return (
+    <>
+      <input className={inp()} value={value} list={listId} onChange={(e) => onChange(e.target.value)}
+        placeholder={branches.length ? 'Select or type a branch…' : 'Branch'} />
+      {branches.length > 0 && <datalist id={listId}>{branches.map((b) => <option key={b} value={b} />)}</datalist>}
+    </>
   );
 }
 
 type SpState = Record<string, { status: string; query: string; remarks: string }>;
 type QLog = Array<{ raisedAt: unknown; detail: string; resolvedAt: unknown }>;
 
-function EditLoginModal({ caseId, login, lenders, onClose }: { caseId: string; login: LoginRow; lenders: Array<Lender & { id: string }>; onClose: () => void }) {
+// ONE form for both adding and editing a login — bank/branch/amount + SM/ASM and
+// every stage's fields together. On add it creates the login then applies the
+// details in a single Save; on edit it patches. (login === null ⇒ add mode.)
+function LoginFormModal({ caseId, login, lenders, onClose }: { caseId: string; login: LoginRow | null; lenders: Array<Lender & { id: string }>; onClose: () => void }) {
   const toast = useToast();
+  const isEdit = !!login;
   const [f, setF] = useState({
     // Stage 4 — File Login
-    lenderId: login.lenderId ?? '', branch: login.branch ?? '',
-    amountRequested: login.amountRequested?.toString() ?? '',
-    smName: login.smName ?? '', smNumber: login.smNumber ?? '', asmName: login.asmName ?? '', asmNumber: login.asmNumber ?? '',
-    docsSent: !!login.docsSent, directFromBank: !!login.directFromBank,
+    lenderId: login?.lenderId ?? '', branch: login?.branch ?? '',
+    amountRequested: login?.amountRequested?.toString() ?? '',
+    smName: login?.smName ?? '', smNumber: login?.smNumber ?? '', asmName: login?.asmName ?? '', asmNumber: login?.asmNumber ?? '',
+    docsSent: !!login?.docsSent, directFromBank: !!login?.directFromBank,
     // Stage 5 — Code + Login
-    codeName: login.codeName ?? '', dsaCodeUsed: login.dsaCodeUsed ?? '', loginDone: !!login.loginDone,
-    loanApplicationNo: login.loanApplicationNo ?? '',
+    codeName: login?.codeName ?? '', dsaCodeUsed: login?.dsaCodeUsed ?? '', loginDone: !!login?.loginDone,
+    loanApplicationNo: login?.loanApplicationNo ?? '',
     // Stage 7 — Sanctioned
-    amountSanctioned: login.amountSanctioned?.toString() ?? '', roiPct: login.roiPct?.toString() ?? '',
-    tenureMonths: login.tenureMonths?.toString() ?? '', processingFee: login.processingFee?.toString() ?? '',
-    insuranceAmount: login.insuranceAmount?.toString() ?? '', otherCharges: login.otherCharges?.toString() ?? '',
-    sanctionDate: toDateInput(login.sanctionDate), verifiedAppNo: login.verifiedAppNo ?? '',
-    customerDecision: login.customerDecision ?? '',
+    amountSanctioned: login?.amountSanctioned?.toString() ?? '', roiPct: login?.roiPct?.toString() ?? '',
+    tenureMonths: login?.tenureMonths?.toString() ?? '', processingFee: login?.processingFee?.toString() ?? '',
+    insuranceAmount: login?.insuranceAmount?.toString() ?? '', otherCharges: login?.otherCharges?.toString() ?? '',
+    sanctionDate: toDateInput(login?.sanctionDate), verifiedAppNo: login?.verifiedAppNo ?? '',
+    customerDecision: login?.customerDecision ?? '',
     // Stage 9 — PDD / OTC
-    pddStatus: login.pddStatus ?? 'NA', otcStatus: login.otcStatus ?? 'NA',
-    pddPendingList: (login.pddPendingList ?? []).join(', '),
-    remarks: login.remarks ?? '',
+    pddStatus: login?.pddStatus ?? 'NA', otcStatus: login?.otcStatus ?? 'NA',
+    pddPendingList: (login?.pddPendingList ?? []).join(', '),
+    remarks: login?.remarks ?? '',
   });
   const [sp, setSp] = useState<SpState>(() => {
     const base: SpState = {};
     for (const { key } of SUB_PROCS) {
-      const s = login.subProcesses?.[key];
+      const s = login?.subProcesses?.[key];
       base[key] = { status: s?.status ?? 'NA', query: s?.query ?? '', remarks: s?.remarks ?? '' };
     }
     return base;
   });
   const [bt, setBt] = useState({
-    isBt: !!login.bt?.isBt, amount: login.bt?.amount?.toString() ?? '',
-    date: toDateInput(login.bt?.date), mode: login.bt?.mode ?? '', kind: (login.bt?.kind as string) ?? '',
+    isBt: !!login?.bt?.isBt, amount: login?.bt?.amount?.toString() ?? '',
+    date: toDateInput(login?.bt?.date), mode: login?.bt?.mode ?? '', kind: (login?.bt?.kind as string) ?? '',
   });
   const [sec, setSec] = useState({
-    isSecured: !!login.secured?.isSecured, modtDate: toDateInput(login.secured?.modtDate),
-    agreementDate: toDateInput(login.secured?.agreementDate), mode: login.secured?.mode ?? '',
+    isSecured: !!login?.secured?.isSecured, modtDate: toDateInput(login?.secured?.modtDate),
+    agreementDate: toDateInput(login?.secured?.agreementDate), mode: login?.secured?.mode ?? '',
   });
   const [applicants, setApplicants] = useState<Array<{ id: string; name: string; type: string }>>([]);
-  const [picked, setPicked] = useState<string[]>(login.applicantIds ?? []);
-  const [qlog, setQlog] = useState<QLog>((login.queryLog as QLog) ?? []);
+  const [picked, setPicked] = useState<string[]>(login?.applicantIds ?? []);
+  const [qlog, setQlog] = useState<QLog>((login?.queryLog as QLog) ?? []);
   const [newQuery, setNewQuery] = useState('');
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f, v: string | boolean) => setF((p) => ({ ...p, [k]: v }));
   const setSpField = (key: string, field: 'status' | 'query' | 'remarks', v: string) =>
     setSp((p) => ({ ...p, [key]: { ...p[key], [field]: v } }));
+  const selectedLender = lenders.find((l) => l.id === f.lenderId);
 
   useEffect(() => (
     onSnapshot(collection(db, 'cases', caseId, 'applicants'), (snap) =>
       setApplicants(snap.docs.map((d) => ({ id: d.id, name: (d.data().name as string) ?? d.id, type: (d.data().type as string) ?? '' }))))
   ), [caseId]);
 
-  // Query log raise/resolve fire their own PATCH immediately (decoupled from the main save).
+  // Query log raise/resolve fire their own PATCH immediately (edit mode only — a
+  // new login has no id yet; raise queries after the first Save).
   const raiseQuery = async () => {
-    const q = newQuery.trim(); if (!q) return;
+    const q = newQuery.trim(); if (!q || !login) return;
     try {
       await apiCrm2('PATCH', `/api/crm2/cases/${caseId}/logins/${login.id}`, { query: q });
       setQlog((p) => [...p, { raisedAt: { toDate: () => new Date() }, detail: q, resolvedAt: null }]);
@@ -453,6 +464,7 @@ function EditLoginModal({ caseId, login, lenders, onClose }: { caseId: string; l
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); }
   };
   const resolveQuery = async (i: number) => {
+    if (!login) return;
     try {
       await apiCrm2('PATCH', `/api/crm2/cases/${caseId}/logins/${login.id}`, { resolveQueryIndex: i });
       setQlog((p) => p.map((q, idx) => (idx === i ? { ...q, resolvedAt: { toDate: () => new Date() } } : q)));
@@ -463,7 +475,7 @@ function EditLoginModal({ caseId, login, lenders, onClose }: { caseId: string; l
   const save = async () => {
     setBusy(true);
     try {
-      await apiCrm2('PATCH', `/api/crm2/cases/${caseId}/logins/${login.id}`, {
+      const payload = {
         lenderId: f.lenderId || null, branch: f.branch || null, amountRequested: numOrNull(f.amountRequested),
         smName: f.smName || null, smNumber: f.smNumber || null, asmName: f.asmName || null, asmNumber: f.asmNumber || null,
         docsSent: f.docsSent, directFromBank: f.directFromBank, loginDone: f.loginDone,
@@ -486,23 +498,30 @@ function EditLoginModal({ caseId, login, lenders, onClose }: { caseId: string; l
         secured: sec.isSecured
           ? { isSecured: true, modtDate: isoOrNull(sec.modtDate), agreementDate: isoOrNull(sec.agreementDate), mode: sec.mode || null }
           : { isSecured: false, modtDate: null, agreementDate: null, mode: null },
-      });
-      toast.success('Login updated'); onClose();
+      };
+      let loginId = login?.id;
+      if (!loginId) {
+        const r = await apiCrm2<{ ok: boolean; loginId: string }>('POST', `/api/crm2/cases/${caseId}/logins`, {
+          lenderId: f.lenderId || null, branch: f.branch || null, amountRequested: numOrNull(f.amountRequested),
+        });
+        loginId = r.loginId;
+      }
+      await apiCrm2('PATCH', `/api/crm2/cases/${caseId}/logins/${loginId}`, payload);
+      toast.success(isEdit ? 'Login updated' : `Login ${loginId} opened`); onClose();
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); } finally { setBusy(false); }
   };
 
   return (
-    <Modal title={`Edit ${login.id} · all stages`} onClose={onClose} wide>
+    <Modal title={isEdit ? `Edit ${login!.id} · all details` : 'Add Login · all details'} onClose={onClose} wide>
       <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-        Fill any stage's data anytime — saving here does not advance the login. Use “Advance →” on the card to move stages.
+        One form — fill everything you have (only the bank is needed to open). Saving does not advance the login; use “Advance →” on the card to move stages.
       </p>
 
       <Section title="① File / Bank Login">
         <div className="grid grid-cols-2 gap-3">
-          <div><FLabel text="Lender" /><SearchableSelect value={f.lenderId} onChange={(v) => set('lenderId', v)} options={[{ value: '', label: '—' }, ...lenders.map((l) => ({ value: l.id, label: l.name }))]} /></div>
-          <div><FLabel text="Branch" /><input className={inp()} value={f.branch} onChange={(e) => set('branch', e.target.value)} /></div>
-          <div><FLabel text="Amount Requested ₹" /><input type="number" className={inp()} value={f.amountRequested} onChange={(e) => set('amountRequested', e.target.value)} /></div>
-          <div className="hidden sm:block" />
+          <div><FLabel text="Bank / NBFC (Lender)" /><SearchableSelect value={f.lenderId} onChange={(v) => set('lenderId', v)} placeholder="Select lender…" options={[{ value: '', label: '—' }, ...lenders.filter((l) => l.status === 'ACTIVE' || l.id === f.lenderId).map((l) => ({ value: l.id, label: l.name }))]} /></div>
+          <div><FLabel text="Branch" /><BranchInput value={f.branch} onChange={(v) => set('branch', v)} lender={selectedLender} /></div>
+          <div className="col-span-2"><FLabel text="Amount Requested ₹" /><AmountInput value={f.amountRequested} onChange={(v) => set('amountRequested', v)} words placeholder="30,00,000" /></div>
           <div><FLabel text="SM Name" /><input className={inp()} value={f.smName} onChange={(e) => set('smName', e.target.value)} /></div>
           <div><FLabel text="SM Number" /><input className={inp()} value={f.smNumber} onChange={(e) => set('smNumber', e.target.value)} /></div>
           <div><FLabel text="ASM Name" /><input className={inp()} value={f.asmName} onChange={(e) => set('asmName', e.target.value)} /></div>
@@ -538,28 +557,30 @@ function EditLoginModal({ caseId, login, lenders, onClose }: { caseId: string; l
             </div>
           ))}
         </div>
-        {/* Query log */}
-        <div className="space-y-1.5 pt-1">
-          <FLabel text="Query log" />
-          {qlog.length === 0 && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>No queries raised.</p>}
-          {qlog.map((q, i) => (
-            <div key={i} className="flex items-center justify-between gap-2 text-xs px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: 'var(--shell-hover-soft)' }}>
-              <span style={{ color: 'var(--text-primary)', textDecoration: q.resolvedAt ? 'line-through' : 'none' }}>{q.detail}</span>
-              {q.resolvedAt
-                ? <span className="text-[10px] font-bold" style={{ color: '#34d399' }}>RESOLVED</span>
-                : <button onClick={() => resolveQuery(i)} className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(201,169,97,0.18)', color: '#C9A961' }}>Resolve</button>}
+        {/* Query log — available once the login exists (edit mode) */}
+        {isEdit && (
+          <div className="space-y-1.5 pt-1">
+            <FLabel text="Query log" />
+            {qlog.length === 0 && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>No queries raised.</p>}
+            {qlog.map((q, i) => (
+              <div key={i} className="flex items-center justify-between gap-2 text-xs px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: 'var(--shell-hover-soft)' }}>
+                <span style={{ color: 'var(--text-primary)', textDecoration: q.resolvedAt ? 'line-through' : 'none' }}>{q.detail}</span>
+                {q.resolvedAt
+                  ? <span className="text-[10px] font-bold" style={{ color: '#34d399' }}>RESOLVED</span>
+                  : <button onClick={() => resolveQuery(i)} className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(201,169,97,0.18)', color: '#C9A961' }}>Resolve</button>}
+              </div>
+            ))}
+            <div className="flex gap-2">
+              <input className={inp()} placeholder="Raise a new query…" value={newQuery} onChange={(e) => setNewQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); raiseQuery(); } }} />
+              <button onClick={raiseQuery} className="px-3 rounded-lg text-xs font-semibold shrink-0" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>Raise</button>
             </div>
-          ))}
-          <div className="flex gap-2">
-            <input className={inp()} placeholder="Raise a new query…" value={newQuery} onChange={(e) => setNewQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); raiseQuery(); } }} />
-            <button onClick={raiseQuery} className="px-3 rounded-lg text-xs font-semibold shrink-0" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>Raise</button>
           </div>
-        </div>
+        )}
       </Section>
 
       <Section title="④ Sanctioned">
         <div className="grid grid-cols-2 gap-3">
-          <div><FLabel text="Sanctioned ₹" /><input type="number" className={inp()} value={f.amountSanctioned} onChange={(e) => set('amountSanctioned', e.target.value)} /></div>
+          <div><FLabel text="Sanctioned ₹" /><AmountInput value={f.amountSanctioned} onChange={(v) => set('amountSanctioned', v)} words /></div>
           <div><FLabel text="ROI %" /><input type="number" className={inp()} value={f.roiPct} onChange={(e) => set('roiPct', e.target.value)} /></div>
           <div><FLabel text="Tenure (months)" /><input type="number" className={inp()} value={f.tenureMonths} onChange={(e) => set('tenureMonths', e.target.value)} /></div>
           <div><FLabel text="Processing Fee ₹" /><input type="number" className={inp()} value={f.processingFee} onChange={(e) => set('processingFee', e.target.value)} /></div>
@@ -612,7 +633,7 @@ function EditLoginModal({ caseId, login, lenders, onClose }: { caseId: string; l
       )}
 
       <div><FLabel text="Remarks" /><input className={inp()} value={f.remarks} onChange={(e) => set('remarks', e.target.value)} /></div>
-      <ModalButtons busy={busy} onClose={onClose} onSave={save} saveLabel="Save Changes" />
+      <ModalButtons busy={busy} onClose={onClose} onSave={save} saveLabel={isEdit ? 'Save Changes' : 'Open Login'} />
     </Modal>
   );
 }

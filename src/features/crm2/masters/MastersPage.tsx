@@ -324,14 +324,13 @@ function MasterTab<T extends { id: string; name: string; status: string }>({
                 <th className="text-left font-semibold px-3 py-2.5">Name</th>
                 {columns.map((c) => <th key={c.header} className="text-left font-semibold px-3 py-2.5">{c.header}</th>)}
                 <th className="text-left font-semibold px-3 py-2.5">Status</th>
-                <th className="px-3 py-2.5" />
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={4 + columns.length} className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>Loading…</td></tr>
+                <tr><td colSpan={3 + columns.length} className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>Loading…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={4 + columns.length} className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>
+                <tr><td colSpan={3 + columns.length} className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>
                   No {label.toLowerCase()} yet — add the first one.
                 </td></tr>
               ) : filtered.map((r) => (
@@ -343,12 +342,6 @@ function MasterTab<T extends { id: string; name: string; status: string }>({
                   {columns.map((c) => <td key={c.header} className="px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{c.render(r)}</td>)}
                   <td className="px-3 py-2.5">
                     <span className={r.status === 'ACTIVE' ? 'badge-glass-success' : 'badge-glass-muted'}>{r.status}</span>
-                  </td>
-                  <td className="px-3 py-2.5 text-right">
-                    <button onClick={(e) => { e.stopPropagation(); setModal({ initial: r as unknown as Record<string, unknown> & { id: string } }); }}
-                      className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard)" aria-label="Edit">
-                      <Pencil size={14} style={{ color: 'var(--text-muted)' }} />
-                    </button>
                   </td>
                 </tr>
               ))}
@@ -539,6 +532,18 @@ function ConnectorsMasterTab({ uid }: { uid: string }) {
     catch { toast.error('Could not update status'); }
   };
 
+  // Legacy codes were FAC-### — offer a one-time rename to CONN-###.
+  const [migBusy, setMigBusy] = useState(false);
+  const legacyCount = connectors.filter((c) => /^FAC-/.test(c.connectorCode ?? '')).length;
+  const renameCodes = async () => {
+    setMigBusy(true);
+    try {
+      const r = await apiCrm2<{ ok: boolean; migrated: unknown[] }>('POST', '/api/crm2/admin/migrate-connector-codes', {});
+      toast.success(`Renamed ${r.migrated.length} connector code(s) to CONN-`);
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Rename failed'); }
+    finally { setMigBusy(false); }
+  };
+
   const FILTERS: Array<{ key: typeof filter; label: string }> = [
     { key: 'active', label: `Active (${activeN})` },
     { key: 'inactive', label: `Inactive (${inactiveN})` },
@@ -575,6 +580,20 @@ function ConnectorsMasterTab({ uid }: { uid: string }) {
         They appear in the Add Customer “Connector” picker once active.
       </p>
 
+      {legacyCount > 0 && (
+        <div className="rounded-lg px-4 py-3 flex flex-wrap items-center justify-between gap-3"
+          style={{ backgroundColor: 'rgba(201,169,97,0.10)', border: '1px solid rgba(201,169,97,0.3)' }}>
+          <span className="text-sm" style={{ color: '#C9A961' }}>
+            {legacyCount} connector{legacyCount > 1 ? 's' : ''} still use the old <strong>FAC-</strong> code. Rename to <strong>CONN-</strong>?
+          </span>
+          <button onClick={renameCodes} disabled={migBusy}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
+            style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+            {migBusy ? 'Renaming…' : 'Rename to CONN-'}
+          </button>
+        </div>
+      )}
+
       <div className="glass-panel p-0 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -610,13 +629,9 @@ function ConnectorsMasterTab({ uid }: { uid: string }) {
                   </td>
                   <td className="px-3 py-2.5 text-right whitespace-nowrap">
                     <button onClick={(e) => { e.stopPropagation(); toggleStatus(c); }}
-                      className="text-xs font-semibold mr-3 transition-opacity hover:opacity-80"
+                      className="text-xs font-semibold transition-opacity hover:opacity-80"
                       style={{ color: c.status === 'active' ? '#f87171' : '#34d399' }}>
                       {c.status === 'active' ? 'Deactivate' : 'Activate'}
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); setModal({ initial: c }); }}
-                      className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard) align-middle" aria-label="Edit">
-                      <Pencil size={14} style={{ color: 'var(--text-muted)' }} />
                     </button>
                   </td>
                 </tr>

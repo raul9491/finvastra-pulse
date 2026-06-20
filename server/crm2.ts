@@ -530,6 +530,48 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     res.json({ ok: true, migrated });
   }));
 
+  // ─── One-time: rename legacy connector codes FAC-### → CONN-### ───────────────
+  // Connectors (HRMS `/connectors`, FAC-###) are now coded CONN-### (CONN- was
+  // freed up when aggregators moved to AGG-). connectorCode is a display FIELD
+  // (the real link is the doc id / channelPartnerId), so this just rewrites the
+  // code on the connector + the denormalised channelPartnerCode on leads/cases/
+  // logins. Idempotent; super-admin UI.
+  app.post("/api/crm2/admin/migrate-connector-codes", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "crm.masters.write");
+    if (!caller) return;
+    const snap = await db.collection("connectors").get();
+    const legacy = snap.docs.filter((d) => /^FAC-\d+$/.test(String(d.data().connectorCode ?? "")));
+    const migrated: Array<{ id: string; old: string; new: string; repointed: number }> = [];
+
+    for (const d of legacy) {
+      const oldCode = String(d.data().connectorCode);
+      const newCode = oldCode.replace(/^FAC-/, "CONN-");
+      await d.ref.update({ connectorCode: newCode, updatedAt: FieldValue.serverTimestamp() });
+      let repointed = 0;
+      // Denormalised channelPartnerCode (keyed by channelPartnerId == connector doc id).
+      for (const coll of ["leads", "cases"]) {
+        const refs = await db.collection(coll).where("channelPartnerId", "==", d.id).get();
+        for (let i = 0; i < refs.docs.length; i += 400) {
+          const batch = db.batch();
+          refs.docs.slice(i, i + 400).forEach((r) => batch.update(r.ref, { channelPartnerCode: newCode }));
+          await batch.commit();
+        }
+        repointed += refs.size;
+      }
+      const cases = await db.collection("cases").get();
+      for (const c of cases.docs) {
+        const lg = await c.ref.collection("logins").where("channelPartnerId", "==", d.id).get();
+        if (lg.empty) continue;
+        const batch = db.batch();
+        lg.docs.forEach((r) => batch.update(r.ref, { channelPartnerCode: newCode }));
+        await batch.commit();
+        repointed += lg.size;
+      }
+      migrated.push({ id: d.id, old: oldCode, new: newCode, repointed });
+    }
+    res.json({ ok: true, migrated });
+  }));
+
   // ─── Clients — direct CRUD (Client Master) ───────────────────────────────────
   // FCL-YYYY-##### ids. RMs manage their OWN clients; assign-RM + blacklist are
   // manager/admin only. Reads are rule-scoped (crm.leads.read/cases.read); writes

@@ -35,13 +35,15 @@ export function useConnectors(enabled = true) {
 }
 
 // Next FAC-### code from the existing set (client-side; fine at this scale).
+// Connectors are coded CONN-### (legacy ones were FAC-### — both are counted so
+// the next number never collides; a one-time migration renames FAC- → CONN-).
 export function nextConnectorCode(connectors: Connector[]): string {
   let max = 0;
   for (const c of connectors) {
-    const m = /^FAC-(\d+)$/.exec(c.connectorCode ?? '');
+    const m = /^(?:CONN|FAC)-(\d+)$/.exec(c.connectorCode ?? '');
     if (m) max = Math.max(max, Number(m[1]));
   }
-  return `FAC-${String(max + 1).padStart(3, '0')}`;
+  return `CONN-${String(max + 1).padStart(3, '0')}`;
 }
 
 // ─── Mutations ──────────────────────────────────────────────────────────────

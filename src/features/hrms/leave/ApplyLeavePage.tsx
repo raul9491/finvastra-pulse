@@ -4,6 +4,7 @@ import { format, parseISO, isAfter, isBefore } from 'date-fns';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { applyForLeave, useMyLeaveBalance, calculateWorkingDays, currentLeaveYear, LEAVE_DEFAULT_TOTALS } from '../hooks/useLeave';
+import { notifyManagerOfRequest } from '../../../lib/notifications';
 import { useHolidays } from '../hooks/useHolidays';
 import type { LeaveType } from '../../../types';
 
@@ -115,6 +116,17 @@ export function ApplyLeavePage() {
         reason: reason.trim(),
         status: 'pending',
       });
+      // Alert the employee's reporting manager (bell + email) — no-op if no manager.
+      notifyManagerOfRequest({
+        kind: 'leave',
+        rows: [
+          { label: 'Type', value: LEAVE_TYPES.find((t) => t.value === leaveType)?.label ?? leaveType },
+          { label: 'Dates', value: `${fromDate} → ${toDate}` },
+          { label: 'Working days', value: String(workingDays) },
+          { label: 'Reason', value: reason.trim() || '—' },
+        ],
+        link: '/hrms/admin/leave',
+      }).catch(() => {});
       navigate('/hrms/leave');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit application.');

@@ -1810,6 +1810,51 @@ async function startServer() {
     return res.json({ ok: true });
   });
 
+  // POST /api/hrms/notify/manager — any employee notifies THEIR reporting manager
+  // (server resolves the manager from the caller's user doc; client can't lie).
+  // Used when an employee submits a leave / claim so the manager gets a bell+email
+  // of what was requested. No-op (skipped) if the employee has no reporting manager.
+  app.post("/api/hrms/notify/manager", async (req, res) => {
+    const uid = await verifyFirebaseToken(req);
+    if (!uid) return res.status(401).json({ error: "Unauthorized" });
+    const { kind, title, intro, rows, link } = (req.body ?? {}) as {
+      kind?: string; title?: string; intro?: string;
+      rows?: Array<{ label: string; value: string }>; link?: string;
+    };
+    const snap = await db.collection("users").doc(uid).get();
+    const d = snap.data() ?? {};
+    const managerUid = d.reportingManagerUid as string | undefined;
+    const empName = (d.displayName as string) || "An employee";
+    if (!managerUid || managerUid === uid) return res.json({ ok: true, skipped: "no_manager" });
+
+    const safeRows = Array.isArray(rows) ? rows.filter((r) => r && r.label) : [];
+    const heading = title || `${empName} — ${kind === "claim" ? "claim" : "leave"} request`;
+
+    // In-app bell (Admin SDK — bypasses the admin/HR-only create rule).
+    await db.collection("notifications").doc(managerUid).collection("items").add({
+      type: kind === "claim" ? "claim_request" : "leave_request",
+      title: heading,
+      body: safeRows.map((r) => `${r.label}: ${r.value}`).join(" · ").slice(0, 300) || `${empName} submitted a request`,
+      link: link ?? null,
+      read: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    }).catch(() => {});
+
+    // Email the manager (non-fatal).
+    const mgr = await admin.auth().getUser(managerUid).catch(() => null);
+    if (mgr?.email) {
+      const html = buildBrandEmail({
+        title: heading,
+        intro: intro || `${empName} (your team member) has submitted a ${kind === "claim" ? "claim" : "leave"} request. Details below.`,
+        rows: safeRows,
+        ctaLabel: "Review in Pulse",
+        ctaLink: link ? `https://pulse.finvastra.com${link}` : undefined,
+      });
+      await sendGmailMessage(mgr.email, heading, html).catch(() => {});
+    }
+    return res.json({ ok: true, notified: managerUid });
+  });
+
   // ─── SMTP / Gmail Test Endpoint ───────────────────────────────────────────
   // POST /api/admin/test-smtp  (admin OR scheduler OIDC)
   // Sends a BRANDED test email (new logo template) to confirm delivery + branding.

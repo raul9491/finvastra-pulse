@@ -781,6 +781,8 @@ export type NotificationType =
   | 'share_granted'
   | 'share_revoked'
   | 'dispute_created'
+  | 'leave_request'
+  | 'claim_request'
   | 'system';
 
 export interface Notification {

@@ -32,7 +32,10 @@ export type NotificationType =
   // Phase P
   | 'share_granted'
   | 'share_revoked'
-  | 'dispute_created';
+  | 'dispute_created'
+  // employee → reporting-manager request alerts
+  | 'leave_request'
+  | 'claim_request';
 
 export interface AppNotification {
   id:        string;
@@ -184,5 +187,27 @@ export async function sendHrEmailNotification(opts: {
       pdfBase64:   opts.pdfBase64,
       pdfFilename: opts.pdfFilename,
     }),
+  });
+}
+
+/**
+ * Notify the CURRENT employee's reporting manager that they submitted a leave /
+ * claim request — bell + branded email. The server resolves the manager from the
+ * caller's user doc (the client can't choose it). Fire-and-forget; no-op when the
+ * employee has no reporting manager set. Any signed-in employee may call it.
+ */
+export async function notifyManagerOfRequest(opts: {
+  kind:    'leave' | 'claim';
+  title?:  string;
+  intro?:  string;
+  rows:    { label: string; value: string }[];
+  link?:   string;
+}): Promise<void> {
+  const token = await getAuth().currentUser?.getIdToken();
+  if (!token) return;
+  await fetch('/api/hrms/notify/manager', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body:    JSON.stringify(opts),
   });
 }

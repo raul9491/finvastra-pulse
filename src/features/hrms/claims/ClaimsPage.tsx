@@ -6,6 +6,7 @@ import { storage } from '../../../lib/firebase';
 import { compressImage, formatBytes } from '../../../lib/imageCompression';
 import { useAuth } from '../../auth/AuthContext';
 import { useMyClaims, submitClaim, cancelClaim } from '../hooks/useClaims';
+import { notifyManagerOfRequest } from '../../../lib/notifications';
 import type { ClaimType, ClaimStatus, Claim, ClaimTravelDetails } from '../../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -110,6 +111,17 @@ function NewClaimModal({ employeeName, onClose }: { employeeName: string; onClos
         receiptUrl,
         expenseDate: expenseDate ? new Date(expenseDate).toISOString() : null,
       });
+      // Alert the employee's reporting manager (bell + email) — no-op if no manager.
+      notifyManagerOfRequest({
+        kind: 'claim',
+        rows: [
+          { label: 'Type', value: CLAIM_TYPE_META[claimType]?.label ?? claimType },
+          { label: 'Amount', value: `₹${amt.toLocaleString('en-IN')}` },
+          { label: 'Description', value: description.trim() || '—' },
+          ...(travel ? [{ label: 'Route', value: `${travel.fromLocation} → ${travel.toLocation}` }] : []),
+        ],
+        link: '/hrms/admin/claims',
+      }).catch(() => {});
       onClose();
     } catch {
       setUploadPct(null);

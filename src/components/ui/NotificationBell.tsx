@@ -35,6 +35,9 @@ const TYPE_META: Record<AppNotification['type'], { icon: string; color: string }
   share_granted:    { icon: '🔗', color: '#C9A961' },
   share_revoked:    { icon: '🔒', color: '#f87171' },
   dispute_created:  { icon: '⚠️', color: '#f87171' },
+  // Employee → manager request alerts
+  leave_request:    { icon: '🌴', color: '#60a5fa' },
+  claim_request:    { icon: '🧾', color: '#60a5fa' },
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────

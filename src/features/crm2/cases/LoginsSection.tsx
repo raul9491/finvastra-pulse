@@ -55,7 +55,7 @@ function toDateInput(v: unknown): string {
 const numOrNull = (s: string) => (s.trim() ? Number(s) : null);
 const isoOrNull = (s: string) => (s ? new Date(s).toISOString() : null);
 
-export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: boolean }) {
+export function LoginsSection({ caseId, caseProductId, canWrite }: { caseId: string; caseProductId: string; canWrite: boolean }) {
   const toast = useToast();
   const { profile, user } = useAuth();
   const canDisburse = hasCrm2Perm(profile, 'payout.write');
@@ -231,8 +231,8 @@ export function LoginsSection({ caseId, canWrite }: { caseId: string; canWrite: 
         );
       })}
 
-      {showAdd && <LoginFormModal caseId={caseId} login={null} focusStage="FILE_LOGIN" readOnly={false} lenders={lenders} aggregators={aggregators} dsaMappings={dsaMappings} canSeeBankContacts={canSeeBankContacts} onClose={() => setShowAdd(false)} />}
-      {work && <LoginFormModal caseId={caseId} login={work.login} focusStage={work.stage} readOnly={work.readOnly} lenders={lenders} aggregators={aggregators} dsaMappings={dsaMappings} canSeeBankContacts={canSeeBankContacts} onClose={() => setWork(null)} />}
+      {showAdd && <LoginFormModal caseId={caseId} caseProductId={caseProductId} login={null} focusStage="FILE_LOGIN" readOnly={false} lenders={lenders} aggregators={aggregators} dsaMappings={dsaMappings} canSeeBankContacts={canSeeBankContacts} onClose={() => setShowAdd(false)} />}
+      {work && <LoginFormModal caseId={caseId} caseProductId={caseProductId} login={work.login} focusStage={work.stage} readOnly={work.readOnly} lenders={lenders} aggregators={aggregators} dsaMappings={dsaMappings} canSeeBankContacts={canSeeBankContacts} onClose={() => setWork(null)} />}
       {disbursing && <DisburseLoginDialog caseId={caseId} login={disbursing} onClose={() => setDisbursing(null)} />}
     </div>
   );
@@ -410,7 +410,7 @@ type QLog = Array<{ raisedAt: unknown; detail: string; resolvedAt: unknown }>;
 // Works ONE stage of a login (focusStage): create a new login (login===null),
 // edit the current stage, or view a past stage (readOnly). Saving the current
 // stage offers "Save & advance" → a confirm second screen → patch + advance.
-function LoginFormModal({ caseId, login, lenders, aggregators, dsaMappings, canSeeBankContacts, focusStage, readOnly, onClose }: { caseId: string; login: LoginRow | null; lenders: Array<Lender & { id: string }>; aggregators: Array<Aggregator & { id: string }>; dsaMappings: Array<DsaCodeMapping & { id: string }>; canSeeBankContacts: boolean; focusStage: LoginStage; readOnly: boolean; onClose: () => void }) {
+function LoginFormModal({ caseId, caseProductId, login, lenders, aggregators, dsaMappings, canSeeBankContacts, focusStage, readOnly, onClose }: { caseId: string; caseProductId: string; login: LoginRow | null; lenders: Array<Lender & { id: string }>; aggregators: Array<Aggregator & { id: string }>; dsaMappings: Array<DsaCodeMapping & { id: string }>; canSeeBankContacts: boolean; focusStage: LoginStage; readOnly: boolean; onClose: () => void }) {
   const toast = useToast();
   const isEdit = !!login;
   const [f, setF] = useState({
@@ -470,8 +470,12 @@ function LoginFormModal({ caseId, login, lenders, aggregators, dsaMappings, canS
   // login's lender) the moment an aggregator is picked.
   const aggName = (id: string) => aggregators.find((a) => a.id === id)?.name ?? id;
   const lenderNm = (id: string) => lenders.find((l) => l.id === id)?.name ?? id;
+  // Prefer the per-product mapping (aggregator × lender × product); fall back to a
+  // legacy product-less mapping for the pair (mirrors the server's resolveMapping).
   const resolvedMapping = (f.dsaCodeUsed === 'connector_own' && f.dsaAggregatorId && f.lenderId)
-    ? (dsaMappings.find((m) => m.connectorId === f.dsaAggregatorId && m.lenderId === f.lenderId && m.status === 'ACTIVE')
+    ? (dsaMappings.find((m) => m.connectorId === f.dsaAggregatorId && m.lenderId === f.lenderId && m.productId === caseProductId && m.status === 'ACTIVE')
+       ?? dsaMappings.find((m) => m.connectorId === f.dsaAggregatorId && m.lenderId === f.lenderId && m.productId === caseProductId)
+       ?? dsaMappings.find((m) => m.connectorId === f.dsaAggregatorId && m.lenderId === f.lenderId && !m.productId)
        ?? dsaMappings.find((m) => m.connectorId === f.dsaAggregatorId && m.lenderId === f.lenderId))
     : null;
   const title = isCreate ? 'Add Login — File Login' : `${login!.id} · ${STAGE_LABEL[focusStage]}${readOnly ? ' · view' : ''}`;

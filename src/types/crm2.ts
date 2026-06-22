@@ -101,10 +101,12 @@ export interface MappingSlab {
 
 /** One doc per Aggregator + Lender pair — THE PAYOUT ENGINE. */
 export interface DsaCodeMapping extends Audit {
-  connectorId: string;                // aggregators/{id}
+  connectorId: string;                // aggregators/{id} (the "aggregator")
   lenderId: string;
+  productId: string;                  // products/{id} — DSA codes are per product
+  subProduct: string | null;          // optional finer grain (one of Product.subProducts)
   dsaCode: string;                    // bank-dump match key
-  codeRegisteredName: string;         // recon string-match
+  codeRegisteredName: string | null;  // recon string-match — OPTIONAL
   status: 'ACTIVE' | 'INACTIVE';
   slabs: MappingSlab[];
 }

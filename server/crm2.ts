@@ -814,38 +814,61 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     }
   }
 
+  // Resolve the DSA-code mapping for a case/login: prefer the per-product mapping
+  // (aggregator × lender × product), else fall back to a legacy product-less one
+  // so pre-existing mappings keep working. Returns the doc snapshot or null.
+  async function resolveMapping(connectorId: string, lenderId: string, productId?: string | null) {
+    if (productId) {
+      const exact = await db.collection("dsaCodeMappings")
+        .where("connectorId", "==", connectorId).where("lenderId", "==", lenderId)
+        .where("productId", "==", productId).limit(1).get();
+      if (!exact.empty) return exact.docs[0];
+    }
+    const all = await db.collection("dsaCodeMappings")
+      .where("connectorId", "==", connectorId).where("lenderId", "==", lenderId).get();
+    return all.docs.find((d) => !d.data().productId) ?? all.docs[0] ?? null;
+  }
+
   app.post("/api/crm2/mappings", route(async (req, res) => {
     const caller = await requirePerm(req, res, "crm.masters.write");
     if (!caller) return;
     const b = req.body ?? {};
-    const connectorId = reqStr(b, "connectorId");
+    const connectorId = reqStr(b, "connectorId");   // aggregator id
     const lenderId = reqStr(b, "lenderId");
+    const productId = reqStr(b, "productId");
+    const subProduct = optStr(b, "subProduct");      // optional finer grain
     const dsaCode = reqStr(b, "dsaCode");
-    const codeRegisteredName = reqStr(b, "codeRegisteredName");
+    const codeRegisteredName = optStr(b, "codeRegisteredName");   // OPTIONAL
     const slabBodies: Array<Record<string, unknown>> = Array.isArray(b.slabs) ? b.slabs : [];
     const slabs = slabBodies.map((s) => ({ slabId: crypto.randomUUID(), ...sanitizeSlab(s) }));
     assertNoOverlaps(slabs as unknown as Array<Record<string, unknown>>);
 
-    const [agg, lender] = await Promise.all([
+    const [agg, lender, product] = await Promise.all([
       db.collection("aggregators").doc(connectorId).get(),
       db.collection("lenders").doc(lenderId).get(),
+      db.collection("products").doc(productId).get(),
     ]);
-    if (!agg.exists) throw new ApiError(400, `Connector ${connectorId} not found`);
+    if (!agg.exists) throw new ApiError(400, `Aggregator ${connectorId} not found`);
     if (!lender.exists) throw new ApiError(400, `Lender ${lenderId} not found`);
+    if (!product.exists) throw new ApiError(400, `Product ${productId} not found`);
 
     const id = await db.runTransaction(async (tx) => {
-      // One mapping per connector × lender pair.
+      // One mapping per aggregator × lender × product (× sub-product).
       const dup = await tx.get(
         db.collection("dsaCodeMappings")
           .where("connectorId", "==", connectorId)
-          .where("lenderId", "==", lenderId).limit(1),
+          .where("lenderId", "==", lenderId)
+          .where("productId", "==", productId),
       );
-      if (!dup.empty) {
-        throw new ApiError(409, `A mapping for this connector × lender already exists (${dup.docs[0].id}) — add slabs to it instead`);
+      const clash = dup.docs.find((d) => (d.data().subProduct ?? null) === (subProduct ?? null));
+      if (clash) {
+        const grain = subProduct ? ` × ${subProduct}` : "";
+        throw new ApiError(409, `A mapping for this aggregator × lender × product${grain} already exists (${clash.id}) — edit it / add slabs instead`);
       }
       const newId = await nextIdInTx(tx, "dsaCodeMappings", "MAP-", 3);
       tx.set(db.collection("dsaCodeMappings").doc(newId), {
-        connectorId, lenderId, dsaCode, codeRegisteredName,
+        connectorId, lenderId, productId, subProduct: subProduct ?? null,
+        dsaCode, codeRegisteredName: codeRegisteredName ?? null,
         status: "ACTIVE", slabs, ...createAudit(caller.fapl),
       });
       return newId;
@@ -865,7 +888,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const b = req.body ?? {};
     const fields: Record<string, unknown> = {};
     if (b.dsaCode !== undefined) fields.dsaCode = reqStr(b, "dsaCode");
-    if (b.codeRegisteredName !== undefined) fields.codeRegisteredName = reqStr(b, "codeRegisteredName");
+    if (b.codeRegisteredName !== undefined) fields.codeRegisteredName = optStr(b, "codeRegisteredName");
     if (b.status !== undefined) fields.status = reqEnum(b, "status", ["ACTIVE", "INACTIVE"] as const);
     if (b.slabs !== undefined) throw new ApiError(400, "Slabs are edited via the slab endpoints, never patched directly");
     if (Object.keys(fields).length === 0) throw new ApiError(400, "No editable fields in payload");
@@ -3211,11 +3234,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         pendingDisb.map((p) => ({ rowId: p.rowId, documentDefId: p.documentDefId, status: p.status })));
     }
 
-    // Find the mapping for this connector × lender; resolve the slab.
-    const mapSnap = await db.collection("dsaCodeMappings")
-      .where("connectorId", "==", c.connectorId).where("lenderId", "==", c.lenderId).limit(1).get();
-    if (mapSnap.empty) throw new ApiError(400, `No DSA code mapping for this connector × lender — create one in Masters first`);
-    const mapping = mapSnap.docs[0];
+    // Resolve the DSA-code mapping (aggregator × lender × product) → slab.
+    const mapping = await resolveMapping(c.connectorId as string, c.lenderId as string, c.productId as string | undefined);
+    if (!mapping) throw new ApiError(400, `No DSA code mapping for this aggregator × lender × product — create one in Masters first`);
     const m = mapping.data();
     if (!m.dsaCode) throw new ApiError(400, "Mapping has no dsaCode set");
 
@@ -3376,10 +3397,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const c = cSnap.data()!;
     if (!c.connectorId || !c.lenderId) throw new ApiError(400, "Set connector and lender on the case first");
 
-    const mapSnap = await db.collection("dsaCodeMappings")
-      .where("connectorId", "==", c.connectorId).where("lenderId", "==", c.lenderId).limit(1).get();
-    if (mapSnap.empty) throw new ApiError(400, "No DSA code mapping for this connector × lender");
-    const m = mapSnap.docs[0].data();
+    const mapDoc = await resolveMapping(c.connectorId as string, c.lenderId as string, c.productId as string | undefined);
+    if (!mapDoc) throw new ApiError(400, "No DSA code mapping for this aggregator × lender × product");
+    const m = mapDoc.data();
     const [agg, lender, product] = await Promise.all([
       db.collection("aggregators").doc(c.connectorId as string).get(),
       db.collection("lenders").doc(c.lenderId as string).get(),
@@ -3451,11 +3471,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         pendingDisb.map((p) => ({ rowId: p.rowId, documentDefId: p.documentDefId, status: p.status })));
     }
 
-    // Mapping for this login's connector × lender; resolve the slab.
-    const mapSnap = await db.collection("dsaCodeMappings")
-      .where("connectorId", "==", connectorId).where("lenderId", "==", lenderId).limit(1).get();
-    if (mapSnap.empty) throw new ApiError(400, "No DSA code mapping for this connector × lender — create one in Masters first");
-    const mapping = mapSnap.docs[0];
+    // Mapping for this login's aggregator × lender × product; resolve the slab.
+    const mapping = await resolveMapping(connectorId, lenderId, productId);
+    if (!mapping) throw new ApiError(400, "No DSA code mapping for this aggregator × lender × product — create one in Masters first");
     const m = mapping.data();
     if (!m.dsaCode) throw new ApiError(400, "Mapping has no dsaCode set");
 
@@ -3635,10 +3653,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const c = cSnap.data()!; const lg = lSnap.data()!;
     const connectorId = lg.connectorId as string | null, lenderId = lg.lenderId as string | null;
     if (!connectorId || !lenderId) throw new ApiError(400, "Set connector and lender on the login first");
-    const mapSnap = await db.collection("dsaCodeMappings")
-      .where("connectorId", "==", connectorId).where("lenderId", "==", lenderId).limit(1).get();
-    if (mapSnap.empty) throw new ApiError(400, "No DSA code mapping for this connector × lender");
-    const m = mapSnap.docs[0].data();
+    const mapDoc = await resolveMapping(connectorId, lenderId, c.productId as string | undefined);
+    if (!mapDoc) throw new ApiError(400, "No DSA code mapping for this aggregator × lender × product");
+    const m = mapDoc.data();
     const channelPartnerId = (lg.channelPartnerId as string | null) ?? (c.channelPartnerId as string | null) ?? null;
     const [agg, lender, product, cp] = await Promise.all([
       db.collection("aggregators").doc(connectorId).get(),

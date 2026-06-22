@@ -64,7 +64,7 @@ async function setupSanctionedLogin(token, stamp, { dsaCode = '1033618', slabFro
   await api('POST', '/api/crm2/masters/documentMaster', token, { name: `DRL-P4-${stamp}`, category: 'POST_SANCTION_PDD', applicableTo: 'ENTITY', mandatoryForProducts: [prod.data.id], requiredByStage: 'DISBURSEMENT' });
   const conn = await api('POST', '/api/crm2/masters/aggregators', token, { name: `Starpowerz-${stamp}`, type: 'MASTER_AGGREGATOR', payoutFrequency: 'MONTHLY', standardTdsPct: 5 });
   const lender = await api('POST', '/api/crm2/masters/lenders', token, { name: `Fedbank-${stamp}`, type: 'NBFC' });
-  const map = await api('POST', '/api/crm2/mappings', token, { connectorId: conn.data.id, lenderId: lender.data.id, dsaCode, codeRegisteredName: 'STAR POWERZ', slabs: [] });
+  const map = await api('POST', '/api/crm2/mappings', token, { connectorId: conn.data.id, lenderId: lender.data.id, productId: prod.data.id, dsaCode, codeRegisteredName: 'STAR POWERZ', slabs: [] });
   await api('POST', `/api/crm2/mappings/${map.data.id}/slabs`, token, { productIds: [prod.data.id], finvastraPayoutPct: pct, subDsaDefaultPayoutPct: subPct, effectiveFrom: slabFrom, effectiveTo: slabTo });
   const lead = await api('POST', '/api/crm2/leads', token, { name: `P4 Co ${stamp}`, mobile: `96${String(stamp).padStart(8, '0')}`, category: 'LOAN', source: 'WALKIN', productId: prod.data.id });
   await api('PATCH', `/api/crm2/leads/${lead.data.id}`, token, { status: 'QUALIFIED' });
@@ -72,6 +72,7 @@ async function setupSanctionedLogin(token, stamp, { dsaCode = '1033618', slabFro
   const caseId = conv.data.caseId;
   for (const r of await listDocs(`cases/${caseId}/docTracker`)) await api('PATCH', `/api/crm2/cases/${caseId}/doc-tracker/${r.name.split('/').pop()}`, token, { status: 'VERIFIED' });
   const l = await api('POST', `/api/crm2/cases/${caseId}/logins`, token, { connectorId: conn.data.id, lenderId: lender.data.id });
+  await api('PATCH', `/api/crm2/cases/${caseId}/logins/${l.data.loginId}`, token, { docsSent: true });
   for (const to of ['CODE_LOGIN_DONE', 'IN_PROCESS', 'SANCTIONED']) await api('POST', `/api/crm2/cases/${caseId}/logins/${l.data.loginId}/stage`, token, { to });
   return { caseId, loginId: l.data.loginId, mappingId: map.data.id, productId: prod.data.id, connName: `Starpowerz-${stamp}` };
 }

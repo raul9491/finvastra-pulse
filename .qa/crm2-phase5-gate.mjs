@@ -44,6 +44,7 @@ async function disburse(T, stamp, conn, len, prod, dsaCode, amount, date, loanAc
   const rows = (await listDocs(`cases/${caseId}/docTracker`));
   for (const r of rows) await api('PATCH', `/api/crm2/cases/${caseId}/doc-tracker/${r.name.split('/').pop()}`, T, { status: 'VERIFIED' });
   const l = await api('POST', `/api/crm2/cases/${caseId}/logins`, T, { connectorId: conn, lenderId: len });
+  await api('PATCH', `/api/crm2/cases/${caseId}/logins/${l.data.loginId}`, T, { docsSent: true });
   for (const to of ['CODE_LOGIN_DONE', 'IN_PROCESS', 'SANCTIONED']) await api('POST', `/api/crm2/cases/${caseId}/logins/${l.data.loginId}/stage`, T, { to });
   await api('POST', `/api/crm2/cases/${caseId}/logins/${l.data.loginId}/disburse`, T, { disbursedAmount: amount, disbursementDate: date, loanAccountNo: loanAcct, city: 'C', state: 'S' });
   return caseId;
@@ -61,7 +62,7 @@ async function main() {
   await api('POST', '/api/crm2/masters/documentMaster', T, { name: `D-${stamp}`, category: 'POST_SANCTION_PDD', applicableTo: 'ENTITY', mandatoryForProducts: [prod.data.id], requiredByStage: 'DISBURSEMENT' });
   const conn = await api('POST', '/api/crm2/masters/aggregators', T, { name: `Conn-${stamp}`, type: 'MASTER_AGGREGATOR', payoutFrequency: 'MONTHLY', standardTdsPct: 5 });
   const len = await api('POST', '/api/crm2/masters/lenders', T, { name: `Len-${stamp}`, type: 'NBFC' });
-  const map = await api('POST', '/api/crm2/mappings', T, { connectorId: conn.data.id, lenderId: len.data.id, dsaCode: `DSA-${stamp}`, codeRegisteredName: 'X', slabs: [] });
+  const map = await api('POST', '/api/crm2/mappings', T, { connectorId: conn.data.id, lenderId: len.data.id, productId: prod.data.id, dsaCode: `DSA-${stamp}`, codeRegisteredName: 'X', slabs: [] });
   await api('POST', `/api/crm2/mappings/${map.data.id}/slabs`, T, { productIds: [prod.data.id], finvastraPayoutPct: 1.4, effectiveFrom: '2025-04-01', effectiveTo: null });
 
   // 3 disbursed cases — known loan a/c numbers + amounts (all 1.4%).

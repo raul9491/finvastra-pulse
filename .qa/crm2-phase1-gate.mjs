@@ -67,8 +67,8 @@ async function main() {
   const conn = await api('POST', '/api/crm2/masters/aggregators', token, {
     name: 'Starpowerz', type: 'MASTER_AGGREGATOR', payoutFrequency: 'MONTHLY', standardTdsPct: 5,
   });
-  conn.status === 200 && conn.data.id?.startsWith('CONN-')
-    ? ok(`connector created (${conn.data.id})`) : bad('connector create', JSON.stringify(conn));
+  conn.status === 200 && conn.data.id?.startsWith('AGG-')
+    ? ok(`aggregator created (${conn.data.id})`) : bad('aggregator create', JSON.stringify(conn));
 
   const lender = await api('POST', '/api/crm2/masters/lenders', token, {
     name: 'Fedbank Financial Services', type: 'NBFC',
@@ -82,19 +82,19 @@ async function main() {
   product.status === 200 && product.data.id?.startsWith('PRD-')
     ? ok(`product created (${product.data.id})`) : bad('product create', JSON.stringify(product));
 
-  // 2. Mapping
+  // 2. Mapping (aggregator × lender × product)
   const map = await api('POST', '/api/crm2/mappings', token, {
-    connectorId: conn.data.id, lenderId: lender.data.id,
+    connectorId: conn.data.id, lenderId: lender.data.id, productId: product.data.id,
     dsaCode: '1033618', codeRegisteredName: 'STAR POWERZ DIGITAL TECH P', slabs: [],
   });
   map.status === 200 && map.data.id?.startsWith('MAP-')
     ? ok(`mapping created (${map.data.id})`) : bad('mapping create', JSON.stringify(map));
 
-  // Duplicate pair must be rejected
+  // Duplicate aggregator × lender × product must be rejected
   const dup = await api('POST', '/api/crm2/mappings', token, {
-    connectorId: conn.data.id, lenderId: lender.data.id, dsaCode: 'x', codeRegisteredName: 'x', slabs: [],
+    connectorId: conn.data.id, lenderId: lender.data.id, productId: product.data.id, dsaCode: 'x', slabs: [],
   });
-  dup.status === 409 ? ok('duplicate connector×lender pair rejected (409)') : bad('dup mapping', JSON.stringify(dup));
+  dup.status === 409 ? ok('duplicate aggregator×lender×product rejected (409)') : bad('dup mapping', JSON.stringify(dup));
 
   // 3. Two slab generations via end-and-add
   const gen1 = await api('POST', `/api/crm2/mappings/${map.data.id}/slabs`, token, {

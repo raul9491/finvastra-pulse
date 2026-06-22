@@ -207,7 +207,7 @@ export function CaseWorkspacePage() {
             <p className="text-[11px] px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(201,169,97,0.08)', color: 'var(--text-muted)' }}>
               Stages 4–9 are worked <b>per login</b> (one file → one bank/NBFC). Each login below runs File&nbsp;Login → Code → In&nbsp;Process → Sanctioned → Disbursed → PDD/OTC — advance each with its own button.
             </p>
-            <LoginsSection caseId={caseDoc.id} canWrite={canWrite} />
+            <LoginsSection caseId={caseDoc.id} caseProductId={(caseDoc as { productId?: string }).productId ?? ''} canWrite={canWrite} />
           </>
         )}
         {n === 10 && (

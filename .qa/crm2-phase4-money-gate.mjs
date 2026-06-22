@@ -67,7 +67,7 @@ async function main() {
   const conn = await api('POST', '/api/crm2/masters/aggregators', token, { name: `Agg-${stamp}`, type: 'MASTER_AGGREGATOR', payoutFrequency: 'MONTHLY', standardTdsPct: 5 });
   const lender = await api('POST', '/api/crm2/masters/lenders', token, { name: `Bank-${stamp}`, type: 'NBFC' });
   const lender2 = await api('POST', '/api/crm2/masters/lenders', token, { name: `Bank2-${stamp}`, type: 'NBFC' }); // no mapping
-  const map = await api('POST', '/api/crm2/mappings', token, { connectorId: conn.data.id, lenderId: lender.data.id, dsaCode: '1033618', codeRegisteredName: 'AGG', slabs: [] });
+  const map = await api('POST', '/api/crm2/mappings', token, { connectorId: conn.data.id, lenderId: lender.data.id, productId: prod.data.id, dsaCode: '1033618', codeRegisteredName: 'AGG', slabs: [] });
   await api('POST', `/api/crm2/mappings/${map.data.id}/slabs`, token, { productIds: [prod.data.id], finvastraPayoutPct: 1.4, subDsaDefaultPayoutPct: 0.7, effectiveFrom: '2025-04-01', effectiveTo: null });
 
   // Client + case; verify ALL docTracker rows (so DISBURSEMENT gate passes).
@@ -81,6 +81,7 @@ async function main() {
   // Login → SANCTIONED (connector+lender on the login).
   const l1 = await api('POST', `/api/crm2/cases/${caseId}/logins`, token, { lenderId: lender.data.id, connectorId: conn.data.id });
   const loginId = l1.data.loginId;
+  await api('PATCH', `/api/crm2/cases/${caseId}/logins/${loginId}`, token, { docsSent: true });
   for (const to of ['CODE_LOGIN_DONE', 'IN_PROCESS', 'SANCTIONED']) await api('POST', `/api/crm2/cases/${caseId}/logins/${loginId}/stage`, token, { to });
 
   // Disburse the LOGIN.
@@ -121,6 +122,7 @@ async function main() {
 
   // A login whose lender has no mapping is blocked at disburse.
   const l2 = await api('POST', `/api/crm2/cases/${caseId}/logins`, token, { lenderId: lender2.data.id, connectorId: conn.data.id });
+  await api('PATCH', `/api/crm2/cases/${caseId}/logins/${l2.data.loginId}`, token, { docsSent: true });
   for (const to of ['CODE_LOGIN_DONE', 'IN_PROCESS', 'SANCTIONED']) await api('POST', `/api/crm2/cases/${caseId}/logins/${l2.data.loginId}/stage`, token, { to });
   const noMap = await api('POST', `/api/crm2/cases/${caseId}/logins/${l2.data.loginId}/disburse`, token, { disbursedAmount: 1000000, disbursementDate: '2025-06-15', loanAccountNo: 'LN-002', city: 'Pune', state: 'MH' });
   noMap.status === 400 && /mapping/.test(noMap.data.error ?? '')
@@ -142,6 +144,7 @@ async function main() {
   const lpDoc = await getDoc(`cases/${kase2.data.caseId}/logins/${lp.data.loginId}`);
   fv(lpDoc, 'channelPartnerName') === 'Acme Partners' && fv(lpDoc, 'channelPartnerCode') === 'FAC-001'
     ? ok('login inherits the sourcing Sub DSA (channelPartner) from the case') : bad('login channelPartner', fv(lpDoc, 'channelPartnerName'));
+  await api('PATCH', `/api/crm2/cases/${kase2.data.caseId}/logins/${lp.data.loginId}`, token, { docsSent: true });
   for (const to of ['CODE_LOGIN_DONE', 'IN_PROCESS', 'SANCTIONED']) await api('POST', `/api/crm2/cases/${kase2.data.caseId}/logins/${lp.data.loginId}/stage`, token, { to });
 
   // Seed the FAC- connector (HRMS connectors) with a per-product auto-payout rule.
@@ -166,6 +169,7 @@ async function main() {
 
   // Manual override at disbursement wins over the rule.
   const lp2 = await api('POST', `/api/crm2/cases/${kase2.data.caseId}/logins`, token, { lenderId: lender.data.id, connectorId: conn.data.id });
+  await api('PATCH', `/api/crm2/cases/${kase2.data.caseId}/logins/${lp2.data.loginId}`, token, { docsSent: true });
   for (const to of ['CODE_LOGIN_DONE', 'IN_PROCESS', 'SANCTIONED']) await api('POST', `/api/crm2/cases/${kase2.data.caseId}/logins/${lp2.data.loginId}/stage`, token, { to });
   await api('POST', `/api/crm2/cases/${kase2.data.caseId}/logins/${lp2.data.loginId}/disburse`, token, { disbursedAmount: 1000000, disbursementDate: '2025-06-15', loanAccountNo: 'LN-CP2', city: 'X', state: 'Y', channelPartnerPayoutOverride: 9999 });
   const cp2 = (await listDocs('connector_payouts')).find((d) => fv(d, 'loginId') === lp2.data.loginId);

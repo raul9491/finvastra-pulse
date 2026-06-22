@@ -1056,6 +1056,24 @@
       ]
     },
     {
+      "collectionGroup": "dsaCodeMappings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "connectorId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lenderId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "productId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "vaultDocs",
       "queryScope": "COLLECTION_GROUP",
       "fields": [

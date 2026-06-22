@@ -54,8 +54,9 @@ export function MappingsTab({ productOptions }: { productOptions: Array<{ value:
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-          One mapping per connector × lender. Percentages live in date-ranged slabs — to change
-          a %, end the current slab and add a new one (frozen cases are never affected).
+          One mapping per aggregator × lender × product (optionally × sub-product). Percentages
+          live in date-ranged slabs — to change a %, end the current slab and add a new one
+          (frozen cases are never affected).
         </p>
         <button onClick={() => setShowCreate(true)}
           className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold"
@@ -72,6 +73,7 @@ export function MappingsTab({ productOptions }: { productOptions: Array<{ value:
                 <th className="text-left font-semibold px-4 py-2.5">ID</th>
                 <th className="text-left font-semibold px-3 py-2.5">Aggregator</th>
                 <th className="text-left font-semibold px-3 py-2.5">Lender</th>
+                <th className="text-left font-semibold px-3 py-2.5">Product</th>
                 <th className="text-left font-semibold px-3 py-2.5">DSA Code</th>
                 <th className="text-left font-semibold px-3 py-2.5">Slabs</th>
                 <th className="text-left font-semibold px-3 py-2.5">Status</th>
@@ -79,9 +81,9 @@ export function MappingsTab({ productOptions }: { productOptions: Array<{ value:
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>Loading…</td></tr>
+                <tr><td colSpan={7} className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>Loading…</td></tr>
               ) : mappings.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>
+                <tr><td colSpan={7} className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>
                   No mappings yet — add a connector and a lender first, then map their DSA code here.
                 </td></tr>
               ) : mappings.map((m) => (
@@ -91,6 +93,10 @@ export function MappingsTab({ productOptions }: { productOptions: Array<{ value:
                   <td className="px-4 py-2.5 font-mono text-xs font-semibold" style={{ color: '#C9A961' }}>{m.id}</td>
                   <td className="px-3 py-2.5 font-medium" style={{ color: 'var(--text-primary)' }}>{aggName(m.connectorId)}</td>
                   <td className="px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{lenderName(m.lenderId)}</td>
+                  <td className="px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>
+                    {m.productId ? productName(m.productId) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                    {m.subProduct ? <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}> · {m.subProduct}</span> : null}
+                  </td>
                   <td className="px-3 py-2.5 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{m.dsaCode}</td>
                   <td className="px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>
                     {m.slabs?.length ?? 0} ({m.slabs?.filter((s) => !s.effectiveTo).length ?? 0} live)
@@ -107,7 +113,7 @@ export function MappingsTab({ productOptions }: { productOptions: Array<{ value:
 
       {showCreate && (
         <CreateMappingModal
-          aggregators={aggregators} lenders={lenders}
+          aggregators={aggregators} lenders={lenders} products={products}
           onClose={() => setShowCreate(false)}
           onCreated={(id) => setEditorFor(id)}
         />
@@ -127,33 +133,45 @@ export function MappingsTab({ productOptions }: { productOptions: Array<{ value:
 }
 
 // ─── Create mapping ───────────────────────────────────────────────────────────
-function CreateMappingModal({ aggregators, lenders, onClose, onCreated }: {
+function CreateMappingModal({ aggregators, lenders, products, onClose, onCreated }: {
   aggregators: Array<WithId<Aggregator>>;
   lenders: Array<WithId<Lender>>;
+  products: Array<WithId<Product>>;
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
   const toast = useToast();
   const [connectorId, setConnectorId] = useState('');
   const [lenderId, setLenderId] = useState('');
+  const [productId, setProductId] = useState('');
+  const [subProduct, setSubProduct] = useState('');
   const [dsaCode, setDsaCode] = useState('');
   const [codeRegisteredName, setCodeRegisteredName] = useState('');
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // Sub-products come from the picked product's master list (optional finer grain).
+  const subProductOpts = useMemo(() => {
+    const p = products.find((x) => x.id === productId);
+    return (p?.subProducts ?? []).map((s) => ({ value: s, label: s }));
+  }, [products, productId]);
+
   const handleCreate = async () => {
     const e: Record<string, string> = {};
     if (!connectorId) e.connectorId = 'Required';
     if (!lenderId) e.lenderId = 'Required';
+    if (!productId) e.productId = 'Required';
     if (!dsaCode.trim()) e.dsaCode = 'Required';
-    if (!codeRegisteredName.trim()) e.codeRegisteredName = 'Required';
     if (Object.keys(e).length > 0) { setErrs(e); return; }
     setErrs({}); setServerError(''); setBusy(true);
     try {
       const r = await apiCrm2('POST', '/api/crm2/mappings', {
-        connectorId, lenderId,
-        dsaCode: dsaCode.trim(), codeRegisteredName: codeRegisteredName.trim(), slabs: [],
+        connectorId, lenderId, productId,
+        subProduct: subProduct || null,
+        dsaCode: dsaCode.trim(),
+        codeRegisteredName: codeRegisteredName.trim() || null,
+        slabs: [],
       });
       toast.success(`Created ${r.id} — now add its first slab`);
       onClose();
@@ -192,15 +210,35 @@ function CreateMappingModal({ aggregators, lenders, onClose, onCreated }: {
               value={lenderId} onChange={setLenderId} placeholder="Select lender…" />
           </div>
           <div>
+            <FLabel text="Product" required error={errs.productId} />
+            <SearchableSelect
+              options={products.filter((p) => p.status !== 'INACTIVE').map((p) => ({ value: p.id, label: p.name }))}
+              value={productId}
+              onChange={(v) => { setProductId(v); setSubProduct(''); }}
+              placeholder="Select product…" />
+          </div>
+          {subProductOpts.length > 0 && (
+            <div>
+              <FLabel text="Sub-product (optional)" />
+              <SearchableSelect
+                options={subProductOpts}
+                value={subProduct} onChange={setSubProduct}
+                placeholder="Whole product (no sub-product)" />
+              <p className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                Leave empty to map the whole product. Pick a sub-product for a more specific DSA code.
+              </p>
+            </div>
+          )}
+          <div>
             <FLabel text="DSA Code" required error={errs.dsaCode} />
             <input className={inp(!!errs.dsaCode)} value={dsaCode} onChange={(e) => setDsaCode(e.target.value)} placeholder="1033618" />
             <p className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>Bank-dump match key.</p>
           </div>
           <div>
-            <FLabel text="Code Registered Name" required error={errs.codeRegisteredName} />
-            <input className={inp(!!errs.codeRegisteredName)} value={codeRegisteredName}
+            <FLabel text="Code Registered Name (optional)" />
+            <input className={inp(false)} value={codeRegisteredName}
               onChange={(e) => setCodeRegisteredName(e.target.value)} placeholder="STAR POWERZ DIGITAL TECH P" />
-            <p className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>Exactly as it appears in bank MIS dumps (recon string-match).</p>
+            <p className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>If known, enter exactly as it appears in bank MIS dumps (recon string-match). Optional.</p>
           </div>
           <div className="flex gap-3 pt-1">
             <button onClick={onClose} className="flex-1 py-2.5 rounded-lg text-sm font-semibold border"
@@ -243,7 +281,7 @@ function MappingEditorModal({ mapping, title, productOptions, productName, onClo
               <GitBranch size={16} style={{ color: '#C9A961' }} /> {title}
             </h3>
             <p className="text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>
-              {mapping.id} · DSA {mapping.dsaCode} · "{mapping.codeRegisteredName}"
+              {mapping.id} · DSA {mapping.dsaCode}{mapping.codeRegisteredName ? ` · "${mapping.codeRegisteredName}"` : ''}
             </p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard)" aria-label="Close">

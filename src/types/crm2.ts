@@ -252,6 +252,7 @@ export const CASE_STAGE_ORDER: CaseStage[] = [
 export interface Crm2Case extends Audit {
   clientId: string; leadId: string | null;
   productId: string;
+  subProduct: string | null;          // one of Product.subProducts — payout/DSA finer grain
   handlingRm: string;                 // FAPL-xxx
   subDsaId: string | null;            // "Connector" (subDsas/SDSA-###) — per-login payout sub-agent
   // "Sub DSA" (HRMS connectors/FAC-###) — the sourcing channel partner (attribution).

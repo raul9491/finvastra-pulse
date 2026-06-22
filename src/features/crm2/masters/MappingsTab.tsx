@@ -9,7 +9,7 @@
 import { useMemo, useState } from 'react';
 import { Plus, X, GitBranch, CircleStop } from 'lucide-react';
 import { useToast } from '../../../components/ui/Toast';
-import { MultiSearchableSelect, SearchableSelect } from '../../../components/ui/SearchableSelect';
+import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { apiCrm2, useCrm2Collection } from '../lib';
 import { findSlabOverlaps, type SlabForResolution } from '../../../lib/crm2/slab';
 import { FLabel, inp } from './MastersPage';
@@ -55,7 +55,7 @@ export function MappingsTab({ productOptions }: { productOptions: Array<{ value:
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
           One mapping per aggregator × lender × product (optionally × sub-product). Percentages
-          live in date-ranged slabs — to change a %, end the current slab and add a new one
+          live in date-ranged payouts — to change a %, end the current payout and add a new one
           (frozen cases are never affected).
         </p>
         <button onClick={() => setShowCreate(true)}
@@ -75,7 +75,7 @@ export function MappingsTab({ productOptions }: { productOptions: Array<{ value:
                 <th className="text-left font-semibold px-3 py-2.5">Lender</th>
                 <th className="text-left font-semibold px-3 py-2.5">Product</th>
                 <th className="text-left font-semibold px-3 py-2.5">DSA Code</th>
-                <th className="text-left font-semibold px-3 py-2.5">Slabs</th>
+                <th className="text-left font-semibold px-3 py-2.5">Payouts</th>
                 <th className="text-left font-semibold px-3 py-2.5">Status</th>
               </tr>
             </thead>
@@ -144,18 +144,26 @@ function CreateMappingModal({ aggregators, lenders, products, onClose, onCreated
   const [connectorId, setConnectorId] = useState('');
   const [lenderId, setLenderId] = useState('');
   const [productId, setProductId] = useState('');
-  const [subProduct, setSubProduct] = useState('');
   const [dsaCode, setDsaCode] = useState('');
   const [codeRegisteredName, setCodeRegisteredName] = useState('');
+  // Payout % keyed by sub-product name; '' = whole product (no sub-product).
+  const [payout, setPayout] = useState<Record<string, string>>({});
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  // Sub-products come from the picked product's master list (optional finer grain).
-  const subProductOpts = useMemo(() => {
-    const p = products.find((x) => x.id === productId);
-    return (p?.subProducts ?? []).map((s) => ({ value: s, label: s }));
-  }, [products, productId]);
+  const today = new Date().toISOString().slice(0, 10);
+  const selectedProduct = products.find((x) => x.id === productId);
+  const subs = selectedProduct?.subProducts ?? [];
+
+  // Payout rows: a product with no sub-products → ONE payout (whole product).
+  // A product WITH sub-products → a payout per sub-product (+ an optional
+  // whole-product fallback). The payout is specific to the product, and to the
+  // sub-product when one exists.
+  const rows: Array<{ key: string; label: string; required: boolean }> = subs.length === 0
+    ? [{ key: '', label: 'Payout %', required: true }]
+    : [{ key: '', label: 'Whole product (fallback, optional)', required: false },
+       ...subs.map((s) => ({ key: s, label: `${selectedProduct?.shortCode ?? 'Product'} · ${s}`, required: false }))];
 
   const handleCreate = async () => {
     const e: Record<string, string> = {};
@@ -163,19 +171,35 @@ function CreateMappingModal({ aggregators, lenders, products, onClose, onCreated
     if (!lenderId) e.lenderId = 'Required';
     if (!productId) e.productId = 'Required';
     if (!dsaCode.trim()) e.dsaCode = 'Required';
+    // Collect filled payout rows (pct > 0).
+    const filled = rows
+      .map((r) => ({ ...r, pct: Number(payout[r.key]) }))
+      .filter((r) => payout[r.key]?.trim() && !isNaN(r.pct) && r.pct > 0 && r.pct <= 100);
+    if (rows.some((r) => payout[r.key]?.trim() && (isNaN(Number(payout[r.key])) || Number(payout[r.key]) <= 0 || Number(payout[r.key]) > 100))) {
+      e.payout = 'Payouts must be > 0 and ≤ 100';
+    }
+    if (productId && filled.length === 0 && !e.payout) {
+      e.payout = subs.length === 0 ? 'Enter the payout %' : 'Enter a payout % for at least one sub-product';
+    }
     if (Object.keys(e).length > 0) { setErrs(e); return; }
     setErrs({}); setServerError(''); setBusy(true);
     try {
-      const r = await apiCrm2('POST', '/api/crm2/mappings', {
-        connectorId, lenderId, productId,
-        subProduct: subProduct || null,
-        dsaCode: dsaCode.trim(),
-        codeRegisteredName: codeRegisteredName.trim() || null,
-        slabs: [],
-      });
-      toast.success(`Created ${r.id} — now add its first slab`);
+      let firstId = '';
+      // One mapping per payout row (each keyed by its sub-product); each carries an
+      // open-ended initial payout. The DSA code + registered name are shared.
+      for (const r of filled) {
+        const res = await apiCrm2('POST', '/api/crm2/mappings', {
+          connectorId, lenderId, productId,
+          subProduct: r.key || null,
+          dsaCode: dsaCode.trim(),
+          codeRegisteredName: codeRegisteredName.trim() || null,
+          slabs: [{ productIds: [productId], finvastraPayoutPct: r.pct, effectiveFrom: today, effectiveTo: null }],
+        });
+        if (!firstId && res.id) firstId = res.id;
+      }
+      toast.success(filled.length === 1 ? 'Mapping + payout created' : `${filled.length} mappings + payouts created`);
       onClose();
-      if (r.id) onCreated(r.id);
+      if (firstId) onCreated(firstId);
     } catch (err) {
       setServerError(err instanceof Error ? err.message : 'Create failed');
     } finally { setBusy(false); }
@@ -214,21 +238,9 @@ function CreateMappingModal({ aggregators, lenders, products, onClose, onCreated
             <SearchableSelect
               options={products.filter((p) => p.status !== 'INACTIVE').map((p) => ({ value: p.id, label: p.name }))}
               value={productId}
-              onChange={(v) => { setProductId(v); setSubProduct(''); }}
+              onChange={(v) => { setProductId(v); setPayout({}); }}
               placeholder="Select product…" />
           </div>
-          {subProductOpts.length > 0 && (
-            <div>
-              <FLabel text="Sub-product (optional)" />
-              <SearchableSelect
-                options={subProductOpts}
-                value={subProduct} onChange={setSubProduct}
-                placeholder="Whole product (no sub-product)" />
-              <p className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                Leave empty to map the whole product. Pick a sub-product for a more specific DSA code.
-              </p>
-            </div>
-          )}
           <div>
             <FLabel text="DSA Code" required error={errs.dsaCode} />
             <input className={inp(!!errs.dsaCode)} value={dsaCode} onChange={(e) => setDsaCode(e.target.value)} placeholder="1033618" />
@@ -240,6 +252,31 @@ function CreateMappingModal({ aggregators, lenders, products, onClose, onCreated
               onChange={(e) => setCodeRegisteredName(e.target.value)} placeholder="STAR POWERZ DIGITAL TECH P" />
             <p className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>If known, enter exactly as it appears in bank MIS dumps (recon string-match). Optional.</p>
           </div>
+          {/* Payout — specific to the product, and to each sub-product when they exist. */}
+          {productId && (
+            <div>
+              <FLabel text="Payout %" required error={errs.payout} />
+              <p className="mb-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                {subs.length === 0
+                  ? 'Finvastra payout for this product (e.g. LAP 1.44%).'
+                  : 'This product has sub-products — set a payout per sub-product (e.g. LAP · Prime 1.55%). The whole-product row is an optional fallback.'}
+              </p>
+              <div className="space-y-2">
+                {rows.map((r) => (
+                  <div key={r.key || '__whole__'} className="flex items-center gap-2">
+                    <span className="flex-1 text-sm truncate" style={{ color: 'var(--text-secondary)' }}>{r.label}</span>
+                    <div className="relative w-28">
+                      <input type="number" step="0.01" inputMode="decimal"
+                        className={inp(false)} value={payout[r.key] ?? ''}
+                        onChange={(e) => setPayout((p) => ({ ...p, [r.key]: e.target.value }))}
+                        placeholder={r.required ? '1.44' : 'optional'} />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs" style={{ color: 'var(--text-muted)' }}>%</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex gap-3 pt-1">
             <button onClick={onClose} className="flex-1 py-2.5 rounded-lg text-sm font-semibold border"
               style={{ borderColor: 'var(--shell-border)', color: 'var(--text-muted)' }}>Cancel</button>
@@ -292,18 +329,18 @@ function MappingEditorModal({ mapping, title, productOptions, productName, onClo
         <div className="p-5 space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-              Slab timeline ({slabs.length})
+              Payout timeline ({slabs.length})
             </p>
             <button onClick={() => setAddOpen(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
               style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
-              <Plus size={13} /> Add Slab
+              <Plus size={13} /> Add Payout
             </button>
           </div>
 
           {slabs.length === 0 ? (
             <div className="glass-panel p-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-              No slabs yet — disbursements against this code will be BLOCKED until one exists.
+              No payouts yet — disbursements against this code will be BLOCKED until one exists.
             </div>
           ) : (
             <div className="space-y-2">
@@ -333,7 +370,7 @@ function MappingEditorModal({ mapping, title, productOptions, productName, onClo
                         <button onClick={() => setEndFor(s.slabId)}
                           className="ml-auto inline-flex items-center gap-1 font-semibold hover:underline"
                           style={{ color: '#fbbf24' }}>
-                          <CircleStop size={12} /> End slab
+                          <CircleStop size={12} /> End payout
                         </button>
                       )}
                     </div>
@@ -344,23 +381,23 @@ function MappingEditorModal({ mapping, title, productOptions, productName, onClo
           )}
 
           <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-            Percentages on a slab are immutable — to change one, end the slab and add a successor.
-            Disbursed cases keep their frozen slab regardless.
+            A payout % is immutable — to change one, end it and add a successor.
+            Disbursed cases keep their frozen payout regardless.
           </p>
         </div>
 
         {addOpen && (
           <AddSlabModal
-            mapping={mapping} productOptions={productOptions}
+            mapping={mapping} productName={productName}
             onClose={() => setAddOpen(false)}
-            onSaved={() => { setAddOpen(false); toast.success('Slab added'); }}
+            onSaved={() => { setAddOpen(false); toast.success('Payout added'); }}
           />
         )}
         {endFor && (
           <EndSlabModal
             mappingId={mapping.id} slabId={endFor}
             onClose={() => setEndFor(null)}
-            onSaved={() => { setEndFor(null); toast.success('Slab ended'); }}
+            onSaved={() => { setEndFor(null); toast.success('Payout ended'); }}
           />
         )}
       </div>
@@ -368,13 +405,13 @@ function MappingEditorModal({ mapping, title, productOptions, productName, onClo
   );
 }
 
-function AddSlabModal({ mapping, productOptions, onClose, onSaved }: {
+function AddSlabModal({ mapping, productName, onClose, onSaved }: {
   mapping: MappingRow;
-  productOptions: Array<{ value: string; label: string }>;
+  productName: (id: string) => string;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [productIds, setProductIds] = useState<string[]>([]);
+  const productIds = [mapping.productId];   // a mapping is for ONE product (its payout)
   const [pct, setPct] = useState('');
   const [subDsaPct, setSubDsaPct] = useState('');
   const [connPct, setConnPct] = useState('');
@@ -387,7 +424,6 @@ function AddSlabModal({ mapping, productOptions, onClose, onSaved }: {
 
   const handleSave = async () => {
     const e: Record<string, string> = {};
-    if (productIds.length === 0) e.productIds = 'Pick at least one';
     const p = Number(pct);
     if (!pct || isNaN(p) || p <= 0 || p > 100) e.pct = '> 0 and ≤ 100';
     if (!from) e.from = 'Required';
@@ -403,7 +439,7 @@ function AddSlabModal({ mapping, productOptions, onClose, onSaved }: {
     };
     const conflicts = findSlabOverlaps([...(mapping.slabs ?? []).map(slabToResolution), candidate]);
     if (conflicts.length > 0) {
-      setServerError(`Overlaps an existing slab — end it first:\n${conflicts.join('\n')}`);
+      setServerError(`Overlaps an existing payout — end it first:\n${conflicts.join('\n')}`);
       return;
     }
 
@@ -426,7 +462,7 @@ function AddSlabModal({ mapping, productOptions, onClose, onSaved }: {
     <div className="glass-modal-overlay fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={onClose}>
       <div className="glass-modal-panel w-full max-w-md rounded-2xl max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="glass-modal-header flex items-center justify-between px-5 py-4">
-          <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Add Slab</h3>
+          <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Add Payout</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard)" aria-label="Close">
             <X size={17} style={{ color: 'var(--text-muted)' }} />
           </button>
@@ -438,10 +474,9 @@ function AddSlabModal({ mapping, productOptions, onClose, onSaved }: {
               {serverError}
             </div>
           )}
-          <div>
-            <FLabel text="Products" required error={errs.productIds} />
-            <MultiSearchableSelect options={productOptions} value={productIds} onChange={setProductIds} placeholder="Select products…" />
-          </div>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            Payout for <b style={{ color: 'var(--text-secondary)' }}>{productName(mapping.productId)}{mapping.subProduct ? ` · ${mapping.subProduct}` : ''}</b>
+          </p>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <FLabel text="Finvastra Payout %" required error={errs.pct} />
@@ -475,7 +510,7 @@ function AddSlabModal({ mapping, productOptions, onClose, onSaved }: {
             <button onClick={handleSave} disabled={busy}
               className="flex-1 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50"
               style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
-              {busy ? 'Saving…' : 'Add Slab'}
+              {busy ? 'Saving…' : 'Add Payout'}
             </button>
           </div>
         </div>
@@ -506,7 +541,7 @@ function EndSlabModal({ mappingId, slabId, onClose, onSaved }: {
     <div className="glass-modal-overlay fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={onClose}>
       <div className="glass-modal-panel w-full max-w-sm rounded-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="glass-modal-header px-5 py-4">
-          <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>End Slab</h3>
+          <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>End Payout</h3>
         </div>
         <div className="p-5 space-y-4">
           {err && <p className="text-sm" style={{ color: '#f87171' }}>{err}</p>}
@@ -514,7 +549,7 @@ function EndSlabModal({ mappingId, slabId, onClose, onSaved }: {
             <FLabel text="Last Effective Date" required />
             <input type="date" className={inp(!!err)} value={to} onChange={(e) => setTo(e.target.value)} />
             <p className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
-              The slab stops applying after this date. Add the successor slab starting the next day.
+              The payout stops applying after this date. Add the successor payout starting the next day.
             </p>
           </div>
           <div className="flex gap-3">
@@ -523,7 +558,7 @@ function EndSlabModal({ mappingId, slabId, onClose, onSaved }: {
             <button onClick={handleEnd} disabled={busy}
               className="flex-1 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50"
               style={{ backgroundColor: '#fbbf24', color: '#0B1538' }}>
-              {busy ? 'Ending…' : 'End Slab'}
+              {busy ? 'Ending…' : 'End Payout'}
             </button>
           </div>
         </div>

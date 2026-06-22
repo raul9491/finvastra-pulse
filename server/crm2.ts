@@ -814,15 +814,23 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     }
   }
 
-  // Resolve the DSA-code mapping for a case/login: prefer the per-product mapping
-  // (aggregator × lender × product), else fall back to a legacy product-less one
-  // so pre-existing mappings keep working. Returns the doc snapshot or null.
-  async function resolveMapping(connectorId: string, lenderId: string, productId?: string | null) {
+  // Resolve the DSA-code mapping for a case/login. Payout is per product, and per
+  // sub-product when sub-products exist, so the precedence is:
+  //   (agg × lender × product × subProduct)  →  (agg × lender × product, whole)
+  //   →  any product mapping  →  legacy product-less mapping.
+  // Deterministic (never an arbitrary sub-product) so disburse picks the right payout.
+  async function resolveMapping(connectorId: string, lenderId: string, productId?: string | null, subProduct?: string | null) {
     if (productId) {
-      const exact = await db.collection("dsaCodeMappings")
+      const prodDocs = (await db.collection("dsaCodeMappings")
         .where("connectorId", "==", connectorId).where("lenderId", "==", lenderId)
-        .where("productId", "==", productId).limit(1).get();
-      if (!exact.empty) return exact.docs[0];
+        .where("productId", "==", productId).get()).docs;
+      if (prodDocs.length) {
+        if (subProduct) {
+          const exact = prodDocs.find((d) => (d.data().subProduct ?? null) === subProduct);
+          if (exact) return exact;
+        }
+        return prodDocs.find((d) => !d.data().subProduct) ?? prodDocs[0];
+      }
     }
     const all = await db.collection("dsaCodeMappings")
       .where("connectorId", "==", connectorId).where("lenderId", "==", lenderId).get();
@@ -2070,7 +2078,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       }
 
       tx.set(caseRef, {
-        clientId, leadId: leadRef.id, productId,
+        clientId, leadId: leadRef.id, productId, subProduct: null,
         handlingRm, subDsaId,
         // Carry the sourcing Sub DSA (FAC-) from the lead → case (attribution).
         channelPartnerId: (lead.channelPartnerId as string | null) ?? null,
@@ -2305,7 +2313,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
 
   const CASE_EDITABLE_FIELDS = new Set([
     "handlingRm", "subDsaId", "channelPartnerId", "channelPartnerCode", "channelPartnerName",
-    "lenderId", "connectorId",
+    "lenderId", "connectorId", "subProduct",
     "amountRequested", "amountSanctioned", "roiPct", "tenureMonths", "processingFee",
     "bankApplicationNo", "loanAccountNo", "connectorCaseRef",
     "bankContact", "nextAction", "remarks", "rejectionReason",
@@ -2423,7 +2431,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       tx.set(counterRef, { seq, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
       tx.set(caseRef, {
         clientId, leadId: optStr(b, "leadId"),
-        productId,
+        productId, subProduct: optStr(b, "subProduct"),
         handlingRm: optStr(b, "handlingRm") ?? (client.ownerRm as string | undefined) ?? caller.fapl,
         subDsaId: optStr(b, "subDsaId") ?? (client.sourcedById as string | null) ?? null,
         channelPartnerId: optStr(b, "channelPartnerId"),
@@ -3235,7 +3243,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     }
 
     // Resolve the DSA-code mapping (aggregator × lender × product) → slab.
-    const mapping = await resolveMapping(c.connectorId as string, c.lenderId as string, c.productId as string | undefined);
+    const mapping = await resolveMapping(c.connectorId as string, c.lenderId as string, c.productId as string | undefined, c.subProduct as string | null | undefined);
     if (!mapping) throw new ApiError(400, `No DSA code mapping for this aggregator × lender × product — create one in Masters first`);
     const m = mapping.data();
     if (!m.dsaCode) throw new ApiError(400, "Mapping has no dsaCode set");
@@ -3397,7 +3405,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const c = cSnap.data()!;
     if (!c.connectorId || !c.lenderId) throw new ApiError(400, "Set connector and lender on the case first");
 
-    const mapDoc = await resolveMapping(c.connectorId as string, c.lenderId as string, c.productId as string | undefined);
+    const mapDoc = await resolveMapping(c.connectorId as string, c.lenderId as string, c.productId as string | undefined, c.subProduct as string | null | undefined);
     if (!mapDoc) throw new ApiError(400, "No DSA code mapping for this aggregator × lender × product");
     const m = mapDoc.data();
     const [agg, lender, product] = await Promise.all([
@@ -3472,7 +3480,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     }
 
     // Mapping for this login's aggregator × lender × product; resolve the slab.
-    const mapping = await resolveMapping(connectorId, lenderId, productId);
+    const mapping = await resolveMapping(connectorId, lenderId, productId, c.subProduct as string | null | undefined);
     if (!mapping) throw new ApiError(400, "No DSA code mapping for this aggregator × lender × product — create one in Masters first");
     const m = mapping.data();
     if (!m.dsaCode) throw new ApiError(400, "Mapping has no dsaCode set");
@@ -3653,7 +3661,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const c = cSnap.data()!; const lg = lSnap.data()!;
     const connectorId = lg.connectorId as string | null, lenderId = lg.lenderId as string | null;
     if (!connectorId || !lenderId) throw new ApiError(400, "Set connector and lender on the login first");
-    const mapDoc = await resolveMapping(connectorId, lenderId, c.productId as string | undefined);
+    const mapDoc = await resolveMapping(connectorId, lenderId, c.productId as string | undefined, c.subProduct as string | null | undefined);
     if (!mapDoc) throw new ApiError(400, "No DSA code mapping for this aggregator × lender × product");
     const m = mapDoc.data();
     const channelPartnerId = (lg.channelPartnerId as string | null) ?? (c.channelPartnerId as string | null) ?? null;

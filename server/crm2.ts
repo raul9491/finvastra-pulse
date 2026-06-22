@@ -1073,7 +1073,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         amountRequired,
         referredById: null, referredByType: null,
         assignedRm: null, assignedAt: null,
-        status: "NEW", priority: "WARM",
+        status: "NEW", priority: "HOT",   // website / social leads = high (red) priority
         nextFollowUpAt: null, attempts: 0,
         activityLog: [], dropReason: null,
         converted: false, convertedAt: null,
@@ -1251,7 +1251,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         linkedExistingClientId: null,
         customerProfile: null,
         assignedRm: null, assignedAt: null,
-        status: "NEW", priority: "WARM",
+        status: "NEW", priority: "HOT",   // website / social leads = high (red) priority
         nextFollowUpAt: null, nextFollowUpNote: null, followUpReminderSent: false,
         attempts: 0, activityLog: [], dropReason: null,
         converted: false, convertedAt: null,

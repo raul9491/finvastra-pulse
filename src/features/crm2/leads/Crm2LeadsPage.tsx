@@ -58,6 +58,8 @@ const STATUS_META: Record<Crm2LeadStatus, { label: string; color: string }> = {
 };
 const FUNNEL: Array<Crm2LeadStatus | 'ALL'> =
   ['ALL', 'NEW', 'ATTEMPTED', 'CONTACTED', 'QUALIFIED', 'CONVERTED', 'NOT_INTERESTED', 'DROPPED', 'JUNK_DUPLICATE'];
+// Website + social leads are time-critical → always shown as HIGH (red) priority.
+const HOT_SOURCES = new Set<string>(['WEBSITE', 'ADS']);
 
 const fmtTs = (t: { toDate?: () => Date } | null | undefined) =>
   t?.toDate ? t.toDate().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—';
@@ -172,10 +174,11 @@ export function Crm2LeadsPage() {
       <div className="flex gap-1.5 flex-wrap">
         {FUNNEL.map((s) => (
           <button key={s} onClick={() => setFunnel(s)}
-            className="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors"
             style={funnel === s
               ? { backgroundColor: 'rgba(201,169,97,0.15)', borderColor: '#C9A961', color: '#C9A961' }
               : { borderColor: 'var(--shell-border)', color: 'var(--text-muted)' }}>
+            {s !== 'ALL' && <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: STATUS_META[s].color }} />}
             {s === 'ALL' ? `All (${rows.length})` : `${STATUS_META[s].label} (${counts.get(s) ?? 0})`}
           </button>
         ))}
@@ -192,6 +195,7 @@ export function Crm2LeadsPage() {
                 <th className="text-left font-semibold px-3 py-2.5">Mobile</th>
                 <th className="text-left font-semibold px-3 py-2.5">Category</th>
                 <th className="text-left font-semibold px-3 py-2.5">Source</th>
+                <th className="text-left font-semibold px-3 py-2.5">Received</th>
                 <th className="text-left font-semibold px-3 py-2.5">RM</th>
                 <th className="text-left font-semibold px-3 py-2.5">Follow-up</th>
                 <th className="text-left font-semibold px-3 py-2.5">Status</th>
@@ -199,14 +203,15 @@ export function Crm2LeadsPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7} className="px-4 py-10 text-center" style={{ color: 'var(--text-muted)' }}>Loading…</td></tr>
+                <tr><td colSpan={8} className="px-4 py-10 text-center" style={{ color: 'var(--text-muted)' }}>Loading…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-10 text-center" style={{ color: 'var(--text-muted)' }}>
+                <tr><td colSpan={8} className="px-4 py-10 text-center" style={{ color: 'var(--text-muted)' }}>
                   No leads{funnel !== 'ALL' ? ` in ${funnel}` : ' yet'}.
                 </td></tr>
               ) : filtered.map((r) => {
                 const overdue = r.nextFollowUpAt?.toMillis ? r.nextFollowUpAt.toMillis() < Date.now() : false;
                 const sm = STATUS_META[r.status] ?? STATUS_META.NEW;
+                const hotSource = HOT_SOURCES.has(r.source);   // website/social → red high priority
                 return (
                   <tr key={r.id} onClick={() => setDetailFor(r)}
                     className="cursor-pointer hover:bg-(--shell-hover-soft) transition-colors"
@@ -227,9 +232,9 @@ export function Crm2LeadsPage() {
                             <Copy size={10} /> DUP
                           </span>
                         )}
-                        <span title={`Priority: ${PRIORITY_META[r.priority]?.label ?? r.priority}`}
+                        <span title={hotSource ? 'High priority · website/social lead' : `Priority: ${PRIORITY_META[r.priority]?.label ?? r.priority}`}
                           className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: PRIORITY_META[r.priority]?.dot ?? '#8B8B85' }} />
+                          style={{ backgroundColor: hotSource ? '#ef4444' : (PRIORITY_META[r.priority]?.dot ?? '#8B8B85') }} />
                       </div>
                     </td>
                     <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
@@ -239,7 +244,14 @@ export function Crm2LeadsPage() {
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{r.category}</td>
-                    <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-muted)' }}>{r.source}</td>
+                    <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+                      {r.source}
+                      {hotSource && (
+                        <span className="ml-1.5 inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-full align-middle"
+                          style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>HIGH</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{fmtTsFull(r.receivedAt)}</td>
                     <td className="px-3 py-2.5 text-xs" style={{ color: r.assignedRm ? 'var(--text-secondary)' : 'var(--text-muted)' }}>
                       {r.assignedRm ?? 'unassigned'}
                     </td>

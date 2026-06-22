@@ -61,8 +61,6 @@ const FUNNEL: Array<Crm2LeadStatus | 'ALL'> =
 // Website + social leads are time-critical → always shown as HIGH (red) priority.
 const HOT_SOURCES = new Set<string>(['WEBSITE', 'ADS']);
 
-const fmtTs = (t: { toDate?: () => Date } | null | undefined) =>
-  t?.toDate ? t.toDate().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '—';
 const fmtTsFull = (t: { toDate?: () => Date } | null | undefined) =>
   t?.toDate ? t.toDate().toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 
@@ -255,8 +253,8 @@ export function Crm2LeadsPage() {
                     <td className="px-3 py-2.5 text-xs" style={{ color: r.assignedRm ? 'var(--text-secondary)' : 'var(--text-muted)' }}>
                       {r.assignedRm ?? 'unassigned'}
                     </td>
-                    <td className="px-3 py-2.5 text-xs" style={{ color: overdue ? '#f87171' : 'var(--text-muted)', fontWeight: overdue ? 700 : 400 }}>
-                      {overdue && <AlertTriangle size={11} className="inline mr-1" />}{fmtTs(r.nextFollowUpAt)}
+                    <td className="px-3 py-2.5 text-xs whitespace-nowrap" style={{ color: overdue ? '#f87171' : 'var(--text-muted)', fontWeight: overdue ? 700 : 400 }}>
+                      {overdue && <AlertTriangle size={11} className="inline mr-1" />}{fmtTsFull(r.nextFollowUpAt)}
                     </td>
                     <td className="px-3 py-2.5">
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"

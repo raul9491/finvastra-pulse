@@ -2992,6 +2992,7 @@ CRM 2.0 Leads (`Crm2LeadsPage.tsx` + `QueuePanel.tsx` + `server/crm2.ts`), per R
 - **Removed the "Loans / SIP" queue-depth cards** from `QueuePanel` (they were noisy) — kept the **"Get next lead"** pull button, the "N waiting · M reps" summary, and the Active-reps panel. Dropped now-unused `Clock`/`AlertTriangle`/`fmtMs`.
 - **Stage visibility**: each funnel chip now carries a **colored dot** in its `STATUS_META` stage colour (New blue · Attempted amber · Contacted green · Qualified gold · Converted green · terminal red/grey), so the contact stages read at a glance alongside the per-row coloured status badge.
 - **Website + social leads = HIGH (red) priority.** `HOT_SOURCES = {WEBSITE, ADS}` → the row priority dot is forced **red** and a red **HIGH** pill shows next to the source. Server: public-website (`source:WEBSITE`) + Meta (`source:ADS`) lead creates now store **`priority:"HOT"`** (was WARM) so queue/SLA/sort treat them as high too. Existing leads get the red display via `HOT_SOURCES` regardless of stored priority.
+- **Follow-up shows date + time** (2026-06-22 follow-up): the leads-list Follow-up column now renders `fmtTsFull` (date **and** time) instead of date-only — the drawer picker was already `datetime-local`, so the time was captured but not displayed. Dropped the now-unused `fmtTs` helper.
 tsc + `build:prod` clean.
 
 ### Manager gets a bell+email when their report requests leave/claim (2026-06-22) — ✅ DEPLOYED (Cloud Run `pulse-api-00066-pkm` + hosting, verify:deploy 3/3 green)

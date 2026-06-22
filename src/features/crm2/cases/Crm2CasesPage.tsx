@@ -3,10 +3,11 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { Plus, X } from 'lucide-react';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
+import { isSuperAdmin } from '../../../config/hrmsConfig';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
@@ -27,24 +28,56 @@ export const STAGE_LABEL: Record<string, string> = {
 };
 export const caseStageLabel = (s: string) => STAGE_LABEL[s] ?? s;
 
-export function Crm2CasesPage() {
-  const { profile } = useAuth();
-  const navigate = useNavigate();
-  const [rows, setRows] = useState<CaseRow[]>([]);
+// Role-scoped cases (same model as the Leads page): managers / super-admins see
+// ALL cases; everyone else sees only cases they handle (handlingRm) or are a
+// collaborator on (Phase 6) — merged from two live queries, deduped.
+function useScopedCases(seesAll: boolean, myFapl: string) {
+  const [all, setAll] = useState<CaseRow[]>([]);
+  const [mine, setMine] = useState<CaseRow[]>([]);
+  const [collab, setCollab] = useState<CaseRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const map = (s: { docs: { id: string; data: () => unknown }[] }) =>
+    s.docs.map((d) => ({ id: d.id, ...(d.data() as object) }) as CaseRow);
+
+  useEffect(() => {
+    const base = collection(db, 'cases');
+    if (seesAll) {
+      setLoading(true);
+      return onSnapshot(query(base, orderBy('updatedAt', 'desc'), limit(200)),
+        (s) => { setAll(map(s)); setLoading(false); }, () => setLoading(false));
+    }
+    setLoading(true);
+    let a = false, b = false; const done = () => { if (a && b) setLoading(false); };
+    const u1 = onSnapshot(query(base, where('handlingRm', '==', myFapl), orderBy('updatedAt', 'desc'), limit(200)),
+      (s) => { setMine(map(s)); a = true; done(); }, () => { a = true; done(); });
+    const u2 = onSnapshot(query(base, where('collaborators', 'array-contains', myFapl), orderBy('updatedAt', 'desc'), limit(200)),
+      (s) => { setCollab(map(s)); b = true; done(); }, () => { b = true; done(); });
+    return () => { u1(); u2(); };
+  }, [seesAll, myFapl]);
+
+  const rows = useMemo(() => {
+    if (seesAll) return all;
+    const m = new Map<string, CaseRow>();
+    for (const r of [...mine, ...collab]) m.set(r.id, r);
+    return [...m.values()].sort((x, y) => ((y.updatedAt as { toMillis?: () => number })?.toMillis?.() ?? 0) - ((x.updatedAt as { toMillis?: () => number })?.toMillis?.() ?? 0));
+  }, [seesAll, all, mine, collab]);
+
+  return { rows, loading };
+}
+
+export function Crm2CasesPage() {
+  const { profile, user } = useAuth();
+  const navigate = useNavigate();
   const [stageFilter, setStageFilter] = useState<string>('ALL');
   const [search, setSearch] = useState('');
   const [showNew, setShowNew] = useState(false);
   const { rows: clients } = useCrm2Collection<Client & { id: string }>('clients');
   const { rows: products } = useCrm2Collection<Product & { id: string }>('products');
 
-  useEffect(() => {
-    const q = query(collection(db, 'cases'), orderBy('updatedAt', 'desc'), limit(200));
-    return onSnapshot(q, (snap) => {
-      setRows(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as CaseRow));
-      setLoading(false);
-    }, () => setLoading(false));
-  }, []);
+  const isManager = profile?.role === 'admin' || profile?.crmRole === 'manager';
+  // Managers / super-admins see ALL cases; everyone else only their own.
+  const seesAll = isManager || isSuperAdmin(user?.uid ?? '', profile);
+  const { rows, loading } = useScopedCases(seesAll, profile?.employeeId ?? '__none__');
 
   const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? id;
   const productCode = (id: string) => products.find((p) => p.id === id)?.shortCode ?? id;
@@ -68,7 +101,9 @@ export function Crm2CasesPage() {
           <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
             Pipeline Cases
           </h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>10-stage pipeline: opened → disbursed → closed</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            {seesAll ? '10-stage pipeline: opened → disbursed → closed' : 'Showing cases assigned to you or shared with you.'}
+          </p>
         </div>
         {canWrite && (
           <button onClick={() => setShowNew(true)}

@@ -7,7 +7,7 @@
  * dialog. All mutations via /api/crm2/leads* — reads are live snapshots.
  */
 import { useMemo, useState } from 'react';
-import { collection, query, orderBy, limit, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, X, AlertTriangle, ArrowRight, Copy } from 'lucide-react';
@@ -23,6 +23,7 @@ import { ContactActions, PhoneLink } from '../../crm/components/ContactActions';
 import { QueuePanel } from '../queue/QueuePanel';
 import { useQueueActions } from '../queue/useQueue';
 import { useConnectors } from '../../hrms/hooks/useConnectors';
+import { isSuperAdmin } from '../../../config/hrmsConfig';
 import type { Connector } from '../../../types';
 import type { Crm2LeadFields, Crm2LeadStatus, Product, Client, SubDsa } from '../../../types/crm2';
 
@@ -64,24 +65,37 @@ const HOT_SOURCES = new Set<string>(['WEBSITE', 'ADS']);
 const fmtTsFull = (t: { toDate?: () => Date } | null | undefined) =>
   t?.toDate ? t.toDate().toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 
-function useCrm2Leads() {
+// scopeFapl: null ⇒ see ALL leads (managers / super-admins). A string ⇒ only
+// leads where assignedRm === that FAPL (telecallers see only what's assigned to
+// them — they can't browse / mess with confirmed contacts).
+function useCrm2Leads(scopeFapl: string | null) {
   const [rows, setRows] = useState<LeadRow[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     // orderBy(receivedAt) only matches docs carrying the field → new-model leads.
-    const q = query(collection(db, 'leads'), orderBy('receivedAt', 'desc'), limit(300));
+    const base = collection(db, 'leads');
+    const q = scopeFapl
+      ? query(base, where('assignedRm', '==', scopeFapl), orderBy('receivedAt', 'desc'), limit(300))
+      : query(base, orderBy('receivedAt', 'desc'), limit(300));
+    setLoading(true);
     return onSnapshot(q, (snap) => {
       setRows(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as LeadRow));
       setLoading(false);
     }, () => setLoading(false));
-  }, []);
+  }, [scopeFapl]);
   return { rows, loading };
 }
 
 export function Crm2LeadsPage() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const toast = useToast();
-  const { rows, loading } = useCrm2Leads();
+  const canWrite = hasCrm2Perm(profile, 'crm.leads.write');
+  const canConvert = hasCrm2Perm(profile, 'crm.cases.write');
+  const isManager = profile?.role === 'admin' || profile?.crmRole === 'manager';
+  // Managers / super-admins see ALL leads; everyone else sees only their assigned.
+  const seesAll = isManager || isSuperAdmin(user?.uid ?? '', profile);
+  const scopeFapl = seesAll ? null : (profile?.employeeId ?? '__none__');
+  const { rows, loading } = useCrm2Leads(scopeFapl);
   const { employees } = useAllEmployees();
   const { rows: products } = useCrm2Collection<Product & { id: string }>('products');
   const { rows: clients } = useCrm2Collection<Client & { id: string }>('clients');
@@ -92,10 +106,6 @@ export function Crm2LeadsPage() {
   const [search, setSearch] = useState('');
   const [detailFor, setDetailFor] = useState<LeadRow | null>(null);
   const [showNew, setShowNew] = useState(false);
-
-  const canWrite = hasCrm2Perm(profile, 'crm.leads.write');
-  const canConvert = hasCrm2Perm(profile, 'crm.cases.write');
-  const isManager = profile?.role === 'admin' || profile?.crmRole === 'manager';
 
   const faplOptions = useMemo(() =>
     employees
@@ -137,7 +147,11 @@ export function Crm2LeadsPage() {
           <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
             Pipeline Leads
           </h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Funnel: received → qualified → converted to client + case</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            {seesAll
+              ? 'Funnel: received → qualified → converted to client + case'
+              : 'Showing leads assigned to you. Use “Get next lead”, or ask your manager to assign more.'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {isManager && rows.some((r) => !r.leadCode && !/^LD-\d{4}-\d+$/.test(r.id)) && (

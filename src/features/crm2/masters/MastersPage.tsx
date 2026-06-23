@@ -913,6 +913,12 @@ export function Crm2MastersPage() {
             { key: 'type', label: 'Type', kind: 'select', required: true,
               options: [{ value: 'PSU_BANK', label: 'PSU Bank' }, { value: 'PRIVATE_BANK', label: 'Private Bank' }, { value: 'NBFC', label: 'NBFC' }, { value: 'HFC', label: 'HFC' }] },
             { key: 'productsOffered', label: 'Products Offered', kind: 'multiselect', options: productOptions },
+            { key: 'lenderSubProducts', label: 'Sub-products (per product)', kind: 'rows',
+              rowFields: [
+                { key: 'productId', label: 'Product', kind: 'select', options: productOptions },
+                { key: 'subProduct', label: 'Sub-product' },
+              ],
+              hint: 'Sub-products THIS lender offers per product (e.g. House Mortgage Loan → Pragati). These are the ONLY sub-products shown in DSA Codes payout rows + the case picker for this lender.' },
             { key: 'loginEmail', label: 'Login Email', kind: 'text', hint: 'File-submission inbox, e.g. iob0432@iob.in' },
             { key: 'tatBenchmarkDays', label: 'TAT Benchmark (days)', kind: 'number', hint: 'Login → sanction SLA' },
             { key: 'contacts', label: 'Bank SM / ASM Contacts', kind: 'rows',
@@ -933,15 +939,12 @@ export function Crm2MastersPage() {
           columns={[
             { header: 'Code', render: (r) => r.shortCode },
             { header: 'Vertical', render: (r) => r.vertical },
-            { header: 'Sub-products', render: (r) => r.subProducts?.length ? r.subProducts.join(', ') : '—' },
           ]}
           fields={[
             { key: 'name', label: 'Product Name', kind: 'text', required: true, placeholder: 'Loan Against Property' },
             { key: 'shortCode', label: 'Short Code', kind: 'text', required: true, placeholder: 'LAP' },
             { key: 'vertical', label: 'Vertical', kind: 'select', required: true,
               options: [{ value: 'LOANS', label: 'Loans' }, { value: 'WEALTH', label: 'Wealth' }, { value: 'INSURANCE', label: 'Insurance' }, { value: 'CHANNEL_PARTNER', label: 'Channel Partner' }, { value: 'VAS', label: 'VAS' }] },
-            { key: 'subProducts', label: 'Sub-products', kind: 'stringlist', placeholder: 'e.g. Prime LAP', addLabel: 'Add sub-product',
-              hint: 'Add each sub-product (e.g. LAP → Prime LAP). Sub-products appear in DSA Codes so you can map each to a lender + aggregator with its own DSA code + payout.' },
             { key: 'defaultDocChecklist', label: 'Default Documents', kind: 'multiselect', options: docOptions, hint: 'Auto-attached to the doc tracker for cases on this product' },
             { key: 'defaultRoiRange', label: 'Default ROI Range', kind: 'text', placeholder: '9.5%–12% (display only)' },
             { key: 'status', label: 'Status', kind: 'select', options: STATUS_AI },

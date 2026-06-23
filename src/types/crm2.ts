@@ -51,6 +51,9 @@ export interface Lender extends Audit {
   name: string;                       // "Fedbank Financial Services"
   type: 'PSU_BANK' | 'PRIVATE_BANK' | 'NBFC' | 'HFC';
   productsOffered: string[];          // productIds
+  // Sub-products THIS lender offers, per product (e.g. HML → "Pragati"). Drives the
+  // lender-specific sub-product options in DSA-code payout rows + the case picker.
+  lenderSubProducts: Array<{ productId: string; subProduct: string }>;
   contacts: Array<{ name: string; role: 'SM' | 'RM' | 'ASM' | 'OTHER';
                     email: string; mobile: string; branch: string }>;
   loginEmail: string;                 // file-submission inbox

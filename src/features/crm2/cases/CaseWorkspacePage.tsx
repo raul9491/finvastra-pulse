@@ -28,7 +28,6 @@ import {
   type Crm2Case, type Applicant, type DocTrackerRow,
   type StageHistoryEntry, type Client, type DocumentDef, type Lender, type Aggregator,
   type CasePayoutMirror, type VaultDoc, type CaseStage1, type CaseEligibility, type Crm2CaseTask,
-  type Product,
 } from '../../../types/crm2';
 
 type WithId<T> = T & { id: string };
@@ -86,7 +85,6 @@ export function CaseWorkspacePage() {
   const { rows: docDefs } = useCrm2Collection<WithId<DocumentDef>>('documentMaster', needDocs);
   const { rows: lenders } = useCrm2Collection<WithId<Lender>>('lenders');   // eager — badge tooltips + details/logins
   const { rows: aggregators } = useCrm2Collection<WithId<Aggregator>>('aggregators', needRouting);
-  const { rows: products } = useCrm2Collection<WithId<Product>>('products', needRouting);   // sub-product picker
   const { connectors } = useConnectors(needRouting);   // connectors (FAC-)
 
   const canWrite = hasCrm2Perm(profile, 'crm.cases.write');
@@ -209,7 +207,7 @@ export function CaseWorkspacePage() {
             <p className="text-[11px] px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(201,169,97,0.08)', color: 'var(--text-muted)' }}>
               Stages 4–9 are worked <b>per login</b> (one file → one bank/NBFC). Each login below runs File&nbsp;Login → Code → In&nbsp;Process → Sanctioned → Disbursed → PDD/OTC — advance each with its own button.
             </p>
-            <LoginsSection caseId={caseDoc.id} caseProductId={(caseDoc as { productId?: string }).productId ?? ''} canWrite={canWrite} />
+            <LoginsSection caseId={caseDoc.id} caseProductId={(caseDoc as { productId?: string }).productId ?? ''} caseSubProduct={caseDoc.subProduct ?? ''} canWrite={canWrite} />
           </>
         )}
         {n === 10 && (
@@ -384,7 +382,7 @@ export function CaseWorkspacePage() {
       {/* Main panel — either a pipeline stage workspace or a glance view */}
       {typeof effView === 'number' ? stagePanel(effView)
         : effView === 'details' ? (
-          <DetailsTab caseDoc={caseDoc} lenders={lenders} aggregators={aggregators} products={products}
+          <DetailsTab caseDoc={caseDoc} lenders={lenders} aggregators={aggregators}
             connectors={connectors} canWrite={canWrite} canSeeMoney={canSeeMoney} mirror={mirror} patchCase={patchCase} />
         ) : effView === 'collab' ? (
           <CollaborationTab caseDoc={caseDoc} employees={employees} canWrite={canWrite} canManage={canManageCollab} />
@@ -653,15 +651,18 @@ function ClientIdTab({ client }: { client: (Client & { id: string }) | null }) {
 }
 
 // ─── Details tab ──────────────────────────────────────────────────────────────
-function DetailsTab({ caseDoc, lenders, aggregators, products, connectors, canWrite, canSeeMoney, mirror, patchCase }: {
+function DetailsTab({ caseDoc, lenders, aggregators, connectors, canWrite, canSeeMoney, mirror, patchCase }: {
   connectors: Connector[];
   caseDoc: Crm2Case & { id: string };
   lenders: Array<WithId<Lender>>; aggregators: Array<WithId<Aggregator>>;
-  products: Array<WithId<Product>>;
   canWrite: boolean; canSeeMoney: boolean; mirror: CasePayoutMirror | null;
   patchCase: (body: Record<string, unknown>, msg: string) => Promise<void>;
 }) {
-  const caseSubProducts = products.find((p) => p.id === caseDoc.productId)?.subProducts ?? [];
+  // Sub-products are lender-specific (per product) — only this case's lender's.
+  const caseSubProducts = (lenders.find((l) => l.id === caseDoc.lenderId)?.lenderSubProducts ?? [])
+    .filter((r) => r.productId === caseDoc.productId)
+    .map((r) => r.subProduct)
+    .filter((v, i, a) => v && a.indexOf(v) === i);
   const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div className="flex items-center justify-between gap-3 py-2" style={{ borderBottom: '1px solid var(--shell-border)' }}>
       <span className="text-xs shrink-0 w-36" style={{ color: 'var(--text-muted)' }}>{label}</span>

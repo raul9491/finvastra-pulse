@@ -154,7 +154,13 @@ function CreateMappingModal({ aggregators, lenders, products, onClose, onCreated
 
   const today = new Date().toISOString().slice(0, 10);
   const selectedProduct = products.find((x) => x.id === productId);
-  const subs = selectedProduct?.subProducts ?? [];
+  const selectedLender = lenders.find((x) => x.id === lenderId);
+  // Sub-products are LENDER-specific (per product) — only THIS lender's sub-products
+  // for the selected product show, never the global product list.
+  const subs = (selectedLender?.lenderSubProducts ?? [])
+    .filter((r) => r.productId === productId)
+    .map((r) => r.subProduct)
+    .filter((v, i, a) => v && a.indexOf(v) === i);
 
   // Payout rows: a product with no sub-products → ONE payout (whole product).
   // A product WITH sub-products → a payout per sub-product (+ an optional
@@ -231,7 +237,7 @@ function CreateMappingModal({ aggregators, lenders, products, onClose, onCreated
             <FLabel text="Lender" required error={errs.lenderId} />
             <SearchableSelect
               options={lenders.filter((l) => l.status === 'ACTIVE').map((l) => ({ value: l.id, label: l.name }))}
-              value={lenderId} onChange={setLenderId} placeholder="Select lender…" />
+              value={lenderId} onChange={(v) => { setLenderId(v); setPayout({}); }} placeholder="Select lender…" />
           </div>
           <div>
             <FLabel text="Product" required error={errs.productId} />
@@ -258,8 +264,8 @@ function CreateMappingModal({ aggregators, lenders, products, onClose, onCreated
               <FLabel text="Payout %" required error={errs.payout} />
               <p className="mb-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
                 {subs.length === 0
-                  ? 'Finvastra payout for this product (e.g. LAP 1.44%).'
-                  : 'This product has sub-products — set a payout per sub-product (e.g. LAP · Prime 1.55%). The whole-product row is an optional fallback.'}
+                  ? `Finvastra payout for this product (e.g. LAP 1.44%).${lenderId ? ' This lender has no sub-products for this product — add them in Lenders → Sub-products if needed.' : ''}`
+                  : 'This lender offers sub-products for this product — set a payout per sub-product (e.g. HML · Pragati 1.55%). The whole-product row is an optional fallback.'}
               </p>
               <div className="space-y-2">
                 {rows.map((r) => (

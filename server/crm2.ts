@@ -247,6 +247,14 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         email: String(c.email ?? "").trim(), mobile: String(c.mobile ?? "").trim(), branch: String(c.branch ?? "").trim(),
       }));
     }
+    // Sub-products this lender offers, per product (e.g. House Mortgage Loan → Pragati).
+    // Lender-specific so the DSA-code payout rows only show THIS lender's sub-products.
+    if (isCreate || b.lenderSubProducts !== undefined) {
+      const sp = Array.isArray(b.lenderSubProducts) ? b.lenderSubProducts : [];
+      out.lenderSubProducts = sp
+        .map((r: Record<string, unknown>) => ({ productId: String(r.productId ?? "").trim(), subProduct: String(r.subProduct ?? "").trim() }))
+        .filter((r: { productId: string; subProduct: string }) => r.productId && r.subProduct);
+    }
     if (isCreate || b.loginEmail !== undefined) out.loginEmail = optStr(b, "loginEmail") ?? "";
     if (isCreate || b.tatBenchmarkDays !== undefined) out.tatBenchmarkDays = optNum(b, "tatBenchmarkDays");
     if (isCreate || b.status !== undefined) out.status = reqEnum({ status: b.status ?? "ACTIVE" }, "status", ["ACTIVE", "INACTIVE"] as const);

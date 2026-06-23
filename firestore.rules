@@ -1346,6 +1346,11 @@ service cloud.firestore {
       allow read:  if isAdmin() || hasAnyCrm2Read();
       allow write: if false;
     }
+    // Sub-products (just names) mapped to a product — see SubProduct master.
+    match /subProducts/{subProductId} {
+      allow read:  if isAdmin() || hasAnyCrm2Read();
+      allow write: if false;
+    }
     // Upstream aggregators (spec "connectors" — renamed collection, PLAN.md decision 1).
     match /aggregators/{aggregatorId} {
       allow read:  if isAdmin() || hasAnyCrm2Read();

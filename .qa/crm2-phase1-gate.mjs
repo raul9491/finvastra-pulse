@@ -82,6 +82,13 @@ async function main() {
   product.status === 200 && product.data.id?.startsWith('PRD-')
     ? ok(`product created (${product.data.id})`) : bad('product create', JSON.stringify(product));
 
+  // Sub-product master (just a name, mapped to a product)
+  const subProduct = await api('POST', '/api/crm2/masters/subProducts', token, {
+    name: 'Prime LAP', productId: product.data.id,
+  });
+  subProduct.status === 200 && subProduct.data.id?.startsWith('SUBP-')
+    ? ok(`sub-product created (${subProduct.data.id}) mapped to ${product.data.id}`) : bad('sub-product create', JSON.stringify(subProduct));
+
   // 2. Mapping (aggregator × lender × product)
   const map = await api('POST', '/api/crm2/mappings', token, {
     connectorId: conn.data.id, lenderId: lender.data.id, productId: product.data.id,

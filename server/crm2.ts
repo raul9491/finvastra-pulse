@@ -247,14 +247,6 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         email: String(c.email ?? "").trim(), mobile: String(c.mobile ?? "").trim(), branch: String(c.branch ?? "").trim(),
       }));
     }
-    // Sub-products this lender offers, per product (e.g. House Mortgage Loan → Pragati).
-    // Lender-specific so the DSA-code payout rows only show THIS lender's sub-products.
-    if (isCreate || b.lenderSubProducts !== undefined) {
-      const sp = Array.isArray(b.lenderSubProducts) ? b.lenderSubProducts : [];
-      out.lenderSubProducts = sp
-        .map((r: Record<string, unknown>) => ({ productId: String(r.productId ?? "").trim(), subProduct: String(r.subProduct ?? "").trim() }))
-        .filter((r: { productId: string; subProduct: string }) => r.productId && r.subProduct);
-    }
     if (isCreate || b.loginEmail !== undefined) out.loginEmail = optStr(b, "loginEmail") ?? "";
     if (isCreate || b.tatBenchmarkDays !== undefined) out.tatBenchmarkDays = optNum(b, "tatBenchmarkDays");
     if (isCreate || b.status !== undefined) out.status = reqEnum({ status: b.status ?? "ACTIVE" }, "status", ["ACTIVE", "INACTIVE"] as const);
@@ -269,6 +261,15 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     if (isCreate || b.subProducts !== undefined) out.subProducts = strArr(b, "subProducts");
     if (isCreate || b.defaultDocChecklist !== undefined) out.defaultDocChecklist = strArr(b, "defaultDocChecklist");
     if (isCreate || b.defaultRoiRange !== undefined) out.defaultRoiRange = optStr(b, "defaultRoiRange");
+    if (isCreate || b.status !== undefined) out.status = reqEnum({ status: b.status ?? "ACTIVE" }, "status", ["ACTIVE", "INACTIVE"] as const);
+    return out;
+  };
+
+  // Sub-product master — just a name, mapped to a product (SubProduct → Product → Lender).
+  const sanitizeSubProduct: Sanitizer = (b, isCreate) => {
+    const out: Record<string, unknown> = {};
+    if (isCreate || b.name !== undefined) out.name = reqStr(b, "name");
+    if (isCreate || b.productId !== undefined) out.productId = reqStr(b, "productId");
     if (isCreate || b.status !== undefined) out.status = reqEnum({ status: b.status ?? "ACTIVE" }, "status", ["ACTIVE", "INACTIVE"] as const);
     return out;
   };
@@ -447,6 +448,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   const MASTERS: Record<string, { collection: string; counterId: string; prefix: string; pad: number; sanitize: Sanitizer }> = {
     lenders:        { collection: "lenders",        counterId: "lenders",        prefix: "LEN-",  pad: 3, sanitize: sanitizeLender },
     products:       { collection: "products",       counterId: "products",       prefix: "PRD-",  pad: 3, sanitize: sanitizeProduct },
+    subProducts:    { collection: "subProducts",    counterId: "subProducts",    prefix: "SUBP-", pad: 3, sanitize: sanitizeSubProduct },
     // Spec's upstream "connectors" — stored in `aggregators` (PLAN.md decision 1).
     aggregators:    { collection: "aggregators",    counterId: "aggregators",    prefix: "AGG-",  pad: 3, sanitize: sanitizeAggregator },
     subDsas:        { collection: "subDsas",        counterId: "subDsas",        prefix: "SDSA-", pad: 3, sanitize: sanitizeSubDsa },

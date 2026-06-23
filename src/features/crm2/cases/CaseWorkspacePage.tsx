@@ -28,6 +28,7 @@ import {
   type Crm2Case, type Applicant, type DocTrackerRow,
   type StageHistoryEntry, type Client, type DocumentDef, type Lender, type Aggregator,
   type CasePayoutMirror, type VaultDoc, type CaseStage1, type CaseEligibility, type Crm2CaseTask,
+  type SubProduct,
 } from '../../../types/crm2';
 
 type WithId<T> = T & { id: string };
@@ -85,6 +86,7 @@ export function CaseWorkspacePage() {
   const { rows: docDefs } = useCrm2Collection<WithId<DocumentDef>>('documentMaster', needDocs);
   const { rows: lenders } = useCrm2Collection<WithId<Lender>>('lenders');   // eager — badge tooltips + details/logins
   const { rows: aggregators } = useCrm2Collection<WithId<Aggregator>>('aggregators', needRouting);
+  const { rows: subProducts } = useCrm2Collection<WithId<SubProduct>>('subProducts', needRouting);   // case sub-product picker
   const { connectors } = useConnectors(needRouting);   // connectors (FAC-)
 
   const canWrite = hasCrm2Perm(profile, 'crm.cases.write');
@@ -382,7 +384,7 @@ export function CaseWorkspacePage() {
       {/* Main panel — either a pipeline stage workspace or a glance view */}
       {typeof effView === 'number' ? stagePanel(effView)
         : effView === 'details' ? (
-          <DetailsTab caseDoc={caseDoc} lenders={lenders} aggregators={aggregators}
+          <DetailsTab caseDoc={caseDoc} lenders={lenders} aggregators={aggregators} subProducts={subProducts}
             connectors={connectors} canWrite={canWrite} canSeeMoney={canSeeMoney} mirror={mirror} patchCase={patchCase} />
         ) : effView === 'collab' ? (
           <CollaborationTab caseDoc={caseDoc} employees={employees} canWrite={canWrite} canManage={canManageCollab} />
@@ -651,17 +653,18 @@ function ClientIdTab({ client }: { client: (Client & { id: string }) | null }) {
 }
 
 // ─── Details tab ──────────────────────────────────────────────────────────────
-function DetailsTab({ caseDoc, lenders, aggregators, connectors, canWrite, canSeeMoney, mirror, patchCase }: {
+function DetailsTab({ caseDoc, lenders, aggregators, subProducts, connectors, canWrite, canSeeMoney, mirror, patchCase }: {
   connectors: Connector[];
   caseDoc: Crm2Case & { id: string };
   lenders: Array<WithId<Lender>>; aggregators: Array<WithId<Aggregator>>;
+  subProducts: Array<WithId<SubProduct>>;
   canWrite: boolean; canSeeMoney: boolean; mirror: CasePayoutMirror | null;
   patchCase: (body: Record<string, unknown>, msg: string) => Promise<void>;
 }) {
-  // Sub-products are lender-specific (per product) — only this case's lender's.
-  const caseSubProducts = (lenders.find((l) => l.id === caseDoc.lenderId)?.lenderSubProducts ?? [])
-    .filter((r) => r.productId === caseDoc.productId)
-    .map((r) => r.subProduct)
+  // Sub-products come from the SubProduct master, scoped to the case's product.
+  const caseSubProducts = subProducts
+    .filter((sp) => sp.productId === caseDoc.productId && sp.status !== 'INACTIVE')
+    .map((sp) => sp.name)
     .filter((v, i, a) => v && a.indexOf(v) === i);
   const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div className="flex items-center justify-between gap-3 py-2" style={{ borderBottom: '1px solid var(--shell-border)' }}>

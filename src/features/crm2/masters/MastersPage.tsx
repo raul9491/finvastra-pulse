@@ -12,7 +12,7 @@
  * mapping editor (slab timeline, end-and-add flow) is purpose-built.
  */
 import { useMemo, useState, useEffect } from 'react';
-import { Plus, Pencil, X, Landmark, Package, Network, FileText, GitBranch, Handshake } from 'lucide-react';
+import { Plus, Pencil, X, Landmark, Package, Network, FileText, GitBranch, Handshake, Layers } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect, MultiSearchableSelect } from '../../../components/ui/SearchableSelect';
@@ -24,7 +24,7 @@ import {
 } from '../../hrms/hooks/useConnectors';
 import { CONSTITUTION_OPTS } from '../clients/ClientFormModal';
 import type { Connector, ConnectorVertical, ConnectorFinancial } from '../../../types';
-import type { Lender, Product, Aggregator, DocumentDef } from '../../../types/crm2';
+import type { Lender, Product, Aggregator, DocumentDef, SubProduct } from '../../../types/crm2';
 
 type WithId<T> = T & { id: string };
 
@@ -845,6 +845,7 @@ const TABS = [
   { key: 'connectors',     label: 'Connectors', Icon: Handshake },
   { key: 'lenders',        label: 'Lenders',    Icon: Landmark },
   { key: 'products',       label: 'Products',   Icon: Package },
+  { key: 'subProducts',    label: 'Sub Products', Icon: Layers },
   { key: 'aggregators',    label: 'Aggregators', Icon: Network },
   { key: 'mappings',       label: 'DSA Codes',  Icon: GitBranch },
   { key: 'documentMaster', label: 'Documents',  Icon: FileText },
@@ -913,12 +914,6 @@ export function Crm2MastersPage() {
             { key: 'type', label: 'Type', kind: 'select', required: true,
               options: [{ value: 'PSU_BANK', label: 'PSU Bank' }, { value: 'PRIVATE_BANK', label: 'Private Bank' }, { value: 'NBFC', label: 'NBFC' }, { value: 'HFC', label: 'HFC' }] },
             { key: 'productsOffered', label: 'Products Offered', kind: 'multiselect', options: productOptions },
-            { key: 'lenderSubProducts', label: 'Sub-products (per product)', kind: 'rows',
-              rowFields: [
-                { key: 'productId', label: 'Product', kind: 'select', options: productOptions },
-                { key: 'subProduct', label: 'Sub-product' },
-              ],
-              hint: 'Sub-products THIS lender offers per product (e.g. House Mortgage Loan → Pragati). These are the ONLY sub-products shown in DSA Codes payout rows + the case picker for this lender.' },
             { key: 'loginEmail', label: 'Login Email', kind: 'text', hint: 'File-submission inbox, e.g. iob0432@iob.in' },
             { key: 'tatBenchmarkDays', label: 'TAT Benchmark (days)', kind: 'number', hint: 'Login → sanction SLA' },
             { key: 'contacts', label: 'Bank SM / ASM Contacts', kind: 'rows',
@@ -947,6 +942,21 @@ export function Crm2MastersPage() {
               options: [{ value: 'LOANS', label: 'Loans' }, { value: 'WEALTH', label: 'Wealth' }, { value: 'INSURANCE', label: 'Insurance' }, { value: 'CHANNEL_PARTNER', label: 'Channel Partner' }, { value: 'VAS', label: 'VAS' }] },
             { key: 'defaultDocChecklist', label: 'Default Documents', kind: 'multiselect', options: docOptions, hint: 'Auto-attached to the doc tracker for cases on this product' },
             { key: 'defaultRoiRange', label: 'Default ROI Range', kind: 'text', placeholder: '9.5%–12% (display only)' },
+            { key: 'status', label: 'Status', kind: 'select', options: STATUS_AI },
+          ]}
+        />
+      )}
+
+      {tab === 'subProducts' && (
+        <MasterTab<WithId<SubProduct>>
+          type="subProducts" label="Sub Products"
+          columns={[
+            { header: 'Product', render: (r) => productOptions.find((p) => p.value === r.productId)?.label ?? r.productId },
+          ]}
+          fields={[
+            { key: 'name', label: 'Sub-product Name', kind: 'text', required: true, placeholder: 'Pragati Ashiyana HL' },
+            { key: 'productId', label: 'Product', kind: 'select', required: true, options: productOptions,
+              hint: 'The product this sub-product belongs to (SubProduct → Product → Lender → DSA code).' },
             { key: 'status', label: 'Status', kind: 'select', options: STATUS_AI },
           ]}
         />

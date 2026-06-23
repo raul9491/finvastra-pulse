@@ -51,9 +51,6 @@ export interface Lender extends Audit {
   name: string;                       // "Fedbank Financial Services"
   type: 'PSU_BANK' | 'PRIVATE_BANK' | 'NBFC' | 'HFC';
   productsOffered: string[];          // productIds
-  // Sub-products THIS lender offers, per product (e.g. HML → "Pragati"). Drives the
-  // lender-specific sub-product options in DSA-code payout rows + the case picker.
-  lenderSubProducts: Array<{ productId: string; subProduct: string }>;
   contacts: Array<{ name: string; role: 'SM' | 'RM' | 'ASM' | 'OTHER';
                     email: string; mobile: string; branch: string }>;
   loginEmail: string;                 // file-submission inbox
@@ -67,9 +64,17 @@ export interface Product extends Audit {
   name: string;
   shortCode: string;                  // "LAP", "BL", "HL"
   vertical: ProductVertical;
-  subProducts: string[];              // e.g. ["Salaried", "Self-Employed", "BT"]
+  subProducts: string[];              // LEGACY — sub-products now live in the SubProduct master
   defaultDocChecklist: string[];      // documentMaster ids
   defaultRoiRange: string | null;     // display only
+  status: 'ACTIVE' | 'INACTIVE';
+}
+
+/** Sub-product master — just a name, mapped to a product. The chain
+ *  SubProduct → Product → Lender is mapped in DSA Codes. Collection: `subProducts/{SUBP-xxx}`. */
+export interface SubProduct extends Audit {
+  name: string;                       // e.g. "Pragati Ashiyana HL"
+  productId: string;                  // products/{id}
   status: 'ACTIVE' | 'INACTIVE';
 }
 

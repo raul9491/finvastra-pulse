@@ -13,7 +13,7 @@ import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { apiCrm2, useCrm2Collection } from '../lib';
 import { findSlabOverlaps, type SlabForResolution } from '../../../lib/crm2/slab';
 import { FLabel, inp } from './MastersPage';
-import type { DsaCodeMapping, Aggregator, Lender, Product, MappingSlab } from '../../../types/crm2';
+import type { DsaCodeMapping, Aggregator, Lender, Product, SubProduct, MappingSlab } from '../../../types/crm2';
 
 type WithId<T> = T & { id: string };
 type MappingRow = WithId<DsaCodeMapping>;
@@ -37,6 +37,7 @@ export function MappingsTab({ productOptions }: { productOptions: Array<{ value:
   const { rows: aggregators } = useCrm2Collection<WithId<Aggregator>>('aggregators');
   const { rows: lenders } = useCrm2Collection<WithId<Lender>>('lenders');
   const { rows: products } = useCrm2Collection<WithId<Product>>('products');
+  const { rows: subProducts } = useCrm2Collection<WithId<SubProduct>>('subProducts');
 
   const [editorFor, setEditorFor] = useState<string | null>(null);   // mappingId
   const [showCreate, setShowCreate] = useState(false);
@@ -113,7 +114,7 @@ export function MappingsTab({ productOptions }: { productOptions: Array<{ value:
 
       {showCreate && (
         <CreateMappingModal
-          aggregators={aggregators} lenders={lenders} products={products}
+          aggregators={aggregators} lenders={lenders} products={products} subProducts={subProducts}
           onClose={() => setShowCreate(false)}
           onCreated={(id) => setEditorFor(id)}
         />
@@ -133,10 +134,11 @@ export function MappingsTab({ productOptions }: { productOptions: Array<{ value:
 }
 
 // ─── Create mapping ───────────────────────────────────────────────────────────
-function CreateMappingModal({ aggregators, lenders, products, onClose, onCreated }: {
+function CreateMappingModal({ aggregators, lenders, products, subProducts, onClose, onCreated }: {
   aggregators: Array<WithId<Aggregator>>;
   lenders: Array<WithId<Lender>>;
   products: Array<WithId<Product>>;
+  subProducts: Array<WithId<SubProduct>>;
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
@@ -155,11 +157,17 @@ function CreateMappingModal({ aggregators, lenders, products, onClose, onCreated
   const today = new Date().toISOString().slice(0, 10);
   const selectedProduct = products.find((x) => x.id === productId);
   const selectedLender = lenders.find((x) => x.id === lenderId);
-  // Sub-products are LENDER-specific (per product) — only THIS lender's sub-products
-  // for the selected product show, never the global product list.
-  const subs = (selectedLender?.lenderSubProducts ?? [])
-    .filter((r) => r.productId === productId)
-    .map((r) => r.subProduct)
+  // Product picker is scoped to the lender's offered products (the chain
+  // SubProduct → Product → Lender); falls back to all products if none set.
+  const lenderProductIds = selectedLender?.productsOffered ?? [];
+  const productPickerOptions = (lenderProductIds.length
+    ? products.filter((p) => lenderProductIds.includes(p.id))
+    : products
+  ).filter((p) => p.status !== 'INACTIVE').map((p) => ({ value: p.id, label: p.name }));
+  // Sub-products come from the SubProduct master, scoped to the selected product.
+  const subs = subProducts
+    .filter((sp) => sp.productId === productId && sp.status !== 'INACTIVE')
+    .map((sp) => sp.name)
     .filter((v, i, a) => v && a.indexOf(v) === i);
 
   // Payout rows: a product with no sub-products → ONE payout (whole product).
@@ -237,15 +245,15 @@ function CreateMappingModal({ aggregators, lenders, products, onClose, onCreated
             <FLabel text="Lender" required error={errs.lenderId} />
             <SearchableSelect
               options={lenders.filter((l) => l.status === 'ACTIVE').map((l) => ({ value: l.id, label: l.name }))}
-              value={lenderId} onChange={(v) => { setLenderId(v); setPayout({}); }} placeholder="Select lender…" />
+              value={lenderId} onChange={(v) => { setLenderId(v); setProductId(''); setPayout({}); }} placeholder="Select lender…" />
           </div>
           <div>
             <FLabel text="Product" required error={errs.productId} />
             <SearchableSelect
-              options={products.filter((p) => p.status !== 'INACTIVE').map((p) => ({ value: p.id, label: p.name }))}
+              options={productPickerOptions}
               value={productId}
               onChange={(v) => { setProductId(v); setPayout({}); }}
-              placeholder="Select product…" />
+              placeholder={lenderId ? 'Select product…' : 'Select a lender first…'} />
           </div>
           <div>
             <FLabel text="DSA Code" required error={errs.dsaCode} />
@@ -264,8 +272,8 @@ function CreateMappingModal({ aggregators, lenders, products, onClose, onCreated
               <FLabel text="Payout %" required error={errs.payout} />
               <p className="mb-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
                 {subs.length === 0
-                  ? `Finvastra payout for this product (e.g. LAP 1.44%).${lenderId ? ' This lender has no sub-products for this product — add them in Lenders → Sub-products if needed.' : ''}`
-                  : 'This lender offers sub-products for this product — set a payout per sub-product (e.g. HML · Pragati 1.55%). The whole-product row is an optional fallback.'}
+                  ? `Finvastra payout for this product (e.g. LAP 1.44%).${productId ? ' This product has no sub-products — add them in the Sub Products tab if needed.' : ''}`
+                  : 'This product has sub-products — set a payout per sub-product (e.g. HML · Pragati 1.55%). The whole-product row is an optional fallback.'}
               </p>
               <div className="space-y-2">
                 {rows.map((r) => (

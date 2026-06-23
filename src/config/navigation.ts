@@ -20,12 +20,13 @@ import {
   BarChart3, Upload, PackageOpen, User, Webhook, GitMerge, IndianRupee,
   AlertTriangle, Command,
   Layers, Eye, Share2, Trash2, Contact, Hourglass, ClipboardCheck, PieChart, Banknote, Award, FileSpreadsheet, Wallet,
+  MessageCircle,
 } from 'lucide-react';
 import type { User as FbUser } from 'firebase/auth';
 import type { UserProfile } from '../types';
 import { isSuperAdmin } from './hrmsConfig';
 
-export type ModuleKey = 'hrms' | 'crm' | 'mis' | 'command' | 'lms';
+export type ModuleKey = 'hrms' | 'crm' | 'mis' | 'command' | 'lms' | 'social';
 
 // ── Access context — the exact booleans the shells already compute, in one place
 export interface NavAccessCtx {
@@ -37,6 +38,7 @@ export interface NavAccessCtx {
   hrmsAccess: boolean;
   crmAccess: boolean;
   misAccess: boolean;
+  socialAccess: boolean;
   crmCanImport: boolean;
   perms: Record<string, boolean>;
   profile: UserProfile | null;
@@ -54,6 +56,7 @@ export function buildNavCtx(user: FbUser | null, profile: UserProfile | null): N
     hrmsAccess: isAdmin || profile?.hrmsAccess !== false,
     crmAccess: isAdmin || profile?.crmAccess === true,
     misAccess: isAdmin || profile?.misAccess != null,
+    socialAccess: isAdmin || profile?.socialAccess === true,
     crmCanImport: isAdmin || profile?.crmRole === 'manager' || p?.crmCanImport === true,
     perms: p?.perms ?? {},
     profile: profile ?? null,
@@ -76,6 +79,7 @@ const crmAdmin: Pred = (c) => c.isAdmin;
 const misAll: Pred = (c) => c.misAccess;
 const misAdmin: Pred = (c) => c.isMisAdmin;
 const command: Pred = (c) => c.isAdmin || c.profile?.commandCentreAccess === true || c.isHrmsManager || c.isCrmManager;
+const social: Pred = (c) => c.socialAccess;
 
 // ── Node shape ─────────────────────────────────────────────────────────────────
 export interface NavNode {
@@ -98,6 +102,7 @@ export const MODULE_GROUP_ORDER: Record<ModuleKey, string[]> = {
   mis:  ['MIS', 'Archive · old MIS'],
   command: ['Command'],
   lms: ['Learn'],
+  social: ['Inbox'],
 };
 
 export const NAV_NODES: NavNode[] = [
@@ -183,6 +188,9 @@ export const NAV_NODES: NavNode[] = [
   { key: 'mis.payout-slabs',      label: 'Payout Slabs',        route: '/mis/admin/payout-slabs',     module: 'mis', icon: 'Settings',        group: 'Archive · old MIS', access: misAdmin },
   { key: 'mis.statement-templates',label: 'Statement Templates',route: '/mis/admin/statement-templates', module: 'mis', icon: 'Settings',    group: 'Archive · old MIS', access: misAdmin },
 
+  // ════════════════════════════ Social Media ════════════════════════════
+  { key: 'social.inbox',          label: 'WhatsApp Inbox',      route: '/social/inbox',               module: 'social', icon: 'MessageCircle', group: 'Inbox', access: social, end: true, badgeKey: 'social.unread', keywords: ['whatsapp', 'chat', 'messages', 'conversations', 'inbox'] },
+
   // ════════════════════════════ Command & LMS ════════════════════════════
   { key: 'command.home',          label: 'Command & Compliance',route: '/command',                    module: 'command', icon: 'Command',     group: 'Command',  access: command, keywords: ['compliance', 'command centre', 'pf'] },
   { key: 'lms.home',              label: 'Learning (LMS)',      route: '/lms',                        module: 'lms', icon: 'GraduationCap',   group: 'Learn',    access: all, keywords: ['training', 'guide', 'tour'] },
@@ -204,6 +212,7 @@ export const MODULES: ModuleMeta[] = [
   { key: 'command', label: 'Command & Compliance', short: 'Command', desc: 'Cross-module oversight + statutory compliance.', icon: 'Command',       accent: '#8B5CF6', home: '/command',         access: command },
   { key: 'hrms',    label: 'HR & Operations',      short: 'HRMS',    desc: 'Employees · attendance · leave · payslips.',     icon: 'Users',         accent: '#5B9BD5', home: '/hrms/dashboard',  access: hrms },
   { key: 'crm',     label: 'CRM & Leads',          short: 'CRM',     desc: 'Leads · pipeline · cases · commissions.',         icon: 'TrendingUp',    accent: '#C9A961', home: '/crm/dashboard',   access: crm },
+  { key: 'social',  label: 'Social Media',         short: 'Social',  desc: 'WhatsApp chat with customers · social inbox.',    icon: 'MessageCircle', accent: '#14B8A6', home: '/social/inbox',    access: social },
   { key: 'mis',     label: 'MIS',                  short: 'MIS',     desc: 'Reconciliation · payouts · disbursals.',          icon: 'BarChart3',     accent: '#34A853', home: '/mis/overview',    access: misAll },
   { key: 'lms',     label: 'Learning',             short: 'LMS',     desc: 'Guides, tours and training for Pulse.',           icon: 'GraduationCap', accent: '#EC4899', home: '/lms',             access: all },
 ];
@@ -220,6 +229,7 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   BarChart3, Upload, PackageOpen, User, Webhook, GitMerge, IndianRupee,
   AlertTriangle, Command,
   Layers, Eye, Share2, Trash2, Contact, Hourglass, ClipboardCheck, PieChart, Banknote, Award, FileSpreadsheet, Wallet,
+  MessageCircle,
 };
 
 export function resolveNavIcon(name: string): LucideIcon {

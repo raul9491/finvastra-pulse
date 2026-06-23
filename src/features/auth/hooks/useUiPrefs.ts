@@ -23,6 +23,7 @@ export const DEFAULT_OPEN_GROUPS: Record<ModuleKey, string[]> = {
   mis:  ['MIS'],
   command: ['Command'],
   lms: ['Learn'],
+  social: ['Inbox'],
 };
 
 function load(): Prefs {

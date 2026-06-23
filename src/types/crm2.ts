@@ -147,7 +147,25 @@ export type Crm2LeadStatus =
   | 'NEW' | 'QUEUED' | 'ASSIGNED' | 'ATTEMPTED' | 'CONTACTED' | 'QUALIFIED' | 'JUNK_DUPLICATE'
   | 'NOT_INTERESTED' | 'CONVERTED' | 'DROPPED';   // QUEUED/ASSIGNED drive the FIFO pull queue
 export type Crm2LeadSource =
-  | 'WEBSITE' | 'JUSTDIAL' | 'REFERRAL_CLIENT' | 'REFERRAL_SUBDSA' | 'ADS' | 'WALKIN' | 'COLD_CALL';
+  | 'WEBSITE' | 'JUSTDIAL' | 'REFERRAL_CLIENT' | 'REFERRAL_SUBDSA' | 'ADS' | 'WALKIN' | 'COLD_CALL' | 'WHATSAPP';
+
+// ─── WhatsApp (Social Media module) ───────────────────────────────────────────────
+// A conversation lives at /leads/{leadId}/whatsapp/{waMessageId} (mirrors /activities).
+// Server-only writes (inbound via webhook, outbound via the Express send endpoint).
+export interface WhatsAppMessage {
+  waMessageId: string;            // Meta message id (wamid…) — also the doc id
+  direction: 'in' | 'out';
+  from: string;                   // sender phone (digits)
+  to: string;                     // recipient phone (digits)
+  type: string;                   // text | image | document | … (template for outbound)
+  body: string | null;           // text / caption
+  mediaId: string | null;        // Cloud-API media id (URL fetched in Phase 2)
+  status: 'received' | 'queued' | 'sent' | 'delivered' | 'read' | 'failed';
+  by: string | null;             // FAPL of the agent who sent it (outbound)
+  byName: string | null;
+  error: string | null;          // failure reason (outbound)
+  at: Ts;                         // server timestamp
+}
 
 export interface Crm2LeadFields {
   receivedAt: Ts;
@@ -204,6 +222,12 @@ export interface Crm2LeadFields {
   releaseCount?: number;
   lastReleaseReason?: string | null;
   queueFlagged?: boolean;          // raised when releaseCount >= 3 (needs manager)
+  // WhatsApp (Social Media module) — server-maintained on the lead for the inbox list
+  // + the 24h free-reply-window check. The thread itself is the /whatsapp subcollection.
+  waLastInboundAt?: Ts | null;     // last customer→us message time (drives the 24h window)
+  waLastMessageAt?: Ts | null;     // last message either direction (inbox sort)
+  waLastMessageText?: string | null;
+  waUnread?: number;               // inbound messages not yet seen in the inbox
 }
 
 // ─── Clients + vault ────────────────────────────────────────────────────────────

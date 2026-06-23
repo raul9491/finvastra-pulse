@@ -90,6 +90,7 @@ export interface UserProfile {
   crmCanImport?: boolean;     // can trigger bulk Sheet imports (default: only managers; admin can grant individually)
   misAccess?: MisAccess;
   commandCentreAccess?: boolean; // grants the cross-module Command Centre (admins always have it)
+  socialAccess?: boolean;        // grants the Social Media module (/social/* — WhatsApp inbox etc.); admins always have it
   // Phase P — page sharing: modules in which this user holds ≥1 active page
   // share. Grants module-level DATA read via rules; UI restricts nav to the
   // shared pages. Maintained atomically alongside /page_shares writes.

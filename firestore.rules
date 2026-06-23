@@ -69,6 +69,14 @@ service cloud.firestore {
               (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('hrmsAccess', true) == true ||
                'hrms' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('sharedModules', []))));
     }
+    // Social Media module access (WhatsApp inbox). Not in custom claims — reads the
+    // user doc (admins bypass earlier via isAdmin()). Grants reading leads + their
+    // WhatsApp threads so the inbox can list conversations.
+    function hasSocialAccess() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('socialAccess', false) == true;
+    }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
 
@@ -326,14 +334,16 @@ service cloud.firestore {
                      (hasCrmAccess() && resource.data.primaryOwnerId == request.auth.uid) ||
                      isManagerOf(resource.data.primaryOwnerId) ||
                      resource.data.get('referredBy', null) == request.auth.uid ||
-                     hasCrm2Perm('crm.leads.read');   // CRM 2.0 Pipeline readers
+                     hasCrm2Perm('crm.leads.read') ||   // CRM 2.0 Pipeline readers
+                     hasSocialAccess();                 // Social Media inbox (WhatsApp)
       allow list: if isAdmin() ||
                      (hasCrmAccess() && resource.data.primaryOwnerId == request.auth.uid) ||
                      // Manager team view — works for queries that pin primaryOwnerId
                      // to a single value (the client queries per direct report).
                      isManagerOf(resource.data.primaryOwnerId) ||
                      resource.data.get('referredBy', null) == request.auth.uid ||
-                     hasCrm2Perm('crm.leads.read');   // CRM 2.0 Pipeline readers
+                     hasCrm2Perm('crm.leads.read') ||   // CRM 2.0 Pipeline readers
+                     hasSocialAccess();                 // Social Media inbox (WhatsApp)
 
       // Admin always bypasses crmAccess — needed when the user doc was bootstrapped
       // with crmAccess:false on first emulator sign-in before admin role was set.
@@ -432,6 +442,15 @@ service cloud.firestore {
       allow create: if hasCrmAccess() && isValidActivity(incoming());
       allow update: if isAdmin() || canEditOwnActivityContent();
       allow delete: if isAdmin();
+    }
+
+    // ─── Social Media: WhatsApp conversation thread (per lead) ───────────────────
+    // One doc per message at /leads/{id}/whatsapp/{waMessageId}. Read = lead access
+    // OR social-inbox access; writes are SERVER-ONLY (inbound webhook + send endpoint
+    // via the Admin SDK), so a client can never forge a message.
+    match /leads/{leadId}/whatsapp/{msgId} {
+      allow read:  if isAdmin() || hasSocialAccess() || hasCrmAccess() || hasCrm2Perm('crm.leads.read');
+      allow write: if false;
     }
 
     // ─── CRM: Bank Submissions ───────────────────────────────────────────────────
@@ -691,6 +710,18 @@ service cloud.firestore {
     // Meta leadgen dead-letters — events that exhausted retries or are unusable.
     // Server-only write (Admin SDK); admin read for an ops view / alerting.
     match /meta_lead_deadletters/{leadgenId} {
+      allow read:  if isAdmin();
+      allow write: if false;
+    }
+
+    // WhatsApp inbound message write-ahead store (one doc per waMessageId; state
+    // machine pending→processing→done / failed) + dead-letters. Server-only via the
+    // Admin SDK; admin read for debug/ops. (Social Media module.)
+    match /whatsapp_message_events/{messageId} {
+      allow read:  if isAdmin();
+      allow write: if false;
+    }
+    match /whatsapp_message_deadletters/{messageId} {
       allow read:  if isAdmin();
       allow write: if false;
     }

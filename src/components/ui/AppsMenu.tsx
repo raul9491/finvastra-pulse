@@ -7,13 +7,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { Users, TrendingUp, BarChart3, LayoutGrid, ChevronRight, Check, Command, GraduationCap } from 'lucide-react';
+import { Users, TrendingUp, BarChart3, LayoutGrid, ChevronRight, Check, Command, GraduationCap, MessageCircle } from 'lucide-react';
 import type { UserProfile } from '../../types';
 import { MODULE_ACCENTS } from '../../config/navigation';
 
 interface AppsMenuProps {
   profile:       UserProfile | null;
-  currentModule: 'hrms' | 'crm' | 'mis';
+  currentModule: 'hrms' | 'crm' | 'mis' | 'social';
 }
 
 const MODULES = [
@@ -34,6 +34,15 @@ const MODULES = [
     desc:   'Pipeline · commissions',
     accent: MODULE_ACCENTS.crm,
     check:  (p: UserProfile | null) => p?.role === 'admin' || p?.crmAccess === true,
+  },
+  {
+    key:    'social' as const,
+    name:   'Social Media',
+    icon:   MessageCircle,
+    path:   '/social/inbox',
+    desc:   'WhatsApp · social inbox',
+    accent: MODULE_ACCENTS.social,
+    check:  (p: UserProfile | null) => p?.role === 'admin' || p?.socialAccess === true,
   },
   {
     key:    'mis' as const,

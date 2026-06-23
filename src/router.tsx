@@ -179,6 +179,10 @@ const PayoutDetailPage         = lazyPage(() => import('./features/mis/payouts/P
 const PayoutSlabsPage          = lazyPage(() => import('./features/mis/payouts/PayoutSlabsPage'), 'PayoutSlabsPage');
 const StatementTemplatesPage   = lazyPage(() => import('./features/mis/admin/StatementTemplatesPage'), 'StatementTemplatesPage');
 
+// Social Media module (WhatsApp inbox; grows to FB/IG)
+const SocialShell              = lazyPage(() => import('./components/layout/SocialShell'), 'SocialShell');
+const SocialInboxPage          = lazyPage(() => import('./features/social/InboxPage'), 'InboxPage');
+
 export const router = createBrowserRouter([
   {
     path: '/track/:token',
@@ -361,6 +365,16 @@ export const router = createBrowserRouter([
       { path: 'payouts/:payoutId',    element: s(<PayoutDetailPage />) },
       { path: 'admin/payout-slabs',   element: s(<PayoutSlabsPage />) },
       { path: 'admin/statement-templates', element: s(<StatementTemplatesPage />) },
+    ],
+  },
+  {
+    path: '/social',
+    element: s(<SocialShell />),
+    errorElement: <RouteErrorBoundary />,
+    children: [
+      { index: true,            element: <Navigate to="/social/inbox" replace /> },
+      { path: 'inbox',          element: s(<SocialInboxPage />) },
+      { path: 'inbox/:leadId',  element: s(<SocialInboxPage />) },
     ],
   },
   // Legacy / mistyped deep links → the canonical module path (don't hit the error boundary).

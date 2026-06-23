@@ -32,10 +32,11 @@ type WithId<T> = T & { id: string };
 export interface FieldDef {
   key: string;
   label: string;
-  kind: 'text' | 'number' | 'select' | 'multiselect' | 'date' | 'rows' | 'taglist';
+  kind: 'text' | 'number' | 'select' | 'multiselect' | 'date' | 'rows' | 'taglist' | 'stringlist';
   required?: boolean;
   options?: Array<{ value: string; label: string }>;   // select/multiselect
   rowFields?: Array<{ key: string; label: string; kind?: 'text' | 'number' | 'select'; options?: Array<{ value: string; label: string }> }>;  // for kind: 'rows'
+  addLabel?: string;        // for kind: 'stringlist' — the add-button text
   hint?: string;
   placeholder?: string;
   createOnly?: boolean;     // not editable after create (e.g. raw PAN re-entry optional)
@@ -75,6 +76,33 @@ function RowsEditor({ rowFields, value, onChange }: {
   );
 }
 
+// Explicit string-list editor (e.g. a product's sub-products): one input per item,
+// add/remove rows — clearer than a comma-separated field.
+function StringListEditor({ value, onChange, placeholder, addLabel }: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  placeholder?: string;
+  addLabel?: string;
+}) {
+  const items = Array.isArray(value) ? value : [];
+  const upd = (i: number, v: string) => onChange(items.map((x, j) => (j === i ? v : x)));
+  const add = () => onChange([...items, '']);
+  const del = (i: number) => onChange(items.filter((_, j) => j !== i));
+  return (
+    <div className="space-y-2">
+      {items.map((it, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <input className={inp()} placeholder={placeholder} value={it} onChange={(e) => upd(i, e.target.value)} />
+          <button onClick={() => del(i)} className="p-1 rounded hover:bg-(--shell-hover-hard)" aria-label="Remove">
+            <X size={13} style={{ color: '#f87171' }} />
+          </button>
+        </div>
+      ))}
+      <button onClick={add} className="text-xs font-semibold" style={{ color: '#C9A961' }}>+ {addLabel ?? 'Add'}</button>
+    </div>
+  );
+}
+
 const STATUS_AI = [{ value: 'ACTIVE', label: 'Active' }, { value: 'INACTIVE', label: 'Inactive' }];
 
 export const inp = (bad?: boolean) =>
@@ -104,6 +132,7 @@ function MasterFormModal({ title, fields, initial, onSubmit, onClose }: {
       const cur = initial?.[f.key];
       if (f.kind === 'multiselect') v[f.key] = Array.isArray(cur) ? cur : [];
       else if (f.kind === 'rows') v[f.key] = Array.isArray(cur) ? cur : [];
+      else if (f.kind === 'stringlist') v[f.key] = Array.isArray(cur) ? cur : [];
       else if (f.kind === 'taglist') v[f.key] = Array.isArray(cur) ? cur.join(', ') : (cur ?? '');
       else if (f.kind === 'date') {
         const ts = cur as { toDate?: () => Date } | null;
@@ -127,7 +156,7 @@ function MasterFormModal({ title, fields, initial, onSubmit, onClose }: {
     for (const f of fields) {
       if (!f.required) continue;
       const v = values[f.key];
-      if (f.kind === 'multiselect' ? (v as string[]).length === 0 : !String(v ?? '').trim()) {
+      if ((f.kind === 'multiselect' || f.kind === 'stringlist' || f.kind === 'rows') ? (v as unknown[]).length === 0 : !String(v ?? '').trim()) {
         e[f.key] = 'Required';
       }
     }
@@ -140,6 +169,7 @@ function MasterFormModal({ title, fields, initial, onSubmit, onClose }: {
         const v = values[f.key];
         if (f.kind === 'number') out[f.key] = String(v ?? '').trim() === '' ? null : Number(v);
         else if (f.kind === 'multiselect' || f.kind === 'rows') out[f.key] = v;
+        else if (f.kind === 'stringlist') out[f.key] = (Array.isArray(v) ? v : []).map((s) => String(s).trim()).filter(Boolean);
         else if (f.kind === 'taglist') out[f.key] = String(v ?? '').split(',').map((s) => s.trim()).filter(Boolean);
         else out[f.key] = String(v ?? '').trim() || null;
       }
@@ -185,6 +215,8 @@ function MasterFormModal({ title, fields, initial, onSubmit, onClose }: {
                 />
               ) : f.kind === 'rows' ? (
                 <RowsEditor rowFields={f.rowFields ?? []} value={values[f.key] as Array<Record<string, string>>} onChange={(v) => set(f.key, v)} />
+              ) : f.kind === 'stringlist' ? (
+                <StringListEditor value={values[f.key] as string[]} onChange={(v) => set(f.key, v)} placeholder={f.placeholder} addLabel={f.addLabel} />
               ) : (
                 <input
                   type={f.kind === 'number' ? 'number' : f.kind === 'date' ? 'date' : 'text'}
@@ -220,7 +252,7 @@ function fmtDetailValue(f: FieldDef, row: Record<string, unknown>): React.ReactN
     const arr = Array.isArray(v) ? v : [];
     return arr.length ? arr.map((x) => f.options?.find((o) => o.value === x)?.label ?? String(x)).join(', ') : '—';
   }
-  if (f.kind === 'taglist') { const arr = Array.isArray(v) ? v : []; return arr.length ? arr.join(', ') : '—'; }
+  if (f.kind === 'taglist' || f.kind === 'stringlist') { const arr = Array.isArray(v) ? v : []; return arr.length ? arr.join(', ') : '—'; }
   if (f.kind === 'rows') {
     const rows = Array.isArray(v) ? (v as Array<Record<string, unknown>>) : [];
     if (!rows.length) return '—';
@@ -908,7 +940,8 @@ export function Crm2MastersPage() {
             { key: 'shortCode', label: 'Short Code', kind: 'text', required: true, placeholder: 'LAP' },
             { key: 'vertical', label: 'Vertical', kind: 'select', required: true,
               options: [{ value: 'LOANS', label: 'Loans' }, { value: 'WEALTH', label: 'Wealth' }, { value: 'INSURANCE', label: 'Insurance' }, { value: 'CHANNEL_PARTNER', label: 'Channel Partner' }, { value: 'VAS', label: 'VAS' }] },
-            { key: 'subProducts', label: 'Sub-products', kind: 'taglist', placeholder: 'Salaried, Self-Employed, BT', hint: 'Comma-separated' },
+            { key: 'subProducts', label: 'Sub-products', kind: 'stringlist', placeholder: 'e.g. Prime LAP', addLabel: 'Add sub-product',
+              hint: 'Add each sub-product (e.g. LAP → Prime LAP). Sub-products appear in DSA Codes so you can map each to a lender + aggregator with its own DSA code + payout.' },
             { key: 'defaultDocChecklist', label: 'Default Documents', kind: 'multiselect', options: docOptions, hint: 'Auto-attached to the doc tracker for cases on this product' },
             { key: 'defaultRoiRange', label: 'Default ROI Range', kind: 'text', placeholder: '9.5%–12% (display only)' },
             { key: 'status', label: 'Status', kind: 'select', options: STATUS_AI },

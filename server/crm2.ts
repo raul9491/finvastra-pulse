@@ -258,6 +258,10 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     if (isCreate || b.name !== undefined) out.name = reqStr(b, "name");
     if (isCreate || b.shortCode !== undefined) out.shortCode = reqStr(b, "shortCode").toUpperCase();
     if (isCreate || b.vertical !== undefined) out.vertical = reqEnum(b, "vertical", ["LOANS", "WEALTH", "INSURANCE", "CHANNEL_PARTNER", "VAS"] as const);
+    if (isCreate || b.category !== undefined) {
+      const c = optStr(b, "category");
+      out.category = c && ["LOAN", "WEALTH", "INSURANCE", "CIBIL_CHECK", "PARTNER_DSA", "GENERAL"].includes(c) ? c : null;
+    }
     if (isCreate || b.subProducts !== undefined) out.subProducts = strArr(b, "subProducts");
     if (isCreate || b.defaultDocChecklist !== undefined) out.defaultDocChecklist = strArr(b, "defaultDocChecklist");
     if (isCreate || b.defaultRoiRange !== undefined) out.defaultRoiRange = optStr(b, "defaultRoiRange");

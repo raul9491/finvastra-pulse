@@ -112,8 +112,8 @@ export function Crm2LeadsPage() {
       .filter((e) => e.employeeStatus !== 'inactive' && e.employeeId)
       .map((e) => ({ value: e.employeeId!, label: `${e.displayName} (${e.employeeId})` })),
     [employees]);
-  const productOptions = useMemo(() =>
-    products.filter((p) => p.status === 'ACTIVE').map((p) => ({ value: p.id, label: `${p.name} (${p.shortCode})` })),
+  const productOptions = useMemo<ProductOpt[]>(() =>
+    products.filter((p) => p.status === 'ACTIVE').map((p) => ({ value: p.id, label: `${p.name} (${p.shortCode})`, cat: p.category ?? null })),
     [products]);
   const clientOptions = useMemo(() =>
     clients.filter((c) => c.status !== 'BLACKLISTED').map((c) => ({ value: c.id, label: `${c.name} · ${c.id}` })),
@@ -299,6 +299,9 @@ export function Crm2LeadsPage() {
 
 // Shared option/data props for the lead forms.
 type Opt = { value: string; label: string };
+type ProductOpt = Opt & { cat: string | null };   // cat = product's lead category (filters the picker)
+// Products whose category matches the lead's category (uncategorised show for all — legacy-safe).
+const filterProductsByCat = (opts: ProductOpt[], cat: string) => opts.filter((o) => !o.cat || o.cat === cat);
 type RefData = { clients: Array<Client & { id: string }>; subDsas: Array<SubDsa & { id: string }>; connectors: Connector[] };
 const CATEGORY_OPTS = ['LOAN', 'WEALTH', 'INSURANCE', 'CIBIL_CHECK', 'PARTNER_DSA', 'GENERAL'].map((c) => ({ value: c, label: c }));
 const SOURCE_OPTS = ['WALKIN', 'COLD_CALL', 'REFERRAL_CLIENT', 'REFERRAL_SUBDSA', 'JUSTDIAL', 'ADS', 'WEBSITE'].map((s) => ({ value: s, label: s.replace(/_/g, ' ') }));
@@ -319,7 +322,7 @@ function buildReferral(source: string, refSubDsaId: string, refClientId: string,
 
 // ─── New lead ─────────────────────────────────────────────────────────────────
 function NewLeadModal({ faplOptions, productOptions, clientOptions, subDsaOptions, partnerOptions, refData, onClose }: {
-  faplOptions: Opt[]; productOptions: Opt[]; clientOptions: Opt[]; subDsaOptions: Opt[]; partnerOptions: Opt[];
+  faplOptions: Opt[]; productOptions: ProductOpt[]; clientOptions: Opt[]; subDsaOptions: Opt[]; partnerOptions: Opt[];
   refData: RefData; onClose: () => void;
 }) {
   const toast = useToast();
@@ -412,7 +415,7 @@ function NewLeadModal({ faplOptions, productOptions, clientOptions, subDsaOption
             </div>
             <div>
               <FLabel text="Category" required />
-              <SearchableSelect value={f.category} onChange={(v) => set('category', v)} options={CATEGORY_OPTS} />
+              <SearchableSelect value={f.category} onChange={(v) => { set('category', v); set('productId', ''); }} options={CATEGORY_OPTS} />
             </div>
             <div>
               <FLabel text="Source" required />
@@ -436,7 +439,7 @@ function NewLeadModal({ faplOptions, productOptions, clientOptions, subDsaOption
             <div>
               <FLabel text="Product" />
               <SearchableSelect value={f.productId} onChange={(v) => set('productId', v)}
-                options={[{ value: '', label: '—' }, ...productOptions]} placeholder="—" />
+                options={[{ value: '', label: '—' }, ...filterProductsByCat(productOptions, f.category)]} placeholder="—" />
             </div>
             <div>
               <FLabel text="Amount Required ₹" />
@@ -544,7 +547,7 @@ function ReleaseControl({ leadId, onReleased }: { leadId: string; onReleased: ()
 function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, clients, clientOptions, subDsaOptions, partnerOptions, refData, onClose }: {
   lead: LeadRow;
   canWrite: boolean; canConvert: boolean;
-  faplOptions: Opt[]; productOptions: Opt[];
+  faplOptions: Opt[]; productOptions: ProductOpt[];
   clients: Array<Client & { id: string }>;
   clientOptions: Opt[]; subDsaOptions: Opt[]; partnerOptions: Opt[]; refData: RefData;
   onClose: () => void;
@@ -741,7 +744,7 @@ function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, c
 function ConvertModal({ lead, faplOptions, productOptions, clients, onClose, onDone }: {
   lead: LeadRow;
   faplOptions: Array<{ value: string; label: string }>;
-  productOptions: Array<{ value: string; label: string }>;
+  productOptions: ProductOpt[];
   clients: Array<Client & { id: string }>;
   onClose: () => void; onDone: () => void;
 }) {
@@ -891,7 +894,7 @@ function ConvertModal({ lead, faplOptions, productOptions, clients, onClose, onD
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <div>
                   <FLabel text="Product" required />
-                  <SearchableSelect value={productId} onChange={setProductId} options={productOptions} placeholder="Select product…" />
+                  <SearchableSelect value={productId} onChange={setProductId} options={filterProductsByCat(productOptions, lead.category)} placeholder="Select product…" />
                 </div>
                 <div>
                   <FLabel text="Handling RM" />

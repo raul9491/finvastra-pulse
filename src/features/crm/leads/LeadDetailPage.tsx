@@ -735,7 +735,9 @@ function PromoteToLeadDialog({ leadId, customerName, onClose, onMoved }: {
   const faplOptions = employees
     .filter((e) => e.employeeStatus !== 'inactive' && e.employeeId)
     .map((e) => ({ value: e.employeeId!, label: `${e.displayName} (${e.employeeId})` }));
-  const productOptions = products.filter((p) => p.status === 'ACTIVE')
+  // Filter products by the selected category (uncategorised show for all — legacy-safe).
+  const productOptions = products
+    .filter((p) => p.status === 'ACTIVE' && (!p.category || p.category === category))
     .map((p) => ({ value: p.id, label: `${p.name} (${p.shortCode})` }));
 
   const move = async () => {
@@ -763,7 +765,7 @@ function PromoteToLeadDialog({ leadId, customerName, onClose, onMoved }: {
           {err && <p className="text-sm" style={{ color: '#f87171' }}>{err}</p>}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Category <span className="text-red-500">*</span></label>
-            <SearchableSelect value={category} onChange={setCategory} options={PROMOTE_CATEGORIES} />
+            <SearchableSelect value={category} onChange={(v) => { setCategory(v); setProductId(''); }} options={PROMOTE_CATEGORIES} />
           </div>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Product</label>

@@ -934,12 +934,16 @@ export function Crm2MastersPage() {
           columns={[
             { header: 'Code', render: (r) => r.shortCode },
             { header: 'Vertical', render: (r) => r.vertical },
+            { header: 'Category', render: (r) => r.category ?? '—' },
           ]}
           fields={[
             { key: 'name', label: 'Product Name', kind: 'text', required: true, placeholder: 'Loan Against Property' },
             { key: 'shortCode', label: 'Short Code', kind: 'text', required: true, placeholder: 'LAP' },
             { key: 'vertical', label: 'Vertical', kind: 'select', required: true,
               options: [{ value: 'LOANS', label: 'Loans' }, { value: 'WEALTH', label: 'Wealth' }, { value: 'INSURANCE', label: 'Insurance' }, { value: 'CHANNEL_PARTNER', label: 'Channel Partner' }, { value: 'VAS', label: 'VAS' }] },
+            { key: 'category', label: 'Lead Category', kind: 'select',
+              options: [{ value: '', label: '— none —' }, { value: 'LOAN', label: 'Loan' }, { value: 'WEALTH', label: 'Wealth' }, { value: 'INSURANCE', label: 'Insurance' }, { value: 'CIBIL_CHECK', label: 'CIBIL Check' }, { value: 'PARTNER_DSA', label: 'Partner DSA' }, { value: 'GENERAL', label: 'General' }],
+              hint: 'Filters the product list when an agent adds a lead of this category.' },
             { key: 'defaultDocChecklist', label: 'Default Documents', kind: 'multiselect', options: docOptions, hint: 'Auto-attached to the doc tracker for cases on this product' },
             { key: 'defaultRoiRange', label: 'Default ROI Range', kind: 'text', placeholder: '9.5%–12% (display only)' },
             { key: 'status', label: 'Status', kind: 'select', options: STATUS_AI },

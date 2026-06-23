@@ -64,6 +64,7 @@ export interface Product extends Audit {
   name: string;
   shortCode: string;                  // "LAP", "BL", "HL"
   vertical: ProductVertical;
+  category: Crm2LeadCategory | null;  // filters the product picker when adding a lead
   subProducts: string[];              // LEGACY — sub-products now live in the SubProduct master
   defaultDocChecklist: string[];      // documentMaster ids
   defaultRoiRange: string | null;     // display only

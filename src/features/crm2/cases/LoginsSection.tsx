@@ -36,10 +36,10 @@ const fmtMoney = (n: number | null | undefined) => (n == null ? '—' : `₹${n.
 // Stage 6 — In-Process parallel sub-processes (PLAN §4 stage 6).
 const SUB_PROCS: Array<{ key: 'pd' | 'technical' | 'valuation' | 'legal' | 'credit'; label: string }> = [
   { key: 'pd', label: 'Personal Discussion (PD)' },
-  { key: 'technical', label: 'Technical' },
-  { key: 'valuation', label: 'Valuation' },
-  { key: 'legal', label: 'Legal' },
-  { key: 'credit', label: 'Credit' },
+  { key: 'technical', label: 'Technical Assessment' },
+  { key: 'valuation', label: 'Property Valuation' },
+  { key: 'legal', label: 'Legal Check' },
+  { key: 'credit', label: 'Credit Appraisal' },
 ];
 const SP_STATUS_OPTS = ['NA', 'PENDING', 'IN_PROGRESS', 'DONE'].map((v) => ({ value: v, label: v.replace('_', ' ') }));
 const BT_MODE_OPTS = [{ value: '', label: '—' }, { value: 'cheque', label: 'Cheque' }, { value: 'e_transfer', label: 'E-transfer (NEFT/RTGS)' }];
@@ -724,7 +724,7 @@ function LoginFormModal({ caseId, caseProductId, caseSubProduct, login, lenders,
       <Section title="⑤ Disbursement extras (BT · Secured)">
         <Check label="Balance Transfer (BT)" checked={bt.isBt} onChange={(b) => setBt((p) => ({ ...p, isBt: b }))} />
         {bt.isBt && (
-          <div className="grid grid-cols-2 gap-3 pl-1">
+          <div className="grid grid-cols-2 gap-3 pl-3 ml-1 py-2 rounded-r-lg" style={{ borderLeft: '3px solid #C9A961', backgroundColor: 'rgba(201,169,97,0.05)' }}>
             <div><FLabel text="BT Amount ₹" /><input type="number" className={inp()} value={bt.amount} onChange={(e) => setBt((p) => ({ ...p, amount: e.target.value }))} /></div>
             <div><FLabel text="BT Date" /><input type="date" className={inp()} value={bt.date} onChange={(e) => setBt((p) => ({ ...p, date: e.target.value }))} /></div>
             <div><FLabel text="Mode" /><SearchableSelect value={bt.mode} onChange={(v) => setBt((p) => ({ ...p, mode: v }))} options={BT_MODE_OPTS} /></div>
@@ -733,7 +733,7 @@ function LoginFormModal({ caseId, caseProductId, caseSubProduct, login, lenders,
         )}
         <Check label="Secured (MODT / agreement / hypothecation)" checked={sec.isSecured} onChange={(b) => setSec((p) => ({ ...p, isSecured: b }))} />
         {sec.isSecured && (
-          <div className="grid grid-cols-2 gap-3 pl-1">
+          <div className="grid grid-cols-2 gap-3 pl-3 ml-1 py-2 rounded-r-lg" style={{ borderLeft: '3px solid #C9A961', backgroundColor: 'rgba(201,169,97,0.05)' }}>
             <div><FLabel text="MODT Date" /><input type="date" className={inp()} value={sec.modtDate} onChange={(e) => setSec((p) => ({ ...p, modtDate: e.target.value }))} /></div>
             <div><FLabel text="Agreement Date" /><input type="date" className={inp()} value={sec.agreementDate} onChange={(e) => setSec((p) => ({ ...p, agreementDate: e.target.value }))} /></div>
             <div className="col-span-2"><FLabel text="Mode" /><SearchableSelect value={sec.mode} onChange={(v) => setSec((p) => ({ ...p, mode: v }))} options={SEC_MODE_OPTS} /></div>

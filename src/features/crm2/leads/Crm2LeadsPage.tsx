@@ -53,7 +53,7 @@ const STATUS_META: Record<Crm2LeadStatus, { label: string; color: string }> = {
   ATTEMPTED:      { label: 'Attempted',      color: '#fbbf24' },
   CONTACTED:      { label: 'Contacted',      color: '#34d399' },
   QUALIFIED:      { label: 'Qualified',      color: '#C9A961' },
-  JUNK_DUPLICATE: { label: 'Junk/Dup',       color: '#8B8B85' },
+  JUNK_DUPLICATE: { label: 'Junk / Duplicate', color: '#8B8B85' },
   NOT_INTERESTED: { label: 'Not Interested', color: '#f87171' },
   CONVERTED:      { label: 'Converted',      color: '#34d399' },
   DROPPED:        { label: 'Dropped',        color: '#f87171' },

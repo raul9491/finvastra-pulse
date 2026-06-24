@@ -884,6 +884,15 @@ export function Crm2MastersPage() {
         <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
           Connectors, lenders, products, aggregators, DSA code mappings and the document checklist
         </p>
+        <div className="mt-2 text-[11px] px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(201,169,97,0.08)', color: 'var(--text-muted)' }}>
+          <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>How it fits together:</span>{' '}
+          <strong style={{ color: 'var(--text-secondary)' }}>Aggregator</strong> (the company that sends us cases) →{' '}
+          <strong style={{ color: 'var(--text-secondary)' }}>Lender</strong> →{' '}
+          <strong style={{ color: 'var(--text-secondary)' }}>Product</strong> →{' '}
+          <strong style={{ color: 'var(--text-secondary)' }}>Sub-Product</strong> →{' '}
+          a <strong style={{ color: 'var(--text-secondary)' }}>DSA code + payout %</strong> (set in “DSA Codes”).{' '}
+          A <strong style={{ color: 'var(--text-secondary)' }}>Connector</strong> is the partner who referred the customer.
+        </div>
       </div>
 
       <div className="flex gap-1.5 flex-wrap">

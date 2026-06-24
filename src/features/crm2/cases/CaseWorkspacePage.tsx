@@ -20,6 +20,7 @@ import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { MultiSearchableSelect } from '../../../components/ui/SearchableSelect';
 import { STAGE_LABEL } from './Crm2CasesPage';
 import { LoginsSection } from './LoginsSection';
+import { payoutStatusLabel } from '../labels';
 import { useConnectors } from '../../hrms/hooks/useConnectors';
 import type { Connector } from '../../../types';
 import {
@@ -267,10 +268,10 @@ export function CaseWorkspacePage() {
                 {totalActiveBanks} {totalActiveBanks === 1 ? 'bank' : 'banks'} active
               </span>
             )}
-            <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full"
+            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full"
               title="Payout status — mirrored from the Payout Cycle (read-only)"
               style={{ backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-muted)' }}>
-              Payout: {caseDoc.payoutStatus}
+              Payout: {payoutStatusLabel(caseDoc.payoutStatus)}
             </span>
             {caseDoc.outcome && (
               <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full"

@@ -13,6 +13,7 @@ import { useToast } from '../../../components/ui/Toast';
 import { apiCrm2, hasCrm2Perm } from '../lib';
 import { FLabel, inp } from '../masters/MastersPage';
 import type { Crm2Case, PayoutCycle, PayoutCycleStatus } from '../../../types/crm2';
+import { PAYOUT_STATUS_LABEL } from '../labels';
 
 const inr = (n: number | null | undefined) => n != null ? `₹${Number(n).toLocaleString('en-IN')}` : '—';
 const fmtTs = (t: { toDate?: () => Date; _seconds?: number } | null | undefined) => {
@@ -21,12 +22,8 @@ const fmtTs = (t: { toDate?: () => Date; _seconds?: number } | null | undefined)
   return ms ? new Date(ms).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : null;
 };
 
-export const CYCLE_STATUS_LABEL: Record<PayoutCycleStatus, string> = {
-  AWAITING_DATA_SHARE: 'Awaiting Data Share', CONFIRMATION_RAISED: 'Confirmation Raised',
-  BANKER_CONFIRMED: 'Banker Confirmed', PDD_OTC_HOLD: 'PDD/OTC Hold',
-  PAYOUT_CONFIRMED: 'Payout Confirmed', BILLED: 'Billed', RECEIVED: 'Received',
-  SUBDSA_PAID: 'Connector Paid', CLOSED: 'Closed', DISPUTED: 'Disputed',
-};
+// Single source of truth for payout-status wording lives in ../labels.
+export const CYCLE_STATUS_LABEL: Record<PayoutCycleStatus, string> = PAYOUT_STATUS_LABEL;
 
 // The 10 steps (step 1 = disbursement, already done when a cycle exists).
 const STEPS: Array<{ step: number; label: string; anchor: keyof PayoutCycle; fields: Array<{ key: string; label: string; type: 'text' | 'number' | 'date'; money?: boolean }> }> = [

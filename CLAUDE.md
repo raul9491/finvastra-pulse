@@ -3015,6 +3015,15 @@ CRM 2.0 Leads (`Crm2LeadsPage.tsx` + `QueuePanel.tsx` + `server/crm2.ts`), per R
 - **Follow-up shows date + time** (2026-06-22 follow-up): the leads-list Follow-up column now renders `fmtTsFull` (date **and** time) instead of date-only — the drawer picker was already `datetime-local`, so the time was captured but not displayed. Dropped the now-unused `fmtTs` helper.
 tsc + `build:prod` clean.
 
+### CRM/Leads employee-friendliness — Tier 1 wording/clarity pass (2026-06-24) — ✅ DEPLOYED (hosting-only, verify:deploy 3/3 green)
+Plain-words UX audit of CRM 2.0 Leads + 10-stage Cases + Masters (report: `~/.claude/plans/melodic-roaming-sloth.md`). **Presentation-only — no logic, no stage change, no stored-value/field-name change.** Tier 1 (quick wins) shipped:
+- **NEW `src/features/crm2/labels.ts`** — single source of truth for friendly display wording (keys off the stored enum, falls back to title-case via `humanize`): `SOURCE_LABEL`/`sourceLabel`, `CATEGORY_LABEL`/`categoryLabel`, `PAYOUT_STATUS_LABEL`/`payoutStatusLabel`. **Stored values unchanged** (`HOT`, `WALKIN`, `AWAITING_DATA_SHARE`, `connectorId`, …).
+- **Leads** (`Crm2LeadsPage`): source/category dropdowns + table now read human ("Walk-in", "Social Ad", "Referral (Connector)", "Partner Sign-up", "CIBIL Check"); the red **HIGH** badge gained a tooltip ("website/social — contact fast"); Entity-vs-Customer hint added; **Release-to-queue** promoted from a tiny red link to a bordered button with a tooltip.
+- **Payout status** wording centralised: `PayoutTab.CYCLE_STATUS_LABEL` now re-exports `PAYOUT_STATUS_LABEL` (one source); the case header "Payout: …" badge reads human (e.g. "Awaiting data share", "Paid to partner", "Not due yet") instead of raw ALL_CAPS.
+- **Disburse dialog** (`LoginsSection`): killed the "Connector" collision — the SDSA slab leg → **"Sub-DSA payout % (override)"**, the FAC-/CON- sourcing partner → **"Connector payout (sourcing partner) — <name>"**. "Verified App No" → "Verified Application No" + placeholder hint.
+- **File-Login docs-sent gate honest**: the "Save & advance" button is now disabled with a tooltip + reads "Tick 'Docs sent' to advance" until the box is ticked (was a late error after clicking).
+- tsc + `build:prod` clean. Emulator gates untouched (no server/logic change). **Tier 2/3** (legacy-list relabel, case-vs-login divider, field grouping, sub-process labels) remain in the report for later.
+
 ### Product gains a lead Category — filters the product picker when adding a lead (2026-06-23) — ✅ DEPLOYED TO PRODUCTION (rev `pulse-api-00073-5vf`, Cloud Run + hosting, verify:deploy 3/3 green)
 Agents adding a lead saw **every** product in the picker (confusing). Added a **`category` to the Product master** (reuses the lead-category enum: LOAN/WEALTH/INSURANCE/CIBIL_CHECK/PARTNER_DSA/GENERAL) so the product list **filters by the selected lead Category**.
 - **Type** `Product.category: Crm2LeadCategory | null` (additive). Server `sanitizeProduct` accepts it (enum-validated, else null). No rules/index change (existing collection).

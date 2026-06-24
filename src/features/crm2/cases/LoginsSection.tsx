@@ -291,10 +291,10 @@ function DisburseLoginDialog({ caseId, login, onClose }: { caseId: string; login
         <div><FLabel text="State" required /><input className={inp()} value={f.state} onChange={(e) => set('state', e.target.value)} /></div>
         <div><FLabel text="ROI %" /><input type="number" className={inp()} value={f.roiPct} onChange={(e) => set('roiPct', e.target.value)} /></div>
         <div><FLabel text="Processing Fee ₹" /><input type="number" className={inp()} value={f.processingFee} onChange={(e) => set('processingFee', e.target.value)} /></div>
-        <div className="col-span-2"><FLabel text="Connector payout % override (optional)" /><input type="number" className={inp()} value={f.subDsaPayoutPct} onChange={(e) => set('subDsaPayoutPct', e.target.value)} placeholder="defaults to the Connector's slab %" /></div>
+        <div className="col-span-2"><FLabel text="Sub-DSA payout % (override, optional)" /><input type="number" className={inp()} value={f.subDsaPayoutPct} onChange={(e) => set('subDsaPayoutPct', e.target.value)} placeholder="defaults to the DSA-code slab %" /></div>
         {preview?.channelPartner && (
           <div className="col-span-2">
-            <FLabel text={`Connector payout — ${preview.channelPartner.name ?? 'sourcing partner'}`} />
+            <FLabel text={`Connector payout (sourcing partner) — ${preview.channelPartner.name ?? '—'}`} />
             <input type="number" className={inp()} value={f.channelPartnerPayoutOverride}
               onChange={(e) => set('channelPartnerPayoutOverride', e.target.value)}
               placeholder={preview.channelPartner.payout != null ? `auto ₹${preview.channelPartner.payout.toLocaleString('en-IN')} — leave blank to use it` : 'no rule — enter to pay manually'} />
@@ -701,7 +701,7 @@ function LoginFormModal({ caseId, caseProductId, caseSubProduct, login, lenders,
           <div><FLabel text="Insurance ₹" /><input type="number" className={inp()} value={f.insuranceAmount} onChange={(e) => set('insuranceAmount', e.target.value)} /></div>
           <div><FLabel text="Other Charges ₹" /><input type="number" className={inp()} value={f.otherCharges} onChange={(e) => set('otherCharges', e.target.value)} /></div>
           <div><FLabel text="Sanction Date" /><input type="date" className={inp()} value={f.sanctionDate} onChange={(e) => set('sanctionDate', e.target.value)} /></div>
-          <div><FLabel text="Verified App No" /><input className={inp()} value={f.verifiedAppNo} onChange={(e) => set('verifiedAppNo', e.target.value)} /></div>
+          <div><FLabel text="Verified Application No" /><input className={inp()} value={f.verifiedAppNo} onChange={(e) => set('verifiedAppNo', e.target.value)} placeholder="the bank's application number" /></div>
           <div className="col-span-2"><FLabel text="Customer Decision" /><SearchableSelect value={f.customerDecision} onChange={(v) => set('customerDecision', v)} options={DECISION_OPTS} /></div>
         </div>
       </Section>
@@ -771,11 +771,17 @@ function LoginFormModal({ caseId, caseProductId, caseSubProduct, login, lenders,
         <div className="flex flex-wrap gap-3 pt-1">
           <button onClick={onClose} className="py-2.5 px-4 rounded-lg text-sm font-semibold border" style={{ borderColor: 'var(--shell-border)', color: 'var(--text-muted)' }}>Cancel</button>
           <button onClick={save} disabled={busy} className="py-2.5 px-4 rounded-lg text-sm font-semibold border" style={{ borderColor: 'var(--shell-border)', color: 'var(--text-primary)' }}>{busy ? '…' : 'Save'}</button>
-          {advanceable && nextStage && (
-            <button onClick={requestAdvance} disabled={busy} className="flex-1 min-w-40 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
-              Save &amp; advance to {STAGE_LABEL[nextStage]} →
-            </button>
-          )}
+          {advanceable && nextStage && (() => {
+            const advanceBlocked = focusStage === 'FILE_LOGIN' && !f.docsSent;
+            return (
+              <button onClick={requestAdvance} disabled={busy || advanceBlocked}
+                title={advanceBlocked ? 'Tick “Docs sent to bank” above to advance' : undefined}
+                className="flex-1 min-w-40 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+                {advanceBlocked ? 'Tick “Docs sent” to advance' : <>Save &amp; advance to {STAGE_LABEL[nextStage]} →</>}
+              </button>
+            );
+          })()}
         </div>
       )}
       </>)}

@@ -24,6 +24,7 @@ import { QueuePanel } from '../queue/QueuePanel';
 import { useQueueActions } from '../queue/useQueue';
 import { useConnectors } from '../../hrms/hooks/useConnectors';
 import { isSuperAdmin } from '../../../config/hrmsConfig';
+import { sourceLabel, categoryLabel } from '../labels';
 import type { Connector } from '../../../types';
 import type { Crm2LeadFields, Crm2LeadStatus, Product, Client, SubDsa } from '../../../types/crm2';
 
@@ -255,11 +256,12 @@ export function Crm2LeadsPage() {
                         <ContactActions phone={r.mobile} email={r.email} name={r.name} size="sm" />
                       </div>
                     </td>
-                    <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{r.category}</td>
+                    <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{categoryLabel(r.category)}</td>
                     <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {r.source}
+                      {sourceLabel(r.source)}
                       {hotSource && (
-                        <span className="ml-1.5 inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-full align-middle"
+                        <span className="ml-1.5 inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-full align-middle cursor-help"
+                          title="High priority — website / social lead. Contact fast."
                           style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>HIGH</span>
                       )}
                     </td>
@@ -303,8 +305,8 @@ type ProductOpt = Opt & { cat: string | null };   // cat = product's lead catego
 // Products whose category matches the lead's category (uncategorised show for all — legacy-safe).
 const filterProductsByCat = (opts: ProductOpt[], cat: string) => opts.filter((o) => !o.cat || o.cat === cat);
 type RefData = { clients: Array<Client & { id: string }>; subDsas: Array<SubDsa & { id: string }>; connectors: Connector[] };
-const CATEGORY_OPTS = ['LOAN', 'WEALTH', 'INSURANCE', 'CIBIL_CHECK', 'PARTNER_DSA', 'GENERAL'].map((c) => ({ value: c, label: c }));
-const SOURCE_OPTS = ['WALKIN', 'COLD_CALL', 'REFERRAL_CLIENT', 'REFERRAL_SUBDSA', 'JUSTDIAL', 'ADS', 'WEBSITE'].map((s) => ({ value: s, label: s.replace(/_/g, ' ') }));
+const CATEGORY_OPTS = ['LOAN', 'WEALTH', 'INSURANCE', 'CIBIL_CHECK', 'PARTNER_DSA', 'GENERAL'].map((c) => ({ value: c, label: categoryLabel(c) }));
+const SOURCE_OPTS = ['WALKIN', 'COLD_CALL', 'REFERRAL_CLIENT', 'REFERRAL_SUBDSA', 'JUSTDIAL', 'ADS', 'WEBSITE'].map((s) => ({ value: s, label: sourceLabel(s) }));
 const CONSTITUTION_LEAD_OPTS = [{ value: '', label: '—' }, ...['INDIVIDUAL', 'PROPRIETORSHIP', 'PARTNERSHIP', 'LLP', 'PVT_LTD', 'HUF'].map((c) => ({ value: c, label: c.replace(/_/g, ' ') }))];
 
 /** Builds the referral payload (referredBy*) from the chosen source + picker value. */
@@ -392,6 +394,7 @@ function NewLeadModal({ faplOptions, productOptions, clientOptions, subDsaOption
               <FLabel text="Entity Name" required error={errs.name} />
               <input className={inp(!!errs.name)} value={f.name} onChange={(e) => set('name', e.target.value)}
                 placeholder="Business / applicant entity" />
+              <p className="mt-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>Entity = the business / applicant. Customer = the person we actually call.</p>
             </div>
             <div className="col-span-2">
               <label className="flex items-center gap-2 mb-1.5 cursor-pointer select-none">
@@ -524,7 +527,10 @@ function ReleaseControl({ leadId, onReleased }: { leadId: string; onReleased: ()
   };
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="mt-1.5 text-xs font-semibold" style={{ color: '#f87171' }}>
+      <button onClick={() => setOpen(true)}
+        title="Return this lead to the shared queue so another agent can pick it up"
+        className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border"
+        style={{ borderColor: 'rgba(248,113,113,0.5)', color: '#f87171' }}>
         ↩ Release to queue
       </button>
     );
@@ -584,7 +590,7 @@ function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, c
               <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Contact: <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>{lead.customerName}</span></p>
             )}
             <p className="text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>
-              {lead.leadCode ?? lead.id} · {lead.mobile}{lead.email ? ` · ${lead.email}` : ''} · {lead.source}
+              {lead.leadCode ?? lead.id} · {lead.mobile}{lead.email ? ` · ${lead.email}` : ''} · {sourceLabel(lead.source)}
             </p>
             {(lead.referredByName || lead.linkedExistingClientId || lead.channelPartnerName) && (
               <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>

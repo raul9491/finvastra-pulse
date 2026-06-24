@@ -24,6 +24,10 @@ const STAGE_LABEL: Record<LoginStage, string> = {
   FILE_LOGIN: 'File Login', CODE_LOGIN_DONE: 'Code + Login', IN_PROCESS: 'In Process',
   SANCTIONED: 'Sanctioned', DISBURSED: 'Disbursed', PDD_OTC: 'PDD / OTC', COMPLETED: 'Completed',
 };
+// Per-login stages map to the case pipeline's stages 4–9 (10 = Completed).
+const STAGE_NUM: Record<LoginStage, number> = {
+  FILE_LOGIN: 4, CODE_LOGIN_DONE: 5, IN_PROCESS: 6, SANCTIONED: 7, DISBURSED: 8, PDD_OTC: 9, COMPLETED: 10,
+};
 const DECISION_OPTS = [{ value: '', label: '—' }, { value: 'ACCEPTED', label: 'Accepted' }, { value: 'PENDING', label: 'Pending' }, { value: 'REJECTED', label: 'Rejected' }];
 const PDD_OPTS = ['NA', 'PENDING', 'PARTIAL', 'CLEARED'].map((v) => ({ value: v, label: v }));
 const OTC_OPTS = ['NA', 'PENDING', 'CLEARED'].map((v) => ({ value: v, label: v }));
@@ -579,10 +583,19 @@ function LoginFormModal({ caseId, caseProductId, caseSubProduct, login, lenders,
           </div>
         </div>
       ) : (<>
+      <div className="mb-1 px-3 py-2 rounded-lg flex items-center gap-2 flex-wrap"
+        style={{ backgroundColor: 'rgba(201,169,97,0.10)', border: '1px solid rgba(201,169,97,0.25)' }}>
+        <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+          Stage {STAGE_NUM[focusStage]}
+        </span>
+        <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+          {readOnly ? 'Viewing' : isCreate ? 'New login' : 'Working'}: {STAGE_LABEL[focusStage]}
+        </span>
+      </div>
       <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-        {readOnly ? <>Viewing <strong style={{ color: '#C9A961' }}>{STAGE_LABEL[focusStage]}</strong> — a completed stage (read-only).</>
-          : isCreate ? <>Opening a new login at <strong style={{ color: '#C9A961' }}>File Login</strong>.</>
-          : <>Working <strong style={{ color: '#C9A961' }}>{STAGE_LABEL[focusStage]}</strong> — enter the details, then save{advanceable && nextStage ? ` & advance to ${STAGE_LABEL[nextStage]}` : ''}.</>}
+        {readOnly ? <>A completed stage — <strong>read-only</strong>.</>
+          : isCreate ? <>Enter the bank/NBFC details to open this login.</>
+          : <>Enter the details, then save{advanceable && nextStage ? ` & advance to ${STAGE_LABEL[nextStage]}` : ''}.</>}
       </p>
 
       <div className={readOnly ? 'pointer-events-none opacity-90' : ''}>

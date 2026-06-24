@@ -439,6 +439,10 @@ function NewLeadModal({ faplOptions, productOptions, clientOptions, subDsaOption
                   options={[{ value: '', label: '— select —' }, ...clientOptions]} placeholder="— select —" />
               </div>
             )}
+            <div className="col-span-2 flex items-center gap-3 pt-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>Optional details</span>
+              <span className="flex-1 h-px" style={{ backgroundColor: 'var(--shell-border)' }} />
+            </div>
             <div>
               <FLabel text="Product" />
               <SearchableSelect value={f.productId} onChange={(v) => set('productId', v)}

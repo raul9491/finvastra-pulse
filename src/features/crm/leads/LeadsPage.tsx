@@ -245,10 +245,13 @@ export function LeadsPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-            Customers
+            Customers <span className="text-base not-italic align-middle px-2 py-0.5 rounded-full" style={{ fontFamily: 'inherit', backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-muted)' }}>Legacy</span>
           </h2>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
             {loading ? 'Loading…' : `${tableLeads.length} to action · ${filtered.length} total · each row is a person, not a deal`}
+          </p>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+            Older list — being phased into <strong style={{ color: 'var(--text-secondary)' }}>Leads</strong>. Mark a customer “Interested” to move them across.
           </p>
         </div>
         <button

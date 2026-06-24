@@ -207,8 +207,14 @@ export function CaseWorkspacePage() {
         )}
         {n >= 4 && n <= 9 && (
           <>
+            <div className="flex items-center gap-3 pt-1">
+              <span className="text-xs font-bold uppercase tracking-widest whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
+                Per-bank files · stages 4–9
+              </span>
+              <span className="flex-1 h-px" style={{ backgroundColor: 'var(--shell-border)' }} />
+            </div>
             <p className="text-[11px] px-3 py-2 rounded-lg" style={{ backgroundColor: 'rgba(201,169,97,0.08)', color: 'var(--text-muted)' }}>
-              Stages 4–9 are worked <b>per login</b> (one file → one bank/NBFC). Each login below runs File&nbsp;Login → Code → In&nbsp;Process → Sanctioned → Disbursed → PDD/OTC — advance each with its own button.
+              From here each <b>bank/NBFC file</b> is worked on its own card below (one file → one bank). Each runs File&nbsp;Login → Code → In&nbsp;Process → Sanctioned → Disbursed → PDD/OTC — advance each with its own button. Add as many banks as you apply to.
             </p>
             <LoginsSection caseId={caseDoc.id} caseProductId={(caseDoc as { productId?: string }).productId ?? ''} caseSubProduct={caseDoc.subProduct ?? ''} canWrite={canWrite} />
           </>

@@ -451,7 +451,7 @@ export function ImportEmployeesPage() {
             {loading && (
               <div className="h-2 bg-(--glass-panel-bg)">
                 <div className="h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${progress}%`, backgroundColor: 'var(--text-primary)' }} />
+                  style={{ width: `${progress}%`, backgroundColor: '#0B1538' }} />
               </div>
             )}
 

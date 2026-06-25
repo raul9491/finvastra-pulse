@@ -204,7 +204,7 @@ export function EmployeeDirectoryPage() {
           <button
             onClick={() => setDeptFilter('')}
             className="px-3 py-1 rounded-full text-xs font-semibold transition-colors"
-            style={deptFilter === '' ? { backgroundColor: 'var(--text-primary)', color: '#FFFFFF' } : { backgroundColor: '#F2EFE7', color: 'var(--text-primary)' }}
+            style={deptFilter === '' ? { backgroundColor: '#0B1538', color: '#FFFFFF' } : { backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-secondary)' }}
           >
             All ({activeEmployees.length})
           </button>
@@ -215,7 +215,7 @@ export function EmployeeDirectoryPage() {
                 key={dept}
                 onClick={() => setDeptFilter(dept === deptFilter ? '' : dept)}
                 className="px-3 py-1 rounded-full text-xs font-semibold transition-colors"
-                style={deptFilter === dept ? { backgroundColor: 'var(--text-primary)', color: '#FFFFFF' } : { backgroundColor: '#F2EFE7', color: 'var(--text-primary)' }}
+                style={deptFilter === dept ? { backgroundColor: '#0B1538', color: '#FFFFFF' } : { backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-secondary)' }}
               >
                 {dept} ({count})
               </button>

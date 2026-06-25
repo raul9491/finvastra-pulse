@@ -65,7 +65,7 @@ function ProfileBanner({ profile }: { profile: UserProfile }) {
         ) : (
           <div
             className="w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold text-gold"
-            style={{ backgroundColor: 'var(--text-primary)', border: '4px solid white', boxShadow: '0 4px 16px rgba(0,0,0,0.15)' }}
+            style={{ backgroundColor: '#0B1538', border: '4px solid white', boxShadow: '0 4px 16px rgba(0,0,0,0.15)' }}
           >
             {initials}
           </div>

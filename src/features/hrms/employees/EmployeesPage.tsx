@@ -719,7 +719,7 @@ export function EmployeesPage() {
                 <button key={f} onClick={() => setStatusFilter(f)}
                   className="px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-colors"
                   style={statusFilter === f
-                    ? { backgroundColor: 'var(--text-primary)', color: '#FFFFFF' }
+                    ? { backgroundColor: '#0B1538', color: '#FFFFFF' }
                     : { color: 'var(--text-muted)' }}>
                   {f}
                 </button>

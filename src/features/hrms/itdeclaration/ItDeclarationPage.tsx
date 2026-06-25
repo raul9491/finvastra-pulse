@@ -126,7 +126,7 @@ function SummaryCard({
   return (
     <div className="rounded-2xl border border-(--shell-border) bg-(--glass-panel-bg) overflow-hidden">
       <div className="px-5 py-3 flex items-center gap-2"
-        style={{ backgroundColor: 'var(--text-primary)', borderBottom: '1px solid #1B2A4E' }}>
+        style={{ backgroundColor: '#0B1538', borderBottom: '1px solid #1B2A4E' }}>
         <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#C9A961' }}>
           Live Summary
         </p>

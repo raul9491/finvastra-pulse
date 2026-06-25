@@ -610,7 +610,7 @@ export function RecruitmentPage() {
           <div className="flex justify-end">
             <button onClick={() => setAddingOpening(true)}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80"
-              style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF' }}>
+              style={{ backgroundColor: '#0B1538', color: '#FFFFFF' }}>
               <Plus size={14} />New Opening
             </button>
           </div>
@@ -688,7 +688,7 @@ export function RecruitmentPage() {
             <div className="ml-auto">
               <button onClick={() => setAddingCandidate(true)}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80"
-                style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF' }}>
+                style={{ backgroundColor: '#0B1538', color: '#FFFFFF' }}>
                 <Plus size={14} />Add Candidate
               </button>
             </div>

@@ -256,7 +256,7 @@ export function PerformancePage() {
               type="submit"
               disabled={saving}
               className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity"
-              style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}
+              style={{ backgroundColor: '#0B1538', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}
             >
               {saving ? 'Submitting…' : 'Submit Self-Assessment'}
             </button>
@@ -367,7 +367,7 @@ export function PerformancePage() {
         <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-6 space-y-4">
           <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Increment Details</h3>
           <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-xl p-4" style={{ backgroundColor: '#F2EFE7' }}>
+            <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid var(--shell-border)' }}>
               <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }}>
                 Previous Salary
               </p>

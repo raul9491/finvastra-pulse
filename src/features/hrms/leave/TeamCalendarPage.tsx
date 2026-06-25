@@ -52,7 +52,7 @@ function LeaveChip({
   name: string;
   type: LeaveType;
 }) {
-  const meta = TYPE_META[type] ?? { abbr: '?', bg: '#F2EFE7', text: 'var(--text-primary)' };
+  const meta = TYPE_META[type] ?? { abbr: '?', bg: 'var(--shell-hover-hard)', text: 'var(--text-secondary)' };
   const firstName = name.split(' ')[0];
   const initial = name[0].toUpperCase();
 
@@ -105,7 +105,7 @@ function DayCell({
           className={`text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full ${
             isToday ? 'text-white' : isCurrent && !isSunday ? 'text-(--text-primary)' : 'text-(--text-muted)'
           }`}
-          style={isToday ? { backgroundColor: 'var(--text-primary)' } : undefined}
+          style={isToday ? { backgroundColor: '#0B1538' } : undefined}
         >
           {isCurrent ? format(date, 'd') : ''}
         </span>
@@ -336,7 +336,7 @@ export function TeamCalendarPage() {
             <button
               onClick={() => setDeptFilter('')}
               className="px-2.5 py-1 rounded-full text-xs font-semibold transition-colors"
-              style={deptFilter === '' ? { backgroundColor: 'var(--text-primary)', color: '#FFFFFF' } : { backgroundColor: '#F2EFE7', color: 'var(--text-primary)' }}
+              style={deptFilter === '' ? { backgroundColor: '#0B1538', color: '#FFFFFF' } : { backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-secondary)' }}
             >
               All
             </button>
@@ -345,7 +345,7 @@ export function TeamCalendarPage() {
                 key={dept}
                 onClick={() => setDeptFilter(dept === deptFilter ? '' : dept)}
                 className="px-2.5 py-1 rounded-full text-xs font-semibold transition-colors"
-                style={deptFilter === dept ? { backgroundColor: 'var(--text-primary)', color: '#FFFFFF' } : { backgroundColor: '#F2EFE7', color: 'var(--text-primary)' }}
+                style={deptFilter === dept ? { backgroundColor: '#0B1538', color: '#FFFFFF' } : { backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-secondary)' }}
               >
                 {dept}
               </button>

@@ -215,7 +215,7 @@ export function ApplyLeavePage() {
         {fromDate && toDate && (
           <div
             className="rounded-xl px-4 py-3 text-sm space-y-0.5"
-            style={{ backgroundColor: '#F2EFE7' }}
+            style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid var(--shell-border)' }}
           >
             <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
               {workingDays} working day{workingDays !== 1 ? 's' : ''}

@@ -2670,6 +2670,12 @@ A second two-pass codemod (run once, then deleted) converted the **remaining ~79
 
 **Mobile**: `ThemeProvider` now also syncs `<meta name="theme-color">` (`#050d1f` dark / `#FAFAF7` light) so the phone browser chrome matches the theme. The theme CSS itself is identical across breakpoints (mobile drawers/shells already use shell vars).
 
+#### HRMS dark-mode fix — `var(--text-primary)` used as a BACKGROUND (2026-06-25) — ✅ DEPLOYED (hosting-only, verify:deploy 3/3 green)
+The recurring "dark/light still bad" reports (latest: Attendance admin filter chips — unselected chips cream-on-cream, invisible in dark) traced to **two systemic antipatterns**, both presentation-only:
+1. **`backgroundColor: 'var(--text-primary)'` used as a button/header/selected-chip surface** — `--text-primary` is `#1a1a1a` in light but **`#f0ece0` (cream) in dark** (glass.css:58 vs 442), so these were cream buttons with white text = invisible in dark. Swept **18 HRMS files** replacing it with the brand navy **`#0B1538`** (the intended dark-button look; works in BOTH themes): dataimport, employees, ImportEmployees, helpdesk×2, holidays, itdeclaration×2, TeamCalendar, letters, payslips, performance×2, probation, recruitment, salary, training×2.
+2. **Fixed cream `#F2EFE7` / near-white `#FAFAF7`/`#F8F9FA` surfaces paired with `var(--text-*)` text** (filter chips, toggles, tinted preview boxes, stat cards, table striping) — invisible in dark. Fixed: unselected chips → `var(--shell-hover-hard)` + `var(--text-secondary)`, selected → fixed `#0B1538`+white; tinted boxes → `var(--glass-panel-bg)`+border; Holidays row striping → `transparent`/`var(--shell-hover-soft)`; AdminItDeclarations "Total" stat → fixed grey pastel pair. Files: AdminAttendancePage (the reported one), EmployeeDirectory, TeamCalendar, Documents, AdminDocuments, HrLetterGenerator, ApplyLeave, Probation, Performance, AdminItDeclarations, Holidays.
+**Rule reinforced (theme rule #2):** **never use a `var(--text-*)` token as a `backgroundColor`** (it inverts per theme), and **never pair a fixed light bg with `var(--text-*)` text**. A dark button = fixed `#0B1538` + fixed white/gold; an unselected chip = `var(--shell-hover-hard)` + `var(--text-secondary)`. tsc + build clean; no logic/server/rules change.
+
 ### CRM — Pipeline Stage Data Capture
 
 Each opportunity stage now collects structured data on advance.

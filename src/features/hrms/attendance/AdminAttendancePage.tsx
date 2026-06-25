@@ -347,10 +347,11 @@ function RegularizationsTab({ reviewerId, reviewerName }: RegTabProps) {
           <button
             key={f}
             onClick={() => setStatusFilter(f)}
-            className="px-4 py-1.5 rounded-full text-xs font-semibold capitalize transition-colors"
+            className="px-4 py-1.5 rounded-full text-xs font-semibold capitalize transition-colors border"
             style={{
-              backgroundColor: statusFilter === f ? '#0B1538' : '#F2EFE7',
-              color: statusFilter === f ? '#C9A961' : 'var(--text-primary)',
+              backgroundColor: statusFilter === f ? '#0B1538' : 'var(--shell-hover-hard)',
+              color: statusFilter === f ? '#C9A961' : 'var(--text-secondary)',
+              borderColor: statusFilter === f ? '#0B1538' : 'var(--shell-border)',
             }}
           >
             {f === 'all' ? 'All' : REG_STATUS_STYLES[f as keyof typeof REG_STATUS_STYLES].label}
@@ -740,7 +741,7 @@ export function AdminAttendancePage() {
                             ) : (
                               <span
                                 className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                                style={{ backgroundColor: '#F8F9FA', color: 'var(--text-muted)' }}
+                                style={{ backgroundColor: 'var(--shell-hover-soft)', color: 'var(--text-muted)' }}
                               >
                                 No record
                               </span>

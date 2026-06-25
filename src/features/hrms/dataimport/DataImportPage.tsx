@@ -391,7 +391,7 @@ export function DataImportPage() {
             className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
             style={
               activeTab === t.id
-                ? { backgroundColor: 'var(--text-primary)', color: '#FFFFFF' }
+                ? { backgroundColor: '#0B1538', color: '#FFFFFF' }
                 : { color: 'var(--text-muted)' }
             }
           >
@@ -463,7 +463,7 @@ export function DataImportPage() {
             <button
               onClick={() => downloadCsv(TEMPLATE_FN[activeTab](), TEMPLATE_NAMES[activeTab])}
               className={`${primaryBtn}`}
-              style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF' }}
+              style={{ backgroundColor: '#0B1538', color: '#FFFFFF' }}
             >
               <Download size={15} /> Download Template
             </button>
@@ -578,7 +578,7 @@ export function DataImportPage() {
                   onClick={handleImport}
                   disabled={importing || validRows === 0}
                   className={`${primaryBtn}`}
-                  style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF' }}
+                  style={{ backgroundColor: '#0B1538', color: '#FFFFFF' }}
                 >
                   {importing ? (
                     <>

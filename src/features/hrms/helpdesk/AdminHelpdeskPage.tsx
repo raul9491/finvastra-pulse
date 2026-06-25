@@ -168,7 +168,7 @@ function RespondModal({
           <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-(--shell-border) hover:bg-(--glass-panel-bg)">Cancel</button>
           <button onClick={handleSave} disabled={saving}
             className="px-5 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-50"
-            style={{ backgroundColor: 'var(--text-primary)' }}>
+            style={{ backgroundColor: '#0B1538' }}>
             {saving ? 'Saving…' : 'Save Changes'}
           </button>
         </div>
@@ -212,7 +212,7 @@ export function AdminHelpdeskPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ backgroundColor: 'var(--text-primary)' }}>
+          style={{ backgroundColor: '#0B1538' }}>
           <LifeBuoy size={20} style={{ color: '#C9A961' }} />
         </div>
         <div>
@@ -250,7 +250,7 @@ export function AdminHelpdeskPage() {
                 statusFilter === s ? 'text-white' : 'bg-(--glass-panel-bg) border border-(--shell-border) hover:bg-(--glass-panel-bg)'}`}
               style={statusFilter === s && s !== 'all' ? {
                 backgroundColor: STATUS_META[s].color,
-              } : statusFilter === s ? { backgroundColor: 'var(--text-primary)' } : {}}>
+              } : statusFilter === s ? { backgroundColor: '#0B1538' } : {}}>
               {s === 'in_review' ? 'In Review' : s}
             </button>
           ))}

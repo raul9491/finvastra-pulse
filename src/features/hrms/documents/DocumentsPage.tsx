@@ -247,8 +247,8 @@ export function DocumentsPage() {
                 onClick={() => setCategoryFilter(cat)}
                 className="px-3 py-1 rounded-full text-xs font-semibold transition-colors"
                 style={categoryFilter === cat
-                  ? { backgroundColor: 'var(--text-primary)', color: '#FFFFFF' }
-                  : { backgroundColor: '#F2EFE7', color: 'var(--text-primary)' }}>
+                  ? { backgroundColor: '#0B1538', color: '#FFFFFF' }
+                  : { backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-secondary)' }}>
                 {cat ? CATEGORY_META[cat].label : 'All'}
               </button>
             ))}

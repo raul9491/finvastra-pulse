@@ -146,7 +146,7 @@ export function HolidaysPage() {
             <button
               onClick={() => setShowAddForm((v) => !v)}
               className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
-              style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF' }}
+              style={{ backgroundColor: '#0B1538', color: '#FFFFFF' }}
             >
               <Plus size={14} />
               Add Holiday
@@ -266,7 +266,7 @@ export function HolidaysPage() {
                   <tr
                     key={h.id}
                     style={{
-                      backgroundColor: isEven ? '#FFFFFF' : '#FAFAF7',
+                      backgroundColor: isEven ? 'transparent' : 'var(--shell-hover-soft)',
                       borderBottom: idx < holidays.length - 1 ? '1px solid var(--shell-border)' : 'none',
                     }}
                   >

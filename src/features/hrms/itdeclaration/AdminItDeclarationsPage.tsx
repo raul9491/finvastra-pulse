@@ -200,7 +200,7 @@ function DeclarationDetail({
       {/* Summary */}
       <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
         <div className="px-5 py-3 border-b border-(--shell-border)"
-          style={{ backgroundColor: 'var(--text-primary)' }}>
+          style={{ backgroundColor: '#0B1538' }}>
           <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#C9A961' }}>
             Summary
           </p>
@@ -415,7 +415,7 @@ export function AdminItDeclarationsPage() {
       {/* Summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total Employees',  value: activeEmployees.length,   bg: '#FAFAF7', text: 'var(--text-primary)' },
+          { label: 'Total Employees',  value: activeEmployees.length,   bg: '#E5E7EB', text: '#374151' },
           { label: 'Submitted',        value: submitted,                 bg: '#DBEAFE', text: '#1D4ED8' },
           { label: 'Accepted',         value: accepted,                  bg: '#D1FAE5', text: '#065F46' },
           { label: 'Not Submitted',    value: notSubmitted,              bg: '#FEF3C7', text: '#92400E' },

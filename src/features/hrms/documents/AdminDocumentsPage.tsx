@@ -386,7 +386,7 @@ export function AdminDocumentsPage() {
         {(['company', 'employee'] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
-            style={tab === t ? { backgroundColor: 'var(--text-primary)', color: '#FFFFFF' } : { backgroundColor: '#F2EFE7', color: 'var(--text-primary)' }}>
+            style={tab === t ? { backgroundColor: '#0B1538', color: '#FFFFFF' } : { backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-secondary)' }}>
             {t === 'company' ? 'Company Documents' : 'Employee Documents'}
           </button>
         ))}

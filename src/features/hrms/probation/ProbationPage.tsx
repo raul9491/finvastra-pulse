@@ -250,7 +250,7 @@ function EvalModal({ record, byUid, onClose }: EvalModalProps) {
               onClick={handleSave}
               disabled={saving}
               className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity"
-              style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}
+              style={{ backgroundColor: '#0B1538', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}
             >
               {saving ? 'Saving…' : 'Save Evaluation'}
             </button>
@@ -423,7 +423,7 @@ function ExtendModal({
           </div>
 
           {/* New end date preview */}
-          <div className="rounded-xl px-4 py-3" style={{ backgroundColor: '#F2EFE7' }}>
+          <div className="rounded-xl px-4 py-3" style={{ backgroundColor: 'var(--glass-panel-bg)', border: '1px solid var(--shell-border)' }}>
             <p className="text-xs font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-muted)' }}>
               New Probation End Date
             </p>
@@ -455,7 +455,7 @@ function ExtendModal({
               onClick={handleExtend}
               disabled={saving}
               className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity"
-              style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}
+              style={{ backgroundColor: '#0B1538', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}
             >
               {saving ? 'Extending…' : 'Extend Probation'}
             </button>
@@ -827,7 +827,7 @@ export function ProbationPage() {
             onClick={() => setFilter(f)}
             className="px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all"
             style={filter === f
-              ? { backgroundColor: 'var(--text-primary)', color: '#FFFFFF' }
+              ? { backgroundColor: '#0B1538', color: '#FFFFFF' }
               : { backgroundColor: 'var(--glass-panel-bg)', color: 'var(--text-muted)' }}
           >
             {FILTER_LABELS[f]}

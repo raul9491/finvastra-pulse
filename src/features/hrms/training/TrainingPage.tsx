@@ -171,7 +171,7 @@ export function TrainingPage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ backgroundColor: 'var(--text-primary)' }}>
+          style={{ backgroundColor: '#0B1538' }}>
           <BookOpen size={20} style={{ color: '#C9A961' }} />
         </div>
         <div>

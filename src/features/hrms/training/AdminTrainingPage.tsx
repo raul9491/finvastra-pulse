@@ -193,7 +193,7 @@ function ProgramModal({
           <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-(--shell-border) hover:bg-(--glass-panel-bg)">Cancel</button>
           <button onClick={handleSave} disabled={saving}
             className="px-5 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-50"
-            style={{ backgroundColor: 'var(--text-primary)' }}>
+            style={{ backgroundColor: '#0B1538' }}>
             {saving ? 'Saving…' : (existing ? 'Update' : 'Create')}
           </button>
         </div>
@@ -298,7 +298,7 @@ function EnrollModal({
           <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-(--shell-border) hover:bg-(--glass-panel-bg)">Cancel</button>
           <button onClick={handleEnroll} disabled={saving}
             className="px-5 py-2 text-sm font-semibold rounded-lg text-white disabled:opacity-50"
-            style={{ backgroundColor: 'var(--text-primary)' }}>
+            style={{ backgroundColor: '#0B1538' }}>
             {saving ? 'Enrolling…' : 'Enroll'}
           </button>
         </div>
@@ -485,7 +485,7 @@ export function AdminTrainingPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ backgroundColor: 'var(--text-primary)' }}>
+            style={{ backgroundColor: '#0B1538' }}>
             <BookOpen size={20} style={{ color: '#C9A961' }} />
           </div>
           <div>
@@ -500,14 +500,14 @@ export function AdminTrainingPage() {
         {tab === 'programs' && (
           <button onClick={() => setShowAddProgram(true)}
             className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl text-white"
-            style={{ backgroundColor: 'var(--text-primary)' }}>
+            style={{ backgroundColor: '#0B1538' }}>
             <Plus size={15} />New Program
           </button>
         )}
         {tab === 'records' && (
           <button onClick={() => { loadEmployees(); setShowEnroll(true); }}
             className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl text-white"
-            style={{ backgroundColor: 'var(--text-primary)' }}>
+            style={{ backgroundColor: '#0B1538' }}>
             <Plus size={15} />Enroll Employee
           </button>
         )}

@@ -141,7 +141,7 @@ function SelfAssessmentModal({ review, onClose }: {
           <div className="flex items-center gap-3 pt-1">
             <button onClick={handleSave} disabled={saving}
               className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity"
-              style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}>
+              style={{ backgroundColor: '#0B1538', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}>
               {saving ? 'Saving…' : 'Save Self-Assessment'}
             </button>
             <button onClick={onClose} className="text-sm hover:opacity-60" style={{ color: 'var(--text-muted)' }}>Cancel</button>
@@ -252,7 +252,7 @@ function ManagerReviewModal({ review, byUid, onClose }: {
           <div className="flex items-center gap-3 pt-1">
             <button onClick={handleSave} disabled={saving}
               className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity"
-              style={{ backgroundColor: 'var(--text-primary)', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}>
+              style={{ backgroundColor: '#0B1538', color: '#FFFFFF', opacity: saving ? 0.6 : 1 }}>
               {saving ? 'Saving…' : 'Submit Manager Review'}
             </button>
             <button onClick={onClose} className="text-sm hover:opacity-60" style={{ color: 'var(--text-muted)' }}>Cancel</button>

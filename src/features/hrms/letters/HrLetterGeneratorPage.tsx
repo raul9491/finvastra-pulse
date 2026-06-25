@@ -554,13 +554,13 @@ export function HrLetterGeneratorPage() {
                 <button type="button"
                   onClick={() => { setManualMode(false); setFieldErrors({}); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                  style={{ backgroundColor: !manualMode ? '#0B1538' : '#F2EFE7', color: !manualMode ? '#C9A961' : 'var(--text-muted)' }}>
+                  style={{ backgroundColor: !manualMode ? '#0B1538' : 'var(--shell-hover-hard)', color: !manualMode ? '#C9A961' : 'var(--text-muted)' }}>
                   <Users size={13} />Existing Employee
                 </button>
                 <button type="button"
                   onClick={() => { setManualMode(true); setFieldErrors({}); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                  style={{ backgroundColor: manualMode ? '#0B1538' : '#F2EFE7', color: manualMode ? '#C9A961' : 'var(--text-muted)' }}>
+                  style={{ backgroundColor: manualMode ? '#0B1538' : 'var(--shell-hover-hard)', color: manualMode ? '#C9A961' : 'var(--text-muted)' }}>
                   <UserPlus size={13} />New / No Account
                 </button>
               </div>
@@ -798,7 +798,7 @@ export function HrLetterGeneratorPage() {
               <div className="rounded-xl border border-(--shell-border) overflow-hidden">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr style={{ backgroundColor: 'var(--text-primary)' }}>
+                    <tr style={{ backgroundColor: '#0B1538' }}>
                       <th className="px-3 py-2 text-left font-semibold text-[10px] uppercase tracking-wider" style={{ color: '#C9A961', width: '35%' }}>Component</th>
                       <th className="px-3 py-2 text-left font-semibold text-[10px] uppercase tracking-wider" style={{ color: '#C9A961', width: '30%' }}>Description</th>
                       <th className="px-3 py-2 text-right font-semibold text-[10px] uppercase tracking-wider" style={{ color: '#C9A961', width: '17%' }}>Monthly (₹)</th>

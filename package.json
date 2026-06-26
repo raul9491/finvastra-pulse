@@ -35,7 +35,9 @@
     "qa:queue": "bash .qa/run-queue-gate.sh",
     "sla:inspect": "tsx scripts/test/inspectLeadSla.ts",
     "queue:inspect": "tsx scripts/test/inspectQueue.ts",
-    "seed:golive": "tsx scripts/seed/seedGoLiveConfig.ts"
+    "seed:golive": "tsx scripts/seed/seedGoLiveConfig.ts",
+    "wipe:crm:dry": "tsx scripts/maintenance/wipeCrmData.ts",
+    "wipe:crm": "tsx scripts/maintenance/wipeCrmData.ts --confirm"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

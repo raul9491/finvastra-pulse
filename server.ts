@@ -689,7 +689,9 @@ async function distributeBatch(
     distributed:      true,
     distributedAt:    admin.firestore.FieldValue.serverTimestamp(),
     distributedBy:    actorUid,
-    distributedCount: leadsSnap.size,
+    // Increment (not overwrite) so re-distributing leftover/retried unassigned leads
+    // accumulates onto the original count instead of dropping it.
+    distributedCount: admin.firestore.FieldValue.increment(leadsSnap.size),
     agentIds:         agents,
   });
 }
@@ -1513,7 +1515,14 @@ async function startServer() {
     if (jobSnap.empty) return res.status(404).json({ error: "Import batch not found." });
     const jobDoc = jobSnap.docs[0];
     const job = jobDoc.data();
-    if (job.distributed === true) return res.status(409).json({ error: "This batch has already been distributed." });
+    // Re-distribution IS allowed when a batch still holds UNASSIGNED leads (e.g. rows
+    // recovered later via "Retry failed rows" land unassigned under an already-
+    // distributed batch). distributeBatch only ever touches UNASSIGNED leads, so a
+    // re-run on a fully-distributed batch is a harmless no-op. Block only if nothing
+    // is left to route.
+    if (job.distributed === true && (job.successCount ?? 0) <= (job.distributedCount ?? 0)) {
+      return res.status(409).json({ error: "This batch is fully distributed — no unassigned leads left." });
+    }
 
     // Run the distribution within the request so Cloud Run keeps CPU allocated — background work
     // after res.json() gets CPU-throttled and crawls. Now parallelised + per-lead try/catch, so it

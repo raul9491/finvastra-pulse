@@ -50,7 +50,10 @@ function QueueBatchCard({ job, agents }: { job: ImportJob; agents: UserProfile[]
     }
   };
 
-  const leadCount = job.successCount ?? 0;
+  // Remaining unassigned = imported minus already-distributed (handles retried rows
+  // added to an already-distributed batch). For a never-distributed batch this is
+  // just successCount (distributedCount is unset).
+  const leadCount = Math.max((job.successCount ?? 0) - (job.distributedCount ?? 0), 0);
 
   return (
     <div className="glass-panel p-6 space-y-4">
@@ -157,13 +160,14 @@ export function ImportQueuePage() {
       (e.role === 'admin' || e.crmRole === 'lead_generator' || e.crmRole === 'lead_convertor'),
   );
 
-  // Batches still holding unassigned leads = imported successfully but not yet distributed.
+  // Batches still holding UNASSIGNED leads: either never distributed, OR more leads
+  // were imported than distributed (e.g. rows recovered later via "Retry failed rows").
   const awaiting = jobs.filter(
     (j) =>
       !!j.importName &&            // only two-stage batches (pre-existing imports were auto-assigned)
-      j.distributed !== true &&
       (j.successCount ?? 0) > 0 &&
-      (j.status === 'completed' || j.status === 'partial'),
+      (j.status === 'completed' || j.status === 'partial') &&
+      (j.distributed !== true || (j.successCount ?? 0) > (j.distributedCount ?? 0)),
   );
 
   if (!canRun) {

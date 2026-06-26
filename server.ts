@@ -243,28 +243,29 @@ function salvagePhoneFromName(name: string): { phone: string; cleanName: string 
   return null;
 }
 
-function validateRow(raw: string[], mapping: ColumnMapping, loanProducts: Set<string>): ParsedRow["errors"] {
+// Validate already-extracted cells (shared by validateRow + the retry-errors path).
+function validateCells(c: ReturnType<typeof extractCells>): string[] {
   const errors: string[] = [];
-  const { displayName, phone, panRaw, dealSize, triagePriority } = extractCells(raw, mapping);
-
-  if (!displayName) errors.push("Name is required");
-  if (!phone) {
+  if (!c.displayName) errors.push("Name is required");
+  if (!c.phone) {
     errors.push("Phone is required");
-  } else if (!isImportablePhone(phone)) {
+  } else if (!isImportablePhone(c.phone)) {
     errors.push("Phone must be a valid mobile or landline number");
   }
-  if (panRaw && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panRaw)) {
+  if (c.panRaw && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(c.panRaw)) {
     errors.push("PAN format invalid (expected ABCDE1234F)");
   }
   // NOTE: an unrecognised product is deliberately NOT an error — the lead still
   // imports (without an opportunity) and the raw value is kept in its notes.
-  // A hard product check once failed entire imports when a non-product column
-  // (e.g. a date) was mapped to Product.
-  if (dealSize && isNaN(Number(dealSize))) errors.push("Deal size must be a number");
-  if (triagePriority && !["high","medium","low",""].includes(triagePriority.toLowerCase())) {
+  if (c.dealSize && isNaN(Number(c.dealSize))) errors.push("Deal size must be a number");
+  if (c.triagePriority && !["high", "medium", "low", ""].includes(c.triagePriority.toLowerCase())) {
     errors.push("Priority must be: high, medium, or low");
   }
   return errors;
+}
+
+function validateRow(raw: string[], mapping: ColumnMapping, _loanProducts: Set<string>): ParsedRow["errors"] {
+  return validateCells(extractCells(raw, mapping));
 }
 
 function buildImportHash(phone: string, email: string, displayName: string): string {
@@ -431,6 +432,76 @@ function extractCells(raw: string[], mapping: ColumnMapping): {
   };
 }
 
+// Writes ONE imported lead (+ optional opportunity & creation activity) into the
+// batch. Shared by processImportBatch and the retry-errors path so they never diverge.
+function writeImportedLead(
+  batch: admin.firestore.WriteBatch,
+  cells: ReturnType<typeof extractCells>,
+  ctx: { batchId: string; importName: string; triggerUserId: string; importHash: string; loanProducts: Set<string> },
+): void {
+  const { displayName, phone, email, panRaw, address } = cells;
+  const loanProduct = normaliseProduct(cells.loanProduct, ctx.loanProducts);
+  const productValid = !!loanProduct && ctx.loanProducts.has(loanProduct);
+  // Unrecognised product values aren't lost — they ride along in the lead's notes.
+  const notes = [
+    cells.notes,
+    cells.loanProduct && !productValid ? `Imported product value: ${cells.loanProduct}` : '',
+  ].filter(Boolean).join(' · ');
+  const assignedOwner = "UNASSIGNED";   // held UNASSIGNED until distributed from the queue
+  const slaDeadline = new Date();
+  slaDeadline.setHours(slaDeadline.getHours() + 24);
+
+  const leadRef = db.collection("leads").doc();
+  batch.set(leadRef, {
+    displayName,
+    phone,
+    ...(email   ? { email   } : {}),
+    ...(panRaw  ? { panRaw  } : {}),
+    ...(address ? { address } : {}),
+    ...(notes   ? { notes   } : {}),
+    source:           "offline_bulk",
+    tags:             [],
+    primaryOwnerId:   assignedOwner,
+    consentGiven:     true,
+    consentTimestamp: admin.firestore.FieldValue.serverTimestamp(),
+    consentMethod:    "offline_collection",
+    slaDeadline:      admin.firestore.Timestamp.fromDate(slaDeadline),
+    triagePriority:   (cells.triagePriority || "low").toLowerCase(),
+    importBatchId:    ctx.batchId,
+    importName:       ctx.importName,
+    importHash:       ctx.importHash,
+    importedBy:       ctx.triggerUserId,
+    importedAt:       admin.firestore.FieldValue.serverTimestamp(),
+    createdAt:        admin.firestore.FieldValue.serverTimestamp(),
+    createdBy:        ctx.triggerUserId,
+    updatedAt:        admin.firestore.FieldValue.serverTimestamp(),
+    deleted:          false,
+    firstContactedAt: null,
+  });
+
+  if (productValid) {
+    const oppRef = leadRef.collection("opportunities").doc();
+    batch.set(oppRef, {
+      opportunityType: "loan",
+      product:         loanProduct,
+      dealSize:        cells.dealSize ? Number(cells.dealSize) : 0,
+      stage:           "New",
+      ownerId:         assignedOwner,
+      status:          "open",
+      ...(notes ? { notes } : {}),
+      createdAt:       admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt:       admin.firestore.FieldValue.serverTimestamp(),
+    });
+    const actRef = oppRef.collection("activities").doc();
+    batch.set(actRef, {
+      type:    "note",
+      content: `Lead imported from offline_bulk batch ${ctx.batchId}`,
+      by:  ctx.triggerUserId,
+      at:  admin.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+}
+
 // Runs import in background — DO NOT await this from request handlers.
 // Phase 6 hardening: move to a Cloud Function for >10K rows to avoid Cloud Run timeout.
 async function processImportBatch(
@@ -511,74 +582,7 @@ async function processImportBatch(
         continue;
       }
 
-      const { displayName, phone, email, panRaw, address } = e.cells;
-      const loanProduct = normaliseProduct(e.cells.loanProduct, loanProducts);
-      const productValid = !!loanProduct && loanProducts.has(loanProduct);
-      // Unrecognised product values aren't lost — they ride along in the lead's
-      // notes (e.g. a misc column the user mapped to Product, or a typo'd product).
-      const notes = [
-        e.cells.notes,
-        e.cells.loanProduct && !productValid ? `Imported product value: ${e.cells.loanProduct}` : '',
-      ].filter(Boolean).join(' · ');
-
-      // Two-stage flow: imported leads are held UNASSIGNED until distributed from the queue.
-      const assignedOwner = "UNASSIGNED";
-
-      // SLA deadline: offline_bulk = +24 calendar hours
-      const slaDeadline = new Date();
-      slaDeadline.setHours(slaDeadline.getHours() + 24);
-
-      const leadRef = db.collection("leads").doc();
-      batch.set(leadRef, {
-        displayName,
-        phone,
-        ...(email   ? { email   } : {}),
-        ...(panRaw  ? { panRaw  } : {}),
-        ...(address ? { address } : {}),
-        ...(notes   ? { notes   } : {}),  // survives even when no opportunity is created
-        source:        "offline_bulk",
-        tags:          [],
-        primaryOwnerId: assignedOwner,
-        consentGiven:       true,
-        consentTimestamp:   admin.firestore.FieldValue.serverTimestamp(),
-        consentMethod:      "offline_collection",
-        slaDeadline:        admin.firestore.Timestamp.fromDate(slaDeadline),
-        triagePriority:     (e.cells.triagePriority || "low").toLowerCase(),
-        importBatchId:      batchId,
-        importName,
-        importHash:         e.importHash,
-        importedBy:         triggerUserId,
-        importedAt:         admin.firestore.FieldValue.serverTimestamp(),
-        createdAt:          admin.firestore.FieldValue.serverTimestamp(),
-        createdBy:          triggerUserId,
-        updatedAt:          admin.firestore.FieldValue.serverTimestamp(),
-        deleted:            false,
-        firstContactedAt:   null,   // Stage-2 SLA end — stamped once on first contact
-      });
-
-      // Create opportunity if loanProduct is valid
-      if (productValid) {
-        const oppRef = leadRef.collection("opportunities").doc();
-        batch.set(oppRef, {
-          opportunityType: "loan",
-          product:         loanProduct,
-          dealSize:        e.cells.dealSize ? Number(e.cells.dealSize) : 0,
-          stage:           "New",
-          ownerId:         assignedOwner,
-          status:          "open",
-          ...(notes ? { notes } : {}),
-          createdAt:       admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt:       admin.firestore.FieldValue.serverTimestamp(),
-        });
-        // Creation activity
-        const actRef = oppRef.collection("activities").doc();
-        batch.set(actRef, {
-          type:    "note",
-          content: `Lead imported from offline_bulk batch ${batchId}`,
-          by:  triggerUserId,
-          at:  admin.firestore.FieldValue.serverTimestamp(),
-        });
-      }
+      writeImportedLead(batch, e.cells, { batchId, importName, triggerUserId, importHash: e.importHash, loanProducts });
       chunkSuccess++;
     }
 
@@ -1384,6 +1388,104 @@ async function startServer() {
           errors: [{ row: 0, data: {}, reason: String(err) }],
         }).catch(() => {});
       });
+  });
+
+  // ─── POST /api/import/retry-errors — re-process a job's failed rows IN PLACE ───
+  // Smarter than re-uploading the whole sheet: re-validates ONLY the stored error
+  // rows with the CURRENT logic (incl. phone salvage), imports the now-valid ones
+  // (deduped against existing leads so no duplicates), and updates the job's
+  // errors/counts/status. New leads land UNASSIGNED under the same batch → route
+  // them from the Import Queue.
+  app.post("/api/import/retry-errors", async (req, res) => {
+    const uid = await verifyFirebaseToken(req);
+    if (!uid) return res.status(401).json({ error: "Unauthorized" });
+    const userSnap = await db.collection("users").doc(uid).get();
+    const u = userSnap.data();
+    if (!(u?.role === "admin" || u?.crmRole === "manager" || u?.crmCanImport === true)) {
+      return res.status(403).json({ error: "Import access not granted." });
+    }
+    const { jobId } = req.body ?? {};
+    if (!jobId) return res.status(400).json({ error: "jobId required" });
+
+    const jobRef = db.collection("import_jobs").doc(String(jobId));
+    const snap = await jobRef.get();
+    if (!snap.exists) return res.status(404).json({ error: "Import job not found" });
+    const job = snap.data()!;
+    const prevErrors: Array<{ row: number; data: Record<string, string>; reason: string }> =
+      Array.isArray(job.errors) ? job.errors : [];
+    if (prevErrors.length === 0) return res.json({ imported: 0, duplicates: 0, stillFailing: 0 });
+
+    const batchId       = String(job.batchId ?? "");
+    const importName    = String(job.importName ?? "");
+    const triggerUserId = String(job.triggeredBy ?? uid);
+
+    const oppTypesSnap = await db.collection("opportunity_types")
+      .where("businessLine", "==", "loan").where("active", "==", true).get();
+    const loanProducts = new Set(oppTypesSnap.docs.map(d => d.data().name as string));
+
+    type Cand = { row: number; cells: ReturnType<typeof extractCells>; importHash: string };
+    const stillFailing: typeof prevErrors = [];
+    const cands: Cand[] = [];
+    const seen = new Set<string>();
+
+    for (const err of prevErrors) {
+      const cells = {
+        displayName: '', phone: '', email: '', panRaw: '', loanProduct: '',
+        dealSize: '', address: '', triagePriority: '', notes: '',
+        ...(err.data ?? {}),
+      } as ReturnType<typeof extractCells>;
+      // Re-apply salvage (stored error data predates the salvage logic).
+      if (!isImportablePhone(cells.phone) && cells.displayName) {
+        const salv = salvagePhoneFromName(cells.displayName);
+        if (salv) { cells.phone = salv.phone; cells.displayName = salv.cleanName; }
+      }
+      const errs = validateCells(cells);
+      if (errs.length > 0) {
+        stillFailing.push({ row: err.row, data: cells as unknown as Record<string, string>, reason: errs.join("; ") });
+        continue;
+      }
+      const importHash = buildImportHash(cells.phone, cells.email, cells.displayName);
+      if (seen.has(importHash)) {
+        stillFailing.push({ row: err.row, data: cells as unknown as Record<string, string>, reason: "duplicate (repeated within the retry set)" });
+        continue;
+      }
+      seen.add(importHash);
+      cands.push({ row: err.row, cells, importHash });
+    }
+
+    let imported = 0, duplicates = 0;
+    for (let i = 0; i < cands.length; i += 30) {
+      const slice = cands.slice(i, i + 30);
+      const dupSnap = await db.collection("leads")
+        .where("importHash", "in", slice.map(c => c.importHash)).get();
+      const existing = new Set(dupSnap.docs.map(d => d.data().importHash as string));
+      const batch = db.batch();
+      let n = 0;
+      for (const c of slice) {
+        if (existing.has(c.importHash)) {
+          duplicates++;
+          stillFailing.push({ row: c.row, data: c.cells as unknown as Record<string, string>, reason: "duplicate (already imported)" });
+          continue;
+        }
+        writeImportedLead(batch, c.cells, { batchId, importName, triggerUserId, importHash: c.importHash, loanProducts });
+        n++;
+      }
+      if (n > 0) await batch.commit();
+      imported += n;
+    }
+
+    const newErrors     = stillFailing.slice(0, 1000);
+    const newErrorCount = newErrors.length;
+    const newSuccess    = (job.successCount ?? 0) + imported;
+    await jobRef.update({
+      errors:       newErrors,
+      errorCount:   newErrorCount,
+      successCount: newSuccess,
+      status:       newErrorCount === 0 ? "completed" : (newSuccess > 0 ? "partial" : "failed"),
+      retriedAt:    admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    res.json({ imported, duplicates, stillFailing: newErrorCount });
   });
 
   // ─── POST /api/import/distribute — route a held batch to agents ───────────────

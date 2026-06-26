@@ -1,9 +1,10 @@
 import { Fragment, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Download, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import { Download, ArrowLeft, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
-import { useImportHistory, downloadErrorCsv } from '../hooks/useImportJobs';
+import { useToast } from '../../../components/ui/Toast';
+import { useImportHistory, downloadErrorCsv, retryImportErrors } from '../hooks/useImportJobs';
 import type { ImportJobStatus } from '../../../types';
 
 const STATUS_BADGE: Record<ImportJobStatus, string> = {
@@ -18,7 +19,27 @@ export function ImportHistoryPage() {
   const { profile } = useAuth();
   const isAdmin = profile?.role === 'admin';
   const { jobs, loading } = useImportHistory(isAdmin);
+  const toast = useToast();
   const [openErrors, setOpenErrors] = useState<string | null>(null);   // jobId whose errors are expanded
+  const [retrying, setRetrying] = useState<string | null>(null);
+
+  const handleRetry = async (jobId: string) => {
+    setRetrying(jobId);
+    try {
+      const r = await retryImportErrors(jobId);
+      if (r.imported > 0) {
+        toast.success(`${r.imported} row${r.imported === 1 ? '' : 's'} imported.${r.stillFailing > 0 ? ` ${r.stillFailing} still failing.` : ' All fixed!'}${r.duplicates ? ` (${r.duplicates} were already in the system.)` : ''}`);
+      } else if (r.duplicates > 0) {
+        toast.info(`No new rows — ${r.duplicates} were already in the system. ${r.stillFailing} still failing.`);
+      } else {
+        toast.info(`No rows could be recovered — ${r.stillFailing} still have errors. Fix them in the sheet and re-import.`);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Retry failed');
+    } finally {
+      setRetrying(null);
+    }
+  };
 
   const fmtDate = (ts: unknown) => {
     if (!ts) return '—';
@@ -121,9 +142,18 @@ export function ImportHistoryPage() {
                       <td colSpan={9} className="px-4 py-3" style={{ backgroundColor: 'var(--shell-hover-soft)' }}>
                         {job.errors?.length ? (
                           <>
-                            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
-                              {job.errors.length} row{job.errors.length === 1 ? '' : 's'} skipped — reason shown in red
-                            </p>
+                            <div className="flex items-center justify-between gap-3 mb-2">
+                              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
+                                {job.errors.length} row{job.errors.length === 1 ? '' : 's'} skipped — reason shown in red
+                              </p>
+                              <button onClick={() => handleRetry(job.id)} disabled={retrying === job.id}
+                                title="Re-check these failed rows with the latest rules and import the ones that now pass (no duplicates)"
+                                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
+                                style={{ backgroundColor: '#0B1538', color: '#E5C97C' }}>
+                                <RefreshCw size={12} className={retrying === job.id ? 'animate-spin' : ''} />
+                                {retrying === job.id ? 'Retrying…' : 'Retry failed rows'}
+                              </button>
+                            </div>
                             <div className="space-y-1 max-h-72 overflow-auto pr-1">
                               {job.errors.map((e, i) => (
                                 <div key={i} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs px-2.5 py-1.5 rounded-lg"

@@ -64,3 +64,24 @@ export function downloadErrorCsv(job: ImportJob): void {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Re-process a job's FAILED rows in place — re-validates them with the current
+ * logic (incl. phone salvage) and imports the now-valid ones, deduped (no
+ * duplicates). Returns { imported, duplicates, stillFailing }. The live history
+ * listener reflects the updated counts automatically.
+ */
+export async function retryImportErrors(jobId: string): Promise<{ imported: number; duplicates: number; stillFailing: number }> {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error('Not signed in');
+  const res = await fetch('/api/import/retry-errors', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ jobId }),
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error || `Retry failed (${res.status})`);
+  }
+  return res.json();
+}

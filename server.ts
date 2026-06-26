@@ -213,6 +213,18 @@ interface ParsedRow {
   errors: string[];
 }
 
+// Accept BOTH 10-digit mobiles (6-9) AND landlines (with/without STD code),
+// e.g. "040-66320094". Business lists legitimately contain landline numbers.
+// Strips non-digits, an optional +91, and STD leading zero, then accepts a
+// mobile or any plausible 8–12-digit landline. Only blank / garbage is rejected.
+function isImportablePhone(rawPhone: string): boolean {
+  let d = rawPhone.replace(/\D/g, "");
+  if (d.startsWith("91") && d.length >= 12) d = d.slice(2);   // +91 / 91 prefix
+  d = d.replace(/^0+/, "");                                    // STD leading zero(s)
+  if (/^[6-9]\d{9}$/.test(d)) return true;                     // mobile
+  return d.length >= 8 && d.length <= 12;                      // landline / STD
+}
+
 function validateRow(raw: string[], mapping: ColumnMapping, loanProducts: Set<string>): ParsedRow["errors"] {
   const errors: string[] = [];
   const { displayName, phone, panRaw, dealSize, triagePriority } = extractCells(raw, mapping);
@@ -220,8 +232,8 @@ function validateRow(raw: string[], mapping: ColumnMapping, loanProducts: Set<st
   if (!displayName) errors.push("Name is required");
   if (!phone) {
     errors.push("Phone is required");
-  } else if (!/^[6-9]\d{9}$/.test(phone)) {
-    errors.push("Phone must be a 10-digit Indian mobile starting with 6–9");
+  } else if (!isImportablePhone(phone)) {
+    errors.push("Phone must be a valid mobile or landline number");
   }
   if (panRaw && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(panRaw)) {
     errors.push("PAN format invalid (expected ABCDE1234F)");
@@ -317,8 +329,8 @@ function detectColumnMapping(
       }
     }
 
-    // Data pattern scoring
-    const phoneHits    = sampleVals.filter(v => /^[6-9]\d{9}$/.test(v)).length / total;
+    // Data pattern scoring (mobiles AND landlines count as phone-like)
+    const phoneHits    = sampleVals.filter(v => isImportablePhone(v)).length / total;
     const emailHits    = sampleVals.filter(v => v.includes('@') && v.includes('.')).length / total;
     const panHits      = sampleVals.filter(v => /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(v)).length / total;
     const productHits  = sampleVals.filter(v => {

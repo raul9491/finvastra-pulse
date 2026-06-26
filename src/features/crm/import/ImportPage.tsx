@@ -344,7 +344,7 @@ export function ImportPage() {
                 <div className="overflow-auto rounded-lg" style={{ maxHeight: 380, border: '1px solid var(--shell-border)' }}>
                   <table className="w-full text-left text-xs">
                     <thead>
-                      <tr style={{ backgroundColor: 'var(--glass-panel-bg)', borderBottom: '1px solid var(--shell-border)', position: 'sticky', top: 0, zIndex: 1 }}>
+                      <tr style={{ backgroundColor: 'var(--ss-bg)', borderBottom: '1px solid var(--shell-border)', position: 'sticky', top: 0, zIndex: 2 }}>
                         <th className="px-3 py-2 font-bold uppercase tracking-widest" style={{ color: 'var(--shell-text-dim)' }}>#</th>
                         {displayFields.map((f) => (
                           <th key={f} className="px-3 py-2 font-bold uppercase tracking-widest whitespace-nowrap" style={{ color: 'var(--shell-text-dim)' }}>

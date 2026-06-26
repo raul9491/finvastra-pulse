@@ -225,6 +225,24 @@ function isImportablePhone(rawPhone: string): boolean {
   return d.length >= 8 && d.length <= 12;                      // landline / STD
 }
 
+// Some source rows merge the phone into the NAME cell, e.g.
+// "3M Car Care Gachibowli | 073373 93337" with an empty phone column.
+// When the phone cell is blank/invalid, pull a phone-like token out of the name
+// (a run of 8+ digits, optional spaces/dashes/+) and clean it off the name.
+// Gated by isImportablePhone so shop numbers / addresses aren't mistaken for phones.
+function salvagePhoneFromName(name: string): { phone: string; cleanName: string } | null {
+  const matches = name.match(/\+?\d[\d\s\-]{6,}\d/g);
+  if (!matches) return null;
+  for (let i = matches.length - 1; i >= 0; i--) {   // phones usually trail the name
+    const cand = matches[i].trim();
+    if (isImportablePhone(cand)) {
+      const cleanName = name.replace(cand, "").replace(/[\s|,/–-]+$/, "").replace(/^[\s|,/–-]+/, "").trim();
+      return { phone: cand, cleanName: cleanName || name };
+    }
+  }
+  return null;
+}
+
 function validateRow(raw: string[], mapping: ColumnMapping, loanProducts: Set<string>): ParsedRow["errors"] {
   const errors: string[] = [];
   const { displayName, phone, panRaw, dealSize, triagePriority } = extractCells(raw, mapping);
@@ -393,9 +411,16 @@ function extractCells(raw: string[], mapping: ColumnMapping): {
   triagePriority: string; notes: string;
 } {
   const g = (f: keyof ColumnMapping) => mapping[f] !== undefined ? (raw[mapping[f]!] ?? '').trim() : '';
+  let displayName = g('displayName');
+  let phone = g('phone');
+  // Salvage a phone embedded in the name cell when the phone column is empty/invalid.
+  if (!isImportablePhone(phone) && displayName) {
+    const salv = salvagePhoneFromName(displayName);
+    if (salv) { phone = salv.phone; displayName = salv.cleanName; }
+  }
   return {
-    displayName:    g('displayName'),
-    phone:          g('phone'),
+    displayName,
+    phone,
     email:          g('email'),
     panRaw:         g('panRaw'),
     loanProduct:    g('loanProduct'),

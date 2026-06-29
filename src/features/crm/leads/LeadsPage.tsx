@@ -440,6 +440,12 @@ export function LeadsPage() {
                         : rmName(lead.primaryOwnerId)}
                       {lead.importName ? ` · ${lead.importName}` : ''}
                     </p>
+                    {lead.importExtras && Object.keys(lead.importExtras).length > 0 && (
+                      <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--text-secondary)' }}
+                        title={Object.entries(lead.importExtras).map(([k, v]) => `${k}: ${v}`).join(' · ')}>
+                        {Object.entries(lead.importExtras).map(([k, v]) => `${k}: ${v}`).join(' · ')}
+                      </p>
+                    )}
                   </div>
                   <div className="shrink-0 flex flex-col items-end gap-2" onClick={(e) => e.stopPropagation()}>
                     <ContactActions phone={lead.phone} email={lead.email} name={lead.displayName} size="sm" />
@@ -495,6 +501,12 @@ export function LeadsPage() {
                     </td>
                     <td className="px-5 py-4">
                       <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{lead.displayName}</p>
+                      {lead.importExtras && Object.keys(lead.importExtras).length > 0 && (
+                        <p className="text-[11px] mt-0.5 max-w-md truncate" style={{ color: 'var(--text-muted)' }}
+                          title={Object.entries(lead.importExtras).map(([k, v]) => `${k}: ${v}`).join(' · ')}>
+                          {Object.entries(lead.importExtras).map(([k, v]) => `${k}: ${v}`).join(' · ')}
+                        </p>
+                      )}
                     </td>
                     <td className="px-5 py-4 text-sm" onClick={(e) => e.stopPropagation()}>
                       <PhoneLink phone={lead.phone} mono={false} className="text-sm" />

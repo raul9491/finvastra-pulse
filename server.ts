@@ -1596,6 +1596,10 @@ async function startServer() {
       if (msg.includes("Office file") || msg.includes("not supported for this document")) {
         return res.status(400).json({ error: "The source is an uploaded Excel file, not a Google Sheet — convert it to a Google Sheet to backfill." });
       }
+      if (msg.includes("permission") || msg.includes("PERMISSION") || msg.includes("403")) {
+        const sa = await getServiceAccountEmail();
+        return res.status(400).json({ error: `Can't read the source sheet — re-share it (Viewer) with ${sa}, then click Backfill again.` });
+      }
       return res.status(400).json({ error: `Couldn't read the source sheet: ${msg}` });
     }
 

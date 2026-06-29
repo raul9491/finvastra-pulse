@@ -619,6 +619,7 @@ async function distributeBatch(
   agentIds: string[],
   actorUid: string,
   importName: string,
+  perAgentCap?: number,   // when set, assign at most this many to EACH agent; the rest stay UNASSIGNED for the next round
 ): Promise<void> {
   const jobRef = db.collection("import_jobs").doc(jobId);
   const agents = [...agentIds].sort((a, b) => a.localeCompare(b)); // deterministic order
@@ -634,7 +635,12 @@ async function distributeBatch(
   // two awaited round-trips (opp query + commit) per lead — so a 359-lead batch meant ~700 serial
   // round-trips (minutes). Per-lead try/catch keeps one bad lead from aborting the whole run
   // (which would leave the job never marked `distributed` and the UI spinning forever).
-  const docs = leadsSnap.docs;
+  // Round-robin assigns agents[(idx) % agents.length], so the first (cap × agents) leads give
+  // each agent exactly `cap` — slicing to that count enforces the per-agent cap; leftover stays
+  // UNASSIGNED and the batch re-surfaces in the Import Queue for the next round.
+  const docs = (perAgentCap && perAgentCap > 0)
+    ? leadsSnap.docs.slice(0, perAgentCap * agents.length)
+    : leadsSnap.docs;
   const CONCURRENCY = 25;
   for (let start = 0; start < docs.length; start += CONCURRENCY) {
     await Promise.all(docs.slice(start, start + CONCURRENCY).map(async (leadDoc, j) => {
@@ -1503,12 +1509,15 @@ async function startServer() {
     const canRun = user?.role === "admin" || user?.crmRole === "manager" || user?.crmCanImport === true;
     if (!canRun) return res.status(403).json({ error: "Distribution access not granted." });
 
-    const { batchId, agentIds } = req.body;
+    const { batchId, agentIds, perAgent } = req.body;
     if (typeof batchId !== "string" || !batchId) return res.status(400).json({ error: "batchId required" });
     const agents: string[] = Array.isArray(agentIds)
       ? (agentIds as unknown[]).filter((id): id is string => typeof id === "string" && id.length > 0)
       : [];
     if (agents.length === 0) return res.status(400).json({ error: "Select at least one agent to distribute to." });
+    // Optional per-agent cap (e.g. 100). 0 / unset = distribute everything (legacy behaviour).
+    const perAgentCap = Number.isFinite(Number(perAgent)) && Number(perAgent) > 0
+      ? Math.min(Math.floor(Number(perAgent)), 1000) : undefined;
 
     // Locate the job by its batchId
     const jobSnap = await db.collection("import_jobs").where("batchId", "==", batchId).limit(1).get();
@@ -1529,12 +1538,85 @@ async function startServer() {
     // finishes in seconds even for hundreds of leads. The client's onSnapshot still clears the card
     // when `distributed` flips (set at the end of distributeBatch).
     try {
-      await distributeBatch(jobDoc.id, batchId, agents, uid, (job.importName as string) ?? batchId);
+      await distributeBatch(jobDoc.id, batchId, agents, uid, (job.importName as string) ?? batchId, perAgentCap);
       return res.json({ ok: true, jobId: jobDoc.id });
     } catch (err) {
       console.error(`Distribute batch ${batchId} failed:`, err);
       return res.status(500).json({ error: "Distribution failed — please retry." });
     }
+  });
+
+  // ─── POST /api/leads/pull — telecaller self-serve: claim N oldest UNASSIGNED leads ──
+  // Active telecallers (lead_convertor/lead_generator) + managers/admins pull a chunk
+  // (default 100) of the oldest unassigned imported leads to themselves — oldest-first
+  // (FIFO fairness), RACE-SAFE: each claim is a transaction that re-checks the lead is
+  // still UNASSIGNED, so two pullers can never grab the same contact.
+  app.post("/api/leads/pull", async (req, res) => {
+    const uid = await verifyFirebaseToken(req);
+    if (!uid) return res.status(401).json({ error: "Unauthorized" });
+    if (!(await checkRateLimit(uid, "leads-pull", 60, HOUR_MS))) {
+      return res.status(429).json({ error: "Too many pulls. Try again shortly." });
+    }
+    const userSnap = await db.collection("users").doc(uid).get();
+    const u = userSnap.data();
+    const eligible = !!u && u.employeeStatus !== "inactive" &&
+      (u.role === "admin" || u.crmRole === "manager" || u.crmRole === "lead_convertor" || u.crmRole === "lead_generator");
+    if (!eligible) return res.status(403).json({ error: "You don't have permission to pull leads." });
+
+    const reqCount = Number((req.body ?? {}).count);
+    const count = Number.isFinite(reqCount) && reqCount > 0 ? Math.min(Math.floor(reqCount), 200) : 100;
+
+    const snap = await db.collection("leads")
+      .where("primaryOwnerId", "==", "UNASSIGNED")
+      .where("deleted", "==", false)
+      .orderBy("createdAt", "asc")     // oldest first
+      .limit(count)
+      .get();
+    if (snap.empty) return res.json({ pulled: 0 });
+
+    const slaMs = 24 * 60 * 60 * 1000;
+    const claimed: admin.firestore.DocumentReference[] = [];
+    const docs = snap.docs;
+    const CONCURRENCY = 25;
+    for (let start = 0; start < docs.length; start += CONCURRENCY) {
+      await Promise.all(docs.slice(start, start + CONCURRENCY).map(async (d) => {
+        try {
+          const ok = await db.runTransaction(async (tx) => {
+            const fresh = await tx.get(d.ref);
+            // Someone else grabbed it between the query and now → skip (race-safe).
+            if (!fresh.exists || fresh.data()!.primaryOwnerId !== "UNASSIGNED") return false;
+            tx.update(d.ref, {
+              primaryOwnerId:           uid,
+              assignedToCurrentOwnerAt: admin.firestore.FieldValue.serverTimestamp(),
+              slaDeadline:              admin.firestore.Timestamp.fromDate(new Date(Date.now() + slaMs)),
+              distributedAt:            admin.firestore.FieldValue.serverTimestamp(),
+              updatedAt:                admin.firestore.FieldValue.serverTimestamp(),
+            });
+            return true;
+          });
+          if (ok) claimed.push(d.ref);
+        } catch (e) { console.error("[leads/pull] claim failed", d.id, e); }
+      }));
+    }
+
+    // Re-own any open opportunities on the claimed leads + log an activity (best-effort).
+    await Promise.all(claimed.map(async (ref) => {
+      try {
+        const opps = await ref.collection("opportunities").where("status", "==", "open").get();
+        if (opps.empty) return;
+        const batch = db.batch();
+        for (const opp of opps.docs) {
+          batch.update(opp.ref, { ownerId: uid, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+          batch.set(opp.ref.collection("activities").doc(), {
+            type: "status_change", content: "Pulled from the unassigned pool",
+            by: uid, at: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+        await batch.commit();
+      } catch (e) { console.error("[leads/pull] opp re-own failed", ref.id, e); }
+    }));
+
+    return res.json({ pulled: claimed.length });
   });
 
   // ─── Auth Alerts API ─────────────────────────────────────────────────────────

@@ -134,6 +134,24 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "primaryOwnerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "deleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
           "fieldPath": "referredBy",
           "order": "ASCENDING"
         },

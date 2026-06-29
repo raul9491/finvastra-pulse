@@ -33,6 +33,7 @@ function QueueBatchCard({ job, agents }: { job: ImportJob; agents: UserProfile[]
   const [selected, setSelected] = useState<string[]>([]);
   const [running,  setRunning]  = useState(false);
   const [error,    setError]    = useState('');
+  const [perAgent, setPerAgent] = useState('100');   // max contacts per agent this round (0/blank = all)
 
   const toggle = (uid: string) =>
     setSelected((prev) => (prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]));
@@ -41,7 +42,7 @@ function QueueBatchCard({ job, agents }: { job: ImportJob; agents: UserProfile[]
     if (selected.length === 0) return;
     setRunning(true); setError('');
     try {
-      await apiPost('/api/import/distribute', { batchId: job.batchId, agentIds: selected });
+      await apiPost('/api/import/distribute', { batchId: job.batchId, agentIds: selected, perAgent: Number(perAgent) || 0 });
       // The card disappears when the job's `distributed` flag flips via onSnapshot.
       // Keep the spinner until then.
     } catch (e) {
@@ -128,16 +129,35 @@ function QueueBatchCard({ job, agents }: { job: ImportJob; agents: UserProfile[]
         </div>
       )}
 
+      {/* Per-agent cap — assign at most this many to EACH selected agent; the rest
+          stay in the queue for the next round. Blank/0 = assign everything. */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <label className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--shell-text-dim)' }}>
+          Max per agent
+        </label>
+        <input type="number" min={0} value={perAgent} onChange={(e) => setPerAgent(e.target.value)}
+          className="glass-inp w-24 text-sm" placeholder="100" />
+        <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+          0 = assign all · rest stays in the queue
+        </span>
+      </div>
+
       {error && <p className="text-sm" style={{ color: '#f87171' }}>{error}</p>}
 
-      <button onClick={handleDistribute} disabled={selected.length === 0 || running}
-        className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 transition-opacity hover:opacity-80"
-        style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
-        {running ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-        {running
-          ? 'Distributing…'
-          : `Distribute ${leadCount} lead${leadCount === 1 ? '' : 's'} to ${selected.length || 0} agent${selected.length === 1 ? '' : 's'}`}
-      </button>
+      {(() => {
+        const cap = Number(perAgent) || 0;
+        const thisRound = cap > 0 ? Math.min(leadCount, cap * (selected.length || 0)) : leadCount;
+        return (
+          <button onClick={handleDistribute} disabled={selected.length === 0 || running}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 transition-opacity hover:opacity-80"
+            style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+            {running ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+            {running
+              ? 'Distributing…'
+              : `Assign ${thisRound} lead${thisRound === 1 ? '' : 's'} to ${selected.length || 0} agent${selected.length === 1 ? '' : 's'}${cap > 0 && thisRound < leadCount ? ` (${leadCount - thisRound} stay in queue)` : ''}`}
+          </button>
+        );
+      })()}
     </div>
   );
 }

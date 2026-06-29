@@ -418,6 +418,7 @@ export interface Lead {
   id: string;
   displayName: string;
   phone: string;
+  altPhones?: string[];      // additional numbers from a multi-number import cell ("9885299945, 9885012345") — agents can try all
   email?: string;
   panRaw?: string;
   panEncrypted?: {           // AES-256-GCM encrypted PAN (replaces panRaw in Phase 2.8 migration)
@@ -752,6 +753,7 @@ export interface ImportJob {
   processedRows: number;
   successCount: number;
   errorCount: number;
+  duplicateCount?: number;   // rows skipped as duplicates (already in system / repeated in sheet) — NOT errors
   status: ImportJobStatus;
   startedAt: any;
   completedAt?: any;

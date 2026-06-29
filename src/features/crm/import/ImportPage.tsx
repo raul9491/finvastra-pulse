@@ -435,32 +435,34 @@ export function ImportPage() {
             <div className="h-full rounded-full transition-all duration-500"
               style={{ width: `${jobPct}%`, backgroundColor: liveJob.status === 'failed' ? '#f87171' : '#C9A961' }} />
           </div>
-          <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
             {[
-              { label: 'Processed', value: liveJob.processedRows },
-              { label: 'Imported',  value: liveJob.successCount  },
-              { label: 'Errors',    value: liveJob.errorCount    },
-            ].map(({ label, value }) => (
+              { label: 'Processed',  value: liveJob.processedRows,         color: 'var(--text-primary)' },
+              { label: 'Imported',   value: liveJob.successCount,          color: '#34d399' },
+              { label: 'Duplicates', value: liveJob.duplicateCount ?? 0,   color: (liveJob.duplicateCount ?? 0) > 0 ? '#d4a64a' : 'var(--text-primary)' },
+              { label: 'Errors',     value: liveJob.errorCount,            color: liveJob.errorCount > 0 ? '#f87171' : 'var(--text-primary)' },
+            ].map(({ label, value, color }) => (
               <div key={label} className="glass-panel rounded-xl p-3">
-                <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
+                <p className="text-lg font-bold" style={{ color }}>{value}</p>
                 <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--shell-text-dim)' }}>{label}</p>
               </div>
             ))}
           </div>
-          {/* Skipped-row breakdown — so the user can see WHAT didn't import and retry */}
+          {/* Duplicate note — clear count of what was already in the system / repeated */}
+          {jobDone && (liveJob.duplicateCount ?? 0) > 0 && (
+            <div className="rounded-xl p-3 text-xs" style={{ backgroundColor: 'rgba(212,166,74,0.08)', border: '1px solid rgba(212,166,74,0.28)', color: 'var(--text-muted)' }}>
+              <span className="font-bold" style={{ color: '#d4a64a' }}>{liveJob.duplicateCount} duplicate{liveJob.duplicateCount === 1 ? '' : 's'} skipped</span>
+              {' '}— already in the system or repeated within this sheet. Only the first copy is kept; nothing was imported twice.
+            </div>
+          )}
+          {/* Skipped-row breakdown — genuine validation errors the user can fix & retry */}
           {jobDone && (liveJob.errors?.length ?? 0) > 0 && (() => {
             const reasonCounts = new Map<string, number>();
-            for (const e of liveJob.errors!) {
-              // Group duplicates / repeats / per-value product errors into readable buckets
-              const key = e.reason.startsWith('duplicate (hash')   ? 'Already in the system (imported earlier — no action needed)' :
-                          e.reason.startsWith('duplicate (repeat') ? 'Repeated within this sheet (only the first copy imports)' :
-                          e.reason;
-              reasonCounts.set(key, (reasonCounts.get(key) ?? 0) + 1);
-            }
+            for (const e of liveJob.errors!) reasonCounts.set(e.reason, (reasonCounts.get(e.reason) ?? 0) + 1);
             return (
               <div className="rounded-xl p-4 space-y-2" style={{ backgroundColor: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.25)' }}>
                 <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#fbbf24' }}>
-                  Why {liveJob.errorCount} rows were skipped
+                  Why {liveJob.errorCount} row{liveJob.errorCount === 1 ? '' : 's'} had errors
                 </p>
                 {[...reasonCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([reason, count]) => (
                   <p key={reason} className="text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -469,7 +471,7 @@ export function ImportPage() {
                 ))}
                 <button onClick={() => downloadErrorCsv(liveJob)}
                   className="mt-1 text-xs font-semibold hover:underline" style={{ color: '#C9A961' }}>
-                  ⬇ Download skipped rows (CSV) — fix &amp; re-import; already-imported rows skip automatically
+                  ⬇ Download error rows (CSV) — fix &amp; re-import; duplicates skip automatically
                 </button>
               </div>
             );

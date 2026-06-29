@@ -584,6 +584,14 @@ export function LeadDetailPage() {
               <PhoneLink phone={lead.phone} mono={false} className="text-sm font-medium" />
               <ContactActions phone={lead.phone} email={lead.email} name={lead.displayName} size="sm" />
             </div>
+            {/* Alternate numbers from a multi-number import cell — agents can try each */}
+            {(lead.altPhones ?? []).map((p) => (
+              <div key={p} className="flex items-center gap-2 flex-wrap mt-1.5">
+                <span className="text-[9px] font-bold uppercase tracking-widest px-1 py-0.5 rounded" style={{ backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-muted)' }}>Alt</span>
+                <PhoneLink phone={p} mono={false} className="text-sm font-medium" />
+                <ContactActions phone={p} name={lead.displayName} size="sm" />
+              </div>
+            ))}
           </div>
           {lead.email && (
             <div>

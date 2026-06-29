@@ -217,12 +217,29 @@ interface ParsedRow {
 // e.g. "040-66320094". Business lists legitimately contain landline numbers.
 // Strips non-digits, an optional +91, and STD leading zero, then accepts a
 // mobile or any plausible 8–12-digit landline. Only blank / garbage is rejected.
-function isImportablePhone(rawPhone: string): boolean {
-  let d = rawPhone.replace(/\D/g, "");
+function isOnePhone(token: string): boolean {
+  let d = token.replace(/\D/g, "");
   if (d.startsWith("91") && d.length >= 12) d = d.slice(2);   // +91 / 91 prefix
   d = d.replace(/^0+/, "");                                    // STD leading zero(s)
   if (/^[6-9]\d{9}$/.test(d)) return true;                     // mobile
   return d.length >= 8 && d.length <= 12;                      // landline / STD
+}
+
+// A phone CELL may legitimately hold MULTIPLE numbers separated by a comma /
+// slash / semicolon / & / newline — e.g. "9885299945, 9885012345". Return every
+// valid one (trimmed, order preserved, de-duped) so an agent can try both.
+function splitPhones(raw: string): string[] {
+  const out: string[] = [];
+  for (const part of String(raw ?? "").split(/[,/;&\n]+/)) {
+    const t = part.trim();
+    if (t && isOnePhone(t) && !out.includes(t)) out.push(t);
+  }
+  return out;
+}
+
+// A cell is acceptable if it yields at least one valid number (one or many).
+function isImportablePhone(rawPhone: string): boolean {
+  return splitPhones(rawPhone).length > 0;
 }
 
 // Some source rows merge the phone into the NAME cell, e.g.
@@ -407,21 +424,27 @@ function normaliseProduct(raw: string, loanProducts: Set<string>): string {
 }
 
 function extractCells(raw: string[], mapping: ColumnMapping): {
-  displayName: string; phone: string; email: string; panRaw: string;
+  displayName: string; phone: string; altPhones: string[]; email: string; panRaw: string;
   loanProduct: string; dealSize: string; address: string;
   triagePriority: string; notes: string;
 } {
   const g = (f: keyof ColumnMapping) => mapping[f] !== undefined ? (raw[mapping[f]!] ?? '').trim() : '';
   let displayName = g('displayName');
-  let phone = g('phone');
+  // A phone cell may hold several numbers ("9885299945, 9885012345") — take the
+  // first valid one as the primary; keep the rest as alternates so an agent can
+  // try every number on the row.
+  const phones = splitPhones(g('phone'));
+  let phone = phones[0] ?? '';
+  let altPhones = phones.slice(1);
   // Salvage a phone embedded in the name cell when the phone column is empty/invalid.
-  if (!isImportablePhone(phone) && displayName) {
+  if (!phone && displayName) {
     const salv = salvagePhoneFromName(displayName);
     if (salv) { phone = salv.phone; displayName = salv.cleanName; }
   }
   return {
     displayName,
     phone,
+    altPhones,
     email:          g('email'),
     panRaw:         g('panRaw'),
     loanProduct:    g('loanProduct'),
@@ -440,12 +463,16 @@ function writeImportedLead(
   ctx: { batchId: string; importName: string; triggerUserId: string; importHash: string; loanProducts: Set<string> },
 ): void {
   const { displayName, phone, email, panRaw, address } = cells;
+  const altPhones = cells.altPhones ?? [];
   const loanProduct = normaliseProduct(cells.loanProduct, ctx.loanProducts);
   const productValid = !!loanProduct && ctx.loanProducts.has(loanProduct);
   // Unrecognised product values aren't lost — they ride along in the lead's notes.
+  // Alternate numbers are surfaced in notes too, so an agent sees them even on
+  // screens that only render the primary phone.
   const notes = [
     cells.notes,
     cells.loanProduct && !productValid ? `Imported product value: ${cells.loanProduct}` : '',
+    altPhones.length ? `Alt phone${altPhones.length > 1 ? 's' : ''}: ${altPhones.join(', ')}` : '',
   ].filter(Boolean).join(' · ');
   const assignedOwner = "UNASSIGNED";   // held UNASSIGNED until distributed from the queue
   const slaDeadline = new Date();
@@ -455,6 +482,7 @@ function writeImportedLead(
   batch.set(leadRef, {
     displayName,
     phone,
+    ...(altPhones.length ? { altPhones } : {}),
     ...(email   ? { email   } : {}),
     ...(panRaw  ? { panRaw  } : {}),
     ...(address ? { address } : {}),
@@ -517,7 +545,7 @@ async function processImportBatch(
 ): Promise<void> {
   const jobRef = db.collection("import_jobs").doc(jobId);
   const totalRows = rows.length;
-  let processedRows = 0, successCount = 0, errorCount = 0;
+  let processedRows = 0, successCount = 0, errorCount = 0, duplicateCount = 0;
   const errors: Array<{ row: number; data: Record<string, string>; reason: string }> = [];
 
   // PERFORMANCE: rows are processed in chunks of 30 — one `in` duplicate query
@@ -554,8 +582,10 @@ async function processImportBatch(
 
       const importHash = buildImportHash(cells.phone, cells.email, cells.displayName);
       if (seenHashes.has(importHash)) {
-        errorCount++;
-        if (errors.length < 1000) errors.push({ row: rowNum, data: rowData, reason: "duplicate (repeated within this sheet)" });
+        // Duplicates are NOT validation errors — count them separately so the
+        // uploader sees a clear "N duplicates removed" figure, and they stay out
+        // of the retryable error list (re-trying a dup can't help).
+        duplicateCount++;
         continue;
       }
       seenHashes.add(importHash);
@@ -577,8 +607,7 @@ async function processImportBatch(
 
     for (const e of entries) {
       if (existingHashes.has(e.importHash)) {
-        errorCount++;
-        if (errors.length < 1000) errors.push({ row: e.rowNum, data: e.rowData, reason: "duplicate (hash matched existing lead)" });
+        duplicateCount++;   // already in the system — skipped, counted as a duplicate (not an error)
         continue;
       }
 
@@ -594,16 +623,18 @@ async function processImportBatch(
     // Counts ONLY — the errors array (up to 1000 entries with row data) is written
     // once at the end. Including it here made every progress tick re-stream a huge
     // doc to every subscribed client, visibly slowing the whole CRM during imports.
-    await jobRef.update({ processedRows, successCount, errorCount });
+    await jobRef.update({ processedRows, successCount, errorCount, duplicateCount });
   }
 
-  // Final update
+  // Final update. Duplicates are skipped-but-fine, so they don't make a job "failed".
+  const status = (errorCount > 0 && successCount === 0) ? "failed" : (errorCount > 0 ? "partial" : "completed");
   await jobRef.update({
     processedRows: totalRows,
     successCount,
     errorCount,
+    duplicateCount,
     errors,
-    status: errorCount === totalRows && totalRows > 0 ? "failed" : errorCount > 0 ? "partial" : "completed",
+    status,
     completedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 }
@@ -1448,12 +1479,16 @@ async function startServer() {
 
     for (const err of prevErrors) {
       const cells = {
-        displayName: '', phone: '', email: '', panRaw: '', loanProduct: '',
+        displayName: '', phone: '', altPhones: [], email: '', panRaw: '', loanProduct: '',
         dealSize: '', address: '', triagePriority: '', notes: '',
         ...(err.data ?? {}),
       } as ReturnType<typeof extractCells>;
+      // Re-split a multi-number cell ("9885299945, 9885012345") that an OLD job
+      // stored whole as a failed row → primary + alternates (same as a fresh import).
+      const phones = splitPhones(cells.phone);
+      if (phones.length) { cells.phone = phones[0]; cells.altPhones = phones.slice(1); }
       // Re-apply salvage (stored error data predates the salvage logic).
-      if (!isImportablePhone(cells.phone) && cells.displayName) {
+      if (!cells.phone && cells.displayName) {
         const salv = salvagePhoneFromName(cells.displayName);
         if (salv) { cells.phone = salv.phone; cells.displayName = salv.cleanName; }
       }

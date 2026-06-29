@@ -80,7 +80,7 @@ export function ImportHistoryPage() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
-                  {['Name', 'Batch ID', 'Started', 'Total', 'Imported', 'Errors', 'Distributed', 'Status', ''].map((h, i) => (
+                  {['Name', 'Batch ID', 'Started', 'Total', 'Imported', 'Duplicates', 'Errors', 'Distributed', 'Status', ''].map((h, i) => (
                     <th key={i} className="px-3 py-3 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{h}</th>
                   ))}
                 </tr>
@@ -101,6 +101,11 @@ export function ImportHistoryPage() {
                     <td className="px-3 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{fmtDate(job.startedAt)}</td>
                     <td className="px-3 py-3" style={{ color: 'var(--text-primary)' }}>{job.totalRows}</td>
                     <td className="px-3 py-3 font-semibold" style={{ color: '#34d399' }}>{job.successCount}</td>
+                    <td className="px-3 py-3">
+                      {(job.duplicateCount ?? 0) > 0
+                        ? <span className="font-semibold" style={{ color: '#d4a64a' }} title="Already in the system or repeated within the sheet — skipped, not imported again">{job.duplicateCount}</span>
+                        : <span style={{ color: 'var(--text-muted)' }}>0</span>}
+                    </td>
                     <td className="px-3 py-3">
                       {job.errorCount > 0 ? (
                         <button onClick={() => setOpenErrors(open ? null : job.id)}
@@ -139,7 +144,7 @@ export function ImportHistoryPage() {
                   {/* Expanded error detail — see exactly which rows failed and why */}
                   {open && (
                     <tr style={{ borderBottom: '1px solid var(--shell-border)' }}>
-                      <td colSpan={9} className="px-4 py-3" style={{ backgroundColor: 'var(--shell-hover-soft)' }}>
+                      <td colSpan={10} className="px-4 py-3" style={{ backgroundColor: 'var(--shell-hover-soft)' }}>
                         {job.errors?.length ? (
                           <>
                             <div className="flex items-center justify-between gap-3 mb-2">

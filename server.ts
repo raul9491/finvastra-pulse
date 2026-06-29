@@ -1236,7 +1236,9 @@ async function startServer() {
       res.json({ ok: true, sheetId });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes("404") || msg.includes("not found")) {
+      if (msg.includes("Office file") || msg.includes("not supported for this document")) {
+        res.status(400).json({ error: "This link is an uploaded Excel file, not a Google Sheet. In Google Drive, right-click it → Open with → Google Sheets, then File → Save as Google Sheets, and paste that new link here. (Excel/.xlsx files can't be read directly.)" });
+      } else if (msg.includes("404") || msg.includes("not found")) {
         res.status(404).json({ error: "Sheet not found. Check the URL." });
       } else if (msg.includes("403") || msg.includes("permission")) {
         const sa = await getServiceAccountEmail();
@@ -1305,7 +1307,11 @@ async function startServer() {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      res.status(500).json({ error: msg });
+      if (msg.includes("Office file") || msg.includes("not supported for this document")) {
+        res.status(400).json({ error: "This link is an uploaded Excel file, not a Google Sheet. In Google Drive, right-click it → Open with → Google Sheets, then File → Save as Google Sheets, and paste that new link here." });
+      } else {
+        res.status(500).json({ error: msg });
+      }
     }
   });
 
@@ -1346,7 +1352,11 @@ async function startServer() {
       });
       allRows = (result.data.values ?? []) as string[][];
     } catch (err) {
-      return res.status(500).json({ error: `Failed to read Sheet: ${err instanceof Error ? err.message : String(err)}` });
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("Office file") || msg.includes("not supported for this document")) {
+        return res.status(400).json({ error: "This link is an uploaded Excel file, not a Google Sheet. In Google Drive, right-click it → Open with → Google Sheets, then File → Save as Google Sheets, and paste that new link here." });
+      }
+      return res.status(500).json({ error: `Failed to read Sheet: ${msg}` });
     }
 
     // Fetch loan products once

@@ -85,3 +85,23 @@ export async function retryImportErrors(jobId: string): Promise<{ imported: numb
   }
   return res.json();
 }
+
+/**
+ * Re-read a batch's source sheet and stamp the extra columns (amount, city, …) onto
+ * the existing leads (matched by importHash). For batches imported before importExtras
+ * shipped. Idempotent. Returns { updated, totalLeads }.
+ */
+export async function backfillImportExtras(batchId: string): Promise<{ updated: number; totalLeads: number }> {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error('Not signed in');
+  const res = await fetch('/api/import/backfill-extras', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ batchId }),
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error || `Backfill failed (${res.status})`);
+  }
+  return res.json();
+}

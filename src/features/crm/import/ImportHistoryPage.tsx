@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { Download, ArrowLeft, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
-import { useImportHistory, downloadErrorCsv, retryImportErrors } from '../hooks/useImportJobs';
+import { useImportHistory, downloadErrorCsv, retryImportErrors, backfillImportExtras } from '../hooks/useImportJobs';
 import type { ImportJobStatus } from '../../../types';
 
 const STATUS_BADGE: Record<ImportJobStatus, string> = {
@@ -22,6 +22,20 @@ export function ImportHistoryPage() {
   const toast = useToast();
   const [openErrors, setOpenErrors] = useState<string | null>(null);   // jobId whose errors are expanded
   const [retrying, setRetrying] = useState<string | null>(null);
+  const [backfilling, setBackfilling] = useState<string | null>(null);
+
+  const handleBackfill = async (batchId: string) => {
+    setBackfilling(batchId);
+    try {
+      const r = await backfillImportExtras(batchId);
+      if (r.updated > 0) toast.success(`Added import details to ${r.updated} contact${r.updated === 1 ? '' : 's'}. Open a customer to see them.`);
+      else toast.info('No extra details to add — these contacts already have them, or the sheet had no extra columns.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Backfill failed');
+    } finally {
+      setBackfilling(null);
+    }
+  };
 
   const handleRetry = async (jobId: string) => {
     setRetrying(jobId);
@@ -130,6 +144,11 @@ export function ImportHistoryPage() {
                         <button onClick={() => navigate(`/crm/leads?importBatchId=${job.batchId}`)}
                           className="text-xs font-semibold hover:underline" style={{ color: '#60a5fa' }}>
                           View leads
+                        </button>
+                        <button onClick={() => handleBackfill(job.batchId)} disabled={backfilling === job.batchId}
+                          title="Re-read the sheet and add its extra columns (amount, city, …) onto these contacts"
+                          className="text-xs font-semibold hover:underline disabled:opacity-50" style={{ color: '#C9A961' }}>
+                          {backfilling === job.batchId ? 'Adding…' : 'Backfill details'}
                         </button>
                         {job.errorCount > 0 && (
                           <button onClick={() => downloadErrorCsv(job)}

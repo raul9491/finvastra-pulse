@@ -423,10 +423,10 @@ function normaliseProduct(raw: string, loanProducts: Set<string>): string {
   return raw; // return as-is; will fail validation
 }
 
-function extractCells(raw: string[], mapping: ColumnMapping): {
+function extractCells(raw: string[], mapping: ColumnMapping, headers?: string[]): {
   displayName: string; phone: string; altPhones: string[]; email: string; panRaw: string;
   loanProduct: string; dealSize: string; address: string;
-  triagePriority: string; notes: string;
+  triagePriority: string; notes: string; importExtras: Record<string, string>;
 } {
   const g = (f: keyof ColumnMapping) => mapping[f] !== undefined ? (raw[mapping[f]!] ?? '').trim() : '';
   let displayName = g('displayName');
@@ -441,6 +441,22 @@ function extractCells(raw: string[], mapping: ColumnMapping): {
     const salv = salvagePhoneFromName(displayName);
     if (salv) { phone = salv.phone; displayName = salv.cleanName; }
   }
+  // Preserve EVERY other column from the sheet (amount, city, branch, source, …) as
+  // header→value so nothing useful is lost — telecallers/managers see it on the
+  // customer. Exclude the columns already shown as first-class fields, and NEVER
+  // include the PAN column (must stay masked). dealSize/product/priority + all
+  // unmapped columns are kept, so e.g. "Disbursed Amount" always survives.
+  const importExtras: Record<string, string> = {};
+  if (headers && headers.length) {
+    const EXCLUDE: Array<keyof ColumnMapping> = ['displayName', 'phone', 'email', 'panRaw', 'address', 'notes'];
+    const excludedCols = new Set(EXCLUDE.map((f) => mapping[f]).filter((c): c is number => c !== undefined));
+    for (let i = 0; i < headers.length && Object.keys(importExtras).length < 40; i++) {
+      if (excludedCols.has(i)) continue;
+      const label = (headers[i] ?? '').trim();
+      const val   = (raw[i] ?? '').trim();
+      if (label && val) importExtras[label] = val.slice(0, 500);
+    }
+  }
   return {
     displayName,
     phone,
@@ -452,6 +468,7 @@ function extractCells(raw: string[], mapping: ColumnMapping): {
     address:        g('address'),
     triagePriority: g('triagePriority'),
     notes:          g('notes'),
+    importExtras,
   };
 }
 
@@ -464,6 +481,7 @@ function writeImportedLead(
 ): void {
   const { displayName, phone, email, panRaw, address } = cells;
   const altPhones = cells.altPhones ?? [];
+  const importExtras = cells.importExtras ?? {};
   const loanProduct = normaliseProduct(cells.loanProduct, ctx.loanProducts);
   const productValid = !!loanProduct && ctx.loanProducts.has(loanProduct);
   // Unrecognised product values aren't lost — they ride along in the lead's notes.
@@ -487,6 +505,7 @@ function writeImportedLead(
     ...(panRaw  ? { panRaw  } : {}),
     ...(address ? { address } : {}),
     ...(notes   ? { notes   } : {}),
+    ...(Object.keys(importExtras).length ? { importExtras } : {}),
     source:           "offline_bulk",
     tags:             [],
     primaryOwnerId:   assignedOwner,
@@ -542,6 +561,7 @@ async function processImportBatch(
   loanProducts: Set<string>,
   columnMapping: ColumnMapping,
   importName: string,
+  headers: string[] = [],   // sheet header row — preserved as importExtras so no column is lost
 ): Promise<void> {
   const jobRef = db.collection("import_jobs").doc(jobId);
   const totalRows = rows.length;
@@ -567,7 +587,7 @@ async function processImportBatch(
     for (let j = 0; j < slice.length; j++) {
       const raw = slice[j];
       const rowNum = start + j + 2; // 1=header, data starts at 2
-      const cells = extractCells(raw, columnMapping);
+      const cells = extractCells(raw, columnMapping, headers);
       const rowData: Record<string, string> = cells as unknown as Record<string, string>;
       const rowErrors = validateRow(raw, columnMapping, loanProducts);
 
@@ -1431,7 +1451,7 @@ async function startServer() {
 
     // Background processing (intentionally not awaited). Leads land UNASSIGNED;
     // they are routed to agents later from the Import Queue (POST /api/import/distribute).
-    processImportBatch(jobId, sheetId, skipErrors, uid, batchId, dataRows, loanProducts, columnMapping, importName)
+    processImportBatch(jobId, sheetId, skipErrors, uid, batchId, dataRows, loanProducts, columnMapping, importName, headerRow)
       .catch(err => {
         console.error(`Import job ${jobId} failed:`, err);
         db.collection("import_jobs").doc(jobId).update({
@@ -1483,7 +1503,7 @@ async function startServer() {
     for (const err of prevErrors) {
       const cells = {
         displayName: '', phone: '', altPhones: [], email: '', panRaw: '', loanProduct: '',
-        dealSize: '', address: '', triagePriority: '', notes: '',
+        dealSize: '', address: '', triagePriority: '', notes: '', importExtras: {},
         ...(err.data ?? {}),
       } as ReturnType<typeof extractCells>;
       // Re-split a multi-number cell ("9885299945, 9885012345") that an OLD job
@@ -1542,6 +1562,72 @@ async function startServer() {
     });
 
     res.json({ imported, duplicates, stillFailing: newErrorCount });
+  });
+
+  // ─── POST /api/import/backfill-extras — fill importExtras on an already-imported batch ──
+  // Batches imported BEFORE importExtras shipped (or any time a column got dropped)
+  // lose the sheet's extra columns. Re-reads the sheet, rebuilds the extras per row,
+  // and stamps them onto the existing leads (matched by importHash). Idempotent —
+  // skips leads that already carry extras. No new leads created; no duplicates.
+  app.post("/api/import/backfill-extras", async (req, res) => {
+    const uid = await verifyFirebaseToken(req);
+    if (!uid) return res.status(401).json({ error: "Unauthorized" });
+    const userSnap = await db.collection("users").doc(uid).get();
+    const user = userSnap.data();
+    const canRun = user?.role === "admin" || user?.crmRole === "manager" || user?.crmCanImport === true;
+    if (!canRun) return res.status(403).json({ error: "Import access not granted." });
+
+    const { batchId } = req.body;
+    if (typeof batchId !== "string" || !batchId) return res.status(400).json({ error: "batchId required" });
+    const jobSnap = await db.collection("import_jobs").where("batchId", "==", batchId).limit(1).get();
+    if (jobSnap.empty) return res.status(404).json({ error: "Import batch not found." });
+    const job = jobSnap.docs[0].data();
+    const sheetId = job.sheetId as string;
+    if (!sheetId) return res.status(400).json({ error: "This batch has no source sheet on record." });
+
+    // Re-read the sheet
+    let allRows: string[][];
+    try {
+      const sheets = await getSheetsClient();
+      const result = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: "A1:ZZ" });
+      allRows = (result.data.values ?? []) as string[][];
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("Office file") || msg.includes("not supported for this document")) {
+        return res.status(400).json({ error: "The source is an uploaded Excel file, not a Google Sheet — convert it to a Google Sheet to backfill." });
+      }
+      return res.status(400).json({ error: `Couldn't read the source sheet: ${msg}` });
+    }
+
+    const headers  = allRows[0] ?? [];
+    const dataRows = allRows.slice(1);
+    const oppTypesSnap = await db.collection("opportunity_types")
+      .where("businessLine", "==", "loan").where("active", "==", true).get();
+    const loanProducts = new Set(oppTypesSnap.docs.map((d) => d.data().name as string));
+    const mapping = detectColumnMapping(headers, dataRows.slice(0, 20), loanProducts);
+
+    // importHash → extras (first occurrence wins, matching the original import order)
+    const extrasByHash = new Map<string, Record<string, string>>();
+    for (const raw of dataRows) {
+      const cells = extractCells(raw, mapping, headers);
+      if (Object.keys(cells.importExtras).length === 0) continue;
+      const h = buildImportHash(cells.phone, cells.email, cells.displayName);
+      if (!extrasByHash.has(h)) extrasByHash.set(h, cells.importExtras);
+    }
+
+    const leadsSnap = await db.collection("leads").where("importBatchId", "==", batchId).get();
+    let updated = 0, batchWrite = db.batch(), ops = 0;
+    for (const d of leadsSnap.docs) {
+      const lead = d.data();
+      if (lead.importExtras && Object.keys(lead.importExtras).length) continue;   // already has extras
+      const extras = extrasByHash.get(lead.importHash as string);
+      if (!extras) continue;
+      batchWrite.update(d.ref, { importExtras: extras });
+      updated++; ops++;
+      if (ops >= 400) { await batchWrite.commit(); batchWrite = db.batch(); ops = 0; }
+    }
+    if (ops > 0) await batchWrite.commit();
+    return res.json({ updated, totalLeads: leadsSnap.size });
   });
 
   // ─── POST /api/import/distribute — route a held batch to agents ───────────────

@@ -654,6 +654,24 @@ export function LeadDetailPage() {
 
       </div>
 
+      {/* Details from the import sheet — every extra column (amount, city, branch, …)
+          preserved so telecallers & managers have full context on the call. */}
+      {lead.importExtras && Object.keys(lead.importExtras).length > 0 && (
+        <div className="glass-panel p-5">
+          <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>
+            Details from import
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3">
+            {Object.entries(lead.importExtras).map(([label, value]) => (
+              <div key={label} className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5 truncate" style={{ color: 'var(--text-muted)' }} title={label}>{label}</p>
+                <p className="text-sm break-words" style={{ color: 'var(--text-primary)' }}>{value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Stats strip */}
       {opportunities.length > 0 && (
         <div className="grid grid-cols-3 gap-4">

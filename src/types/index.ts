@@ -419,6 +419,7 @@ export interface Lead {
   displayName: string;
   phone: string;
   altPhones?: string[];      // additional numbers from a multi-number import cell ("9885299945, 9885012345") — agents can try all
+  importExtras?: Record<string, string>;   // every extra column from the import sheet (amount, city, branch, …) header→value — shown on the customer so nothing is lost
   email?: string;
   panRaw?: string;
   panEncrypted?: {           // AES-256-GCM encrypted PAN (replaces panRaw in Phase 2.8 migration)

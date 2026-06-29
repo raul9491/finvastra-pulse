@@ -14,6 +14,7 @@ import { useAuth } from '../../features/auth/AuthContext';
 import { useMyLeads } from '../../features/crm/hooks/useMyLeads';
 import { useImportHistory } from '../../features/crm/hooks/useImportJobs';
 import { ImportProgressDock } from '../../features/crm/import/ImportProgressDock';
+import { CallbackReminderDock } from '../../features/crm/components/CallbackReminderDock';
 import { VideoLogo } from '../ui/VideoLogo';
 import { NotificationBell } from '../ui/NotificationBell';
 import { ThemeToggle, useTheme } from '../ui/ThemeProvider';
@@ -427,6 +428,10 @@ export function CrmShell() {
 
       {/* Global import progress — persists across CRM pages while a bulk import runs */}
       {canImport && <ImportProgressDock jobs={importJobs} />}
+
+      {/* Persistent callback reminders — appear ~15 min before a scheduled callback,
+          stay until dismissed with the × (follows the user across all CRM pages) */}
+      <CallbackReminderDock />
 
       {/* Global ⌘K command palette */}
       <CommandPalette />

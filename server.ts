@@ -3020,7 +3020,8 @@ async function startServer() {
   app.post("/api/admin/run-callback-reminders", async (req, res) => {
     if (!(await requireAdminOrScheduler(req, res))) return;
     try {
-      const nowIso = new Date().toISOString();
+      const nowMs = Date.now();
+      const LEAD_MS = 15 * 60 * 1000;   // fire ~15 minutes BEFORE the scheduled callback
       const snap = await db.collection("leads")
         .where("leadStatus", "==", "callback")
         .where("deleted", "==", false)
@@ -3029,14 +3030,16 @@ async function startServer() {
       for (const d of snap.docs) {
         const l: any = d.data();
         if (l.callbackReminderSent === true) continue;
-        if (typeof l.callbackAt !== "string" || l.callbackAt > nowIso) continue; // not due yet
+        if (typeof l.callbackAt !== "string") continue;
+        const cbMs = new Date(l.callbackAt).getTime();
+        if (isNaN(cbMs) || cbMs > nowMs + LEAD_MS) continue; // more than 15 min away → not yet
         const rm = l.primaryOwnerId;
         if (!rm || rm === "UNASSIGNED") continue;
 
         await db.collection("notifications").doc(rm).collection("items").add({
           type:      "follow_up_needed",
-          title:     `Call back now — ${l.displayName ?? "Lead"}`,
-          body:      "The callback time you scheduled has arrived.",
+          title:     `Callback soon — ${l.displayName ?? "Lead"}`,
+          body:      "Your scheduled callback is in about 15 minutes.",
           link:      `/crm/leads/${d.id}`,
           read:      false,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -3045,15 +3048,15 @@ async function startServer() {
         const authUser = await admin.auth().getUser(rm).catch(() => null);
         if (authUser?.email) {
           const html = buildBrandEmail({
-            title: "Time to call back",
-            intro: `Your scheduled callback for ${l.displayName ?? "a lead"} is due now.`,
+            title: "Callback coming up",
+            intro: `Your scheduled callback for ${l.displayName ?? "a lead"} is in about 15 minutes.`,
             rows: [
               { label: "Customer", value: l.displayName ?? "-" },
               { label: "Phone", value: l.phone ?? "-" },
             ],
             ctaLabel: "Open lead", ctaLink: `https://pulse.finvastra.com/crm/leads/${d.id}`,
           });
-          await sendGmailMessage(authUser.email, `Call back now — ${l.displayName ?? "Lead"}`, html).catch(() => {});
+          await sendGmailMessage(authUser.email, `Callback soon — ${l.displayName ?? "Lead"}`, html).catch(() => {});
         }
 
         await d.ref.update({ callbackReminderSent: true });

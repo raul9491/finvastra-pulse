@@ -26,6 +26,14 @@
       ]
     },
     {
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "primaryOwnerId", "order": "ASCENDING" },
+        { "fieldPath": "leadStatus", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "crm_meetings",
       "queryScope": "COLLECTION",
       "fields": [

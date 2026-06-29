@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Inbox, Loader2, Users, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { collection, query, where, getCountFromServer } from 'firebase/firestore';
 import { useAuth } from '../../auth/AuthContext';
 import { useImportHistory } from '../hooks/useImportJobs';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
-import { auth } from '../../../lib/firebase';
+import { auth, db } from '../../../lib/firebase';
 import type { ImportJob, UserProfile } from '../../../types';
 
 // ─── API helper ───────────────────────────────────────────────────────────────
@@ -29,7 +30,7 @@ const fmtDate = (ts: unknown) => {
 };
 
 // ─── One batch awaiting distribution ───────────────────────────────────────────
-function QueueBatchCard({ job, agents }: { job: ImportJob; agents: UserProfile[] }) {
+function QueueBatchCard({ job, agents, remaining }: { job: ImportJob; agents: UserProfile[]; remaining?: number }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [running,  setRunning]  = useState(false);
   const [error,    setError]    = useState('');
@@ -54,7 +55,9 @@ function QueueBatchCard({ job, agents }: { job: ImportJob; agents: UserProfile[]
   // Remaining unassigned = imported minus already-distributed (handles retried rows
   // added to an already-distributed batch). For a never-distributed batch this is
   // just successCount (distributedCount is unset).
-  const leadCount = Math.max((job.successCount ?? 0) - (job.distributedCount ?? 0), 0);
+  // Prefer the LIVE unassigned count (ground truth); fall back to the counter only
+  // while it's loading (the counter can drift, which is what stranded leads earlier).
+  const leadCount = remaining ?? Math.max((job.successCount ?? 0) - (job.distributedCount ?? 0), 0);
 
   return (
     <div className="glass-panel p-6 space-y-4">
@@ -180,15 +183,50 @@ export function ImportQueuePage() {
       (e.role === 'admin' || e.crmRole === 'lead_generator' || e.crmRole === 'lead_convertor'),
   );
 
-  // Batches still holding UNASSIGNED leads: either never distributed, OR more leads
-  // were imported than distributed (e.g. rows recovered later via "Retry failed rows").
-  const awaiting = jobs.filter(
+  // Candidate batches (two-stage imports that produced leads). Whether one still has
+  // leftover UNASSIGNED leads is decided by a LIVE count below — NOT the stored
+  // counter, which could drift and strand leads invisibly.
+  const candidates = jobs.filter(
     (j) =>
       !!j.importName &&            // only two-stage batches (pre-existing imports were auto-assigned)
       (j.successCount ?? 0) > 0 &&
-      (j.status === 'completed' || j.status === 'partial') &&
-      (j.distributed !== true || (j.successCount ?? 0) > (j.distributedCount ?? 0)),
+      (j.status === 'completed' || j.status === 'partial'),
   );
+
+  // Live count of still-UNASSIGNED leads per candidate batch (ground truth).
+  const [unassigned, setUnassigned] = useState<Record<string, number>>({});
+  const candidateKey = candidates.map((j) => `${j.batchId}:${j.distributedCount ?? 0}`).join('|');
+  useEffect(() => {
+    if (candidates.length === 0) { setUnassigned({}); return; }
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(candidates.map(async (j) => {
+        try {
+          const snap = await getCountFromServer(query(
+            collection(db, 'leads'),
+            where('importBatchId', '==', j.batchId),
+            where('primaryOwnerId', '==', 'UNASSIGNED'),
+            where('deleted', '==', false),
+          ));
+          return [j.batchId, snap.data().count] as const;
+        } catch {
+          return [j.batchId, -1] as const;   // query denied/failed → -1 (use counter fallback)
+        }
+      }));
+      if (!cancelled) setUnassigned(Object.fromEntries(entries));
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidateKey]);
+
+  const awaiting = candidates.filter((j) => {
+    const u = unassigned[j.batchId];
+    if (u === undefined || u < 0) {
+      // count not loaded yet (or denied) — fall back to the counter so something shows
+      return (j.distributed !== true || (j.successCount ?? 0) > (j.distributedCount ?? 0));
+    }
+    return u > 0;
+  });
 
   if (!canRun) {
     return (
@@ -232,7 +270,10 @@ export function ImportQueuePage() {
           </p>
         </div>
       ) : (
-        awaiting.map((job) => <QueueBatchCard key={job.id} job={job} agents={agents} />)
+        awaiting.map((job) => {
+          const r = unassigned[job.batchId];
+          return <QueueBatchCard key={job.id} job={job} agents={agents} remaining={r !== undefined && r >= 0 ? r : undefined} />;
+        })
       )}
     </div>
   );

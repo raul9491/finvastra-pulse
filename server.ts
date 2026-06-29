@@ -726,9 +726,12 @@ async function distributeBatch(
     distributed:      true,
     distributedAt:    admin.firestore.FieldValue.serverTimestamp(),
     distributedBy:    actorUid,
-    // Increment (not overwrite) so re-distributing leftover/retried unassigned leads
-    // accumulates onto the original count instead of dropping it.
-    distributedCount: admin.firestore.FieldValue.increment(leadsSnap.size),
+    // Increment by what was ACTUALLY assigned this round (docs.length = the capped
+    // slice), NOT leadsSnap.size (all unassigned). With a per-agent cap only `docs`
+    // get owners — counting the whole unassigned set inflated distributedCount to
+    // successCount and made the queue hide the leftover (stranding them). Increment
+    // (not overwrite) so successive rounds accumulate correctly.
+    distributedCount: admin.firestore.FieldValue.increment(docs.length),
     agentIds:         agents,
   });
 }

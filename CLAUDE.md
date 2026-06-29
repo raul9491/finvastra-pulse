@@ -126,7 +126,7 @@ src/
 │
 └── features/
     ├── auth/
-    │   ├── AuthContext.tsx           session, 1-hour idle timeout (SESSION_TIMEOUT_MS), mustResetPassword
+    │   ├── AuthContext.tsx           session, 12-hour idle timeout (SESSION_TIMEOUT_MS), mustResetPassword
     │   ├── LoginPage.tsx             Google + email/pw login, @finvastra.com domain guard
     │   ├── ResetPasswordPage.tsx     forced reset on first login
     │   ├── RequestAccessPage.tsx
@@ -1109,7 +1109,7 @@ All 18 pre-launch checklist items **must be completed** before running `deploy` 
 | Item | Status | Notes |
 |---|---|---|
 | `setPrimarySubmission` race condition | ✅ Fixed | Wrapped in `runTransaction()` — reads + financial writes atomic |
-| Idle session timeout | ✅ Added | `AuthContext.tsx` `SESSION_TIMEOUT_MS`; event listeners on click/keydown/scroll/mousemove/touchstart; `sessionStorage` flag shows "Session expired" on login page. **Bumped 30 min → 1 hour (2026-06-26)** — users found 30 min too aggressive (logged out too often). Timer resets on any interaction, so it only fires after a full hour of NO activity. |
+| Idle session timeout | ✅ Added | `AuthContext.tsx` `SESSION_TIMEOUT_MS`; event listeners on click/keydown/scroll/mousemove/touchstart; `sessionStorage` flag shows "Session expired" on login page. **Bumped 30 min → 1 hour (2026-06-26) → 12 hours (2026-06-29)** — users kept getting logged out after being away from the tab; 12 h covers a full working day. Timer resets on any interaction, so it only fires after a full 12 h of ZERO activity. **Purely client-side (a browser `setTimeout` + local `signOut`) — no backend call, no cost.** The only OTHER sign-out paths are the @finvastra.com domain gate and `revokeRefreshTokens` in the *deactivate* (mark-as-exited) flow — neither affects an active user. Firebase ID tokens still rotate hourly via the refresh token (auto, free); that is NOT a logout. |
 | Dev-only seed buttons in prod | ✅ Guarded | CrmDashboardPage + MisOverviewPage both behind `import.meta.env.DEV` |
 | Client env validation | ✅ Added | `src/lib/envValidation.ts` called on startup; throws in PROD if Firebase vars missing or emulator flag on |
 | Server env validation | ✅ Added | `validateServerEnv()` in `server.ts`; throws in `NODE_ENV=production` if any required var absent |

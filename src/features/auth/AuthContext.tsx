@@ -28,10 +28,12 @@ async function healSuperAdminProfile(uid: string, existing: UserProfile): Promis
 }
 
 // ─── Session timeout ──────────────────────────────────────────────────────────
-// 1 hour of inactivity → automatic sign-out. The timer resets on any click /
-// keystroke / scroll / mouse-move / touch, so it only fires after a full hour of
-// NO interaction (was 30 min — bumped 2026-06-26, users found it too aggressive).
-const SESSION_TIMEOUT_MS = 60 * 60 * 1000;
+// 12 hours of inactivity → automatic sign-out. The timer resets on any click /
+// keystroke / scroll / mouse-move / touch, so it only fires after a full 12 hours
+// of ZERO interaction (covers a full working day; was 30 min → 1 hr → 12 hr as
+// users found shorter windows too aggressive — bumped 2026-06-29). Purely
+// client-side (a browser timer + local signOut); no backend call, no cost.
+const SESSION_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 const SESSION_EXPIRED_KEY = '__finvastra_session_expired';
 
 interface AuthState {

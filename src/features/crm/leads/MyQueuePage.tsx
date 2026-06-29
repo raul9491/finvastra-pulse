@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import { DownloadCloud, Loader2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { DownloadCloud, Loader2, Inbox } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
 import { auth } from '../../../lib/firebase';
 import { useMyLeads } from '../hooks/useMyLeads';
 import { MyQueueRow } from './MyQueueRow';
+
+const PULL_LIMIT = 100;   // hard cap — a telecaller can pull at most this many at a time
 
 export function MyQueuePage() {
   const { user, profile } = useAuth();
@@ -15,28 +17,40 @@ export function MyQueuePage() {
   const isAdmin     = profile?.role === 'admin';
   const canUse      = isGenerator || isConvertor || isManager || isAdmin;
 
-  const [pullCount, setPullCount] = useState('100');
   const [pulling, setPulling] = useState(false);
+  const [available, setAvailable] = useState<number | null>(null);   // count waiting in the pool (number only — never the contacts)
 
   // Always call the hook — skip logic handled by userId being empty
   const { leads, overdue, urgent, total, loading, error } = useMyLeads(
     canUse ? (user?.uid ?? '') : '',
   );
 
+  // Fetch ONLY the count of pullable contacts (server-side; telecallers can't list the pool).
+  const refreshAvailable = useCallback(async () => {
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/leads/pull/available', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json().catch(() => ({}));
+      setAvailable(res.ok && typeof data.available === 'number' ? data.available : null);
+    } catch { setAvailable(null); }
+  }, []);
+
+  useEffect(() => { if (canUse) refreshAvailable(); }, [canUse, refreshAvailable]);
+
   const handlePull = async () => {
     setPulling(true);
     try {
-      const n = Math.min(Math.max(Number(pullCount) || 100, 1), 200);
       const token = await auth.currentUser?.getIdToken();
       const res = await fetch('/api/leads/pull', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ count: n }),
+        body: JSON.stringify({ count: PULL_LIMIT }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || `Pull failed (${res.status})`);
       if (data.pulled > 0) toast.success(`${data.pulled} lead${data.pulled === 1 ? '' : 's'} pulled into your queue.`);
-      else toast.info('No unassigned contacts left in the pool right now.');
+      else toast.info('No contacts available to pull right now.');
+      refreshAvailable();   // update the waiting count
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Pull failed');
     } finally {
@@ -78,19 +92,34 @@ export function MyQueuePage() {
               : `${total} lead${total !== 1 ? 's' : ''} · ${overdue} overdue`}
           </p>
         </div>
+      </div>
 
-        {/* Self-serve: pull a chunk of the oldest unassigned imported contacts to me */}
-        <div className="flex items-center gap-2">
-          <input type="number" min={1} max={200} value={pullCount} onChange={(e) => setPullCount(e.target.value)}
-            className="glass-inp w-20 text-sm" aria-label="How many to pull" />
-          <button onClick={handlePull} disabled={pulling}
-            title="Claim this many of the oldest unassigned contacts into your queue"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
-            style={{ backgroundColor: '#0B1538', color: '#E5C97C' }}>
-            {pulling ? <Loader2 size={14} className="animate-spin" /> : <DownloadCloud size={14} />}
-            {pulling ? 'Pulling…' : 'Pull leads'}
-          </button>
+      {/* ─── Pull panel — shows ONLY the count waiting in the pool, never the contacts.
+            Self-serve: claim up to 100 of the oldest unassigned contacts at a time. ── */}
+      <div className="glass-panel p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4 sm:justify-between"
+        style={{ borderLeft: '3px solid #C9A961' }}>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="shrink-0 w-11 h-11 rounded-xl flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(201,169,97,0.14)' }}>
+            <Inbox size={20} style={{ color: '#C9A961' }} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {available === null
+                ? 'Contacts available to pull'
+                : `${available.toLocaleString('en-IN')} contact${available === 1 ? '' : 's'} available to pull`}
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              You get the oldest contacts, up to {PULL_LIMIT} at a time. Pull more when you finish these.
+            </p>
+          </div>
         </div>
+        <button onClick={handlePull} disabled={pulling || available === 0}
+          className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50"
+          style={{ backgroundColor: '#0B1538', color: '#E5C97C' }}>
+          {pulling ? <Loader2 size={15} className="animate-spin" /> : <DownloadCloud size={15} />}
+          {pulling ? 'Pulling…' : available === 0 ? 'Nothing to pull' : `Pull up to ${PULL_LIMIT}`}
+        </button>
       </div>
 
       {/* ─── Stat chips ───────────────────────────────────────────────────── */}

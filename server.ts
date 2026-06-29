@@ -1611,8 +1611,9 @@ async function startServer() {
       (u.role === "admin" || u.crmRole === "manager" || u.crmRole === "lead_convertor" || u.crmRole === "lead_generator");
     if (!eligible) return res.status(403).json({ error: "You don't have permission to pull leads." });
 
+    // HARD cap 100 per pull — a telecaller can never claim more than 100 at a time.
     const reqCount = Number((req.body ?? {}).count);
-    const count = Number.isFinite(reqCount) && reqCount > 0 ? Math.min(Math.floor(reqCount), 200) : 100;
+    const count = Number.isFinite(reqCount) && reqCount > 0 ? Math.min(Math.floor(reqCount), 100) : 100;
 
     const snap = await db.collection("leads")
       .where("primaryOwnerId", "==", "UNASSIGNED")
@@ -1665,6 +1666,30 @@ async function startServer() {
     }));
 
     return res.json({ pulled: claimed.length });
+  });
+
+  // ─── GET /api/leads/pull/available — how many contacts are waiting in the pool ──
+  // Telecallers can't list UNASSIGNED leads (rules block it — they'd see names/phones,
+  // a leak), so the COUNT is returned server-side via the Admin SDK. Only a number
+  // crosses the wire — never the contacts themselves.
+  app.get("/api/leads/pull/available", async (req, res) => {
+    const uid = await verifyFirebaseToken(req);
+    if (!uid) return res.status(401).json({ error: "Unauthorized" });
+    const userSnap = await db.collection("users").doc(uid).get();
+    const u = userSnap.data();
+    const eligible = !!u && u.employeeStatus !== "inactive" &&
+      (u.role === "admin" || u.crmRole === "manager" || u.crmRole === "lead_convertor" || u.crmRole === "lead_generator");
+    if (!eligible) return res.status(403).json({ error: "Not permitted." });
+    try {
+      const agg = await db.collection("leads")
+        .where("primaryOwnerId", "==", "UNASSIGNED")
+        .where("deleted", "==", false)
+        .count().get();
+      return res.json({ available: agg.data().count });
+    } catch (e) {
+      console.error("[leads/pull/available]", e);
+      return res.json({ available: null });   // count unavailable → UI hides the number, button still works
+    }
   });
 
   // ─── Auth Alerts API ─────────────────────────────────────────────────────────

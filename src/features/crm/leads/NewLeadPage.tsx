@@ -87,20 +87,23 @@ export function NewLeadPage() {
     if (!user) return;
     setSubmitError('');
 
-    // Check for duplicates before creating
-    const dups = await checkForDuplicates(values.phone, values.panRaw || undefined);
-    if (dups.length > 0) {
-      const matchDesc = dups[0].matchType === 'exact_phone'
-        ? `phone number ${values.phone}`
-        : `PAN ${values.panRaw}`;
-      const existingName = dups[0].lead.displayName;
-      const confirmed = window.confirm(
-        `⚠ Duplicate detected!\n\nA customer with the same ${matchDesc} already exists: "${existingName}".\n\nOptions:\n• Click OK to create anyway (force)\n• Click Cancel to go back and find the existing record`,
-      );
-      if (!confirmed) return;
-    }
-
     try {
+      // Check for duplicates before creating. checkForDuplicates skips itself
+      // gracefully if the user can't run the cross-owner query (telecallers), so it
+      // won't break the save — and it's inside this try so any error is surfaced,
+      // never swallowed (that silent failure is exactly what broke "Save Customer").
+      const dups = await checkForDuplicates(values.phone, values.panRaw || undefined);
+      if (dups.length > 0) {
+        const matchDesc = dups[0].matchType === 'exact_phone'
+          ? `phone number ${values.phone}`
+          : `PAN ${values.panRaw}`;
+        const existingName = dups[0].lead.displayName;
+        const confirmed = window.confirm(
+          `⚠ Duplicate detected!\n\nA customer with the same ${matchDesc} already exists: "${existingName}".\n\nOptions:\n• Click OK to create anyway (force)\n• Click Cancel to go back and find the existing record`,
+        );
+        if (!confirmed) return;
+      }
+
       const conn = values.source === 'sub_dsa' && connectorId
         ? activeConnectors.find((c) => c.id === connectorId)
         : null;

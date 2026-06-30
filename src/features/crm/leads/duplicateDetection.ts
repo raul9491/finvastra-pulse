@@ -16,37 +16,51 @@ export async function checkForDuplicates(
 ): Promise<DuplicateMatch[]> {
   const matches: DuplicateMatch[] = [];
 
-  // Exact phone match
-  const phoneSnap = await getDocs(
-    query(
-      collection(db, 'leads'),
-      where('phone', '==', phone),
-      where('deleted', '==', false),
-      limit(3),
-    ),
-  );
-  for (const d of phoneSnap.docs) {
-    matches.push({
-      lead: { id: d.id, ...d.data() } as Lead,
-      matchType: 'exact_phone',
-    });
-  }
-
-  // Exact PAN match — only when no phone duplicate was found to avoid double-reporting
-  if (panRaw && matches.length === 0) {
-    const panSnap = await getDocs(
+  // Exact phone match.
+  // NOTE: a telecaller can only LIST leads they own (firestore.rules), so this
+  // cross-owner query is denied for them and throws `permission-denied`. The dup
+  // check is a convenience, NOT a security gate — so on ANY query error we skip it
+  // gracefully and report "no duplicate" rather than break the whole Save flow.
+  // (Import + server-side dedup still protect against real duplicates.)
+  try {
+    const phoneSnap = await getDocs(
       query(
         collection(db, 'leads'),
-        where('panRaw', '==', panRaw),
+        where('phone', '==', phone),
         where('deleted', '==', false),
         limit(3),
       ),
     );
-    for (const d of panSnap.docs) {
+    for (const d of phoneSnap.docs) {
       matches.push({
         lead: { id: d.id, ...d.data() } as Lead,
-        matchType: 'exact_pan',
+        matchType: 'exact_phone',
       });
+    }
+  } catch (e) {
+    console.warn('[duplicate check] phone query skipped (likely a non-admin without list access):', e);
+    return matches;   // can't check → don't block the save
+  }
+
+  // Exact PAN match — only when no phone duplicate was found to avoid double-reporting
+  if (panRaw && matches.length === 0) {
+    try {
+      const panSnap = await getDocs(
+        query(
+          collection(db, 'leads'),
+          where('panRaw', '==', panRaw),
+          where('deleted', '==', false),
+          limit(3),
+        ),
+      );
+      for (const d of panSnap.docs) {
+        matches.push({
+          lead: { id: d.id, ...d.data() } as Lead,
+          matchType: 'exact_pan',
+        });
+      }
+    } catch (e) {
+      console.warn('[duplicate check] PAN query skipped:', e);
     }
   }
 

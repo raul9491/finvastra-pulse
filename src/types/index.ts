@@ -787,6 +787,7 @@ export type NotificationType =
   | 'dispute_created'
   | 'leave_request'
   | 'claim_request'
+  | 'attendance_request'
   | 'system';
 
 export interface Notification {

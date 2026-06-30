@@ -2238,10 +2238,13 @@ async function startServer() {
     return res.json({ ok: true });
   });
 
-  // POST /api/hrms/notify/manager — any employee notifies THEIR reporting manager
+  // POST /api/hrms/notify/manager — an employee notifies THEIR reporting manager
   // (server resolves the manager from the caller's user doc; client can't lie).
-  // Used when an employee submits a leave / claim so the manager gets a bell+email
-  // of what was requested. No-op (skipped) if the employee has no reporting manager.
+  // Used when an employee submits a leave / claim / attendance-correction so the
+  // approver gets a bell + email of what was requested.
+  // ROUTING: the active reporting manager if set; otherwise FALL BACK to HR + admins
+  // (so a request is never lost when the manager is absent or unset — the "HR can do
+  // it if the manager isn't available" rule).
   app.post("/api/hrms/notify/manager", async (req, res) => {
     const uid = await verifyFirebaseToken(req);
     if (!uid) return res.status(401).json({ error: "Unauthorized" });
@@ -2251,36 +2254,52 @@ async function startServer() {
     };
     const snap = await db.collection("users").doc(uid).get();
     const d = snap.data() ?? {};
-    const managerUid = d.reportingManagerUid as string | undefined;
     const empName = (d.displayName as string) || "An employee";
-    if (!managerUid || managerUid === uid) return res.json({ ok: true, skipped: "no_manager" });
+
+    const kindWord = kind === "claim" ? "claim" : kind === "attendance" ? "attendance correction" : "leave";
+    const notifType = kind === "claim" ? "claim_request" : kind === "attendance" ? "attendance_request" : "leave_request";
+
+    // Resolve recipients: active reporting manager, else HR + admins (fallback).
+    const recipients = new Set<string>();
+    let routedTo = "manager";
+    const managerUid = d.reportingManagerUid as string | undefined;
+    if (managerUid && managerUid !== uid) {
+      const m = (await db.collection("users").doc(managerUid).get()).data();
+      if (m && m.employeeStatus !== "inactive") recipients.add(managerUid);
+    }
+    if (recipients.size === 0) {
+      routedTo = "hr";
+      const [hrSnap, adminSnap] = await Promise.all([
+        db.collection("users").where("isHrmsManager", "==", true).get(),
+        db.collection("users").where("role", "==", "admin").get(),
+      ]);
+      for (const s of [...hrSnap.docs, ...adminSnap.docs]) {
+        if (s.id !== uid && (s.data().employeeStatus !== "inactive")) recipients.add(s.id);
+      }
+    }
+    if (recipients.size === 0) return res.json({ ok: true, skipped: "no_recipient" });
 
     const safeRows = Array.isArray(rows) ? rows.filter((r) => r && r.label) : [];
-    const heading = title || `${empName} — ${kind === "claim" ? "claim" : "leave"} request`;
-
-    // In-app bell (Admin SDK — bypasses the admin/HR-only create rule).
-    await db.collection("notifications").doc(managerUid).collection("items").add({
-      type: kind === "claim" ? "claim_request" : "leave_request",
+    const heading = title || `${empName} — ${kindWord} request`;
+    const body = safeRows.map((r) => `${r.label}: ${r.value}`).join(" · ").slice(0, 300) || `${empName} submitted a request`;
+    const html = buildBrandEmail({
       title: heading,
-      body: safeRows.map((r) => `${r.label}: ${r.value}`).join(" · ").slice(0, 300) || `${empName} submitted a request`,
-      link: link ?? null,
-      read: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    }).catch(() => {});
+      intro: intro || `${empName} (your team member) has submitted a ${kindWord} request. Details below.`,
+      rows: safeRows,
+      ctaLabel: "Review in Pulse",
+      ctaLink: link ? `https://pulse.finvastra.com${link}` : undefined,
+    });
 
-    // Email the manager (non-fatal).
-    const mgr = await admin.auth().getUser(managerUid).catch(() => null);
-    if (mgr?.email) {
-      const html = buildBrandEmail({
-        title: heading,
-        intro: intro || `${empName} (your team member) has submitted a ${kind === "claim" ? "claim" : "leave"} request. Details below.`,
-        rows: safeRows,
-        ctaLabel: "Review in Pulse",
-        ctaLink: link ? `https://pulse.finvastra.com${link}` : undefined,
-      });
-      await sendGmailMessage(mgr.email, heading, html).catch(() => {});
-    }
-    return res.json({ ok: true, notified: managerUid });
+    await Promise.all([...recipients].map(async (rid) => {
+      // In-app bell (Admin SDK — bypasses the admin/HR-only create rule).
+      await db.collection("notifications").doc(rid).collection("items").add({
+        type: notifType, title: heading, body, link: link ?? null, read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      }).catch(() => {});
+      const u = await admin.auth().getUser(rid).catch(() => null);
+      if (u?.email) await sendGmailMessage(u.email, heading, html).catch(() => {});
+    }));
+    return res.json({ ok: true, routedTo, notified: [...recipients] });
   });
 
   // ─── SMTP / Gmail Test Endpoint ───────────────────────────────────────────

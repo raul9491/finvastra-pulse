@@ -35,7 +35,8 @@ export type NotificationType =
   | 'dispute_created'
   // employee → reporting-manager request alerts
   | 'leave_request'
-  | 'claim_request';
+  | 'claim_request'
+  | 'attendance_request';
 
 export interface AppNotification {
   id:        string;
@@ -197,7 +198,7 @@ export async function sendHrEmailNotification(opts: {
  * employee has no reporting manager set. Any signed-in employee may call it.
  */
 export async function notifyManagerOfRequest(opts: {
-  kind:    'leave' | 'claim';
+  kind:    'leave' | 'claim' | 'attendance';
   title?:  string;
   intro?:  string;
   rows:    { label: string; value: string }[];

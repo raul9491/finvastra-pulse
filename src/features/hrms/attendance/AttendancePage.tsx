@@ -22,6 +22,7 @@ import {
   useMyRegularizations, submitRegularization,
   type SubmitRegularizationInput,
 } from '../hooks/useAttendanceRegularization';
+import { notifyManagerOfRequest } from '../../../lib/notifications';
 import type { AttendanceRegularization } from '../../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -163,6 +164,17 @@ function RegularizeModal({
         existingStatus:    existingRecord?.status ?? null,
       };
       await submitRegularization(input);
+      // Notify the reporting manager (HR/admins as fallback) that a correction is
+      // pending review — fire-and-forget, must not block the submit.
+      notifyManagerOfRequest({
+        kind: 'attendance',
+        rows: [
+          { label: 'Date', value: date },
+          { label: 'Requested', value: [checkInTime && `In ${checkInTime}`, checkOutTime && `Out ${checkOutTime}`].filter(Boolean).join(' · ') || '—' },
+          { label: 'Reason', value: reason.trim() },
+        ],
+        link: '/hrms/admin/attendance',
+      }).catch(() => {});
       onClose();
     } catch {
       setError('Failed to submit. Please try again.');

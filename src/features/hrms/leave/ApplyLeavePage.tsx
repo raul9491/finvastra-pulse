@@ -129,7 +129,14 @@ export function ApplyLeavePage() {
       }).catch(() => {});
       navigate('/hrms/leave');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit application.');
+      // Never dump a raw SDK/internal error to the user. Log the technical detail for
+      // diagnosis; show a clean, human message instead.
+      console.error('[apply leave] submit failed:', err);
+      const raw = err instanceof Error ? err.message : String(err);
+      const friendly = /INTERNAL ASSERTION|Unexpected state|FIRESTORE/i.test(raw)
+        ? 'Something went wrong on our side. Please refresh the page and try again — your leave was not submitted.'
+        : (err instanceof Error && raw.length < 160 ? raw : 'Couldn’t submit your leave. Please try again.');
+      setError(friendly);
       setSubmitting(false);
     }
   };

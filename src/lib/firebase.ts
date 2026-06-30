@@ -7,9 +7,6 @@ import { getStorage } from 'firebase/storage';
 import {
   getFirestore,
   initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
-  CACHE_SIZE_UNLIMITED,
   doc,
   getDoc,
   setDoc,
@@ -32,20 +29,22 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 
-// Emulators use the default database (no persistence — emulator data is ephemeral anyway).
-// Production uses the named database with IndexedDB persistence so reads survive offline
-// and writes are queued and replayed on reconnect.
+// Cache: the DEFAULT in-memory cache (no IndexedDB persistence).
+// We previously used persistentLocalCache + persistentMultipleTabManager (offline +
+// multi-tab), but that exact config is the documented trigger for Firestore's
+// "INTERNAL ASSERTION FAILED: Unexpected state (b815)" crash in the offline-cache /
+// listener layer — it surfaced as a wall of red on forms (e.g. Apply for Leave).
+// The memory cache never touches IndexedDB, so that assertion can't occur. Trade-off:
+// no offline Firestore reads — acceptable for an online internal tool on the uncapped
+// `pulse` DB (the PWA shell + live listeners still work; reads just aren't disk-cached).
 const useEmulator = import.meta.env['VITE_USE_EMULATOR'] === 'true';
 export const db = useEmulator
   ? initializeFirestore(app, { ignoreUndefinedProperties: true })
   : initializeFirestore(
       app,
-      {
-        // Strip `undefined` field values instead of throwing — many forms build
-        // patch objects with `value || undefined` for optional fields.
-        ignoreUndefinedProperties: true,
-        localCache: persistentLocalCache({ cacheSizeBytes: CACHE_SIZE_UNLIMITED, tabManager: persistentMultipleTabManager() }),
-      },
+      // Strip `undefined` field values instead of throwing — many forms build
+      // patch objects with `value || undefined` for optional fields.
+      { ignoreUndefinedProperties: true },
       firebaseConfig.firestoreDatabaseId,
     );
 

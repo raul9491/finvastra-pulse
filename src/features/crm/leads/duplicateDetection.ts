@@ -1,11 +1,38 @@
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
+import { db, auth } from '../../../lib/firebase';
 import type { Lead } from '../../../types';
 
 export type DuplicateMatch = {
   lead: Lead;
   matchType: 'exact_phone' | 'exact_pan';
 };
+
+export type DuplicateVerdict = {
+  duplicate: boolean;
+  matchType?: 'exact_phone' | 'exact_pan';
+  name?: string;          // existing customer's name (for the warning)
+  ownedByYou?: boolean;   // is the existing record already in the caller's list?
+};
+
+/**
+ * Server-side duplicate check — works for EVERYONE (telecallers included), since the
+ * client-side query is blocked by rules for non-admins. Returns only a minimal verdict
+ * (no other rep's phone/PAN). Use this in entry forms so duplicates are always caught.
+ */
+export async function checkDuplicateServer(phone: string, panRaw?: string): Promise<DuplicateVerdict> {
+  try {
+    const token = await auth.currentUser?.getIdToken();
+    const res = await fetch('/api/leads/check-duplicate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ phone, panRaw: panRaw ?? '' }),
+    });
+    if (!res.ok) return { duplicate: false };
+    return await res.json();
+  } catch {
+    return { duplicate: false };   // never block the save on a check failure
+  }
+}
 
 // Checks Firestore for an existing non-deleted lead matching the given phone or PAN.
 // Phone check always runs. PAN check only runs when panRaw is provided AND no phone

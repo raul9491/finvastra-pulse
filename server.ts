@@ -1782,6 +1782,41 @@ async function startServer() {
     }
   });
 
+  // ─── POST /api/leads/check-duplicate — dup check that works for EVERYONE ────────
+  // Telecallers can only LIST their own leads (rules), so the client-side phone/PAN
+  // dup query is denied for them. This Admin-SDK endpoint checks across ALL leads and
+  // returns only a minimal verdict (exists? + the name + is-it-yours) — never another
+  // rep's phone/PAN/owner — so duplicates are caught at entry without leaking contacts.
+  app.post("/api/leads/check-duplicate", async (req, res) => {
+    const uid = await verifyFirebaseToken(req);
+    if (!uid) return res.status(401).json({ error: "Unauthorized" });
+    const userSnap = await db.collection("users").doc(uid).get();
+    const u = userSnap.data();
+    const ok = !!u && (u.role === "admin" || u.crmAccess === true || !!u.crmRole);
+    if (!ok) return res.status(403).json({ error: "Not permitted." });
+
+    const phone  = String((req.body ?? {}).phone ?? "").trim();
+    const panRaw = String((req.body ?? {}).panRaw ?? "").trim();
+    const firstLive = (docs: FirebaseFirestore.QueryDocumentSnapshot[]) =>
+      docs.map((d) => d.data()).find((l) => l.deleted !== true);   // index-free: filter soft-deleted in memory
+    try {
+      if (phone) {
+        const snap = await db.collection("leads").where("phone", "==", phone).limit(5).get();
+        const hit = firstLive(snap.docs);
+        if (hit) return res.json({ duplicate: true, matchType: "exact_phone", name: hit.displayName ?? "a customer", ownedByYou: hit.primaryOwnerId === uid });
+      }
+      if (panRaw) {
+        const snap = await db.collection("leads").where("panRaw", "==", panRaw).limit(5).get();
+        const hit = firstLive(snap.docs);
+        if (hit) return res.json({ duplicate: true, matchType: "exact_pan", name: hit.displayName ?? "a customer", ownedByYou: hit.primaryOwnerId === uid });
+      }
+      return res.json({ duplicate: false });
+    } catch (e) {
+      console.error("[check-duplicate]", e);
+      return res.json({ duplicate: false });   // never block the save on a check failure
+    }
+  });
+
   // ─── Auth Alerts API ─────────────────────────────────────────────────────────
   // Called by the client after detecting a new device login.
   // Sends email notification via Google Workspace SMTP (nodemailer).

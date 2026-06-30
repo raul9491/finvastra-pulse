@@ -9,7 +9,7 @@ import { createLead } from '../hooks/useLeads';
 import { useConnectors } from '../../hrms/hooks/useConnectors';
 import { leadSchema, type LeadFormValues } from './leadSchema';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
-import { checkForDuplicates } from './duplicateDetection';
+import { checkDuplicateServer } from './duplicateDetection';
 import { getCurrentPosition, mapsLink, type GeoPoint } from '../../../lib/geo';
 
 function Field({ label, error, children, hint }: {
@@ -88,18 +88,19 @@ export function NewLeadPage() {
     setSubmitError('');
 
     try {
-      // Check for duplicates before creating. checkForDuplicates skips itself
-      // gracefully if the user can't run the cross-owner query (telecallers), so it
-      // won't break the save — and it's inside this try so any error is surfaced,
-      // never swallowed (that silent failure is exactly what broke "Save Customer").
-      const dups = await checkForDuplicates(values.phone, values.panRaw || undefined);
-      if (dups.length > 0) {
-        const matchDesc = dups[0].matchType === 'exact_phone'
-          ? `phone number ${values.phone}`
-          : `PAN ${values.panRaw}`;
-        const existingName = dups[0].lead.displayName;
+      // Duplicate check via the server (Admin SDK) so it works for EVERYONE — incl.
+      // telecallers, who can't run the cross-owner query directly. Inside the try so
+      // any failure surfaces in the banner (never a silent dead Save).
+      const dup = await checkDuplicateServer(values.phone, values.panRaw || undefined);
+      if (dup.duplicate) {
+        const matchDesc = dup.matchType === 'exact_pan'
+          ? `PAN ${values.panRaw}`
+          : `phone number ${values.phone}`;
+        const whereMsg = dup.ownedByYou
+          ? `It's already in your list as "${dup.name}".`
+          : `It already exists in the system (customer "${dup.name}").`;
         const confirmed = window.confirm(
-          `⚠ Duplicate detected!\n\nA customer with the same ${matchDesc} already exists: "${existingName}".\n\nOptions:\n• Click OK to create anyway (force)\n• Click Cancel to go back and find the existing record`,
+          `⚠ Duplicate detected!\n\nA customer with the same ${matchDesc} already exists.\n${whereMsg}\n\n• Click OK to add anyway (only if this is genuinely a different person)\n• Click Cancel to go back`,
         );
         if (!confirmed) return;
       }

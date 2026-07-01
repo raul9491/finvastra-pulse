@@ -156,7 +156,7 @@ export function LauncherPage() {
             </Link>
           )}
           {(isSA || profile?.role === 'admin' || profile?.crmRole === 'manager' || profile?.isHrmsManager === true) && (
-            <Link to="/admin/notifications" title="Automated notification settings"
+            <Link to="/crm/admin/notifications" title="Automated notification settings"
               className="hidden sm:inline-flex items-center gap-1.5 text-sm transition-opacity hover:opacity-70" style={{ color: 'var(--text-muted)' }}>
               <BellRing size={15} /> <span className="hidden md:inline">Notifications</span>
             </Link>

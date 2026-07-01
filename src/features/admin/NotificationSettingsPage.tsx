@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
-import { ArrowLeft, BellRing, Loader2 } from 'lucide-react';
+import { Navigate } from 'react-router-dom';
+import { BellRing, Loader2 } from 'lucide-react';
 import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../auth/AuthContext';
@@ -9,10 +9,11 @@ import { isSuperAdmin } from '../../config/hrmsConfig';
 import { NOTIFICATION_TOGGLES, NOTIFICATION_GROUPS } from '../../config/notifications';
 
 /**
- * /admin/notifications — one place to turn the platform's automated emails + alerts
- * on/off, company-wide. Super admins edit; managers/admins can view. Backed by the
- * single doc app_config/notification_settings (a key is stored only when turned OFF).
- * The server checks these switches (notificationsEnabled) before every scheduled send.
+ * CRM → Admin → Notifications (/crm/admin/notifications) — one place to turn the
+ * platform's automated emails + alerts on/off, company-wide. Super admins edit;
+ * managers/admins view. Backed by the single doc app_config/notification_settings
+ * (a key is stored only when turned OFF). The server checks these switches
+ * (notificationsEnabled) before every scheduled send. Renders inside the CRM shell.
  */
 export function NotificationSettingsPage() {
   const { user, profile } = useAuth();
@@ -59,13 +60,8 @@ export function NotificationSettingsPage() {
   };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--navy-deep)' }}>
-      <div className="max-w-3xl mx-auto px-5 sm:px-8 py-8">
-        <Link to="/" className="inline-flex items-center gap-1.5 text-sm mb-6 transition-opacity hover:opacity-70"
-          style={{ color: 'var(--text-muted)' }}>
-          <ArrowLeft size={15} /> Back to home
-        </Link>
-
+    <div className="max-w-3xl mx-auto">
+      <div>
         <div className="flex items-center gap-3 mb-1">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
             style={{ backgroundColor: 'rgba(201,169,97,0.14)' }}>

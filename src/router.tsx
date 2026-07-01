@@ -224,9 +224,9 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorBoundary />,
   },
   {
-    // Automated-notification on/off switches (standalone; super admin edits, managers view)
+    // Legacy standalone path → now lives inside the CRM shell (Admin → Notifications)
     path: '/admin/notifications',
-    element: s(<NotificationSettingsPage />),
+    element: <Navigate to="/crm/admin/notifications" replace />,
     errorElement: <RouteErrorBoundary />,
   },
   {
@@ -318,6 +318,7 @@ export const router = createBrowserRouter([
       { path: 'admin/access-logs',           element: s(<AccessLogsPage />) },
       { path: 'admin/right-to-be-forgotten', element: s(<RightToBeForgottenPage />) },
       { path: 'admin/webhooks',              element: s(<WebhookConfigPage />) },
+      { path: 'admin/notifications',         element: s(<NotificationSettingsPage />) },
       { path: 'admin/document-types',        element: s(<DocumentTypesPage />) },
       { path: 'admin/commission-leakage',    element: s(<CommissionLeakagePage />) },
       { path: 'admin/providers',             element: s(<ProvidersPage />) },

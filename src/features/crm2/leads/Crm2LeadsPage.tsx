@@ -60,8 +60,6 @@ const STATUS_META: Record<Crm2LeadStatus, { label: string; color: string }> = {
 };
 const FUNNEL: Array<Crm2LeadStatus | 'ALL'> =
   ['ALL', 'NEW', 'ATTEMPTED', 'CONTACTED', 'QUALIFIED', 'CONVERTED', 'NOT_INTERESTED', 'DROPPED', 'JUNK_DUPLICATE'];
-// Website + social leads are time-critical → always shown as HIGH (red) priority.
-const HOT_SOURCES = new Set<string>(['WEBSITE', 'ADS']);
 
 const fmtTsFull = (t: { toDate?: () => Date } | null | undefined) =>
   t?.toDate ? t.toDate().toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -225,7 +223,9 @@ export function Crm2LeadsPage() {
               ) : filtered.map((r) => {
                 const overdue = r.nextFollowUpAt?.toMillis ? r.nextFollowUpAt.toMillis() < Date.now() : false;
                 const sm = STATUS_META[r.status] ?? STATUS_META.NEW;
-                const hotSource = HOT_SOURCES.has(r.source);   // website/social → red high priority
+                // Reflect the ACTUAL stored priority. Website/social leads are created HOT
+                // (red) by default, but a manual change in the drawer must stick + show here.
+                const isHigh = r.priority === 'HOT';
                 return (
                   <tr key={r.id} onClick={() => setDetailFor(r)}
                     className="cursor-pointer hover:bg-(--shell-hover-soft) transition-colors"
@@ -246,9 +246,9 @@ export function Crm2LeadsPage() {
                             <Copy size={10} /> DUP
                           </span>
                         )}
-                        <span title={hotSource ? 'High priority · website/social lead' : `Priority: ${PRIORITY_META[r.priority]?.label ?? r.priority}`}
+                        <span title={`Priority: ${PRIORITY_META[r.priority]?.label ?? r.priority}`}
                           className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: hotSource ? '#ef4444' : (PRIORITY_META[r.priority]?.dot ?? '#8B8B85') }} />
+                          style={{ backgroundColor: PRIORITY_META[r.priority]?.dot ?? '#8B8B85' }} />
                       </div>
                     </td>
                     <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
@@ -260,9 +260,9 @@ export function Crm2LeadsPage() {
                     <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{categoryLabel(r.category)}</td>
                     <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-muted)' }}>
                       {sourceLabel(r.source)}
-                      {hotSource && (
+                      {isHigh && (
                         <span className="ml-1.5 inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-full align-middle cursor-help"
-                          title="High priority — website / social lead. Contact fast."
+                          title="High priority — contact fast."
                           style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#ef4444' }}>HIGH</span>
                       )}
                     </td>

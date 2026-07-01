@@ -1,6 +1,6 @@
 import { Navigate, useNavigate, Link } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
-import { ArrowRight, LogOut, Share2, Search, Star, Clock } from 'lucide-react';
+import { ArrowRight, LogOut, Share2, Search, Star, Clock, BellRing } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../auth/AuthContext';
 import { VideoLogo } from '../../components/ui/VideoLogo';
@@ -153,6 +153,12 @@ export function LauncherPage() {
             <Link to="/admin/shares" title="Manage page shares"
               className="hidden sm:inline-flex items-center gap-1.5 text-sm transition-opacity hover:opacity-70" style={{ color: 'var(--text-muted)' }}>
               <Share2 size={15} /> <span className="hidden md:inline">Shares</span>
+            </Link>
+          )}
+          {(isSA || profile?.role === 'admin' || profile?.crmRole === 'manager' || profile?.isHrmsManager === true) && (
+            <Link to="/admin/notifications" title="Automated notification settings"
+              className="hidden sm:inline-flex items-center gap-1.5 text-sm transition-opacity hover:opacity-70" style={{ color: 'var(--text-muted)' }}>
+              <BellRing size={15} /> <span className="hidden md:inline">Notifications</span>
             </Link>
           )}
           {profile?.photoURL ? (

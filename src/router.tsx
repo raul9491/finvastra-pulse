@@ -95,6 +95,7 @@ const ComplianceCalendarPage   = lazyPage(() => import('./features/hrms/complian
 const PfTrackerPage            = lazyPage(() => import('./features/hrms/compliance/PfTrackerPage'), 'PfTrackerPage');
 const AssetsPage               = lazyPage(() => import('./features/hrms/assets/AssetsPage'), 'AssetsPage');
 const ManageSharesPage         = lazyPage(() => import('./features/admin/ManageSharesPage'), 'ManageSharesPage');
+const NotificationSettingsPage = lazyPage(() => import('./features/admin/NotificationSettingsPage'), 'NotificationSettingsPage');
 const CommandCompliancePage    = lazyPage(() => import('./features/command/CommandCompliancePage'), 'CommandCompliancePage');
 const LmsPage                  = lazyPage(() => import('./features/lms/LmsPage'), 'LmsPage');
 const OnboardingPage           = lazyPage(() => import('./features/hrms/onboarding/OnboardingPage'), 'OnboardingPage');
@@ -220,6 +221,12 @@ export const router = createBrowserRouter([
     // Phase P — super-admin console for page shares (standalone, no module shell)
     path: '/admin/shares',
     element: s(<ManageSharesPage />),
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    // Automated-notification on/off switches (standalone; super admin edits, managers view)
+    path: '/admin/notifications',
+    element: s(<NotificationSettingsPage />),
     errorElement: <RouteErrorBoundary />,
   },
   {

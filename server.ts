@@ -1924,6 +1924,22 @@ async function startServer() {
   // never mangled into mojibake (e.g. "—" → "Ã¢Â€Â"") by the receiving client.
   const encodeEmailSubject = (s: string) => `=?UTF-8?B?${Buffer.from(s, "utf8").toString("base64")}?=`;
 
+  // ─── Automated-notification on/off switches ───────────────────────────────
+  // Global toggles per automated notification, stored in app_config/notification_settings
+  // and managed on the super-admin Notifications settings page. Default ENABLED unless a
+  // key is explicitly `false`. Cached 60s so a burst of scheduled jobs doesn't re-read.
+  let _notifCache: { at: number; data: Record<string, boolean> } | null = null;
+  async function notificationsEnabled(key: string): Promise<boolean> {
+    const now = Date.now();
+    if (!_notifCache || now - _notifCache.at > 60_000) {
+      try {
+        const snap = await db.collection("app_config").doc("notification_settings").get();
+        _notifCache = { at: now, data: (snap.data() ?? {}) as Record<string, boolean> };
+      } catch { _notifCache = { at: now, data: {} }; }
+    }
+    return _notifCache.data[key] !== false;   // absent/true = on; only explicit false disables
+  }
+
   async function sendGmailMessage(to: string, subject: string, htmlBody: string) {
     const senderEmail  = process.env.GMAIL_SENDER ?? "admin@finvastra.com";
     const senderName   = "Finvastra Pulse";
@@ -2491,6 +2507,7 @@ async function startServer() {
       const userSnap = await db.collection("users").doc(uid).get();
       if (userSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
     }
+    if (!(await notificationsEnabled("bank_sla_check"))) return res.json({ ok: true, skipped: "notifications_disabled" });
     try {
       const { runBankSLACheck } = await import("./src/lib/bankSLAJob");
       const result = await runBankSLACheck(db);
@@ -2508,6 +2525,7 @@ async function startServer() {
       const userSnap = await db.collection("users").doc(uid).get();
       if (userSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
     }
+    if (!(await notificationsEnabled("commission_leakage_check"))) return res.json({ ok: true, skipped: "notifications_disabled" });
     try {
       const { runCommissionLeakageCheck } = await import("./src/lib/commissionLeakageJob");
       const result = await runCommissionLeakageCheck(db);
@@ -2526,6 +2544,7 @@ async function startServer() {
       const userSnap = await db.collection("users").doc(uid).get();
       if (userSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only" });
     }
+    if (!(await notificationsEnabled("document_expiry_check"))) return res.json({ ok: true, skipped: "notifications_disabled" });
     try {
       const { runDocumentExpiryCheck } = await import("./src/lib/documentExpiryJob");
       const result = await runDocumentExpiryCheck(db);
@@ -2595,7 +2614,7 @@ async function startServer() {
     }
     const boundary = "fvbnd_" + Math.random().toString(36).slice(2);
     const raw = [
-      `From: Finvastra Pulse <${senderEmail}>`, `To: ${to}`, `Subject: ${subject}`,
+      `From: Finvastra Pulse <${senderEmail}>`, `To: ${to}`, `Subject: ${encodeEmailSubject(subject)}`,
       "MIME-Version: 1.0", `Content-Type: multipart/mixed; boundary="${boundary}"`, "",
       `--${boundary}`, "Content-Type: text/html; charset=UTF-8", "", htmlBody, "",
       `--${boundary}`, `Content-Type: application/pdf; name="${attachment.filename}"`,
@@ -2958,6 +2977,7 @@ async function startServer() {
   // POST /api/admin/run-weekly-team-digest (OIDC or admin). Fridays — bell + email per manager.
   app.post("/api/admin/run-weekly-team-digest", async (req, res) => {
     if (!(await requireAdminOrScheduler(req, res))) return;
+    if (!(await notificationsEnabled("weekly_team_digest"))) return res.json({ ok: true, skipped: "notifications_disabled" });
     try {
       const period = new Date().toISOString().slice(0, 7);
       const usersSnap = await db.collection("users").get();
@@ -3009,6 +3029,7 @@ async function startServer() {
   // POST /api/admin/run-followup-check (OIDC or admin). Daily 09:00 IST.
   app.post("/api/admin/run-followup-check", async (req, res) => {
     if (!(await requireAdminOrScheduler(req, res))) return;
+    if (!(await notificationsEnabled("followup_reminders"))) return res.json({ ok: true, skipped: "notifications_disabled" });
     try {
       const now = Date.now();
       const staleCutoff = now - 3 * 86400000;
@@ -3077,6 +3098,7 @@ async function startServer() {
   // POST /api/admin/run-callback-reminders (OIDC or admin). Run every ~15 min.
   app.post("/api/admin/run-callback-reminders", async (req, res) => {
     if (!(await requireAdminOrScheduler(req, res))) return;
+    if (!(await notificationsEnabled("callback_reminders"))) return res.json({ ok: true, skipped: "notifications_disabled" });
     try {
       const nowMs = Date.now();
       const LEAD_MS = 15 * 60 * 1000;   // fire ~15 minutes BEFORE the scheduled callback
@@ -3131,6 +3153,7 @@ async function startServer() {
   // the user's uid+email. Deduped via `followUpReminderSent` (re-armed on edit).
   app.post("/api/admin/run-crm2-followup-reminders", async (req, res) => {
     if (!(await requireAdminOrScheduler(req, res))) return;
+    if (!(await notificationsEnabled("crm2_followup_reminders"))) return res.json({ ok: true, skipped: "notifications_disabled" });
     try {
       const now = Date.now();
       const snap = await db.collection("leads").where("followUpReminderSent", "==", false).get();
@@ -3189,6 +3212,7 @@ async function startServer() {
   // reminders too; this is the in-app/Pulse channel. Deduped via reminderSent.
   app.post("/api/admin/run-meeting-reminders", async (req, res) => {
     if (!(await requireAdminOrScheduler(req, res))) return;
+    if (!(await notificationsEnabled("meeting_reminders"))) return res.json({ ok: true, skipped: "notifications_disabled" });
     try {
       const nowMs = Date.now();
       const LEAD_MS = 30 * 60000;   // fire when start is within the next 30 min
@@ -3239,6 +3263,7 @@ async function startServer() {
   // POST /api/admin/run-daily-briefing (OIDC or admin). Daily 08:30 IST.
   app.post("/api/admin/run-daily-briefing", async (req, res) => {
     if (!(await requireAdminOrScheduler(req, res))) return;
+    if (!(await notificationsEnabled("daily_briefing"))) return res.json({ ok: true, skipped: "notifications_disabled" });
     try {
       const now = Date.now();
       const d0 = new Date();
@@ -3421,6 +3446,7 @@ async function startServer() {
   // POST /api/admin/run-monthly-scorecards (OIDC or admin). 1st of month 07:00 IST — prior month.
   app.post("/api/admin/run-monthly-scorecards", async (req, res) => {
     if (!(await requireAdminOrScheduler(req, res))) return;
+    if (!(await notificationsEnabled("monthly_scorecards"))) return res.json({ ok: true, skipped: "notifications_disabled" });
     try {
       const pm = new Date(); pm.setDate(1); pm.setMonth(pm.getMonth() - 1);
       const period = `${pm.getFullYear()}-${String(pm.getMonth() + 1).padStart(2, "0")}`;

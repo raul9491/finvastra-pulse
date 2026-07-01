@@ -1701,6 +1701,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   app.post("/api/crm2/jobs/run-lead-sla-sweep", route(async (req, res) => {
     const caller = await requireSchedulerOrAdmin(req, res);
     if (!caller) return;
+    if (!(await notificationsEnabled("lead_sla_sweep"))) { res.json({ ok: true, skipped: "notifications_disabled" }); return; }
     const cfg = await loadSlaConfig();
     const bh = await loadBusinessHours();
     const nowMs = Date.now();
@@ -4298,6 +4299,20 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     };
   }
 
+  // Global on/off per automated notification (super-admin Notifications settings page).
+  // Default ENABLED unless the key is explicitly false. Cached 60s.
+  let _notifCache: { at: number; data: Record<string, boolean> } | null = null;
+  async function notificationsEnabled(key: string): Promise<boolean> {
+    const now = Date.now();
+    if (!_notifCache || now - _notifCache.at > 60_000) {
+      try {
+        const snap = await db.collection("app_config").doc("notification_settings").get();
+        _notifCache = { at: now, data: (snap.data() ?? {}) as Record<string, boolean> };
+      } catch { _notifCache = { at: now, data: {} }; }
+    }
+    return _notifCache.data[key] !== false;
+  }
+
   /** Resolve a FAPL code → uid for notification targeting (best-effort). */
   async function faplToUid(fapl: string): Promise<string | null> {
     const snap = await db.collection("users").where("employeeId", "==", fapl).limit(1).get();
@@ -4313,6 +4328,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   app.post("/api/crm2/jobs/run-payout-reminders", route(async (req, res) => {
     const caller = await requireSchedulerOrAdmin(req, res);
     if (!caller) return;
+    if (!(await notificationsEnabled("payout_reminders"))) { res.json({ ok: true, skipped: "notifications_disabled" }); return; }
     const cfg = await crm2Settings();
     const now = Date.now();
 

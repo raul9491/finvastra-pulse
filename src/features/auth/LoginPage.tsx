@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { signInWithEmailAndPassword, type AuthError } from 'firebase/auth';
-import { auth } from '../../lib/firebase';
+import { auth, useOnlineStatus } from '../../lib/firebase';
 import { useAuth, SESSION_EXPIRED_KEY } from './AuthContext';
 import { MercuryBackground } from '../../components/ui/MercuryBackground';
 import { VideoLogo } from '../../components/ui/VideoLogo';
@@ -12,12 +12,13 @@ const AUTH_ERRORS: Record<string, string> = {
   'auth/wrong-password':         'Incorrect password.',
   'auth/too-many-requests':      'Too many failed attempts. Try again later.',
   'auth/user-disabled':          'This account is disabled. Contact your admin.',
-  'auth/network-request-failed': 'Network error. Check your connection.',
+  'auth/network-request-failed': 'You appear to be offline — connect to the internet and try again.',
 };
 
 export function LoginPage() {
   const { user, loading, authError: domainError } = useAuth();
   const navigate = useNavigate();
+  const online = useOnlineStatus();   // sign-in needs the internet (Firebase Auth verifies credentials online)
 
   const [email,          setEmail]          = useState('');
   const [password,       setPassword]       = useState('');
@@ -72,6 +73,13 @@ export function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!emailValid) return;
+    // Sign-in requires the internet — Firebase Auth verifies credentials on Google's
+    // servers, so there is no offline login. Explain it plainly instead of letting the
+    // SDK throw a generic network error.
+    if (!online) {
+      setLocalError("You're offline — connect to the internet to sign in.");
+      return;
+    }
     setLocalError(''); setSubmitting(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
@@ -195,9 +203,15 @@ export function LoginPage() {
               )}
             </div>
 
+            {!online && (
+              <p style={{ textAlign: 'center', fontSize: 12, marginBottom: 10, color: 'var(--text-muted)' }}>
+                Sign-in needs an internet connection.
+              </p>
+            )}
+
             <button
               type="submit"
-              disabled={!emailValid || submitting}
+              disabled={!emailValid || submitting || !online}
               onMouseEnter={() => setBtnHover(true)}
               onMouseLeave={() => setBtnHover(false)}
               style={{
@@ -211,11 +225,11 @@ export function LoginPage() {
                 border:       '1px solid rgba(201,169,97,0.40)',
                 boxShadow:    btnHover && !submitting ? '0 8px 28px rgba(201,169,97,0.35)' : '0 4px 20px rgba(201,169,97,0.20)',
                 transition:   'all 0.2s ease',
-                cursor:       (!emailValid || submitting) ? 'not-allowed' : 'pointer',
-                opacity:      (!emailValid || submitting) ? 0.5 : 1,
+                cursor:       (!emailValid || submitting || !online) ? 'not-allowed' : 'pointer',
+                opacity:      (!emailValid || submitting || !online) ? 0.5 : 1,
               }}
             >
-              {submitting ? 'Signing in…' : 'Sign in'}
+              {submitting ? 'Signing in…' : !online ? 'Offline — connect to sign in' : 'Sign in'}
             </button>
           </form>
 

@@ -81,7 +81,7 @@ export function InstallAppBanner() {
                   Install Finvastra Pulse
                 </p>
                 <p className="text-[11px] leading-snug mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                  One-tap access from your home screen · works offline.
+                  One-tap access from your home screen · instant launch.
                 </p>
               </div>
               <div className="flex flex-col items-end gap-1 shrink-0">

@@ -76,16 +76,21 @@ export function LauncherPage() {
   if (loading) return <FullPageLoader />;
   if (!user) return <Navigate to="/login" replace />;
 
-  // Authenticated but the profile couldn't load (transient blip / DB outage).
+  // Authenticated but the profile couldn't load. Most often this is simply being
+  // offline (Pulse needs a connection to load your account + data); otherwise a
+  // brief blip. Tailor the message so it's clear, not alarming.
   if (!profile && profileLoadFailed) {
+    const offline = typeof navigator !== 'undefined' && !navigator.onLine;
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center" style={{ backgroundColor: 'var(--navy-deep)' }}>
         <VideoLogo size="sm" showText />
         <h1 className="text-2xl mt-8 mb-2" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-          We couldn't load your account
+          {offline ? "You're offline" : "We couldn't load your account"}
         </h1>
         <p className="text-sm mb-6 max-w-md" style={{ color: 'var(--text-muted)' }}>
-          This is usually a brief connection hiccup. Reload to try again — your data is safe.
+          {offline
+            ? 'Pulse needs an internet connection to load your account and data. Reconnect and reload — your data is safe.'
+            : 'This is usually a brief connection hiccup. Reload to try again — your data is safe.'}
         </p>
         <div className="flex gap-3">
           <button onClick={() => window.location.reload()}

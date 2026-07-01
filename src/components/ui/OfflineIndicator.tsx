@@ -30,7 +30,7 @@ export function OfflineIndicator() {
       role="status"
     >
       <WifiOff size={13} className="shrink-0" />
-      <span>You're offline — changes will sync when you reconnect.</span>
+      <span>You're offline — Pulse needs a connection to sign in and load data.</span>
       <button onClick={() => setDismissed(true)} aria-label="Dismiss offline banner"
         className="ml-2 p-0.5 rounded hover:opacity-70">
         <X size={13} />

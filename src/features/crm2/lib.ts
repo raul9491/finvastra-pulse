@@ -2,11 +2,28 @@
  * CRM 2.0 shared client helpers — API wrapper + live collection hook + perm check.
  * Reads go through the Firestore SDK (rule-gated); ALL mutations via /api/crm2/*.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
+import { useAllEmployees } from '../../lib/hooks/useProfile';
 import type { UserProfile } from '../../types';
 import type { Crm2PermKey } from '../../types/crm2';
+
+/**
+ * Resolve a FAPL employee code (assignedRm / handlingRm / ownerRm / collaborators)
+ * to the employee's display NAME. In CRM 2.0 people are stored as FAPL-### codes;
+ * the UI should always show the name. Returns the code itself if the employee isn't
+ * found (e.g. exited), and '—' for an empty value. Loads the (small) employee list.
+ */
+export function useRmName(): (fapl?: string | null) => string {
+  const { employees } = useAllEmployees();
+  const map = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const e of employees) if (e.employeeId) m.set(e.employeeId, e.displayName);
+    return m;
+  }, [employees]);
+  return useMemo(() => (fapl?: string | null): string => (fapl ? (map.get(fapl) ?? fapl) : '—'), [map]);
+}
 
 export async function apiCrm2<T = { ok: boolean; id?: string }>(
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE',

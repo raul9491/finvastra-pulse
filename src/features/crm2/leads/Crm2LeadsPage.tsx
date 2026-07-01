@@ -16,7 +16,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
-import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
+import { apiCrm2, useCrm2Collection, hasCrm2Perm, useRmName } from '../lib';
 import { FLabel, inp } from '../masters/MastersPage';
 import { useClientForm, ClientFieldsGrid, stateFromLead } from '../clients/ClientFormModal';
 import { ContactActions, PhoneLink } from '../../crm/components/ContactActions';
@@ -98,6 +98,7 @@ export function Crm2LeadsPage() {
   const scopeFapl = seesAll ? null : (profile?.employeeId ?? '__none__');
   const { rows, loading } = useCrm2Leads(scopeFapl);
   const { employees } = useAllEmployees();
+  const rmName = useRmName();
   const { rows: products } = useCrm2Collection<Product & { id: string }>('products');
   const { rows: clients } = useCrm2Collection<Client & { id: string }>('clients');
   const { rows: subDsas } = useCrm2Collection<SubDsa & { id: string }>('subDsas');
@@ -267,7 +268,7 @@ export function Crm2LeadsPage() {
                     </td>
                     <td className="px-3 py-2.5 text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{fmtTsFull(r.receivedAt)}</td>
                     <td className="px-3 py-2.5 text-xs" style={{ color: r.assignedRm ? 'var(--text-secondary)' : 'var(--text-muted)' }}>
-                      {r.assignedRm ?? 'unassigned'}
+                      {r.assignedRm ? rmName(r.assignedRm) : 'unassigned'}
                     </td>
                     <td className="px-3 py-2.5 text-xs whitespace-nowrap" style={{ color: overdue ? '#f87171' : 'var(--text-muted)', fontWeight: overdue ? 700 : 400 }}>
                       {overdue && <AlertTriangle size={11} className="inline mr-1" />}{fmtTsFull(r.nextFollowUpAt)}

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Users2, Search, Plus } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
-import { useCrm2Collection, hasCrm2Perm } from '../lib';
+import { useCrm2Collection, hasCrm2Perm, useRmName } from '../lib';
 import { ClientFormModal, clientCompletionPct } from './ClientFormModal';
 import type { Client } from '../../../types/crm2';
 
@@ -29,6 +29,7 @@ export function Crm2ClientsPage() {
   const navigate = useNavigate();
   const { rows: clients, loading, error } = useCrm2Collection<WithId<Client>>('clients');
   const { employees } = useAllEmployees();
+  const rmName = useRmName();
   const [q, setQ] = useState('');
   const [showNew, setShowNew] = useState(false);
 
@@ -120,7 +121,7 @@ export function Crm2ClientsPage() {
                       <td className="px-4 py-2.5 font-mono text-xs" style={{ color: '#C9A961' }}>{c.id}</td>
                       <td className="px-3 py-2.5 font-semibold" style={{ color: 'var(--text-primary)' }}>{c.name || '—'}</td>
                       <td className="px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{CONSTITUTION[c.constitution] ?? c.constitution}</td>
-                      <td className="px-3 py-2.5 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{c.ownerRm || '—'}</td>
+                      <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{rmName(c.ownerRm)}</td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-2">
                           <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--shell-hover-hard)' }}>

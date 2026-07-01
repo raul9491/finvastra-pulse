@@ -11,7 +11,7 @@ import { isSuperAdmin } from '../../../config/hrmsConfig';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
-import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
+import { apiCrm2, useCrm2Collection, hasCrm2Perm, useRmName } from '../lib';
 import { FLabel, inp } from '../masters/MastersPage';
 import { CASE_LEVEL_STAGE_ORDER, type Crm2Case, type Client, type Product } from '../../../types/crm2';
 
@@ -81,6 +81,7 @@ export function Crm2CasesPage() {
 
   const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? id;
   const productCode = (id: string) => products.find((p) => p.id === id)?.shortCode ?? id;
+  const rmName = useRmName();
   const canWrite = hasCrm2Perm(profile, 'crm.cases.write');
 
   const counts = useMemo(() => {
@@ -154,7 +155,7 @@ export function Crm2CasesPage() {
                   <td className="px-4 py-2.5 font-mono text-xs font-semibold" style={{ color: '#C9A961' }}>{r.id}</td>
                   <td className="px-3 py-2.5 font-medium" style={{ color: 'var(--text-primary)' }}>{clientName(r.clientId)}</td>
                   <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{productCode(r.productId)}</td>
-                  <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{r.handlingRm}</td>
+                  <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{rmName(r.handlingRm)}</td>
                   <td className="px-3 py-2.5 text-right text-xs" style={{ color: 'var(--text-secondary)' }}>
                     {r.amountRequested ? `₹${Number(r.amountRequested).toLocaleString('en-IN')}` : '—'}
                   </td>

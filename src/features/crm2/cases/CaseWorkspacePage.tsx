@@ -14,7 +14,7 @@ import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
-import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
+import { apiCrm2, useCrm2Collection, hasCrm2Perm, useRmName } from '../lib';
 import { FLabel, inp } from '../masters/MastersPage';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { MultiSearchableSelect } from '../../../components/ui/SearchableSelect';
@@ -78,6 +78,7 @@ export function CaseWorkspacePage() {
   const needEmployees = shownTab === 'collab';
 
   const { employees } = useAllEmployees(needEmployees);
+  const rmName = useRmName();
 
   const applicants = useSubcollection<Applicant>(['cases', caseId!, 'applicants'], undefined, needApplicants);
   const logins = useSubcollection<Login>(['cases', caseId!, 'logins'], 'seq');   // eager — stepper badges
@@ -260,7 +261,7 @@ export function CaseWorkspacePage() {
                 {client?.name ?? caseDoc.clientId}
               </h2>
               <p className="text-[11px] font-mono mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                {caseDoc.id} · RM {caseDoc.handlingRm}
+                {caseDoc.id} · RM {rmName(caseDoc.handlingRm)}
                 {caseDoc.dsaCode ? ` · DSA ${caseDoc.dsaCode}` : ''}
                 {caseDoc.subDsaId ? ` · via ${caseDoc.subDsaId}` : ' · self-sourced'}
               </p>
@@ -627,6 +628,7 @@ function CollaborationTab({ caseDoc, employees, canWrite, canManage }: {
 // ─── Client-ID data tab (decision B — the case's client master at a glance) ────
 function ClientIdTab({ client }: { client: (Client & { id: string }) | null }) {
   const navigate = useNavigate();
+  const rmName = useRmName();
   if (!client) return <div className="glass-panel p-6 text-sm" style={{ color: 'var(--text-muted)' }}>Loading client…</div>;
   const addr = [client.regAddress?.line, client.regAddress?.city, client.regAddress?.state, client.regAddress?.pincode].filter(Boolean).join(', ');
   const Row = ({ k, v }: { k: string; v: string | null | undefined }) => (
@@ -650,7 +652,7 @@ function ClientIdTab({ client }: { client: (Client & { id: string }) | null }) {
         <Row k="Contact" v={client.primaryContact?.name} />
         <Row k="Mobile" v={client.primaryContact?.mobile} />
         <Row k="Email" v={client.primaryContact?.email} />
-        <Row k="Owner RM" v={client.ownerRm} />
+        <Row k="Owner RM" v={rmName(client.ownerRm)} />
         <Row k="KYC" v={client.kycStatus} />
         <Row k="Latest CIBIL" v={client.latestCibil ? String(client.latestCibil.score) : null} />
         <Row k="Registered Address" v={addr} />

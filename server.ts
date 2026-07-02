@@ -2684,22 +2684,27 @@ async function startServer() {
     return team;
   }
 
-  // Aggregate a manager's whole downline performance for a period (YYYY-MM).
-  // Pure aggregation of existing Firestore data via Admin SDK — strictly team-scoped.
-  async function computeTeamSummary(managerUid: string, period: string) {
-    const usersSnap = await db.collection("users").get();
-    const users = usersSnap.docs.map((d) => ({ uid: d.id, ...(d.data() as any) }));
-    const byUid = new Map(users.map((u) => [u.uid, u]));
-    const teamSet = computeDownline(users, managerUid);
-    const members = [...teamSet].map((id) => byUid.get(id)).filter((u: any) => u && u.employeeStatus !== "inactive");
-    const memberIds = new Set(members.map((m: any) => m.uid));
+  // Elevated = platform admin, CRM manager, or super admin. These people may LEAD
+  // a team, but must never appear INSIDE another manager's team roll-up — a manager
+  // must not see another manager's / a director's numbers. This is the metrics-layer
+  // guardrail; the same rule is enforced at assignment time (employee endpoints +
+  // the add-to-team / reporting-manager pickers).
+  const isElevatedUser = (u: any) =>
+    !!u && (u.role === "admin" || u.crmRole === "manager" || SUPER_ADMIN_UIDS_LIST.includes(u.uid));
 
-    const emptyTotals = { leads: 0, openOpps: 0, pipelineValue: 0, disbursalAmount: 0, target: 0, overdueSla: 0, dueCallbacks: 0 };
-    if (members.length === 0) {
-      return { members: [], totals: emptyTotals, actionNeeded: { callbacks: [], slaBreaches: [] }, period };
-    }
+  const EMPTY_TEAM_TOTALS = { leads: 0, openOpps: 0, pipelineValue: 0, disbursalAmount: 0, target: 0, overdueSla: 0, dueCallbacks: 0 };
+  const periodStartMs = (period: string) => new Date(Number(period.slice(0, 4)), Number(period.slice(5, 7)) - 1, 1).getTime();
+  const sumTeamTotals = (rows: any[]) => rows.reduce((t, a) => ({
+    leads: t.leads + a.leads, openOpps: t.openOpps + a.openOpps, pipelineValue: t.pipelineValue + a.pipelineValue,
+    disbursalAmount: t.disbursalAmount + a.disbursalAmount, target: t.target + a.target,
+    overdueSla: t.overdueSla + a.overdueSla, dueCallbacks: t.dueCallbacks + a.dueCallbacks,
+  }), { ...EMPTY_TEAM_TOTALS });
 
-    const startMs = new Date(Number(period.slice(0, 4)), Number(period.slice(5, 7)) - 1, 1).getTime();
+  // One-pass accumulation of per-person CRM performance for a period (YYYY-MM).
+  // Shared by computeTeamSummary (one head + their team) and the all-teams overview,
+  // so the two views can never drift. Pure aggregation via Admin SDK.
+  async function accumulatePerf(people: any[], period: string) {
+    const startMs = periodStartMs(period);
     const nowMs = Date.now();
     const [leadsSnap, openSnap, crSnap, targetsSnap] = await Promise.all([
       db.collection("leads").where("deleted", "==", false).get(),
@@ -2709,11 +2714,11 @@ async function startServer() {
     ]);
 
     const acc = new Map<string, any>();
-    for (const m of members as any[]) acc.set(m.uid, {
-      uid: m.uid, name: m.displayName ?? "—", designation: m.designation ?? "",
+    for (const m of people) acc.set(m.uid, {
+      uid: m.uid, name: m.displayName ?? "—", designation: m.designation ?? "", crmRole: m.crmRole ?? null,
       leads: 0, newLeads: 0, openOpps: 0, pipelineValue: 0, disbursalAmount: 0, commission: 0,
       target: 0, achievementPct: 0, overdueSla: 0, dueCallbacks: 0,
-      // Per-member lead-status breakdown — what each rep's customers answered, so
+      // Per-person lead-status breakdown — what each rep's customers answered, so
       // a manager can see status at a glance before deciding any manual reassign.
       status: { new: 0, interested: 0, callback: 0, not_interested: 0, no_response: 0, wrong_number: 0, converted: 0 } as Record<string, number>,
       lastActivityMs: 0,
@@ -2760,22 +2765,68 @@ async function startServer() {
       a.target = Number(t.targets?.disbursalAmount ?? 0);
     });
 
-    const rows = [...acc.values()].map((a) => ({ ...a, achievementPct: a.target > 0 ? Math.min(100, Math.round((a.disbursalAmount / a.target) * 100)) : 0 }));
-    rows.sort((x, y) => y.disbursalAmount - x.disbursalAmount);
-    const totals = rows.reduce((t, a) => ({
-      leads: t.leads + a.leads, openOpps: t.openOpps + a.openOpps, pipelineValue: t.pipelineValue + a.pipelineValue,
-      disbursalAmount: t.disbursalAmount + a.disbursalAmount, target: t.target + a.target,
-      overdueSla: t.overdueSla + a.overdueSla, dueCallbacks: t.dueCallbacks + a.dueCallbacks,
-    }), { ...emptyTotals });
+    // Coaching metrics (deterministic): conversion %, days since last activity.
+    const rows = [...acc.values()].map((a) => ({
+      ...a,
+      achievementPct: a.target > 0 ? Math.min(100, Math.round((a.disbursalAmount / a.target) * 100)) : 0,
+      conversionRate: a.leads > 0 ? Math.round((a.status.converted / a.leads) * 100) : 0,
+      inactiveDays: a.lastActivityMs > 0 ? Math.floor((nowMs - a.lastActivityMs) / 86400000) : null,
+    }));
     callbacks.sort((a, b) => new Date(a.callbackAt).getTime() - new Date(b.callbackAt).getTime());
     slaBreaches.sort((a, b) => a.slaDeadlineMs - b.slaDeadlineMs);
-    return { members: rows, totals, actionNeeded: { callbacks, slaBreaches }, period };
+    return { rows, callbacks, slaBreaches };
+  }
+
+  // Aggregate a team head's OWN performance (optional) + their AGENT team for a
+  // period. includeHead=false keeps the weekly-team-digest behaviour unchanged
+  // (reports only). Members are agents ONLY — elevated users are filtered even if
+  // a bad reporting link exists, so their numbers can never leak into a team view.
+  async function computeTeamSummary(managerUid: string, period: string, includeHead = false) {
+    const usersSnap = await db.collection("users").get();
+    const users = usersSnap.docs.map((d) => ({ uid: d.id, ...(d.data() as any) }));
+    const byUid = new Map(users.map((u) => [u.uid, u]));
+    const teamSet = computeDownline(users, managerUid);
+    const members = [...teamSet].map((id) => byUid.get(id))
+      .filter((u: any) => u && u.employeeStatus !== "inactive" && !isElevatedUser(u));
+    const headUser = includeHead ? byUid.get(managerUid) : undefined;
+    const people = headUser ? [headUser, ...members] : members;
+
+    if (people.length === 0) {
+      return { head: null, members: [], totals: { ...EMPTY_TEAM_TOTALS }, actionNeeded: { callbacks: [], slaBreaches: [] }, period };
+    }
+
+    const { rows, callbacks, slaBreaches } = await accumulatePerf(people, period);
+
+    // Contact touches this period (call/whatsapp/email/meeting activities) — the
+    // "how much outreach is this person doing" coaching signal. Best-effort; uses
+    // the existing activities (by, at) collection-group index (same as scorecards).
+    const startMs = periodStartMs(period);
+    await Promise.all(rows.map(async (r: any) => {
+      try {
+        const snap = await db.collectionGroup("activities").where("by", "==", r.uid).get();
+        let n = 0;
+        snap.forEach((d) => {
+          const a: any = d.data();
+          const atMs = a.at?.toMillis ? a.at.toMillis() : 0;
+          if (atMs >= startMs && ["call", "whatsapp", "email", "meeting"].includes(a.type)) n++;
+        });
+        r.callsLogged = n;
+      } catch { r.callsLogged = null; }
+    }));
+
+    const headBase = headUser ? rows.find((r: any) => r.uid === managerUid) : undefined;
+    const head = headBase ? { ...headBase, isHead: true } : null;
+    const memberRows = rows.filter((r: any) => !headUser || r.uid !== managerUid);
+    memberRows.sort((x: any, y: any) => y.disbursalAmount - x.disbursalAmount);
+    const totals = sumTeamTotals(head ? [head, ...memberRows] : memberRows);
+    return { head, members: memberRows, totals, actionNeeded: { callbacks, slaBreaches }, period };
   }
 
   // GET /api/crm/team/performance?period=YYYY-MM[&managerUid=UID]
-  // Default: the caller's OWN downline. An admin/super-admin may pass ?managerUid
-  // to view ANY manager's team (so a super admin sees all teams via the picker).
-  // A non-admin's managerUid param is ignored — they only ever see their own reports.
+  // Everyone gets their OWN numbers (head row) + their agent team (empty team →
+  // own numbers only — managers/admins/SAs generate business too). An admin/
+  // super-admin may pass ?managerUid to view ANY person's head+team; a non-admin's
+  // managerUid param is ignored — they only ever see themselves + their reports.
   app.get("/api/crm/team/performance", async (req, res) => {
     try {
       const uid = await verifyFirebaseToken(req);
@@ -2783,10 +2834,53 @@ async function startServer() {
       const q = req.query.period;
       const period = typeof q === "string" && /^\d{4}-\d{2}$/.test(q) ? q : new Date().toISOString().slice(0, 7);
       const callerDoc = await db.collection("users").doc(uid).get();
-      const callerIsAdmin = callerDoc.data()?.role === "admin";
+      const callerIsAdmin = callerDoc.data()?.role === "admin" || isSuperAdmin(uid);
       const reqMgr = req.query.managerUid;
       const targetUid = (callerIsAdmin && typeof reqMgr === "string" && reqMgr) ? reqMgr : uid;
-      return res.json(await computeTeamSummary(targetUid, period));
+      return res.json(await computeTeamSummary(targetUid, period, /* includeHead */ true));
+    } catch (e) { return res.status(500).json({ error: String(e) }); }
+  });
+
+  // GET /api/crm/team/all-teams?period=YYYY-MM — admin/super-admin only.
+  // The top-down view: every CRM manager with their OWN numbers (managers generate
+  // business too) + their agents' rows + the combined team total, plus agents not
+  // assigned to any manager. Single accumulation pass — no N×4 collection reads.
+  app.get("/api/crm/team/all-teams", async (req, res) => {
+    try {
+      const uid = await verifyFirebaseToken(req);
+      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+      const callerDoc = await db.collection("users").doc(uid).get();
+      if (callerDoc.data()?.role !== "admin" && !isSuperAdmin(uid)) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const q = req.query.period;
+      const period = typeof q === "string" && /^\d{4}-\d{2}$/.test(q) ? q : new Date().toISOString().slice(0, 7);
+
+      const usersSnap = await db.collection("users").get();
+      const users = usersSnap.docs.map((d) => ({ uid: d.id, ...(d.data() as any) }));
+      const active = users.filter((u: any) => u.employeeStatus !== "inactive");
+      const heads = active.filter((u: any) => u.crmRole === "manager");
+      const headSet = new Set(heads.map((h: any) => h.uid));
+      const agents = active.filter((u: any) => !isElevatedUser(u) && activeRmFilter(u));
+
+      const { rows } = await accumulatePerf([...heads, ...agents], period);
+      const rowBy = new Map(rows.map((r: any) => [r.uid, r]));
+
+      const teams = heads.map((h: any) => {
+        const memberRows = agents
+          .filter((a: any) => a.reportingManagerUid === h.uid)
+          .map((a: any) => rowBy.get(a.uid)).filter(Boolean)
+          .sort((x: any, y: any) => y.disbursalAmount - x.disbursalAmount);
+        const managerRow = { ...(rowBy.get(h.uid) ?? {}), isHead: true };
+        return { manager: managerRow, members: memberRows, totals: sumTeamTotals([managerRow, ...memberRows]) };
+      }).sort((a: any, b: any) => b.totals.disbursalAmount - a.totals.disbursalAmount);
+
+      const unassigned = agents
+        .filter((a: any) => !a.reportingManagerUid || !headSet.has(a.reportingManagerUid))
+        .map((a: any) => rowBy.get(a.uid)).filter(Boolean)
+        .sort((x: any, y: any) => y.disbursalAmount - x.disbursalAmount);
+
+      return res.json({ teams, unassigned, period });
     } catch (e) { return res.status(500).json({ error: String(e) }); }
   });
 
@@ -3849,6 +3943,17 @@ async function startServer() {
       }
       if (!email.endsWith("@finvastra.com")) {
         return res.status(400).json({ error: "Email must be a @finvastra.com address" });
+      }
+
+      // Guardrail: managers/admins must never sit INSIDE a CRM manager's team —
+      // their numbers would leak into that manager's team view. (Super admins are
+      // admins, so this covers them too.)
+      if (typeof reportingManagerUid === "string" && reportingManagerUid &&
+          (role === "admin" || crmRole === "manager")) {
+        const mgrSnap = await db.collection("users").doc(reportingManagerUid).get();
+        if (mgrSnap.data()?.crmRole === "manager") {
+          return res.status(400).json({ error: "Managers, admins and super admins cannot be placed inside a manager's team. Pick a different reporting manager." });
+        }
       }
 
       // Create Firebase Auth account with fixed temp password

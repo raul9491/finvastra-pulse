@@ -80,10 +80,18 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState('');
 
+  // A manager/admin/super-admin must never sit INSIDE a CRM manager's team — their
+  // numbers would leak into that manager's team view. So when the person being
+  // edited is elevated, CRM managers are not offered as their reporting manager
+  // (they can still report to admins/directors). Uses the LIVE crmRole selection so
+  // switching someone to Manager immediately narrows the options too.
+  const editedIsElevated = employee.role === 'admin' || crmRole === 'manager' || isSuperAdmin(employee.userId, employee);
+
   // Reporting manager options sorted: super admins → admins → employees
   const managerOptions = useMemo(() =>
     [...allEmployees]
-      .filter((e) => e.userId !== employee.userId && e.employeeStatus !== 'inactive') // not self, not inactive (inactive managers break the org tree)
+      .filter((e) => e.userId !== employee.userId && e.employeeStatus !== 'inactive' // not self, not inactive (inactive managers break the org tree)
+        && !(editedIsElevated && e.crmRole === 'manager'))
       .sort((a, b) => {
         const as_ = isSuperAdmin(a.userId, a) ? 0 : a.role === 'admin' ? 1 : 2;
         const bs_ = isSuperAdmin(b.userId, b) ? 0 : b.role === 'admin' ? 1 : 2;
@@ -94,7 +102,7 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
         value: e.userId,
         label: `${e.displayName}${e.designation ? ` — ${e.designation}` : ''}`,
       })),
-    [allEmployees, employee.userId],
+    [allEmployees, employee.userId, editedIsElevated],
   );
 
   const handleSave = async () => {

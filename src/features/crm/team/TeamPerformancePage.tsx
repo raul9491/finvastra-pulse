@@ -1,20 +1,26 @@
 /**
- * TeamPerformancePage — a director's view of their HRMS downline in CRM.
+ * TeamPerformancePage — the CRM performance page.
  *
- * Strictly team-scoped: the data comes from GET /api/crm/team/performance, which
- * computes the caller's downline (reportingManagerUid tree) server-side and returns
- * only their reports' aggregates. Non-managers see an empty team.
+ * Everyone generates business here (agents, managers, admins, super admins), so:
+ *  · Section 1 "My performance" — the viewed person's OWN numbers (head row).
+ *  · Section 2 "Team" — their AGENT team, per-member and coachable (conversion,
+ *    activity, calls, deterministic ⭐/⚠ flags) + manual reassignment drill-in.
+ *  · Section 3 "All teams" — admins/super-admins only: every manager's own numbers
+ *    + their team, expandable to each agent.
  *
- * Sections: team KPI chips · "Action needed today" (due callbacks + SLA breaches,
- * click through to the lead) · per-member performance table (target vs achieved).
+ * Data comes from GET /api/crm/team/performance (head + agent-only downline,
+ * server-side) and GET /api/crm/team/all-teams. A manager's team can only contain
+ * plain agents — elevated people are filtered server-side AND excluded from the
+ * add-members picker here.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Phone, AlertTriangle, RefreshCw, ArrowRight, ArrowRightLeft, UserPlus, X } from 'lucide-react';
+import { Users, Phone, AlertTriangle, RefreshCw, ArrowRight, ArrowRightLeft, UserPlus, X, ChevronDown, ChevronRight, Star } from 'lucide-react';
 import { doc, collection, query, where, orderBy, getDocs, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
+import { isSuperAdmin } from '../../../config/hrmsConfig';
 import { MultiSearchableSelect, SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { appendFieldHistory } from '../../../lib/fieldHistory';
 import { writeNotification } from '../../../lib/notifications';
@@ -46,19 +52,60 @@ interface MemberRow {
   overdueSla: number; dueCallbacks: number;
   status: Record<string, number>;   // per-disposition counts (what each rep's customers answered)
   lastActivityMs: number;
+  // Coaching metrics (server-computed, deterministic)
+  conversionRate: number;           // converted / leads, %
+  inactiveDays: number | null;      // days since last lead activity (null = never)
+  callsLogged?: number | null;      // contact touches this period (call/whatsapp/email/meeting)
+  isHead?: boolean;
 }
 interface ManagerOption { uid: string; name: string; memberCount: number; }
 interface CallbackItem { leadId: string; name: string; phone: string; ownerName: string; callbackAt: string; }
 interface SlaItem { leadId: string; name: string; phone: string; ownerName: string; slaDeadlineMs: number; }
+interface TeamTotals { leads: number; openOpps: number; pipelineValue: number; disbursalAmount: number; target: number; overdueSla: number; dueCallbacks: number; }
 interface TeamSummary {
+  head: MemberRow | null;           // the viewed person's OWN numbers
   members: MemberRow[];
-  totals: { leads: number; openOpps: number; pipelineValue: number; disbursalAmount: number; target: number; overdueSla: number; dueCallbacks: number };
+  totals: TeamTotals;               // head + members combined
   actionNeeded: { callbacks: CallbackItem[]; slaBreaches: SlaItem[] };
+  period: string;
+}
+interface AllTeamsData {
+  teams: Array<{ manager: MemberRow; members: MemberRow[]; totals: TeamTotals }>;
+  unassigned: MemberRow[];
   period: string;
 }
 
 function achColor(pct: number): string {
   return pct >= 80 ? '#34d399' : pct >= 50 ? '#fbbf24' : '#f87171';
+}
+
+// Deterministic coaching flag — states its exact reason so the manager knows what
+// to appreciate or coach. No inference: pure thresholds on the row's numbers.
+function coachFlag(m: MemberRow, teamTopDisbursal: number): { kind: 'star' | 'warn'; reason: string } | null {
+  const warns: string[] = [];
+  if (m.overdueSla > 0) warns.push(`${m.overdueSla} lead${m.overdueSla === 1 ? '' : 's'} past SLA`);
+  if (m.inactiveDays !== null && m.inactiveDays >= 7) warns.push(`${m.inactiveDays} days without activity`);
+  if (m.target > 0 && m.achievementPct < 30) warns.push(`only ${m.achievementPct}% of target`);
+  if (warns.length > 0) return { kind: 'warn', reason: warns.join(' · ') };
+  const stars: string[] = [];
+  if (m.target > 0 && m.achievementPct >= 80) stars.push(`${m.achievementPct}% of target`);
+  if (teamTopDisbursal > 0 && m.disbursalAmount === teamTopDisbursal) stars.push('top disbursals in team');
+  if (m.leads >= 10 && m.conversionRate >= 25) stars.push(`${m.conversionRate}% conversion`);
+  if (stars.length > 0) return { kind: 'star', reason: stars.join(' · ') };
+  return null;
+}
+
+function FlagPill({ flag }: { flag: { kind: 'star' | 'warn'; reason: string } | null }) {
+  if (!flag) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+  const star = flag.kind === 'star';
+  return (
+    <span title={flag.reason}
+      className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap cursor-help"
+      style={{ color: star ? '#34d399' : '#fbbf24', backgroundColor: star ? 'rgba(52,211,153,0.12)' : 'rgba(251,191,36,0.12)' }}>
+      {star ? <Star size={10} /> : <AlertTriangle size={10} />}
+      {star ? 'Appreciate' : 'Attention'}
+    </span>
+  );
 }
 
 /**
@@ -79,7 +126,12 @@ function AddTeamMembersModal({ managerUid, managerName, onClose, onAdded }: {
     employees
       .filter((e) => e.employeeStatus !== 'inactive'
         && e.userId !== managerUid
-        && e.reportingManagerUid !== managerUid)
+        && e.reportingManagerUid !== managerUid
+        // A manager's team may only contain plain AGENTS — never a manager, admin,
+        // or super admin (their numbers must not leak into this manager's view).
+        && e.role !== 'admin'
+        && e.crmRole !== 'manager'
+        && !isSuperAdmin(e.userId, e))
       .map((e) => ({
         value: e.userId,
         label: e.displayName,
@@ -328,6 +380,136 @@ function MemberLeadsModal({ source, team, actor, onClose, onDone }: {
   );
 }
 
+/**
+ * AllTeamsSection — the top-down view for admins/super-admins: every CRM manager
+ * with their OWN numbers + their agents + the combined team total, expandable to
+ * each agent's row. Agents not under any manager are listed separately.
+ */
+function AllTeamsSection({ period }: { period: string }) {
+  const [data, setData] = useState<AllTeamsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [open, setOpen] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true); setError('');
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        const res = await fetch(`/api/crm/team/all-teams?period=${period}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) throw new Error(`Could not load teams (HTTP ${res.status})`);
+        const d = await res.json();
+        if (!cancelled) setData(d);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load all teams');
+      } finally { if (!cancelled) setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [period]);
+
+  const toggle = (uid: string) => setOpen((prev) => {
+    const n = new Set(prev); n.has(uid) ? n.delete(uid) : n.add(uid); return n;
+  });
+
+  const AgentLine = ({ m, topDisbursal }: { m: MemberRow; topDisbursal: number }) => (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2" style={{ borderTop: '1px solid var(--shell-border)' }}>
+      <div className="min-w-40 flex-1">
+        <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{m.name}{m.isHead ? ' · own business' : ''}</p>
+        <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{m.designation || (m.isHead ? 'Manager' : 'Agent')}</p>
+      </div>
+      <span className="text-[11px] whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{m.leads} leads</span>
+      <span className="text-[11px] whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{m.leads > 0 ? `${m.conversionRate}% conv` : '—'}</span>
+      <span className="text-[11px] whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{fmtINR(m.pipelineValue)} pipeline</span>
+      <span className="text-[11px] font-semibold whitespace-nowrap" style={{ color: '#C9A961' }}>{fmtINR(m.disbursalAmount)} disbursed</span>
+      {m.target > 0 && (
+        <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: achColor(m.achievementPct) }}>{m.achievementPct}% of target</span>
+      )}
+      <FlagPill flag={coachFlag(m, topDisbursal)} />
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>All teams</h3>
+        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+          Every manager's own numbers + their team — expand to see each agent.
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="glass-panel p-6 text-sm flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
+          <div className="w-4 h-4 rounded-full border-2 border-gold border-t-transparent animate-spin" /> Loading all teams…
+        </div>
+      ) : error ? (
+        <div className="glass-panel p-4 text-sm" style={{ color: '#f87171' }}>{error}</div>
+      ) : !data || data.teams.length === 0 ? (
+        <div className="glass-panel p-6 text-sm" style={{ color: 'var(--text-muted)' }}>
+          No CRM managers with teams yet — assign agents a Reporting Manager to build teams.
+        </div>
+      ) : (
+        <>
+          {data.teams.map((team) => {
+            const isOpen = open.has(team.manager.uid);
+            const topDisbursal = Math.max(0, ...team.members.map((m) => m.disbursalAmount));
+            return (
+              <div key={team.manager.uid} className="glass-panel p-0 overflow-hidden">
+                <button onClick={() => toggle(team.manager.uid)}
+                  className="w-full flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-left hover:bg-(--shell-hover-soft) transition-colors">
+                  {isOpen ? <ChevronDown size={15} style={{ color: 'var(--text-muted)' }} /> : <ChevronRight size={15} style={{ color: 'var(--text-muted)' }} />}
+                  <div className="min-w-40 flex-1">
+                    <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{team.manager.name}</p>
+                    <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                      Manager · {team.members.length} agent{team.members.length === 1 ? '' : 's'}
+                    </p>
+                  </div>
+                  <span className="text-[11px] whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{team.totals.leads} leads</span>
+                  <span className="text-[11px] whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>{fmtINR(team.totals.pipelineValue)} pipeline</span>
+                  <span className="text-[11px] font-bold whitespace-nowrap" style={{ color: '#C9A961' }}>{fmtINR(team.totals.disbursalAmount)} disbursed</span>
+                  {team.totals.target > 0 && (
+                    <span className="text-[11px] font-bold whitespace-nowrap"
+                      style={{ color: achColor(Math.min(100, Math.round((team.totals.disbursalAmount / team.totals.target) * 100))) }}>
+                      {Math.min(100, Math.round((team.totals.disbursalAmount / team.totals.target) * 100))}% of target
+                    </span>
+                  )}
+                  {(team.totals.overdueSla > 0 || team.totals.dueCallbacks > 0) && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
+                      style={{ color: '#f87171', backgroundColor: 'rgba(248,113,113,0.12)' }}>
+                      {team.totals.overdueSla > 0 ? `${team.totals.overdueSla} past SLA` : ''}
+                      {team.totals.overdueSla > 0 && team.totals.dueCallbacks > 0 ? ' · ' : ''}
+                      {team.totals.dueCallbacks > 0 ? `${team.totals.dueCallbacks} callbacks due` : ''}
+                    </span>
+                  )}
+                </button>
+                {isOpen && (
+                  <div>
+                    <AgentLine m={team.manager} topDisbursal={topDisbursal} />
+                    {team.members.map((m) => <AgentLine key={m.uid} m={m} topDisbursal={topDisbursal} />)}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {data.unassigned.length > 0 && (
+            <div className="glass-panel p-0 overflow-hidden">
+              <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--shell-border)' }}>
+                <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Agents without a team</p>
+                <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>No Reporting Manager set — assign one in HRMS → Employees to group them.</p>
+              </div>
+              {(() => {
+                const top = Math.max(0, ...data.unassigned.map((m) => m.disbursalAmount));
+                return data.unassigned.map((m) => <AgentLine key={m.uid} m={m} topDisbursal={top} />);
+              })()}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export function TeamPerformancePage() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
@@ -377,6 +559,11 @@ export function TeamPerformancePage() {
 
   const t = data?.totals;
   const hasTeam = (data?.members.length ?? 0) > 0;
+  const head = data?.head ?? null;
+  const teamTopDisbursal = useMemo(
+    () => Math.max(0, ...(data?.members ?? []).map((m) => m.disbursalAmount)),
+    [data]);
+  const viewingName = isAdmin && viewUid ? (managers.find((m) => m.uid === viewUid)?.name ?? 'Team') : null;
 
   const Chip = ({ label, value, sub, alert }: { label: string; value: string; sub?: string; alert?: boolean }) => (
     <div className="glass-panel p-4" style={{ borderLeft: alert ? '3px solid #f87171' : '3px solid #C9A961' }}>
@@ -392,12 +579,12 @@ export function TeamPerformancePage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontVariationSettings: '"SOFT" 30', fontWeight: 300, color: 'var(--text-primary)' }}>
-            My Team
+            {viewingName ? `${viewingName} & Team` : 'My Performance & Team'}
           </h2>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            {isAdmin && viewUid
-              ? `${managers.find((m) => m.uid === viewUid)?.name ?? 'Team'}'s reports — status, targets, and manual reassignment`
-              : "Your reports' pipeline, targets, and the customers waiting on them"}
+            {viewingName
+              ? `${viewingName}'s own numbers + their team — status, targets, and manual reassignment`
+              : 'Your own numbers first, then your team — clear enough to see who to appreciate and who needs help'}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -429,35 +616,63 @@ export function TeamPerformancePage() {
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-20">
           <div className="w-5 h-5 rounded-full border-2 border-gold border-t-transparent animate-spin" />
-          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading team…</span>
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading performance…</span>
         </div>
       ) : error ? (
         <div className="glass-panel p-4 text-sm" style={{ color: '#f87171' }}>{error}</div>
-      ) : !hasTeam ? (
-        <div className="glass-panel p-10 text-center">
-          <Users size={36} className="mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
-          <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>No team assigned yet</p>
-          <p className="text-xs mt-1 max-w-md mx-auto" style={{ color: 'var(--text-muted)' }}>
-            Your team is built from the HRMS reporting line — people whose <strong>Reporting Manager</strong> is you
-            appear here with their leads and targets.
-          </p>
-          {canEditTeam ? (
-            <button onClick={() => setShowAddMembers(true)}
-              className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-              style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
-              <UserPlus size={15} /> Add team members
-            </button>
-          ) : (
-            <p className="text-xs mt-4 max-w-md mx-auto" style={{ color: 'var(--text-muted)' }}>
-              Ask HR or an admin to set your reports' Reporting Manager to you in <strong>HRMS → Employees</strong>.
-            </p>
-          )}
-        </div>
       ) : (
         <>
-          {/* KPI chips */}
+          {/* ── Section 1 — the viewed person's OWN numbers (everyone generates business) ── */}
+          {head && (
+            <div className="glass-panel p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#C9A961' }}>
+                {viewingName ? `${viewingName} — own performance` : 'My performance'}
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-x-4 gap-y-3">
+                {[
+                  { label: 'Leads', value: String(head.leads), sub: `+${head.newLeads} this month` },
+                  { label: 'Pipeline', value: fmtINR(head.pipelineValue), sub: `${head.openOpps} open deals` },
+                  { label: 'Disbursed', value: fmtINR(head.disbursalAmount), sub: head.target > 0 ? `${head.achievementPct}% of ${fmtINR(head.target)}` : 'no target set' },
+                  { label: 'Commission', value: fmtINR(head.commission), sub: 'paid this month' },
+                  { label: 'Conversion', value: `${head.conversionRate}%`, sub: `${head.status?.converted ?? 0} converted` },
+                  { label: 'Activity', value: head.inactiveDays === null ? '—' : head.inactiveDays === 0 ? 'today' : `${head.inactiveDays}d ago`, sub: head.callsLogged != null ? `${head.callsLogged} touches this month` : undefined },
+                ].map(({ label, value, sub }) => (
+                  <div key={label}>
+                    <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                    <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
+                    {sub && <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Section 2 — the team (agents only) ── */}
+          {!hasTeam ? (
+            <div className="glass-panel p-8 text-center">
+              <Users size={30} className="mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>No team assigned yet</p>
+              <p className="text-xs mt-1 max-w-md mx-auto" style={{ color: 'var(--text-muted)' }}>
+                A team is built from the HRMS reporting line — agents whose <strong>Reporting Manager</strong> is
+                {viewingName ? ` ${viewingName}` : ' you'} appear here. (Only agents — managers and admins never sit inside a team.)
+              </p>
+              {canEditTeam && !viewUid ? (
+                <button onClick={() => setShowAddMembers(true)}
+                  className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+                  <UserPlus size={15} /> Add team members
+                </button>
+              ) : !canEditTeam ? (
+                <p className="text-xs mt-3 max-w-md mx-auto" style={{ color: 'var(--text-muted)' }}>
+                  Ask HR or an admin to set your reports' Reporting Manager to you in <strong>HRMS → Employees</strong>.
+                </p>
+              ) : null}
+            </div>
+          ) : (
+        <>
+          {/* Combined KPI chips — head + team together */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <Chip label="Disbursed this month" value={fmtINR(t!.disbursalAmount)} sub={t!.target > 0 ? `of ${fmtINR(t!.target)} target` : 'no target set'} />
+            <Chip label="Disbursed this month" value={fmtINR(t!.disbursalAmount)} sub={`${viewingName ? 'them' : 'you'} + team${t!.target > 0 ? ` · of ${fmtINR(t!.target)} target` : ''}`} />
             <Chip label="Open pipeline" value={fmtINR(t!.pipelineValue)} sub={`${t!.openOpps} open deals`} />
             <Chip label="Callbacks due now" value={String(t!.dueCallbacks)} sub="customers waiting" alert={t!.dueCallbacks > 0} />
             <Chip label="Leads past SLA" value={String(t!.overdueSla)} sub="need first contact" alert={t!.overdueSla > 0} />
@@ -527,10 +742,11 @@ export function TeamPerformancePage() {
             </div>
           )}
 
-          {/* Member table */}
+          {/* Member table — built for coaching: conversion, activity, touches, and a
+              deterministic flag saying exactly who to appreciate / who needs help. */}
           <div className="glass-panel p-0 overflow-hidden">
             <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--shell-border)' }}>
-              <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Team performance — {data!.members.length} reports</h3>
+              <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Team performance — {data!.members.length} member{data!.members.length === 1 ? '' : 's'}</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -539,23 +755,27 @@ export function TeamPerformancePage() {
                     <th className="text-left font-semibold px-4 py-2">Member</th>
                     <th className="text-left font-semibold px-3 py-2">Status of their leads</th>
                     <th className="text-right font-semibold px-3 py-2">Leads</th>
+                    <th className="text-right font-semibold px-3 py-2" title="Converted ÷ total leads">Conv %</th>
                     <th className="text-right font-semibold px-3 py-2">Pipeline</th>
                     <th className="text-right font-semibold px-3 py-2">Disbursed</th>
                     <th className="text-right font-semibold px-3 py-2">Achieved</th>
                     <th className="text-right font-semibold px-3 py-2">SLA</th>
                     <th className="text-right font-semibold px-3 py-2">Callbacks</th>
+                    <th className="text-right font-semibold px-3 py-2" title="Call / WhatsApp / email / meeting activities logged this month">Touches</th>
+                    <th className="text-center font-semibold px-3 py-2">Flag</th>
                     <th className="text-right font-semibold px-4 py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {data!.members.map((m) => {
-                    const lastAct = daysSince(m.lastActivityMs);
+                    const lastAct = m.inactiveDays ?? daysSince(m.lastActivityMs);
+                    const stale = lastAct !== null && lastAct >= 7;
                     return (
                     <tr key={m.uid} style={{ borderTop: '1px solid var(--shell-border)' }}>
                       <td className="px-4 py-2.5">
                         <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{m.name}</p>
-                        <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                          {m.designation || 'RM'}{lastAct !== null ? ` · active ${lastAct === 0 ? 'today' : `${lastAct}d ago`}` : ''}
+                        <p className="text-[10px]" style={{ color: stale ? '#f87171' : 'var(--text-muted)', fontWeight: stale ? 700 : 400 }}>
+                          {m.designation || 'RM'}{lastAct !== null ? ` · active ${lastAct === 0 ? 'today' : `${lastAct}d ago`}` : ' · no activity yet'}
                         </p>
                       </td>
                       <td className="px-3 py-2.5">
@@ -573,6 +793,7 @@ export function TeamPerformancePage() {
                         </div>
                       </td>
                       <td className="text-right px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{m.leads}</td>
+                      <td className="text-right px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{m.leads > 0 ? `${m.conversionRate}%` : '—'}</td>
                       <td className="text-right px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{fmtINR(m.pipelineValue)}</td>
                       <td className="text-right px-3 py-2.5 font-semibold" style={{ color: '#C9A961' }}>{fmtINR(m.disbursalAmount)}</td>
                       <td className="text-right px-3 py-2.5" title={m.target > 0 ? `of ${fmtINR(m.target)} target` : 'no target set'}>
@@ -582,6 +803,8 @@ export function TeamPerformancePage() {
                       </td>
                       <td className="text-right px-3 py-2.5" style={{ color: m.overdueSla > 0 ? '#f87171' : 'var(--text-muted)', fontWeight: m.overdueSla > 0 ? 700 : 400 }}>{m.overdueSla}</td>
                       <td className="text-right px-3 py-2.5" style={{ color: m.dueCallbacks > 0 ? '#C9A961' : 'var(--text-muted)', fontWeight: m.dueCallbacks > 0 ? 700 : 400 }}>{m.dueCallbacks}</td>
+                      <td className="text-right px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{m.callsLogged ?? '—'}</td>
+                      <td className="text-center px-3 py-2.5"><FlagPill flag={coachFlag(m, teamTopDisbursal)} /></td>
                       <td className="text-right px-4 py-2.5">
                         <button onClick={() => setDrillMember(m)}
                           className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border inline-flex items-center gap-1 transition-opacity hover:opacity-80 whitespace-nowrap"
@@ -597,6 +820,11 @@ export function TeamPerformancePage() {
               </table>
             </div>
           </div>
+        </>
+          )}
+
+          {/* ── Section 3 — All teams (admins / super-admins only) ── */}
+          {isAdmin && <AllTeamsSection period={period} />}
         </>
       )}
 

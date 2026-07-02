@@ -54,6 +54,7 @@ export function useCallbackReminders(uid: string) {
         return { lead: l, cbMs };
       })
       .filter(({ lead, cbMs }) => {
+        if (lead.deleted) return false;   // soft-deleted/RTBF leads must not keep reminding
         if (isNaN(cbMs)) return false;
         if (cbMs - now > WINDOW_MS) return false;                       // more than 15 min away
         if (localStorage.getItem(dismissKey(lead.id, cbMs))) return false; // dismissed

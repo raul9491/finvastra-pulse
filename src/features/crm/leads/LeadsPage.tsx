@@ -7,6 +7,7 @@ import {
   doc, collection, query, where, orderBy, limit, serverTimestamp,
 } from 'firebase/firestore';
 import { useAuth } from '../../auth/AuthContext';
+import { useToast } from '../../../components/ui/Toast';
 import { useLeads, useTeamLeads } from '../hooks/useLeads';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { useOpportunityTypes } from '../hooks/useOpportunities';
@@ -50,6 +51,7 @@ const LEAD_BOARD_COLUMNS = [
 export function LeadsPage() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
+  const toast = useToast();
   const isAdmin = profile?.role === 'admin';
   const { leads: ownLeads, loading } = useLeads(user?.uid ?? null, isAdmin);
   const { employees } = useAllEmployees();
@@ -171,6 +173,9 @@ export function LeadsPage() {
     if (!confirmed) return;
 
     setBulkProcessing(true);
+    // Count outcomes — a permission-denied write must NEVER masquerade as success
+    // (this used to silently no-op for managers and clear the selection anyway).
+    let updated = 0, noOpenOpp = 0, failed = 0;
     try {
       for (const lead of selected) {
         try {
@@ -182,7 +187,7 @@ export function LeadsPage() {
               limit(1),
             ),
           );
-          if (oppsSnap.empty) continue;
+          if (oppsSnap.empty) { noOpenOpp++; continue; }
           const opp = oppsSnap.docs[0];
           await updateDoc(doc(db, 'leads', lead.id, 'opportunities', opp.id), {
             stage,
@@ -197,11 +202,20 @@ export function LeadsPage() {
               at: serverTimestamp(),
             },
           );
+          updated++;
         } catch {
-          // Skip individual failures — they show up as unchanged rows; user can retry
+          failed++;
         }
       }
-      setSelectedLeadIds(new Set());
+      if (failed > 0) {
+        toast.error(`${updated} moved · ${failed} could not be updated (no permission on those deals). Selection kept for the failed ones.`);
+      } else if (updated === 0 && noOpenOpp > 0) {
+        toast.info(`No changes — ${noOpenOpp} selected lead${noOpenOpp === 1 ? ' has' : 's have'} no open deal to move.`);
+        setSelectedLeadIds(new Set());
+      } else {
+        toast.success(`${updated} deal${updated === 1 ? '' : 's'} moved to "${stage}"${noOpenOpp > 0 ? ` · ${noOpenOpp} skipped (no open deal)` : ''}.`);
+        setSelectedLeadIds(new Set());
+      }
     } finally {
       setBulkProcessing(false);
     }
@@ -221,6 +235,7 @@ export function LeadsPage() {
     try {
       // Firestore batched writes max out at 500 operations per batch.
       const BATCH_SIZE = 499;
+      let assigned = 0;
       for (let i = 0; i < selected.length; i += BATCH_SIZE) {
         const batch = writeBatch(db);
         const chunk = selected.slice(i, i + BATCH_SIZE);
@@ -232,8 +247,15 @@ export function LeadsPage() {
           });
         }
         await batch.commit();
+        assigned += chunk.length;
       }
+      toast.success(`${assigned} lead${assigned === 1 ? '' : 's'} assigned to ${targetName}.`);
       setSelectedLeadIds(new Set());
+    } catch (e) {
+      // A batch is all-or-nothing — surface the denial instead of pretending it worked.
+      toast.error(e instanceof Error && /permission/i.test(e.message)
+        ? 'Could not assign — you don\'t have permission to reassign some of these leads.'
+        : 'Assignment failed. Please try again.');
     } finally {
       setBulkProcessing(false);
     }
@@ -629,6 +651,9 @@ function AssignLeadModal({
     try {
       await updateDoc(doc(db, 'leads', lead.id), {
         primaryOwnerId: selectedUid,
+        // Keep this path consistent with every other assignment route (distribute /
+        // pull / bulk) — without the stamp, "Nd with owner" in the team view was wrong.
+        assignedToCurrentOwnerAt: serverTimestamp(),
         updatedAt:      serverTimestamp(),
       });
       onClose();

@@ -65,7 +65,10 @@ export function ImportPage() {
   const { profile } = useAuth();
 
   const isAdmin = profile?.role === 'admin';
-  const canRun  = isAdmin || profile?.crmRole === 'manager';
+  // Must match the server guard (/api/import/run) and the nav predicate — users
+  // granted the crmCanImport flag were seeing the Import menu but an access-denied
+  // page here (2026-07-02 fix).
+  const canRun  = isAdmin || profile?.crmRole === 'manager' || profile?.crmCanImport === true;
 
   // ── Step 1 state ─────────────────────────────────────────────────────────
   const [importName,  setImportName]  = useState('');

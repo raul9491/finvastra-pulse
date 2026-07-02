@@ -341,6 +341,11 @@ service cloud.firestore {
                      // Manager team view — works for queries that pin primaryOwnerId
                      // to a single value (the client queries per direct report).
                      isManagerOf(resource.data.primaryOwnerId) ||
+                     // Distributors (managers / crmCanImport) may list/count the
+                     // UNASSIGNED pool — the Import Queue's live remaining-count
+                     // needs it (query must pin primaryOwnerId == 'UNASSIGNED').
+                     // Telecallers stay blocked (pool is count-only for them).
+                     ((isManager() || hasCrmImport()) && resource.data.primaryOwnerId == 'UNASSIGNED') ||
                      resource.data.get('referredBy', null) == request.auth.uid ||
                      hasCrm2Perm('crm.leads.read') ||   // CRM 2.0 Pipeline readers
                      hasSocialAccess();                 // Social Media inbox (WhatsApp)
@@ -404,14 +409,22 @@ service cloud.firestore {
                        (hasCrmAccess() &&
                         get(/databases/$(database)/documents/leads/$(leadId)).data.get('primaryOwnerId','') == request.auth.uid);
 
-      // Admin updates any field; opportunity owner updates stage/status/notes only
+      // Admin updates any field. The opportunity's owner, the LEAD's primary owner
+      // (the generator — the handoff pattern keeps them on the relationship), or the
+      // owner's reporting manager may update working fields. `ownerId` is in the
+      // allowlist so TRANSFER-to-specialist works for non-admins (2026-07-02 fix —
+      // it was rules-broken for the exact roles it was built for: a generator's
+      // transferOpportunity batch was denied because ownerId wasn't updatable).
+      // Blast radius is safe: you can only hand off a deal you own / sourced / manage.
       allow update: if isAdmin() ||
                        (hasCrmAccess() &&
-                        resource.data.ownerId == request.auth.uid &&
+                        (resource.data.ownerId == request.auth.uid ||
+                         get(/databases/$(database)/documents/leads/$(leadId)).data.get('primaryOwnerId','') == request.auth.uid ||
+                         isManagerOf(resource.data.ownerId)) &&
                         incoming().diff(existing()).affectedKeys().hasOnly([
                           'stage', 'status', 'notes', 'expectedCloseDate',
                           'actualCloseDate', 'updatedAt', 'customFields', 'stageData',
-                          'lostDetails'
+                          'lostDetails', 'ownerId'
                         ]));
 
       allow delete: if false;
@@ -609,8 +622,11 @@ service cloud.firestore {
 
     // ─── Import Jobs ─────────────────────────────────────────────────────────────
     match /import_jobs/{jobId} {
-      // Triggering user can read their own job's progress; admin sees all
-      allow read: if isAdmin() ||
+      // Triggering user can read their own job's progress; admin sees all.
+      // Managers + crmCanImport users can also read — the server lets them
+      // DISTRIBUTE batches, so the Import Queue must show them jobs an admin
+      // imported (it was showing "Nothing awaiting" — 2026-07-02 fix).
+      allow read: if isAdmin() || isManager() || hasCrmImport() ||
                      (isSignedIn() && resource.data.triggeredBy == request.auth.uid);
       // Written exclusively by the server (Firebase Admin SDK bypasses these rules)
       allow create: if false;
@@ -814,6 +830,13 @@ service cloud.firestore {
              request.auth.token.get('crmRole', '') == 'manager' ||
              (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
               get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('crmRole', null) == 'manager'));
+    }
+    // Bulk-import distributor flag (crmCanImport on the user doc — no custom claim,
+    // so this is a get() check). Matches the server's /api/import/* guards.
+    function hasCrmImport() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('crmCanImport', false) == true;
     }
     // True when the caller is a CRM manager AND the given user reports to them
     // (HRMS reporting line). Lets a director view/edit their team's leads.

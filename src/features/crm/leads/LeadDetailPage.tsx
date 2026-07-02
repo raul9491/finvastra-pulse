@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ArrowLeft, TrendingUp, Briefcase, ShieldCheck, ChevronRight, Calendar } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
+import { useToast } from '../../../components/ui/Toast';
 import { useLead } from '../hooks/useLeads';
 import { formatSlaStatus } from '../../../lib/slaUtils';
 import { useOpportunities, useOpportunityTypes } from '../hooks/useOpportunities';
@@ -162,6 +163,7 @@ export function LeadDetailPage() {
   const navigate = useNavigate();
   const { state } = useLocation();
   const { profile, user } = useAuth();
+  const toast = useToast();
   const { lead, loading: leadLoading } = useLead(leadId ?? null);
   const { opportunities, loading: oppsLoading } = useOpportunities(leadId ?? null);
   const { employees } = useAllEmployees();
@@ -229,6 +231,10 @@ export function LeadDetailPage() {
           ...(TERMINAL_STATUSES.has(status) ? { slaDeadline: null } : {}),
         },
       );
+    } catch (e) {
+      // A denied write must never look like a save — the select snaps back silently otherwise.
+      console.error('[lead disposition] failed:', e);
+      toast.error('Could not update the status — you may not have access to this customer anymore. Refresh and try again.');
     } finally {
       setSavingStatus(false);
     }
@@ -300,6 +306,10 @@ export function LeadDetailPage() {
       });
       setShowReassign(false);
       setReassignTo('');
+      toast.success(`Customer reassigned to ${ownerName(reassignTo)}.`);
+    } catch (e) {
+      console.error('[lead reassign] failed:', e);
+      toast.error('Could not reassign — you may not have permission to move this customer.');
     } finally {
       setSavingReassign(false);
     }
@@ -329,6 +339,10 @@ export function LeadDetailPage() {
         updatedAt:    serverTimestamp(),
       });
       setShowCallback(false);
+      toast.success('Follow-up scheduled — you\'ll be reminded 15 minutes before.');
+    } catch (e) {
+      console.error('[callback schedule] failed:', e);
+      toast.error('Could not schedule the follow-up. Please try again.');
     } finally {
       setSavingCallback(false);
     }

@@ -551,7 +551,9 @@ export function UploadStatementPage() {
 
           <div className="flex gap-3">
             <button
-              onClick={() => navigate(`/mis/reconciliation/${processResp.statementId}`)}
+              // Query-string form — the router has no /mis/reconciliation/:id route, so the
+              // path form fell through to the catch-all and dumped users on the launcher.
+              onClick={() => navigate(`/mis/reconciliation?statementId=${processResp.statementId}`)}
               className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors"
               style={{ backgroundColor: '#C9A961', color: '#0B1538' }}
             >

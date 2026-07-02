@@ -174,7 +174,10 @@ export function ImportQueuePage() {
   const isAdmin = profile?.role === 'admin';
   const canRun  = isAdmin || profile?.crmRole === 'manager' || profile?.crmCanImport === true;
 
-  const { jobs, loading } = useImportHistory(isAdmin);
+  // Anyone who can distribute must see ALL jobs (an admin may have run the import) —
+  // rules now allow managers/crmCanImport to read import_jobs (2026-07-02 fix; the
+  // queue looked empty to non-admin distributors before).
+  const { jobs, loading } = useImportHistory(canRun);
 
   // Agents that can receive leads: generators + convertors (telecallers) + admins, active only.
   const agents = employees.filter(

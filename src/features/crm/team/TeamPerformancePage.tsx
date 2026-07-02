@@ -15,7 +15,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Phone, AlertTriangle, RefreshCw, ArrowRight, ArrowRightLeft, UserPlus, X, ChevronDown, ChevronRight, Star } from 'lucide-react';
+import { Users, Phone, AlertTriangle, RefreshCw, ArrowRight, ArrowRightLeft, UserPlus, UserMinus, X, ChevronDown, ChevronRight, Star } from 'lucide-react';
 import { doc, collection, query, where, orderBy, getDocs, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
@@ -521,6 +521,27 @@ export function TeamPerformancePage() {
   const [error, setError] = useState('');
   const [showAddMembers, setShowAddMembers] = useState(false);
   const [drillMember, setDrillMember] = useState<MemberRow | null>(null);
+  const [removeMember, setRemoveMember] = useState<MemberRow | null>(null);
+  const [removing, setRemoving] = useState(false);
+
+  // Remove = clear the member's Reporting Manager (same field Add sets). Their
+  // leads/numbers are untouched — they just stop rolling up into this team.
+  const handleRemoveMember = async (m: MemberRow) => {
+    setRemoving(true);
+    try {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'users', m.uid), {
+        reportingManagerUid: null,
+        reportingManagerName: null,
+        updatedAt: serverTimestamp(),
+      });
+      await batch.commit();
+      setRemoveMember(null);
+      await load(period, true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to remove member.');
+    } finally { setRemoving(false); }
+  };
 
   // Only platform admins can change other users' Reporting Manager (rules) AND
   // view any team via the picker (server honours ?managerUid only for admins).
@@ -542,13 +563,13 @@ export function TeamPerformancePage() {
     })();
   }, [isAdmin, user]);
 
-  const load = async (p: string) => {
+  const load = async (p: string, fresh = false) => {
     if (!user) return;
     setLoading(true); setError('');
     try {
       const token = await auth.currentUser?.getIdToken();
       const mgrParam = isAdmin && viewUid ? `&managerUid=${viewUid}` : '';
-      const res = await fetch(`/api/crm/team/performance?period=${p}${mgrParam}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`/api/crm/team/performance?period=${p}${mgrParam}${fresh ? '&fresh=1' : ''}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error(`Could not load team (HTTP ${res.status})`);
       setData(await res.json());
     } catch (e) {
@@ -609,7 +630,7 @@ export function TeamPerformancePage() {
             </button>
           )}
           <input type="month" value={period} onChange={(e) => setPeriod(e.target.value || currentPeriod())} className="glass-inp text-sm" />
-          <button onClick={() => load(period)} className="glass-panel px-3 py-2 text-sm flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+          <button onClick={() => load(period, true)} className="glass-panel px-3 py-2 text-sm flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
             <RefreshCw size={14} /> Refresh
           </button>
         </div>
@@ -816,12 +837,22 @@ export function TeamPerformancePage() {
                       <td className="text-right px-3 py-2.5" style={{ color: (m.untouched ?? 0) > 0 ? '#f87171' : 'var(--text-muted)', fontWeight: (m.untouched ?? 0) > 0 ? 700 : 400 }}>{m.untouched ?? '—'}</td>
                       <td className="text-center px-3 py-2.5"><FlagPill flag={coachFlag(m, teamTopDisbursal)} /></td>
                       <td className="text-right px-4 py-2.5">
-                        <button onClick={() => setDrillMember(m)}
-                          className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border inline-flex items-center gap-1 transition-opacity hover:opacity-80 whitespace-nowrap"
-                          style={{ borderColor: 'rgba(201,169,97,0.35)', color: '#C9A961' }}
-                          disabled={m.leads === 0}>
-                          <ArrowRightLeft size={12} /> Manage
-                        </button>
+                        <div className="inline-flex items-center gap-1.5">
+                          <button onClick={() => setDrillMember(m)}
+                            className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border inline-flex items-center gap-1 transition-opacity hover:opacity-80 whitespace-nowrap"
+                            style={{ borderColor: 'rgba(201,169,97,0.35)', color: '#C9A961' }}
+                            disabled={m.leads === 0}>
+                            <ArrowRightLeft size={12} /> Manage
+                          </button>
+                          {canEditTeam && (
+                            <button onClick={() => setRemoveMember(m)}
+                              className="p-1.5 rounded-lg border transition-opacity hover:opacity-80"
+                              style={{ borderColor: 'rgba(248,113,113,0.35)', color: '#f87171' }}
+                              title={`Remove ${m.name} from this team`}>
+                              <UserMinus size={13} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                     );
@@ -838,12 +869,39 @@ export function TeamPerformancePage() {
         </>
       )}
 
+      {removeMember && (
+        <div className="glass-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setRemoveMember(null)}>
+          <div className="glass-modal-panel w-full max-w-sm rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 space-y-4">
+              <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Remove {removeMember.name} from this team?</h3>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                This clears their Reporting Manager — they stop appearing in this team's numbers.
+                Their customers and performance data are NOT touched; reassign their leads first
+                via Manage if needed. You can add them back any time.
+              </p>
+              <div className="flex gap-3">
+                <button onClick={() => setRemoveMember(null)}
+                  className="flex-1 py-2.5 rounded-lg text-sm font-semibold border transition-opacity hover:opacity-80"
+                  style={{ borderColor: 'var(--shell-border)', color: 'var(--text-muted)' }}>
+                  Cancel
+                </button>
+                <button onClick={() => void handleRemoveMember(removeMember)} disabled={removing}
+                  className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+                  style={{ backgroundColor: '#DC2626', color: '#fff' }}>
+                  {removing ? 'Removing…' : 'Remove from team'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showAddMembers && user && (
         <AddTeamMembersModal
           managerUid={user.uid}
           managerName={profile?.displayName ?? ''}
           onClose={() => setShowAddMembers(false)}
-          onAdded={() => load(period)}
+          onAdded={() => load(period, true)}
         />
       )}
 
@@ -853,7 +911,7 @@ export function TeamPerformancePage() {
           team={data.members}
           actor={{ uid: user.uid, name: profile?.displayName ?? '' }}
           onClose={() => setDrillMember(null)}
-          onDone={() => load(period)}
+          onDone={() => load(period, true)}
         />
       )}
     </div>

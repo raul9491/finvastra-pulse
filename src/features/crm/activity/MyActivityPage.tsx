@@ -48,6 +48,7 @@ const TYPE_META: Record<string, { label: string; Icon: typeof PhoneCall; color: 
 
 interface Summary {
   period: string; uid: string; name: string;
+  importFilter: string | null; importNames: string[];
   tagged: number; taggedInPeriod: number; attempted: number;
   status: Record<string, number>;
   untouchedCount: number;
@@ -69,6 +70,7 @@ export function MyActivityPage() {
   const [error, setError] = useState('');
   const [tab, setTab] = useState<'log' | 'untouched'>('log');
   const [people, setPeople] = useState<Array<{ uid: string; name: string; mgr?: string }>>([]);
+  const [importFilter, setImportFilter] = useState('');
 
   const isAdmin = profile?.role === 'admin' || (user ? isSuperAdmin(user.uid, profile) : false);
   const isManager = profile?.crmRole === 'manager';
@@ -99,12 +101,13 @@ export function MyActivityPage() {
     }).catch(() => setPeople([]));
   }, [user, isAdmin, isManager]);
 
-  const load = useCallback(async (p: string, forUid: string) => {
+  const load = useCallback(async (p: string, forUid: string, imp: string) => {
     setLoading(true); setError('');
     try {
       const token = await auth.currentUser?.getIdToken();
       const uidParam = forUid ? `&uid=${forUid}` : '';
-      const res = await fetch(`/api/crm/activity/summary?period=${p}${uidParam}`, { headers: { Authorization: `Bearer ${token}` } });
+      const impParam = imp ? `&importName=${encodeURIComponent(imp)}` : '';
+      const res = await fetch(`/api/crm/activity/summary?period=${p}${uidParam}${impParam}`, { headers: { Authorization: `Bearer ${token}` } });
       if (res.status === 403) throw new Error('You can only view your own activity (or your team’s, as a manager).');
       if (!res.ok) throw new Error(`Could not load activity (HTTP ${res.status})`);
       setData(await res.json());
@@ -114,7 +117,9 @@ export function MyActivityPage() {
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { if (user) void load(period, viewUid); }, [user, period, viewUid, load]);
+  useEffect(() => { if (user) void load(period, viewUid, importFilter); }, [user, period, viewUid, importFilter, load]);
+  // Reset the import filter when switching person — their imports differ.
+  useEffect(() => { setImportFilter(''); }, [viewUid]);
 
   const statusChips = useMemo(() => {
     if (!data) return [];
@@ -135,7 +140,9 @@ export function MyActivityPage() {
     <div className="max-w-6xl mx-auto">
       <PageHeader
         title={viewingSelf ? 'My Activity' : `Activity — ${data?.name ?? '…'}`}
-        subtitle="Tagged → attempted → outcome. Calls made this month, the statuses set, and which customers are still waiting."
+        subtitle={importFilter
+          ? `Showing only customers from the import "${importFilter}".`
+          : 'Tagged → attempted → outcome. Calls made this month, the statuses set, and which customers are still waiting.'}
         pinKey="crm.myActivity"
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -149,12 +156,22 @@ export function MyActivityPage() {
                 />
               </div>
             )}
+            {(data?.importNames.length ?? 0) > 0 && (
+              <div className="w-52">
+                <SearchableSelect
+                  value={importFilter}
+                  onChange={setImportFilter}
+                  options={[{ value: '', label: 'All data sources' }, ...(data?.importNames ?? []).map((n) => ({ value: n, label: n }))]}
+                  placeholder="Filter by import…"
+                />
+              </div>
+            )}
             <input
               type="month" value={period} max={new Date().toISOString().slice(0, 7)}
               onChange={(e) => setPeriod(e.target.value)}
               className="glass-inp text-sm px-3 py-2 rounded-lg"
             />
-            <button onClick={() => void load(period, viewUid)} className="p-2 rounded-lg" style={{ color: 'var(--text-muted)' }} title="Refresh">
+            <button onClick={() => void load(period, viewUid, importFilter)} className="p-2 rounded-lg" style={{ color: 'var(--text-muted)' }} title="Refresh">
               <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
             </button>
           </div>

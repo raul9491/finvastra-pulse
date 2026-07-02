@@ -3038,7 +3038,27 @@ async function startServer() {
     return { head, members: memberRows, totals, actionNeeded: { callbacks, slaBreaches }, period };
   }
 
-  // GET /api/crm/team/performance?period=YYYY-MM[&managerUid=UID]
+  // Short in-process cache for the heavy management aggregations (team perf /
+  // all-teams / import perf). These endpoints scan whole collections per request
+  // — the source of the "page feels laggy" report. 45s of staleness is fine for
+  // a management dashboard; ?fresh=1 (the UI's Refresh button + post-action
+  // reloads) bypasses and repopulates. Per-instance only — Cloud Run typically
+  // runs one instance at this scale.
+  const perfCache = new Map<string, { at: number; data: any }>();
+  const PERF_CACHE_TTL_MS = 45_000;
+  const cachedJson = async (key: string, fresh: boolean, compute: () => Promise<any>) => {
+    const hit = perfCache.get(key);
+    if (!fresh && hit && Date.now() - hit.at < PERF_CACHE_TTL_MS) return hit.data;
+    const data = await compute();
+    perfCache.set(key, { at: Date.now(), data });
+    if (perfCache.size > 200) { // bound the map — evict oldest half
+      const entries = [...perfCache.entries()].sort((a, b) => a[1].at - b[1].at);
+      for (let i = 0; i < entries.length / 2; i++) perfCache.delete(entries[i][0]);
+    }
+    return data;
+  };
+
+  // GET /api/crm/team/performance?period=YYYY-MM[&managerUid=UID][&fresh=1]
   // Everyone gets their OWN numbers (head row) + their agent team (empty team →
   // own numbers only — managers/admins/SAs generate business too). An admin/
   // super-admin may pass ?managerUid to view ANY person's head+team; a non-admin's
@@ -3053,7 +3073,9 @@ async function startServer() {
       const callerIsAdmin = callerDoc.data()?.role === "admin" || isSuperAdmin(uid);
       const reqMgr = req.query.managerUid;
       const targetUid = (callerIsAdmin && typeof reqMgr === "string" && reqMgr) ? reqMgr : uid;
-      return res.json(await computeTeamSummary(targetUid, period, /* includeHead */ true));
+      const fresh = req.query.fresh === "1";
+      return res.json(await cachedJson(`team:${targetUid}:${period}`, fresh,
+        () => computeTeamSummary(targetUid, period, /* includeHead */ true)));
     } catch (e) { return res.status(500).json({ error: String(e) }); }
   });
 
@@ -3071,6 +3093,8 @@ async function startServer() {
       }
       const q = req.query.period;
       const period = typeof q === "string" && /^\d{4}-\d{2}$/.test(q) ? q : new Date().toISOString().slice(0, 7);
+      const fresh = req.query.fresh === "1";
+      return res.json(await cachedJson(`allteams:${period}`, fresh, async () => {
 
       const usersSnap = await db.collection("users").get();
       const users = usersSnap.docs.map((d) => ({ uid: d.id, ...(d.data() as any) }));
@@ -3096,7 +3120,8 @@ async function startServer() {
         .map((a: any) => rowBy.get(a.uid)).filter(Boolean)
         .sort((x: any, y: any) => y.disbursalAmount - x.disbursalAmount);
 
-      return res.json({ teams, unassigned, period });
+      return { teams, unassigned, period };
+      }));
     } catch (e) { return res.status(500).json({ error: String(e) }); }
   });
 
@@ -3122,6 +3147,69 @@ async function startServer() {
         .filter((m) => byUid.has(m.uid))
         .sort((a, b) => a.name.localeCompare(b.name));
       return res.json({ managers });
+    } catch (e) { return res.status(500).json({ error: String(e) }); }
+  });
+
+  // GET /api/crm/imports/performance[?fresh=1] — the "which data worked" view for
+  // management. Groups ALL leads by their import (importName, falling back to the
+  // batch id; manually-added customers form their own bucket) and reports the
+  // tagged → attempted → outcome funnel per import: leads, still-unassigned,
+  // attempted, untouched, disposition mix, converted, dead (no-response +
+  // not-interested + wrong-number). Auth: admin / CRM manager / crmCanImport.
+  app.get("/api/crm/imports/performance", async (req, res) => {
+    try {
+      const uid = await verifyFirebaseToken(req);
+      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+      const callerDoc = await db.collection("users").doc(uid).get();
+      const caller: any = callerDoc.data() ?? {};
+      const allowed = caller.role === "admin" || isSuperAdmin(uid) || caller.crmRole === "manager" || caller.crmCanImport === true;
+      if (!allowed) return res.status(403).json({ error: "Forbidden" });
+      const fresh = req.query.fresh === "1";
+
+      return res.json(await cachedJson("importperf", fresh, async () => {
+        const leadsSnap = await db.collection("leads").where("deleted", "==", false).get();
+        const groups = new Map<string, any>();
+        const groupFor = (key: string, label: string, batchId: string | null) => {
+          let g = groups.get(key);
+          if (!g) {
+            g = {
+              key, name: label, batchId, leads: 0, unassigned: 0, attempted: 0, untouched: 0,
+              converted: 0, interested: 0, callbackDue: 0, dead: 0,
+              status: { new: 0, interested: 0, callback: 0, not_interested: 0, no_response: 0, wrong_number: 0, converted: 0 } as Record<string, number>,
+              firstMs: 0, lastMs: 0,
+            };
+            groups.set(key, g);
+          }
+          return g;
+        };
+        const DEAD = new Set(["not_interested", "no_response", "wrong_number"]);
+        leadsSnap.forEach((d) => {
+          const l: any = d.data();
+          const batchId = typeof l.importBatchId === "string" && l.importBatchId ? l.importBatchId : null;
+          const name = typeof l.importName === "string" && l.importName ? l.importName : (batchId ? `Batch ${batchId}` : "Manually added");
+          const g = groupFor(batchId ?? "__manual__:" + name, name, batchId);
+          g.leads++;
+          if (l.primaryOwnerId === "UNASSIGNED" || !l.primaryOwnerId) g.unassigned++;
+          const st = (typeof l.leadStatus === "string" && l.leadStatus) ? l.leadStatus : "new";
+          g.status[st] = (g.status[st] ?? 0) + 1;
+          if (st === "converted") g.converted++;
+          if (st === "interested" || st === "callback") g.interested++;
+          if (DEAD.has(st)) g.dead++;
+          if (l.firstContactedAt) g.attempted++;
+          else if (st === "new" && l.primaryOwnerId && l.primaryOwnerId !== "UNASSIGNED") g.untouched++;
+          const cMs = l.createdAt?.toMillis ? l.createdAt.toMillis() : 0;
+          if (cMs && (!g.firstMs || cMs < g.firstMs)) g.firstMs = cMs;
+          if (cMs > g.lastMs) g.lastMs = cMs;
+        });
+        const imports = [...groups.values()]
+          .map((g) => ({
+            ...g,
+            attemptedPct: g.leads > 0 ? Math.round((g.attempted / g.leads) * 100) : 0,
+            deadPct: g.attempted > 0 ? Math.round((g.dead / g.attempted) * 100) : 0,
+          }))
+          .sort((a, b) => b.lastMs - a.lastMs);
+        return { imports, generatedAtMs: Date.now() };
+      }));
     } catch (e) { return res.status(500).json({ error: String(e) }); }
   });
 
@@ -3161,6 +3249,14 @@ async function startServer() {
         db.collection("users").doc(target).get(),
       ]);
 
+      // Optional import filter: restrict everything (counts, statuses, untouched
+      // list, and the activity log below) to leads from ONE import file — so
+      // management can judge a specific data set. importNames is always the
+      // person's full distinct list (for the dropdown), computed before filtering.
+      const importFilter = typeof req.query.importName === "string" && req.query.importName ? req.query.importName : null;
+      const importNamesSet = new Set<string>();
+      const filteredLeadIds = importFilter ? new Set<string>() : null;
+
       // Owned customers: total tagged, tagged this period (when the data was
       // handed to them), attempted (first contact stamped), disposition mix, and
       // the untouched list — status still 'new' AND never contacted.
@@ -3169,6 +3265,12 @@ async function startServer() {
       const untouched: Array<{ leadId: string; name: string; taggedAtMs: number | null; importName: string | null }> = [];
       leadsSnap.forEach((d) => {
         const l: any = d.data();
+        const leadImport = typeof l.importName === "string" && l.importName ? l.importName : null;
+        if (leadImport) importNamesSet.add(leadImport);
+        if (importFilter) {
+          if (leadImport !== importFilter) return;
+          filteredLeadIds!.add(d.id);
+        }
         tagged++;
         const st = (typeof l.leadStatus === "string" && l.leadStatus) ? l.leadStatus : "new";
         status[st] = (status[st] ?? 0) + 1;
@@ -3191,9 +3293,12 @@ async function startServer() {
         const atMs = a.at?.toMillis ? a.at.toMillis() : 0;
         if (atMs < startMs || atMs >= endMs) return;
         const type = typeof a.type === "string" ? a.type : "note";
-        byType[type] = (byType[type] ?? 0) + 1;
         const segs = d.ref.path.split("/");
         const leadId = segs[0] === "leads" ? segs[1] : null;
+        // Import filter also scopes the activity log — only touches on that
+        // import's leads count.
+        if (filteredLeadIds && (!leadId || !filteredLeadIds.has(leadId))) return;
+        byType[type] = (byType[type] ?? 0) + 1;
         if (TOUCH_TYPES.includes(type)) {
           if (leadId) touchedLeads.add(leadId);
           const istDay = new Date(atMs + 330 * 60000).toISOString().slice(0, 10);
@@ -3206,6 +3311,7 @@ async function startServer() {
 
       return res.json({
         period, uid: target, name: targetDoc.data()?.displayName ?? "—",
+        importFilter, importNames: [...importNamesSet].sort(),
         tagged, taggedInPeriod, attempted, status,
         untouchedCount: untouched.length, untouched: untouched.slice(0, 100),
         byType, totalTouches: TOUCH_TYPES.reduce((s, t) => s + byType[t], 0),

@@ -168,7 +168,7 @@ export const NAV_NODES: NavNode[] = [
   { key: 'crm.masters',           label: 'Masters',             route: '/crm/pipeline/masters',       module: 'crm', icon: 'Layers',        group: 'Admin',     access: sa },
   { key: 'crm.notifications',     label: 'Notifications',       route: '/crm/admin/notifications',    module: 'crm', icon: 'BellRing',      group: 'Admin',     access: (c) => c.isSA || c.isAdmin || c.isCrmManager, keywords: ['alerts', 'emails', 'subscriptions', 'scorecards', 'reminders', 'digest'] },
   { key: 'crm.permissions',       label: 'CRM Permissions',         route: '/crm/pipeline/permissions',   module: 'crm', icon: 'User',            group: 'Admin',     access: crmAdmin },
-  { key: 'crm.import-history',    label: 'Import History',      route: '/crm/import/history',         module: 'crm', icon: 'Clock',           group: 'Admin',     access: crmAdmin },
+  { key: 'crm.import-history',    label: 'Import History',      route: '/crm/import/history',         module: 'crm', icon: 'Clock',           group: 'Admin',     access: (c) => crmManager(c) || crmImport(c), keywords: ['import performance', 'data quality', 'which data worked'] },
   { key: 'crm.commission-leakage',label: 'Commission Leakage',  route: '/crm/admin/commission-leakage',module: 'crm', icon: 'AlertTriangle',       group: 'Admin',     access: crmAdmin },
   { key: 'crm.competitor-intel',  label: 'Competitor Intel',    route: '/crm/admin/competitor-intelligence', module: 'crm', icon: 'Eye', group: 'Admin',     access: crmAdmin },
   { key: 'crm.referral-intel',    label: 'Referral Intel',      route: '/crm/admin/referrers',        module: 'crm', icon: 'Share2',        group: 'Admin',     access: crmAdmin },

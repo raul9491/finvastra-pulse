@@ -1,8 +1,9 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Download, ArrowLeft, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
+import { auth } from '../../../lib/firebase';
 import { useToast } from '../../../components/ui/Toast';
 import { useImportHistory, downloadErrorCsv, retryImportErrors, backfillImportExtras } from '../hooks/useImportJobs';
 import type { ImportJobStatus } from '../../../types';
@@ -18,9 +19,11 @@ export function ImportHistoryPage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const isAdmin = profile?.role === 'admin';
-  const { jobs, loading } = useImportHistory(isAdmin);
+  const canSee = isAdmin || profile?.crmRole === 'manager' || profile?.crmCanImport === true;
+  const { jobs, loading } = useImportHistory(canSee);
   const toast = useToast();
   const [openErrors, setOpenErrors] = useState<string | null>(null);   // jobId whose errors are expanded
+  const [view, setView] = useState<'history' | 'performance'>('history');
   const [retrying, setRetrying] = useState<string | null>(null);
   const [backfilling, setBackfilling] = useState<string | null>(null);
 
@@ -71,12 +74,33 @@ export function ImportHistoryPage() {
         <ArrowLeft size={15} /> Back to Import
       </button>
 
-      <div>
-        <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-          Import History
-        </h2>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>All past import jobs. Click the red error count to see what failed.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
+            {view === 'history' ? 'Import History' : 'Import Performance'}
+          </h2>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            {view === 'history'
+              ? 'All past import jobs. Click the red error count to see what failed.'
+              : 'Which data sets worked: tagged → attempted → outcome per import file (and manually-added customers).'}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {(['history', 'performance'] as const).map((v) => (
+            <button key={v} onClick={() => setView(v)}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+              style={view === v
+                ? { backgroundColor: '#0B1538', color: '#E5C97C' }
+                : { backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-secondary)' }}>
+              {v === 'history' ? 'History' : 'Performance'}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {view === 'performance' && <ImportPerformanceSection />}
+
+      {view === 'history' && (
 
       <div className="glass-panel overflow-hidden">
         {loading ? (
@@ -206,6 +230,107 @@ export function ImportHistoryPage() {
           </div>
         )}
       </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * ImportPerformanceSection — the "which data worked" table for management.
+ * One row per import file (+ a Manually-added bucket): tagged → attempted →
+ * outcome, with red/green signals. Fed by GET /api/crm/imports/performance
+ * (cached 45s server-side; Refresh forces fresh).
+ */
+interface ImportPerfRow {
+  key: string; name: string; batchId: string | null;
+  leads: number; unassigned: number; attempted: number; untouched: number;
+  converted: number; interested: number; dead: number;
+  attemptedPct: number; deadPct: number;
+  status: Record<string, number>;
+  firstMs: number; lastMs: number;
+}
+
+function ImportPerformanceSection() {
+  const [rows, setRows] = useState<ImportPerfRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const load = async (fresh = false) => {
+    setLoading(true); setError('');
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch(`/api/crm/imports/performance${fresh ? '?fresh=1' : ''}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`Could not load import performance (HTTP ${res.status})`);
+      const j = await res.json();
+      setRows(j.imports ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load');
+    } finally { setLoading(false); }
+  };
+  useEffect(() => { void load(); /* eslint-disable-line */ }, []);
+
+  const fmtD = (ms: number) => (ms ? format(new Date(ms), 'dd MMM yyyy') : '—');
+
+  return (
+    <div className="glass-panel overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--shell-border)' }}>
+        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+          Green = data producing interest/conversions · Red = data going dead or sitting untouched.
+        </p>
+        <button onClick={() => void load(true)} className="p-1.5 rounded-lg" style={{ color: 'var(--text-muted)' }} title="Refresh">
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+        </button>
+      </div>
+      {loading ? (
+        <div className="animate-pulse">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-14" style={{ borderBottom: '1px solid var(--shell-border)', backgroundColor: 'var(--shell-hover-soft)' }} />
+          ))}
+        </div>
+      ) : error ? (
+        <p className="py-10 text-sm text-center" style={{ color: '#f87171' }}>{error}</p>
+      ) : rows.length === 0 ? (
+        <p className="py-10 text-sm text-center" style={{ color: 'var(--text-muted)' }}>No customers yet.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr style={{ backgroundColor: 'var(--shell-hover-soft)', borderBottom: '1px solid var(--shell-border)' }}>
+                {['Data source', 'Customers', 'Attempted', 'Untouched', 'In queue', 'Interested', 'Converted', 'Dead data'].map((h, i) => (
+                  <th key={i} className={`px-3 py-3 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${i > 0 ? 'text-right' : ''}`} style={{ color: 'var(--text-muted)' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.key} style={{ borderBottom: '1px solid var(--shell-border)' }}>
+                  <td className="px-3 py-3">
+                    <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{r.name}</p>
+                    <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                      {r.batchId ? `${r.batchId} · imported ${fmtD(r.firstMs)}` : `added ${fmtD(r.firstMs)} – ${fmtD(r.lastMs)}`}
+                    </p>
+                  </td>
+                  <td className="text-right px-3 py-3" style={{ color: 'var(--text-secondary)' }}>{r.leads}</td>
+                  <td className="text-right px-3 py-3">
+                    <span className="font-semibold" style={{ color: r.attemptedPct >= 70 ? '#34d399' : r.attemptedPct >= 30 ? '#C9A961' : '#f87171' }}>
+                      {r.attempted} ({r.attemptedPct}%)
+                    </span>
+                  </td>
+                  <td className="text-right px-3 py-3" style={{ color: r.untouched > 0 ? '#f87171' : 'var(--text-muted)', fontWeight: r.untouched > 0 ? 700 : 400 }}>{r.untouched}</td>
+                  <td className="text-right px-3 py-3" style={{ color: 'var(--text-muted)' }}>{r.unassigned}</td>
+                  <td className="text-right px-3 py-3" style={{ color: r.interested > 0 ? '#34d399' : 'var(--text-muted)', fontWeight: r.interested > 0 ? 700 : 400 }}>{r.interested}</td>
+                  <td className="text-right px-3 py-3" style={{ color: r.converted > 0 ? '#10b981' : 'var(--text-muted)', fontWeight: r.converted > 0 ? 700 : 400 }}>{r.converted}</td>
+                  <td className="text-right px-3 py-3" title="No response + not interested + wrong number, as % of attempted">
+                    <span className="font-semibold" style={{ color: r.deadPct >= 60 ? '#f87171' : r.deadPct >= 30 ? '#fbbf24' : 'var(--text-muted)' }}>
+                      {r.dead}{r.attempted > 0 ? ` (${r.deadPct}%)` : ''}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

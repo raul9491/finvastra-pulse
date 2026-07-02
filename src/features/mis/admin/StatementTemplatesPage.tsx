@@ -7,6 +7,8 @@ import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useProviders } from '../../crm/hooks/useOpportunities';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import { useToast } from '../../../components/ui/Toast';
+import { userFacingError } from '../../../lib/errors';
 import type { StatementTemplate } from '../../../types';
 
 // Standard column names common Indian banks use in commission/transaction statements.
@@ -28,6 +30,7 @@ export function StatementTemplatesPage() {
   const { profile } = useAuth();
   const isAdmin = profile?.role === 'admin';
   const providers = useProviders();
+  const toast = useToast();
 
   const [templates, setTemplates] = useState<StatementTemplate[] | null>(null);
   const [editing, setEditing] = useState<StatementTemplate | null>(null);
@@ -56,21 +59,37 @@ export function StatementTemplatesPage() {
           createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
         }, { merge: true });
       }
+      toast.success('Common bank templates seeded.', 'Templates seeded');
+    } catch (e) {
+      toast.error(userFacingError(e, 'Could not seed the default templates.'), 'Seeding failed');
     } finally { setSeeding(false); }
   };
 
   const save = async (t: StatementTemplate) => {
     if (!t.bankId) return;
-    await setDoc(doc(db, 'commission_statement_templates', t.bankId), {
-      bankId: t.bankId, bankName: t.bankName,
-      columnMappings: t.columnMappings, dateFormat: t.dateFormat,
-      skipRows: Number(t.skipRows) || 0, amountMultiplier: t.amountMultiplier === -1 ? -1 : 1,
-      createdAt: t.createdAt ?? serverTimestamp(), updatedAt: serverTimestamp(),
-    }, { merge: true });
-    setEditing(null);
+    try {
+      await setDoc(doc(db, 'commission_statement_templates', t.bankId), {
+        bankId: t.bankId, bankName: t.bankName,
+        columnMappings: t.columnMappings, dateFormat: t.dateFormat,
+        skipRows: Number(t.skipRows) || 0, amountMultiplier: t.amountMultiplier === -1 ? -1 : 1,
+        createdAt: t.createdAt ?? serverTimestamp(), updatedAt: serverTimestamp(),
+      }, { merge: true });
+      setEditing(null);
+      toast.success(`Template for ${t.bankName || t.bankId} saved.`, 'Template saved');
+    } catch (e) {
+      toast.error(userFacingError(e, 'Could not save the template.'), 'Save failed');
+    }
   };
 
-  const remove = async (id: string) => { if (confirm('Delete this template?')) await deleteDoc(doc(db, 'commission_statement_templates', id)); };
+  const remove = async (id: string) => {
+    if (!confirm('Delete this template?')) return;
+    try {
+      await deleteDoc(doc(db, 'commission_statement_templates', id));
+      toast.success('Template deleted.');
+    } catch (e) {
+      toast.error(userFacingError(e, 'Could not delete the template.'), 'Delete failed');
+    }
+  };
 
   const testTemplate = (t: StatementTemplate, file: File) => {
     const reader = new FileReader();

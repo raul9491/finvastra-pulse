@@ -242,6 +242,29 @@ function isImportablePhone(rawPhone: string): boolean {
   return splitPhones(rawPhone).length > 0;
 }
 
+// ─── CANONICAL STORED PHONE FORM ────────────────────────────────────────────────
+// THE dedup contract: every write of `lead.phone` / `lead.altPhones` in this file
+// stores this exact form, and every duplicate check compares canonical vs
+// canonical. Rules:
+//   1. Digits only — strip "+", spaces, dashes, dots, parens, everything non-digit.
+//   2. Strip ONE leading "91" country code ONLY when the remainder is a valid
+//      10-digit Indian mobile (starts 6-9): "+91 98852 99945" → "9885299945".
+//   3. Landlines keep their digits EXACTLY as given, INCLUDING the STD leading
+//      zero: "040-66320094" → "04066320094". We deliberately do NOT strip the
+//      trunk "0" — "080-6632-0094" minus its zero would collide with the genuine
+//      mobile "8066320094".
+// This is a DIFFERENT contract from:
+//   • normaliseIndianPhone (webhook intake) — returns null unless a valid MOBILE
+//     (its 10-digit output is already canonical, so those writes need no change);
+//   • isOnePhone (import validation) — also strips the STD zero, but only to judge
+//     plausibility; it never decides the stored form.
+// Do not merge them.
+function canonicalPhone(raw: string): string {
+  const digits = String(raw ?? "").replace(/\D/g, "");
+  if (digits.startsWith("91") && /^[6-9]\d{9}$/.test(digits.slice(2))) return digits.slice(2);
+  return digits;
+}
+
 // Some source rows merge the phone into the NAME cell, e.g.
 // "3M Car Care Gachibowli | 073373 93337" with an empty phone column.
 // When the phone cell is blank/invalid, pull a phone-like token out of the name
@@ -285,11 +308,47 @@ function validateRow(raw: string[], mapping: ColumnMapping, _loanProducts: Set<s
   return validateCells(extractCells(raw, mapping));
 }
 
+// Import dedup hash — built on the CANONICAL phone so the same number in any
+// formatting ("+91 98852 99945" vs "9885299945") hashes identically.
 function buildImportHash(phone: string, email: string, displayName: string): string {
+  return crypto
+    .createHash("sha256")
+    .update(`${canonicalPhone(phone)}|${email.toLowerCase()}|${displayName.toLowerCase()}`)
+    .digest("hex");
+}
+
+// TRANSITION-ONLY: leads imported before phone canonicalisation (2026-07) carry an
+// importHash built on the RAW phone cell. Keep computing that legacy form so
+// re-imports still dedup against pre-fix leads until the phone backfill
+// (/api/admin/backfill-phone-normalization) has rewritten their hashes.
+function buildImportHashLegacy(phone: string, email: string, displayName: string): string {
   return crypto
     .createHash("sha256")
     .update(`${phone}|${email.toLowerCase()}|${displayName.toLowerCase()}`)
     .digest("hex");
+}
+
+// Which of the given import-hash pairs already exist on /leads? Checks the
+// canonical hash AND (transition) the legacy raw-phone hash. Chunks at the
+// Firestore `in` limit of 30 internally; returns the set of matched hashes —
+// callers test `has(importHash) || has(legacyHash)`.
+async function findExistingImportHashes(
+  pairs: Array<{ importHash: string; legacyHash: string }>,
+): Promise<Set<string>> {
+  const wanted = new Set<string>();
+  for (const p of pairs) {
+    wanted.add(p.importHash);
+    if (p.legacyHash !== p.importHash) wanted.add(p.legacyHash);
+  }
+  const found = new Set<string>();
+  const all = [...wanted];
+  for (let i = 0; i < all.length; i += 30) {
+    const snap = await db.collection("leads")
+      .where("importHash", "in", all.slice(i, i + 30))
+      .get();
+    for (const d of snap.docs) found.add(d.data().importHash as string);
+  }
+  return found;
 }
 
 async function getLeadGenerators(): Promise<{ userId: string }[]> {
@@ -479,8 +538,15 @@ function writeImportedLead(
   cells: ReturnType<typeof extractCells>,
   ctx: { batchId: string; importName: string; triggerUserId: string; importHash: string; loanProducts: Set<string> },
 ): void {
-  const { displayName, phone, email, panRaw, address } = cells;
-  const altPhones = cells.altPhones ?? [];
+  const { displayName, email, panRaw, address } = cells;
+  // Store the CANONICAL phone form (see canonicalPhone) so webhook-created and
+  // imported leads dedup against each other — the raw sheet token may carry
+  // "+91", spaces or dashes. Alternates are canonicalised, de-duped and never
+  // repeat the primary.
+  const phone = canonicalPhone(cells.phone);
+  const altPhones = Array.from(new Set(
+    (cells.altPhones ?? []).map(canonicalPhone).filter((p) => p && p !== phone),
+  ));
   const importExtras = cells.importExtras ?? {};
   const loanProduct = normaliseProduct(cells.loanProduct, ctx.loanProducts);
   const productValid = !!loanProduct && ctx.loanProducts.has(loanProduct);
@@ -581,7 +647,7 @@ async function processImportBatch(
     // 1. Validate the chunk in memory
     type Entry = {
       rowNum: number; cells: ReturnType<typeof extractCells>;
-      rowData: Record<string, string>; importHash: string;
+      rowData: Record<string, string>; importHash: string; legacyHash: string;
     };
     const entries: Entry[] = [];
     for (let j = 0; j < slice.length; j++) {
@@ -609,24 +675,22 @@ async function processImportBatch(
         continue;
       }
       seenHashes.add(importHash);
-      entries.push({ rowNum, cells, rowData, importHash });
+      entries.push({
+        rowNum, cells, rowData, importHash,
+        legacyHash: buildImportHashLegacy(cells.phone, cells.email, cells.displayName),
+      });
     }
 
-    // 2. One duplicate-check query for the whole chunk
-    let existingHashes = new Set<string>();
-    if (entries.length > 0) {
-      const dupSnap = await db.collection("leads")
-        .where("importHash", "in", entries.map((e) => e.importHash))
-        .get();
-      existingHashes = new Set(dupSnap.docs.map((d) => d.data().importHash as string));
-    }
+    // 2. One duplicate-check pass for the whole chunk — matches the canonical
+    // hash AND (transition) the legacy raw-phone hash of pre-fix leads.
+    const existingHashes = entries.length > 0 ? await findExistingImportHashes(entries) : new Set<string>();
 
     // 3. One WriteBatch for the whole chunk (≤30 leads × ≤3 docs = ≤90 ops, well under 500)
     const batch = db.batch();
     let chunkSuccess = 0;
 
     for (const e of entries) {
-      if (existingHashes.has(e.importHash)) {
+      if (existingHashes.has(e.importHash) || existingHashes.has(e.legacyHash)) {
         duplicateCount++;   // already in the system — skipped, counted as a duplicate (not an error)
         continue;
       }
@@ -682,55 +746,92 @@ async function distributeBatch(
     .where("deleted", "==", false)
     .get();
 
-  // Process leads in bounded-concurrency waves. The previous version was strictly sequential —
-  // two awaited round-trips (opp query + commit) per lead — so a 359-lead batch meant ~700 serial
-  // round-trips (minutes). Per-lead try/catch keeps one bad lead from aborting the whole run
-  // (which would leave the job never marked `distributed` and the UI spinning forever).
   // Round-robin assigns agents[(idx) % agents.length], so the first (cap × agents) leads give
-  // each agent exactly `cap` — slicing to that count enforces the per-agent cap; leftover stays
+  // each agent AT MOST `cap` — slicing to that count enforces the per-agent cap; leftover stays
   // UNASSIGNED and the batch re-surfaces in the Import Queue for the next round.
   const docs = (perAgentCap && perAgentCap > 0)
     ? leadsSnap.docs.slice(0, perAgentCap * agents.length)
     : leadsSnap.docs;
-  const CONCURRENCY = 25;
-  for (let start = 0; start < docs.length; start += CONCURRENCY) {
-    await Promise.all(docs.slice(start, start + CONCURRENCY).map(async (leadDoc, j) => {
-      const owner = agents[(start + j) % agents.length];
-      assignedCountByAgent[owner] = (assignedCountByAgent[owner] ?? 0) + 1;
+
+  // Owner is pre-assigned by position (deterministic round-robin, as before). A
+  // lead that turns out to be already claimed simply doesn't fill its agent's
+  // slot — an agent can end up with FEWER than the cap, never more.
+  const planned = docs.map((d, i) => ({ ref: d.ref, owner: agents[i % agents.length] }));
+
+  // RACE FIX: leads are claimed in chunked TRANSACTIONS that re-read each lead and
+  // re-check it is still UNASSIGNED — the telecaller self-pull endpoint
+  // (/api/leads/pull) claims via the same in-transaction check, so a concurrent
+  // pull can no longer be clobbered by a blind write; whoever commits second sees
+  // the lead is taken and skips it. Skipped leads do NOT count as distributed.
+  // Opportunity re-owning + the activity log ride in the SAME transaction, so a
+  // lead and its opportunities never end up owned by different people (matching
+  // the old per-lead atomic WriteBatch). Bounded-concurrency waves keep a large
+  // batch finishing in seconds; per-transaction try/catch keeps one bad chunk
+  // from aborting the whole run (which would leave the job never marked
+  // `distributed` and the UI spinning forever).
+  const TX_SIZE = 16;        // leads per transaction — keeps reads+writes per tx small
+  const TX_CONCURRENCY = 4;  // transactions in flight per wave (≈64 leads at once)
+  const chunks: Array<typeof planned> = [];
+  for (let i = 0; i < planned.length; i += TX_SIZE) chunks.push(planned.slice(i, i + TX_SIZE));
+
+  let totalAssigned = 0;
+  for (let w = 0; w < chunks.length; w += TX_CONCURRENCY) {
+    const waveResults = await Promise.all(chunks.slice(w, w + TX_CONCURRENCY).map(async (chunk) => {
       try {
-        const slaDeadline = new Date();
-        slaDeadline.setHours(slaDeadline.getHours() + 24);
-
-        const batch = db.batch();
-        batch.update(leadDoc.ref, {
-          primaryOwnerId: owner,
-          // Anchors "time with current owner" for the team view (informational).
-          assignedToCurrentOwnerAt: admin.firestore.FieldValue.serverTimestamp(),
-          slaDeadline:    admin.firestore.Timestamp.fromDate(slaDeadline),
-          distributedAt:  admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt:      admin.firestore.FieldValue.serverTimestamp(),
-        });
-
-        // Re-own any open opportunities + log an activity
-        const oppsSnap = await leadDoc.ref.collection("opportunities").where("status", "==", "open").get();
-        for (const oppDoc of oppsSnap.docs) {
-          batch.update(oppDoc.ref, { ownerId: owner, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
-          const actRef = oppDoc.ref.collection("activities").doc();
-          batch.set(actRef, {
-            type:    "status_change",
-            content: `Assigned via distribution of import "${importName}" (batch ${batchId})`,
-            by:      actorUid,
-            at:      admin.firestore.FieldValue.serverTimestamp(),
+        // The tx callback may RETRY on contention — it must not mutate outer
+        // state; it returns the owners actually assigned and we tally outside.
+        return await db.runTransaction(async (tx) => {
+          // All reads before any write (Firestore tx rule): leads, then their open opps.
+          const snaps = await tx.getAll(...chunk.map((c) => c.ref));
+          const claim: typeof chunk = [];
+          snaps.forEach((s, i) => {
+            const data = s.exists ? s.data() : undefined;
+            // Re-check: still UNASSIGNED and not soft-deleted? A telecaller pull
+            // (or a parallel distribute) may have claimed it since the outer query.
+            if (data && data.primaryOwnerId === "UNASSIGNED" && data.deleted !== true) claim.push(chunk[i]);
           });
-        }
-        await batch.commit();
+          const oppSnaps = await Promise.all(claim.map((c) =>
+            tx.get(c.ref.collection("opportunities").where("status", "==", "open"))));
+
+          const slaDeadline = new Date();
+          slaDeadline.setHours(slaDeadline.getHours() + 24);
+          claim.forEach((c, i) => {
+            tx.update(c.ref, {
+              primaryOwnerId: c.owner,
+              // Anchors "time with current owner" for the team view (informational).
+              assignedToCurrentOwnerAt: admin.firestore.FieldValue.serverTimestamp(),
+              slaDeadline:    admin.firestore.Timestamp.fromDate(slaDeadline),
+              distributedAt:  admin.firestore.FieldValue.serverTimestamp(),
+              updatedAt:      admin.firestore.FieldValue.serverTimestamp(),
+            });
+            // Re-own any open opportunities + log an activity
+            for (const oppDoc of oppSnaps[i].docs) {
+              tx.update(oppDoc.ref, { ownerId: c.owner, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+              tx.set(oppDoc.ref.collection("activities").doc(), {
+                type:    "status_change",
+                content: `Assigned via distribution of import "${importName}" (batch ${batchId})`,
+                by:      actorUid,
+                at:      admin.firestore.FieldValue.serverTimestamp(),
+              });
+            }
+          });
+          return claim.map((c) => c.owner);
+        });
       } catch (e) {
-        console.error("[distribute] lead failed", leadDoc.id, e);
+        console.error("[distribute] chunk failed", chunk.map((c) => c.ref.id).join(","), e);
+        return [] as string[];
       }
     }));
+    for (const owners of waveResults) {
+      for (const owner of owners) {
+        assignedCountByAgent[owner] = (assignedCountByAgent[owner] ?? 0) + 1;
+        totalAssigned++;
+      }
+    }
   }
 
-  // One aggregated notification per agent (avoids per-lead notification spam)
+  // One aggregated notification per agent (avoids per-lead notification spam).
+  // Counts reflect what was ACTUALLY assigned (skipped/failed leads excluded).
   await Promise.all(Object.entries(assignedCountByAgent).map(([agentUid, count]) =>
     db.collection("notifications").doc(agentUid).collection("items").add({
       type:      "new_lead",
@@ -746,12 +847,13 @@ async function distributeBatch(
     distributed:      true,
     distributedAt:    admin.firestore.FieldValue.serverTimestamp(),
     distributedBy:    actorUid,
-    // Increment by what was ACTUALLY assigned this round (docs.length = the capped
-    // slice), NOT leadsSnap.size (all unassigned). With a per-agent cap only `docs`
-    // get owners — counting the whole unassigned set inflated distributedCount to
-    // successCount and made the queue hide the leftover (stranding them). Increment
-    // (not overwrite) so successive rounds accumulate correctly.
-    distributedCount: admin.firestore.FieldValue.increment(docs.length),
+    // Increment by what was ACTUALLY assigned this round — NOT docs.length (the
+    // planned slice): leads skipped because a pull claimed them first, and leads
+    // whose transaction failed, are excluded. Counting planned leads inflated
+    // distributedCount and made the queue hide leftover unassigned leads.
+    // Increment (not overwrite) so successive rounds accumulate correctly; the
+    // Import Queue's live UNASSIGNED count remains the ground truth either way.
+    distributedCount: admin.firestore.FieldValue.increment(totalAssigned),
     agentIds:         agents,
   });
 }
@@ -1495,7 +1597,7 @@ async function startServer() {
       .where("businessLine", "==", "loan").where("active", "==", true).get();
     const loanProducts = new Set(oppTypesSnap.docs.map(d => d.data().name as string));
 
-    type Cand = { row: number; cells: ReturnType<typeof extractCells>; importHash: string };
+    type Cand = { row: number; cells: ReturnType<typeof extractCells>; importHash: string; legacyHash: string };
     const stillFailing: typeof prevErrors = [];
     const cands: Cand[] = [];
     const seen = new Set<string>();
@@ -1526,19 +1628,21 @@ async function startServer() {
         continue;
       }
       seen.add(importHash);
-      cands.push({ row: err.row, cells, importHash });
+      cands.push({
+        row: err.row, cells, importHash,
+        legacyHash: buildImportHashLegacy(cells.phone, cells.email, cells.displayName),
+      });
     }
 
     let imported = 0, duplicates = 0;
     for (let i = 0; i < cands.length; i += 30) {
       const slice = cands.slice(i, i + 30);
-      const dupSnap = await db.collection("leads")
-        .where("importHash", "in", slice.map(c => c.importHash)).get();
-      const existing = new Set(dupSnap.docs.map(d => d.data().importHash as string));
+      // Canonical + legacy raw-phone hashes (transition — see buildImportHashLegacy).
+      const existing = await findExistingImportHashes(slice);
       const batch = db.batch();
       let n = 0;
       for (const c of slice) {
-        if (existing.has(c.importHash)) {
+        if (existing.has(c.importHash) || existing.has(c.legacyHash)) {
           duplicates++;
           stillFailing.push({ row: c.row, data: c.cells as unknown as Record<string, string>, reason: "duplicate (already imported)" });
           continue;
@@ -1610,13 +1714,17 @@ async function startServer() {
     const loanProducts = new Set(oppTypesSnap.docs.map((d) => d.data().name as string));
     const mapping = detectColumnMapping(headers, dataRows.slice(0, 20), loanProducts);
 
-    // importHash → extras (first occurrence wins, matching the original import order)
+    // importHash → extras (first occurrence wins, matching the original import order).
+    // Registered under BOTH the canonical hash and the legacy raw-phone hash so
+    // batches imported before phone canonicalisation still match.
     const extrasByHash = new Map<string, Record<string, string>>();
     for (const raw of dataRows) {
       const cells = extractCells(raw, mapping, headers);
       if (Object.keys(cells.importExtras).length === 0) continue;
-      const h = buildImportHash(cells.phone, cells.email, cells.displayName);
-      if (!extrasByHash.has(h)) extrasByHash.set(h, cells.importExtras);
+      const h  = buildImportHash(cells.phone, cells.email, cells.displayName);
+      const lh = buildImportHashLegacy(cells.phone, cells.email, cells.displayName);
+      if (!extrasByHash.has(h))  extrasByHash.set(h,  cells.importExtras);
+      if (!extrasByHash.has(lh)) extrasByHash.set(lh, cells.importExtras);
     }
 
     const leadsSnap = await db.collection("leads").where("importBatchId", "==", batchId).get();
@@ -1800,8 +1908,13 @@ async function startServer() {
     const firstLive = (docs: FirebaseFirestore.QueryDocumentSnapshot[]) =>
       docs.map((d) => d.data()).find((l) => l.deleted !== true);   // index-free: filter soft-deleted in memory
     try {
-      if (phone) {
-        const snap = await db.collection("leads").where("phone", "==", phone).limit(5).get();
+      // Compare CANONICAL vs canonical (every lead write stores canonicalPhone).
+      // Transition: also query the raw form as typed — leads written before the
+      // phone backfill (/api/admin/backfill-phone-normalization) may still hold a
+      // raw-formatted phone.
+      const phoneForms = [...new Set([canonicalPhone(phone), phone].filter(Boolean))];
+      for (const p of phoneForms) {
+        const snap = await db.collection("leads").where("phone", "==", p).limit(5).get();
         const hit = firstLive(snap.docs);
         if (hit) return res.json({ duplicate: true, matchType: "exact_phone", name: hit.displayName ?? "a customer", ownedByYou: hit.primaryOwnerId === uid });
       }
@@ -1814,6 +1927,103 @@ async function startServer() {
     } catch (e) {
       console.error("[check-duplicate]", e);
       return res.json({ duplicate: false });   // never block the save on a check failure
+    }
+  });
+
+  // ─── POST /api/admin/backfill-phone-normalization — canonical-phone backfill ────
+  // One-time (but safely re-runnable) admin sweep: rewrites every lead's `phone` /
+  // `altPhones` to the canonical stored form (see canonicalPhone) so the dedup
+  // checks — which compare canonical vs canonical — also catch leads written
+  // before canonicalisation shipped. Behaviour:
+  //   • IDEMPOTENT — a phone already canonical produces no write; re-running is a
+  //     no-op after the first pass.
+  //   • The pre-change value is preserved ONCE in the additive field
+  //     `phoneOriginal`, only when the phone actually changes; an existing
+  //     phoneOriginal is NEVER overwritten (so the true original survives).
+  //   • When the phone changes on an imported lead, its `importHash` is recomputed
+  //     on the canonical basis (buildImportHash canonicalises internally), so the
+  //     import dedup + backfill-extras matching stay aligned.
+  //   • Chunked batch writes (≤400/commit), resilient — a failed commit is logged
+  //     and the sweep continues.
+  // Returns { scanned, changed, skipped, failed }.
+  app.post("/api/admin/backfill-phone-normalization", async (req, res) => {
+    const uid = await verifyFirebaseToken(req);
+    if (!uid) return res.status(401).json({ error: "Unauthorized" });
+    const userSnap = await db.collection("users").doc(uid).get();
+    if (userSnap.data()?.role !== "admin") return res.status(403).json({ error: "Admin only." });
+
+    let scanned = 0, changed = 0, failed = 0;
+    let batch = db.batch();
+    let pending = 0;
+    const flush = async () => {
+      if (pending === 0) return;
+      const n = pending;
+      try { await batch.commit(); changed += n; }
+      catch (e) { failed += n; console.error("[backfill-phone] batch commit failed", e); }
+      batch = db.batch();
+      pending = 0;
+    };
+
+    try {
+      const PAGE = 500;
+      let last: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+      for (;;) {
+        let q = db.collection("leads")
+          .orderBy(admin.firestore.FieldPath.documentId())
+          .limit(PAGE);
+        if (last) q = q.startAfter(last);
+        const snap = await q.get();
+        if (snap.empty) break;
+
+        for (const d of snap.docs) {
+          scanned++;
+          const lead = d.data();
+          const update: Record<string, unknown> = {};
+
+          const curPhone = typeof lead.phone === "string" ? lead.phone : "";
+          const canon = canonicalPhone(curPhone);
+          if (curPhone && canon && canon !== curPhone) {
+            update.phone = canon;
+            // Preserve the original once — never overwrite an existing phoneOriginal.
+            if (lead.phoneOriginal === undefined) update.phoneOriginal = curPhone;
+            if (typeof lead.importHash === "string" && typeof lead.displayName === "string") {
+              update.importHash = buildImportHash(
+                canon,
+                typeof lead.email === "string" ? lead.email : "",
+                lead.displayName,
+              );
+            }
+          }
+
+          if (Array.isArray(lead.altPhones)) {
+            const primary = (update.phone as string | undefined) ?? curPhone;
+            const canonAlts = Array.from(new Set(
+              (lead.altPhones as unknown[])
+                .filter((p): p is string => typeof p === "string")
+                .map(canonicalPhone)
+                .filter((p) => p && p !== primary),
+            ));
+            if (JSON.stringify(canonAlts) !== JSON.stringify(lead.altPhones)) {
+              update.altPhones = canonAlts;
+            }
+          }
+
+          if (Object.keys(update).length > 0) {
+            batch.update(d.ref, update);
+            pending++;
+            if (pending >= 400) await flush();
+          }
+        }
+
+        last = snap.docs[snap.docs.length - 1];
+        if (snap.size < PAGE) break;
+      }
+      await flush();
+      return res.json({ scanned, changed, skipped: scanned - changed - failed, failed });
+    } catch (e) {
+      await flush().catch(() => {});
+      console.error("[backfill-phone] sweep failed", e);
+      return res.status(500).json({ error: "Backfill failed part-way — safe to re-run.", scanned, changed, failed });
     }
   });
 

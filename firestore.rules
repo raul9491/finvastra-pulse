@@ -1461,14 +1461,17 @@ service cloud.firestore {
     }
 
     // ─── Phase 5 — Reconciliation + snapshots ────────────────────────────────
-    // Bank-MIS dumps + matched rows carry the dump amounts (money). Read gated by
-    // recon.read; all client writes denied (import/match/unmatch via Express).
+    // The import DOC is metadata (counts/filename) → recon.read. The ROWS carry
+    // the dump amounts (money) — a direct SDK read therefore requires
+    // payout.amounts.read; recon.read users get money-STRIPPED rows via
+    // GET /api/crm2/recon/imports/:id (Admin SDK). All client writes denied
+    // (import/match/unmatch via Express).
     match /bankMisImports/{importId} {
       allow read:  if isAdmin() || hasCrm2Perm('recon.read');
       allow write: if false;
 
       match /rows/{rowId} {
-        allow read:  if isAdmin() || hasCrm2Perm('recon.read');
+        allow read:  if isAdmin() || hasCrm2Perm('payout.amounts.read');
         allow write: if false;
       }
     }

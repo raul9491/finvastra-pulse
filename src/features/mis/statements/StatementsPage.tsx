@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useAuth } from '../../auth/AuthContext';
 import { useStatements, closeStatement, exportStatementCsv } from '../hooks/useStatements';
+import { userFacingError } from '../../../lib/errors';
 import { useProviders } from '../../crm/hooks/useOpportunities';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import type { CommissionStatement, CommissionStatementStatus } from '../../../types';
@@ -75,7 +76,7 @@ export function StatementsPage() {
     try {
       await closeStatement(stmt.id, user.uid);
     } catch (e) {
-      setCloseError(e instanceof Error ? e.message : 'Failed to close statement.');
+      setCloseError(userFacingError(e, 'Could not close the statement — please try again.'));
     } finally {
       setClosingId(null);
     }

@@ -191,7 +191,19 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const v = body[field];
     if (v === undefined || v === null || v === "") return null;
     const n = Number(v);
-    if (isNaN(n)) throw new ApiError(400, `${field} must be a number`);
+    if (!Number.isFinite(n)) throw new ApiError(400, `${field} must be a finite number`);
+    return n;
+  }
+  /** Client-supplied money AMOUNT: finite and never negative (reject, don't clamp). */
+  function optMoney(body: Record<string, unknown>, field: string): number | null {
+    const n = optNum(body, field);
+    if (n != null && n < 0) throw new ApiError(400, `${field} must not be negative`);
+    return n;
+  }
+  /** Client-supplied PERCENTAGE: finite and within 0–100 (reject, don't clamp). */
+  function optPct(body: Record<string, unknown>, field: string): number | null {
+    const n = optNum(body, field);
+    if (n != null && (n < 0 || n > 100)) throw new ApiError(400, `${field} must be between 0 and 100`);
     return n;
   }
   function strArr(body: Record<string, unknown>, field: string): string[] {
@@ -835,7 +847,22 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   // sub-product when sub-products exist, so the precedence is:
   //   (agg × lender × product × subProduct)  →  (agg × lender × product, whole)
   //   →  any product mapping  →  legacy product-less mapping.
-  // Deterministic (never an arbitrary sub-product) so disburse picks the right payout.
+  // Deterministic — money is never guessed. If more than one mapping remains at the
+  // matched tier (after preferring ACTIVE), we hard-fail 409 naming the conflicting
+  // mapping ids, mirroring the resolveSlab hard-fail style. All four call sites
+  // (per-case + per-login disburse and both previews) surface this to the caller.
+  function pickUnambiguousMapping(
+    docs: FirebaseFirestore.QueryDocumentSnapshot[], tierDesc: string,
+  ): FirebaseFirestore.QueryDocumentSnapshot {
+    if (docs.length === 1) return docs[0];
+    const active = docs.filter((d) => d.data().status === "ACTIVE");
+    const pool = active.length > 0 ? active : docs;
+    if (pool.length === 1) return pool[0];
+    throw new ApiError(409,
+      `Ambiguous DSA-code mapping — ${pool.length} mappings match ${tierDesc} (${pool.map((d) => d.id).join(", ")}). ` +
+      `Deactivate or merge the duplicates in Masters → DSA Codes so exactly one applies.`,
+      { kind: "AMBIGUOUS_MAPPING", candidates: pool.map((d) => d.id) });
+  }
   async function resolveMapping(connectorId: string, lenderId: string, productId?: string | null, subProduct?: string | null) {
     if (productId) {
       const prodDocs = (await db.collection("dsaCodeMappings")
@@ -843,15 +870,20 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         .where("productId", "==", productId).get()).docs;
       if (prodDocs.length) {
         if (subProduct) {
-          const exact = prodDocs.find((d) => (d.data().subProduct ?? null) === subProduct);
-          if (exact) return exact;
+          const exact = prodDocs.filter((d) => (d.data().subProduct ?? null) === subProduct);
+          if (exact.length) return pickUnambiguousMapping(exact, `this aggregator × lender × product × ${subProduct}`);
         }
-        return prodDocs.find((d) => !d.data().subProduct) ?? prodDocs[0];
+        const whole = prodDocs.filter((d) => !d.data().subProduct);
+        if (whole.length) return pickUnambiguousMapping(whole, "this aggregator × lender × product");
+        return pickUnambiguousMapping(prodDocs, "this aggregator × lender × product (sub-product mappings only)");
       }
     }
     const all = await db.collection("dsaCodeMappings")
       .where("connectorId", "==", connectorId).where("lenderId", "==", lenderId).get();
-    return all.docs.find((d) => !d.data().productId) ?? all.docs[0] ?? null;
+    if (all.empty) return null;
+    const legacy = all.docs.filter((d) => !d.data().productId);
+    if (legacy.length) return pickUnambiguousMapping(legacy, "this aggregator × lender (legacy product-less)");
+    return pickUnambiguousMapping(all.docs, "this aggregator × lender");
   }
 
   app.post("/api/crm2/mappings", route(async (req, res) => {
@@ -1408,27 +1440,6 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     }, { merge: true }).catch((e) => console.error("[wa deadletter write failed]", e));
   }
 
-  /** Resolve an inbound 10-digit mobile → the most-recent non-deleted lead. CRM 2.0
-   *  leads store `mobile`; old-CRM leads store `phone` — query both. Null if none. */
-  async function findLeadByPhone(mobile: string): Promise<string | null> {
-    const queries = [
-      db.collection("leads").where("mobile", "==", mobile).limit(5),
-      db.collection("leads").where("phone", "==", mobile).limit(5),
-    ];
-    let best: { id: string; t: number } | null = null;
-    for (const q of queries) {
-      const snap = await q.get().catch(() => null);
-      if (!snap) continue;
-      for (const d of snap.docs) {
-        const data = d.data();
-        if (data.deleted === true) continue;
-        const ts = (data.receivedAt ?? data.createdAt) as { toMillis?: () => number } | undefined;
-        best = !best || (ts?.toMillis?.() ?? 0) > best.t ? { id: d.id, t: ts?.toMillis?.() ?? 0 } : best;
-      }
-    }
-    return best?.id ?? null;
-  }
-
   /** Worker: resolve lead (create a minimal one if unknown) → append the message →
    *  bump the lead's inbox fields. Idempotent via the event doc + the message doc id. */
   async function processWaMessage(waMessageId: string): Promise<void> {
@@ -1451,9 +1462,23 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       const year = new Date().getFullYear();
 
       // Resolve an existing lead, else mint a minimal CRM 2.0 lead (source WHATSAPP).
-      let leadId = await findLeadByPhone(mobile);
-      if (!leadId) {
-        leadId = await db.runTransaction(async (tx) => {
+      // Lookup + mint run in ONE transaction (tx.get on the phone queries) so two
+      // concurrent inbound messages from a NEW number can't both miss the lookup
+      // and mint duplicate leads — the lookup and the create are atomic.
+      const leadId = await db.runTransaction(async (tx) => {
+        const [byMobile, byPhone] = await Promise.all([
+          tx.get(db.collection("leads").where("mobile", "==", mobile).limit(5)),
+          tx.get(db.collection("leads").where("phone", "==", mobile).limit(5)),
+        ]);
+        let best: { id: string; t: number } | null = null;
+        for (const d of [...byMobile.docs, ...byPhone.docs]) {
+          const data = d.data();
+          if (data.deleted === true) continue;
+          const ts = (data.receivedAt ?? data.createdAt) as { toMillis?: () => number } | undefined;
+          best = !best || (ts?.toMillis?.() ?? 0) > best.t ? { id: d.id, t: ts?.toMillis?.() ?? 0 } : best;
+        }
+        if (best) return best.id;
+        {
           const newId = await nextIdInTx(tx, leadYearCounter(), `LD-${year}-`, 5);
           tx.set(db.collection("leads").doc(newId), {
             receivedAt: FieldValue.serverTimestamp(), leadCode: newId,
@@ -1479,8 +1504,8 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
             ...createAudit("webhook:whatsapp"),
           });
           return newId;
-        });
-      }
+        }
+      });
 
       // Append the message + bump the lead, guarded on the event doc + message doc id.
       const leadRef = db.collection("leads").doc(leadId);
@@ -2109,7 +2134,17 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     }
     if (b.priority !== undefined) fields.priority = reqEnum(b, "priority", ["HOT", "WARM", "COLD"] as const);
     if (b.assignedRm !== undefined) {
-      fields.assignedRm = optStr(b, "assignedRm");
+      const newAssignedRm = optStr(b, "assignedRm");
+      // Ownership changes are a MANAGER action — a crm.leads.write holder must not
+      // self-assign (or re-route) leads via PATCH, bypassing the FIFO queue and
+      // manager control. The queue claim/release endpoints are the telecaller path.
+      if ((newAssignedRm ?? null) !== ((cur.assignedRm as string | null) ?? null)) {
+        const meta = await getCallerMeta(caller.uid);
+        if (!meta.isManager) {
+          throw new ApiError(403, "Only a manager or admin can change a lead's assigned RM — use the queue's Get-next-lead to claim, or ask a manager to reassign");
+        }
+      }
+      fields.assignedRm = newAssignedRm;
       if (fields.assignedRm && fields.assignedRm !== cur.assignedRm) fields.assignedAt = FieldValue.serverTimestamp();
     }
     if (b.nextFollowUpAt !== undefined) {
@@ -2544,7 +2579,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const VALID_KEYS = [
       "crm.leads.read", "crm.leads.write", "crm.cases.read", "crm.cases.write",
       "crm.masters.write", "payout.read", "payout.write", "payout.amounts.read",
-      "mis.read", "recon.read",
+      "mis.read", "recon.read", "recon.write",
     ];
     const perms: Record<string, boolean> = {};
     for (const k of VALID_KEYS) if (raw[k] === true) perms[k] = true;
@@ -3457,16 +3492,16 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     if (!caller) return;
     const b = (req.body ?? {}) as Record<string, unknown>;
 
-    const disbursedAmount = optNum(b, "disbursedAmount");
+    const disbursedAmount = optMoney(b, "disbursedAmount");
     if (disbursedAmount == null || disbursedAmount <= 0) throw new ApiError(400, "disbursedAmount must be a positive number");
     const disbDate = optTs(b, "disbursementDate");
     if (!disbDate) throw new ApiError(400, "disbursementDate is required (ISO date)");
     const loanAccountNo = reqStr(b, "loanAccountNo");
     const city = reqStr(b, "city");
     const state = reqStr(b, "state");
-    const roiPct = optNum(b, "roiPct");
-    const processingFee = optNum(b, "processingFee");
-    const subDsaPctOverride = optNum(b, "subDsaPayoutPct");
+    const roiPct = optPct(b, "roiPct");
+    const processingFee = optMoney(b, "processingFee");
+    const subDsaPctOverride = optPct(b, "subDsaPayoutPct");
 
     const caseRef = db.collection("cases").doc(req.params.id);
     const caseSnap = await caseRef.get();
@@ -3701,16 +3736,16 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const b = (req.body ?? {}) as Record<string, unknown>;
     const caseId = req.params.id, loginId = req.params.loginId;
 
-    const disbursedAmount = optNum(b, "disbursedAmount");
+    const disbursedAmount = optMoney(b, "disbursedAmount");
     if (disbursedAmount == null || disbursedAmount <= 0) throw new ApiError(400, "disbursedAmount must be a positive number");
     const disbDate = optTs(b, "disbursementDate");
     if (!disbDate) throw new ApiError(400, "disbursementDate is required (ISO date)");
     const loanAccountNo = reqStr(b, "loanAccountNo");
     const city = reqStr(b, "city");
     const state = reqStr(b, "state");
-    const roiPct = optNum(b, "roiPct");
-    const processingFee = optNum(b, "processingFee");
-    const subDsaPctOverride = optNum(b, "subDsaPayoutPct");
+    const roiPct = optPct(b, "roiPct");
+    const processingFee = optMoney(b, "processingFee");
+    const subDsaPctOverride = optPct(b, "subDsaPayoutPct");
 
     const caseRef = db.collection("cases").doc(caseId);
     const loginRef = caseRef.collection("logins").doc(loginId);
@@ -3728,7 +3763,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const subDsaId = (lg.subDsaId as string | null) ?? (c.subDsaId as string | null) ?? null;
     // FAC- "Sub DSA" sourcing channel partner (HRMS connectors) — auto-payout source.
     const channelPartnerId = (lg.channelPartnerId as string | null) ?? (c.channelPartnerId as string | null) ?? null;
-    const channelPartnerPayoutOverride = optNum(b, "channelPartnerPayoutOverride");
+    const channelPartnerPayoutOverride = optMoney(b, "channelPartnerPayoutOverride");
 
     // Mandatory DISBURSEMENT docs (case-level shared docTracker) must be VERIFIED.
     const trackerSnap = await caseRef.collection("docTracker").get();
@@ -3999,6 +4034,12 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       const cySnap = await tx.get(cycleRef);
       if (!cySnap.exists) throw new ApiError(404, `${req.params.id} not found`);
       const cy = cySnap.data()!;
+      // A CLOSED cycle is immutable via milestones. (Disputes on a closed cycle
+      // legitimately arise post-close — they go via POST /api/crm2/recon/dispute,
+      // which is deliberately NOT blocked here.)
+      if (cy.closedAt != null || cy.status === "CLOSED") {
+        throw new ApiError(409, "This payout cycle is closed — milestones can no longer be edited");
+      }
       const caseRef = db.collection("cases").doc(cy.caseId as string);
       // Phase 4 per-login: the payout badge lives on the LOGIN and the MIS record
       // is keyed by loginId. Legacy per-case cycles (no loginId) fall back to the case.
@@ -4046,7 +4087,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
           setTsOrNow("bankerConfirmedAt", "bankerConfirmedAt");
           { const by = payload.bankerConfirmedBy as Record<string, unknown> | null;
             patch.bankerConfirmedBy = by && isStr(by.name) ? { name: String(by.name).trim(), email: String(by.email ?? "").trim() } : null; }
-          patch.confirmedAmount = optNum(payload, "confirmedAmount");
+          patch.confirmedAmount = optMoney(payload, "confirmedAmount");
           patch.confirmedDsaCode = optStr(payload, "confirmedDsaCode");
           patch.pddStatusAtConfirmation = optStr(payload, "pddStatusAtConfirmation");
           break;
@@ -4057,14 +4098,14 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
           break;
         case 6:
           setTsOrNow("payoutConfirmedAt", "payoutConfirmedAt");
-          patch.confirmedPayoutPct = optNum(payload, "confirmedPayoutPct");
-          patch.confirmedGross = optNum(payload, "confirmedGross");
+          patch.confirmedPayoutPct = optPct(payload, "confirmedPayoutPct");
+          patch.confirmedGross = optMoney(payload, "confirmedGross");
           break;
         case 7:
           patch.billNo = optStr(payload, "billNo");
           patch.billDate = optTs(payload, "billDate") ?? Timestamp.now();
-          patch.billGross = optNum(payload, "billGross");
-          patch.billGst = optNum(payload, "billGst");
+          patch.billGross = optMoney(payload, "billGross");
+          patch.billGst = optMoney(payload, "billGst");
           patch.billGstin = optStr(payload, "billGstin");
           patch.billedToEntity = optStr(payload, "billedToEntity");
           setTsOrNow("billSentAt", "billSentAt");
@@ -4073,8 +4114,8 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
           break;
         case 8:
           setTsOrNow("receivedAt", "receivedAt");
-          patch.receivedNet = optNum(payload, "receivedNet");
-          patch.tdsDeducted = optNum(payload, "tdsDeducted");
+          patch.receivedNet = optMoney(payload, "receivedNet");
+          patch.tdsDeducted = optMoney(payload, "tdsDeducted");
           patch.utr = optStr(payload, "utr");
           patch.receivedInAccount = optStr(payload, "receivedInAccount");
           if (payload.varianceReason !== undefined) patch.varianceReason = optStr(payload, "varianceReason");
@@ -4082,11 +4123,11 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         case 9:
           patch.subDsaBillNo = optStr(payload, "subDsaBillNo");
           patch.subDsaBillDate = optTs(payload, "subDsaBillDate");
-          patch.subDsaBillAmount = optNum(payload, "subDsaBillAmount");
+          patch.subDsaBillAmount = optMoney(payload, "subDsaBillAmount");
           patch.subDsaApprovedBy = optStr(payload, "subDsaApprovedBy") ?? caller.fapl;
           setTsOrNow("subDsaPaidAt", "subDsaPaidAt");
-          patch.subDsaPaidAmount = optNum(payload, "subDsaPaidAmount");
-          patch.subDsaTds = optNum(payload, "subDsaTds");
+          patch.subDsaPaidAmount = optMoney(payload, "subDsaPaidAmount");
+          patch.subDsaTds = optMoney(payload, "subDsaTds");
           patch.subDsaUtr = optStr(payload, "subDsaUtr");
           break;
         case 10: {
@@ -4214,22 +4255,15 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     res.json({ ok: true, records: rows });
   }));
 
-  // ─── GET /api/crm2/mis/business-sheet?month&connectorId[&share=1] ────────────
-  // The business sheet inherently contains money (Disbursed / Bill Gross /
-  // Received Net / TDS / Net Margin), so the whole export — including the
-  // share action that stamps dataSharedAt — is gated on payout.amounts.read
-  // (spec §12). mis.read alone is NOT sufficient.
-  app.get("/api/crm2/mis/business-sheet", route(async (req, res) => {
-    const caller = await requirePerm(req, res, "payout.amounts.read");
-    if (!caller) return;
-    const month = reqStr(req.query as Record<string, unknown>, "month");
-    const connectorId = isStr(req.query.connectorId) ? String(req.query.connectorId) : null;
+  // Shared builder for the business sheet (records + xlsx buffer). The sheet
+  // inherently contains money (Disbursed / Bill Gross / Received Net / TDS /
+  // Net Margin), so both callers gate on payout.amounts.read (spec §12).
+  async function buildBusinessSheet(month: string, connectorId: string | null): Promise<{ records: Array<Record<string, unknown>>; buf: Buffer }> {
     let q: FirebaseFirestore.Query = db.collection("misRecords").where("reportingMonth", "==", month);
     if (connectorId) q = q.where("connectorId", "==", connectorId);
     const snap = await q.get();
     const records = snap.docs.map((d) => d.data() as Record<string, unknown>);
 
-    // Build xlsx server-side.
     const XLSX = await import("xlsx");
     const rows = records.map((r) => ({
       "Case ID": r.caseId, "Party": r.partyName, "City": r.city, "State": r.state,
@@ -4246,35 +4280,62 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `MIS ${month}`);
     const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+    return { records, buf };
+  }
 
-    // "Share" → stamp dataSharedAt/dataSharedTo/reportingMonth on each included
-    // cycle in ONE batch (and advance its status via the milestone path would be
-    // heavier; here we set the data-share anchor directly + re-derive status).
-    if (req.query.share === "1" || req.query.share === "true") {
-      const dataSharedTo = isStr(req.query.dataSharedTo) ? String(req.query.dataSharedTo) : (connectorId ?? "aggregator");
-      const batch = db.batch();
-      let stamped = 0;
-      for (const r of records) {
-        const cycleId = r.payoutCycleId as string | undefined;
-        if (!cycleId) continue;
-        const cRef = db.collection("payoutCycles").doc(cycleId);
-        batch.update(cRef, {
-          dataSharedAt: FieldValue.serverTimestamp(), dataSharedTo, reportingMonth: month, sharingMode: "MAIL",
-          ...updateAudit(caller.fapl),
-        });
-        stamped++;
-      }
-      if (stamped > 0) await batch.commit();
-      // Note: status re-derivation for shared cycles happens on their next
-      // milestone write; data-share alone doesn't change the derived status rung
-      // (AWAITING_DATA_SHARE → CONFIRMATION_RAISED needs confirmationRaisedAt).
-      res.json({ ok: true, shared: stamped, month, base64: buf.toString("base64") });
-      return;
-    }
-
+  // ─── GET /api/crm2/mis/business-sheet?month&connectorId — PURE download ──────
+  // No state mutation on GET. The share action (which stamps dataSharedAt on the
+  // cycles) lives on POST /api/crm2/mis/business-sheet/share.
+  app.get("/api/crm2/mis/business-sheet", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "payout.amounts.read");
+    if (!caller) return;
+    const month = reqStr(req.query as Record<string, unknown>, "month");
+    const connectorId = isStr(req.query.connectorId) ? String(req.query.connectorId) : null;
+    const { buf } = await buildBusinessSheet(month, connectorId);
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="MIS-${month}${connectorId ? "-" + connectorId : ""}.xlsx"`);
     res.send(buf);
+  }));
+
+  // ─── POST /api/crm2/mis/business-sheet/share — stamp dataSharedAt + return sheet ─
+  // Mutates the included cycles (dataSharedAt/dataSharedTo/reportingMonth), so the
+  // caller must hold payout.amounts.read (money artifact) AND payout.write (the
+  // mutation). Body: { month, connectorId?, dataSharedTo? }.
+  app.post("/api/crm2/mis/business-sheet/share", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "payout.amounts.read");
+    if (!caller) return;
+    if (!(await callerHasPerm(caller.uid, "payout.write"))) {
+      res.status(403).json({ error: "Missing permission: payout.write" }); return;
+    }
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const month = reqStr(b, "month");
+    const connectorId = optStr(b, "connectorId");
+    const { records, buf } = await buildBusinessSheet(month, connectorId);
+
+    // Stamp dataSharedAt/dataSharedTo/reportingMonth on each included cycle in
+    // ONE batch (setting the data-share anchor directly; status re-derivation for
+    // shared cycles happens on their next milestone write — data-share alone
+    // doesn't change the derived status rung).
+    const dataSharedTo = optStr(b, "dataSharedTo") ?? (connectorId ?? "aggregator");
+    const batch = db.batch();
+    let stamped = 0;
+    for (const r of records) {
+      const cycleId = r.payoutCycleId as string | undefined;
+      if (!cycleId) continue;
+      const cRef = db.collection("payoutCycles").doc(cycleId);
+      batch.update(cRef, {
+        dataSharedAt: FieldValue.serverTimestamp(), dataSharedTo, reportingMonth: month, sharingMode: "MAIL",
+        ...updateAudit(caller.fapl),
+      });
+      stamped++;
+    }
+    if (stamped > 0) await batch.commit();
+    await db.collection("audit_logs").add({
+      actor: caller.uid, actorFapl: caller.fapl, action: "crm2_business_sheet_share",
+      targetPath: `/misRecords (month ${month}${connectorId ? `, connector ${connectorId}` : ""})`,
+      after: { shared: stamped, dataSharedTo }, at: FieldValue.serverTimestamp(),
+    });
+    res.json({ ok: true, shared: stamped, month, base64: buf.toString("base64") });
   }));
 
   // ═══ Phase 4 — Scheduled jobs (Cloud Scheduler → OIDC, or admin) ══════════════
@@ -4445,8 +4506,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   };
 
   // ─── POST /api/crm2/recon/imports — upload dump → bankMisImports + rows + match ─
+  // Mutation (creates the import + rows) → recon.write; reads stay recon.read.
   app.post("/api/crm2/recon/imports", route(async (req, res) => {
-    const caller = await requirePerm(req, res, "recon.read");
+    const caller = await requirePerm(req, res, "recon.write");
     if (!caller) return;
     const b = (req.body ?? {}) as Record<string, unknown>;
     const connectorId = reqStr(b, "connectorId");
@@ -4467,12 +4529,23 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     }
 
     // misRecords for this connector + month (the candidate set to match against).
+    // Per-login model: one misRecord PER DISBURSED LOGIN (doc id == loginId), so a
+    // case with two disbursed logins has TWO entries. Matching is keyed strictly by
+    // the misRecord id (never by caseId, which is ambiguous across logins) — the
+    // MisLite.caseId slot carries the misRecord id for the matcher, and misMeta maps
+    // it back to the real caseId/loginId for display + dispute.
     const misSnap = await db.collection("misRecords")
       .where("connectorId", "==", connectorId).where("reportingMonth", "==", reportingMonth).get();
+    const misMeta = new Map<string, { caseId: string; loginId: string | null; loanAccountNo: string | null }>();
     const misBook: MisLite[] = misSnap.docs.map((d) => {
       const m = d.data();
+      misMeta.set(d.id, {
+        caseId: (m.caseId as string | undefined) ?? d.id,
+        loginId: (m.loginId as string | undefined) ?? null,
+        loanAccountNo: (m.loanAccountNo as string | null) ?? null,
+      });
       return {
-        caseId: (m.caseId as string | undefined) ?? d.id,   // per-login: misRecord id is loginId; report the real caseId
+        caseId: d.id,   // the misRecord id (== loginId per-login; == caseId legacy) — the unambiguous match key
         loanAccountNo: (m.loanAccountNo as string | null) ?? null,
         bankApplicationNo: (m.bankApplicationNo as string | null) ?? null,
         dsaCode: (m.dsaCode as string) ?? "",
@@ -4486,7 +4559,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const get = (r: unknown[], f: string) => cols[f] !== undefined ? r[cols[f]] : null;
 
     let matched = 0, unmatched = 0;
-    const matchedCaseIds = new Set<string>();
+    const matchedMisIds = new Set<string>();
     // Batch the row writes (chunks of 400 to stay under the 500-op limit).
     let batch = db.batch(); let ops = 0;
     const flush = async () => { if (ops > 0) { await batch.commit(); batch = db.batch(); ops = 0; } };
@@ -4502,7 +4575,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         dateMs: cellDate(get(r, "date")),
       };
       const m = matchDumpRow(dump, misBook);
-      if (m.matchType !== "none") { matched++; matchedCaseIds.add(m.caseId!); } else unmatched++;
+      // m.caseId is the misRecord id (see misBook build) — resolve the real case/login.
+      const hit = m.matchType !== "none" ? misMeta.get(m.caseId!) ?? null : null;
+      if (m.matchType !== "none") { matched++; matchedMisIds.add(m.caseId!); } else unmatched++;
 
       const rowRef = importRef.collection("rows").doc();
       batch.set(rowRef, {
@@ -4511,7 +4586,10 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         dsaCode: dump.dsaCode, amount: dump.amount,
         dateMs: dump.dateMs, dateIso: dump.dateMs ? new Date(dump.dateMs).toISOString().slice(0, 10) : null,
         matched: m.matchType !== "none", matchType: m.matchType,
-        matchedCaseId: m.caseId, amountVariance: m.amountVariance,
+        matchedCaseId: hit?.caseId ?? null,
+        matchedMisId: m.matchType !== "none" ? m.caseId : null,   // misRecord id (== loginId per-login)
+        matchedLoginId: hit?.loginId ?? null,
+        amountVariance: m.amountVariance,
         manualOverride: false,
         createdAt: FieldValue.serverTimestamp(),
       });
@@ -4520,18 +4598,28 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     }
     await flush();
 
-    // Cases in our MIS for this month/connector that the dump did NOT match.
-    const missingCaseIds = misBook.map((m) => m.caseId).filter((id) => !matchedCaseIds.has(id));
+    // Entries in our MIS for this month/connector that the dump did NOT match —
+    // per misRecord (i.e. per disbursed LOGIN), so a case whose first login matched
+    // but second didn't still surfaces the missing login. missingCaseIds (unique
+    // case ids) is kept for back-compat; missingEntries carries the loginId the
+    // dispute endpoint needs to disambiguate multi-login cases.
+    const missingEntries = misBook
+      .filter((m) => !matchedMisIds.has(m.caseId))
+      .map((m) => {
+        const meta = misMeta.get(m.caseId)!;
+        return { misId: m.caseId, caseId: meta.caseId, loginId: meta.loginId, loanAccountNo: meta.loanAccountNo };
+      });
+    const missingCaseIds = [...new Set(missingEntries.map((e) => e.caseId))];
 
     await importRef.set({
       connectorId, reportingMonth, fileName,
       totalRows: dataRows.length, matchedRows: matched, unmatchedRows: unmatched,
-      misCaseCount: misBook.length, missingCaseIds,
+      misCaseCount: misBook.length, missingCaseIds, missingEntries,
       detectedColumns: cols,
       importedBy: caller.fapl, importedAt: FieldValue.serverTimestamp(),
       ...createAudit(caller.fapl),
     });
-    res.json({ ok: true, importId: importRef.id, totalRows: dataRows.length, matched, unmatched, missingCaseIds });
+    res.json({ ok: true, importId: importRef.id, totalRows: dataRows.length, matched, unmatched, missingCaseIds, missingEntries });
   }));
 
   // ─── GET /api/crm2/recon/imports/:id — import + its rows ─────────────────────
@@ -4551,8 +4639,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   }));
 
   // ─── PATCH /api/crm2/recon/imports/:id/rows/:rowId — manual match/unmatch ─────
+  // Mutation → recon.write (recon.read is the read key; admins implicit as always).
   app.patch("/api/crm2/recon/imports/:id/rows/:rowId", route(async (req, res) => {
-    const caller = await requirePerm(req, res, "recon.read");
+    const caller = await requirePerm(req, res, "recon.write");
     if (!caller) return;
     const b = (req.body ?? {}) as Record<string, unknown>;
     const ref = db.collection("bankMisImports").doc(req.params.id).collection("rows").doc(req.params.rowId);
@@ -4561,19 +4650,35 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
 
     if (b.action === "match") {
       const caseId = reqStr(b, "caseId");
-      // Per-login: misRecords are keyed by loginId. Accept either the misRecord id
-      // (loginId) or a caseId (resolve to the case's record).
+      // Per-login: misRecords are keyed by loginId (one per disbursed login). Accept
+      // the misRecord id (loginId) directly — unambiguous — or a caseId. A caseId
+      // that maps to MORE than one misRecord (multi-login case) is ambiguous:
+      // 409 listing the candidate loginIds instead of guessing.
+      let misId: string;
       let misData = (await db.collection("misRecords").doc(caseId).get()).data();
-      if (!misData) {
-        const byCase = await db.collection("misRecords").where("caseId", "==", caseId).limit(1).get();
-        misData = byCase.empty ? undefined : byCase.docs[0].data();
+      if (misData) {
+        misId = caseId;
+      } else {
+        const byCase = await db.collection("misRecords").where("caseId", "==", caseId).get();
+        if (byCase.empty) throw new ApiError(400, `misRecord for ${caseId} not found`);
+        if (byCase.size > 1) {
+          throw new ApiError(409,
+            `${caseId} has ${byCase.size} disbursed logins — pass the specific loginId (candidates: ${byCase.docs.map((d) => d.id).join(", ")})`,
+            { kind: "AMBIGUOUS_CASE", candidates: byCase.docs.map((d) => d.id) });
+        }
+        misId = byCase.docs[0].id;
+        misData = byCase.docs[0].data();
       }
-      if (!misData) throw new ApiError(400, `misRecord for ${caseId} not found`);
+      const realCaseId = (misData.caseId as string | undefined) ?? misId;
       const amount = snap.data()!.amount as number | null;
       const variance = amount != null ? Math.round(amount - Number(misData.disbursedAmount ?? 0)) : null;
-      await ref.update({ matched: true, matchType: "manual", matchedCaseId: caseId, amountVariance: variance, manualOverride: true, updatedAt: FieldValue.serverTimestamp() });
+      await ref.update({
+        matched: true, matchType: "manual", matchedCaseId: realCaseId,
+        matchedMisId: misId, matchedLoginId: (misData.loginId as string | undefined) ?? null,
+        amountVariance: variance, manualOverride: true, updatedAt: FieldValue.serverTimestamp(),
+      });
     } else if (b.action === "unmatch") {
-      await ref.update({ matched: false, matchType: "none", matchedCaseId: null, amountVariance: null, manualOverride: true, updatedAt: FieldValue.serverTimestamp() });
+      await ref.update({ matched: false, matchType: "none", matchedCaseId: null, matchedMisId: null, matchedLoginId: null, amountVariance: null, manualOverride: true, updatedAt: FieldValue.serverTimestamp() });
     } else {
       throw new ApiError(400, "action must be 'match' or 'unmatch'");
     }
@@ -4589,13 +4694,19 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const caseId = reqStr(b, "caseId");
     const note = optStr(b, "note") ?? "Missing in connector's bank MIS dump";
 
-    // Per-login: a case may have several cycles — find this case's cycle(s).
-    // (Optional loginId narrows to one.) Dispute the matched cycle.
+    // Per-login: a case may have several cycles (one per disbursed login). An
+    // optional loginId narrows to one; WITHOUT it, a multi-cycle case is ambiguous
+    // → 409 listing the candidates instead of disputing an arbitrary cycle.
     const loginId = optStr(b, "loginId");
     let cq = db.collection("payoutCycles").where("caseId", "==", caseId);
     if (loginId) cq = cq.where("loginId", "==", loginId);
-    const cycSnap = await cq.limit(1).get();
+    const cycSnap = await cq.get();
     if (cycSnap.empty) throw new ApiError(400, "No payout cycle for this case (not disbursed)");
+    if (cycSnap.size > 1) {
+      throw new ApiError(409,
+        `${caseId} has ${cycSnap.size} payout cycles — pass loginId to pick one (candidates: ${cycSnap.docs.map((d) => `${d.id}/${d.data().loginId ?? "—"}`).join(", ")})`,
+        { kind: "AMBIGUOUS_CASE", candidates: cycSnap.docs.map((d) => ({ cycleId: d.id, loginId: (d.data().loginId as string | undefined) ?? null })) });
+    }
     const cycleRef = cycSnap.docs[0].ref;
     const cycleId = cycSnap.docs[0].id;
     const cyLoginId = cycSnap.docs[0].data().loginId as string | undefined;

@@ -8,6 +8,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { approvePayout, markPayoutPaid } from '../hooks/usePayouts';
 import { Modal } from '../../../components/ui/Modal';
 import { addWatermarkToAllPages } from '../../../lib/pdfWatermark';
+import { userFacingError } from '../../../lib/errors';
 import type { RmPayout, RmPayoutLineItem } from '../../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -64,7 +65,7 @@ function MarkPaidModal({ isOpen, onClose, payoutId, rmDisplayName }: MarkPaidMod
       await markPayoutPaid(payoutId, reference.trim(), notes.trim());
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to mark as paid.');
+      setError(userFacingError(e, 'Could not mark the payout as paid — please try again.'));
     } finally {
       setSaving(false);
     }
@@ -248,7 +249,7 @@ export function PayoutDetailPage() {
     try {
       await approvePayout(payout.id, profile?.userId ?? '');
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : 'Approval failed.');
+      setActionError(userFacingError(e, 'Could not approve the payout — please try again.'));
     } finally {
       setApproving(false);
     }

@@ -5,6 +5,7 @@ import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { usePayoutSlabs, createSlab, updateSlab, toggleSlabActive, seedDefaultSlabs } from '../hooks/usePayouts';
 import { Modal } from '../../../components/ui/Modal';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import { userFacingError } from '../../../lib/errors';
 import type { SearchableSelectOption } from '../../../components/ui/SearchableSelect';
 import type { RmPayoutSlab } from '../../../types';
 
@@ -149,7 +150,7 @@ function AddSlabModal({ isOpen, onClose, existingSlab, employees, createdBy }: A
       }
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Save failed.');
+      setError(userFacingError(e, 'Could not save the slab — please try again.'));
     } finally {
       setSaving(false);
     }
@@ -328,7 +329,8 @@ export function PayoutSlabsPage() {
     try {
       await seedDefaultSlabs(createdBy);
       setSeedMsg('Default slabs seeded successfully.');
-    } catch {
+    } catch (e) {
+      console.error('[seed payout slabs]', e);
       setSeedMsg('Seeding failed — check console.');
     } finally {
       setSeeding(false);

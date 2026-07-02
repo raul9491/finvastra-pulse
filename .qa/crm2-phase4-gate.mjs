@@ -140,7 +140,7 @@ async function main() {
   const d3 = await disburse(token, s3, { disbursedAmount: 2000000, disbursementDate: '2026-07-03', loanAccountNo: 'L3', city: 'C', state: 'S' });
   const pc3 = d3.data.cycleId;
   const before = await getDoc(`payoutCycles/${pc3}`);
-  const share = await api('GET', `/api/crm2/mis/business-sheet?month=2026-07&share=1&dataSharedTo=Ruloans`, token);
+  const share = await api('POST', `/api/crm2/mis/business-sheet/share`, token, { month: '2026-07', dataSharedTo: 'Ruloans' });
   const after = await getDoc(`payoutCycles/${pc3}`);
   share.status === 200 && share.data.shared >= 1 && before?.fields?.dataSharedAt?.nullValue !== undefined && after?.fields?.dataSharedAt?.timestampValue
     ? ok(`business-sheet share stamped dataSharedAt on ${share.data.shared} cycle(s)`) : bad('share stamp', JSON.stringify({ shared: share.data?.shared, after: after?.fields?.dataSharedAt }));
@@ -165,7 +165,7 @@ async function main() {
   const poor = await makePoorUser();
   const dlPoor = await api('GET', `/api/crm2/mis/business-sheet?month=2026-05`, poor);
   dlPoor.status === 403 ? ok('business-sheet download → 403 for mis.read-only user (no money leak)') : bad('export leak (download)', `status=${dlPoor.status}`);
-  const sharePoor = await api('GET', `/api/crm2/mis/business-sheet?month=2026-05&share=1`, poor);
+  const sharePoor = await api('POST', `/api/crm2/mis/business-sheet/share`, poor, { month: '2026-05' });
   sharePoor.status === 403 ? ok('business-sheet share action → 403 for mis.read-only user') : bad('export leak (share)', `status=${sharePoor.status}`);
   const dlAdmin = await api('GET', `/api/crm2/mis/business-sheet?month=2026-05`, token);
   dlAdmin.status === 200 ? ok('business-sheet still works for payout.amounts.read holder (admin)') : bad('export admin', dlAdmin.status);

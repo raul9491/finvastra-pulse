@@ -12,9 +12,25 @@ import {
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
-import { format } from 'date-fns';
 import { db } from '../../../lib/firebase';
 import type { Attendance, AttendanceStatus } from '../../../types';
+
+// ─── istDateKey ───────────────────────────────────────────────────────────────
+// The attendance `date` key must be the calendar day in IST (Asia/Kolkata,
+// fixed UTC+5:30, no DST) — NOT the browser's local timezone. A traveller or a
+// device with a wrong timezone previously wrote/looked up the wrong day, which
+// could split a shift across two records and break clock-out.
+// Mirrors the buildTimestamp approach in useAttendanceRegularization.ts:
+// shift the epoch by +330 min, then read the UTC date parts.
+// NOTE: checkIn AND useTodayAttendance must both use this same helper — the
+// clock-out button only appears when the today-lookup finds the checked-in record.
+export function istDateKey(d: Date = new Date()): string {
+  const shifted = new Date(d.getTime() + 330 * 60 * 1000);
+  const y  = shifted.getUTCFullYear();
+  const m  = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(shifted.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
 
 // ─── useMyAttendance ──────────────────────────────────────────────────────────
 // Real-time subscription to the current user's attendance for a given month.
@@ -63,7 +79,7 @@ export function useTodayAttendance(userId: string): {
 
   useEffect(() => {
     if (!userId) return;
-    const today = format(new Date(), 'yyyy-MM-dd');
+    const today = istDateKey(); // IST day — must match the key checkIn writes
 
     const q = query(
       collection(db, 'attendance'),
@@ -90,7 +106,7 @@ export async function checkIn(
 ): Promise<void> {
   await addDoc(collection(db, 'attendance'), {
     userId,
-    date: format(new Date(), 'yyyy-MM-dd'),
+    date: istDateKey(), // IST day — never the browser timezone (historical records untouched)
     checkIn: serverTimestamp(),
     checkOut: null,
     workingHours: 0,

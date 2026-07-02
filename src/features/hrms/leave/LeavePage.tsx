@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Plus, Coins, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
-import { useMyLeaveBalance, useMyApplications, cancelLeave, currentLeaveYear } from '../hooks/useLeave';
+import { useMyLeaveBalance, useMyApplications, cancelLeave, currentLeaveYear, LEAVE_DEFAULT_TOTALS } from '../hooks/useLeave';
 import {
   useMyEncashmentRequests,
   submitEncashmentRequest,
@@ -123,7 +123,12 @@ export function LeavePage() {
     const errs: Record<string, string> = {};
     const daysNum = Number(encDays);
     const grossNum = Number(encGross);
-    if (!daysNum || daysNum < 1 || daysNum > 15) errs.encDays   = '1–15 days only';
+    // Only what's actually left in the EL balance can be encashed (C2).
+    // Approval re-verifies + debits the balance server-side; this is the
+    // friendly early check. Missing doc/entry → HR Handbook default.
+    const elRemaining = balance?.earned?.remaining ?? LEAVE_DEFAULT_TOTALS.earned;
+    if (!daysNum || daysNum < 1 || daysNum > 15)  errs.encDays   = '1–15 days only';
+    else if (daysNum > elRemaining)               errs.encDays   = `Only ${elRemaining} earned-leave day(s) remaining`;
     if (!grossNum || grossNum < 1000)             errs.encGross  = 'Enter your gross monthly salary';
     if (!encMonth)                                errs.encMonth  = 'Required';
     if (!encReason.trim())                        errs.encReason = 'Reason is required';

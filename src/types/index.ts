@@ -418,6 +418,7 @@ export interface Lead {
   id: string;
   displayName: string;
   phone: string;
+  phoneOriginal?: string;    // pre-canonicalisation phone, preserved ONCE by /api/admin/backfill-phone-normalization when normalising changed the stored value; never overwritten
   altPhones?: string[];      // additional numbers from a multi-number import cell ("9885299945, 9885012345") — agents can try all
   importExtras?: Record<string, string>;   // every extra column from the import sheet (amount, city, branch, …) header→value — shown on the customer so nothing is lost
   email?: string;

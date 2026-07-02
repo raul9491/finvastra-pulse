@@ -7,6 +7,7 @@ import {
   useDisputes, assignDisputeToMe, addDisputeNote, resolveDispute, setDisputeStatus,
 } from '../hooks/useDisputes';
 import { useToast } from '../../../components/ui/Toast';
+import { userFacingError } from '../../../lib/errors';
 import type { CommissionDispute, DisputeStatus } from '../../../types';
 
 const STATUS_META: Record<DisputeStatus, { label: string; cls: string }> = {
@@ -44,7 +45,7 @@ function DisputeDetailModal({ d, actor, onClose }: {
   async function run(fn: () => Promise<void>, ok: string) {
     setBusy(true);
     try { await fn(); toast.success(ok); }
-    catch (e) { toast.error(e instanceof Error ? e.message : 'Action failed'); }
+    catch (e) { toast.error(userFacingError(e, 'Action failed — please try again.')); }
     finally { setBusy(false); }
   }
 

@@ -1,8 +1,11 @@
 /**
  * Pipeline → Recon — upload a connector's bank-MIS dump, auto-match against our
  * misRecords (loan a/c → app no → fuzzy), manually match/unmatch rows, and flag
- * cases missing from the dump to the dispute list. Requires recon.read; dispute
- * needs payout.write. Money columns shown only with payout.amounts.read.
+ * entries missing from the dump to the dispute list. Viewing requires recon.read;
+ * upload + match/unmatch need recon.write; dispute needs payout.write. Money
+ * columns shown only with payout.amounts.read. Per-login model: matching + the
+ * missing list are keyed per misRecord (== per disbursed LOGIN), and disputes on
+ * multi-login cases pass the loginId so the right cycle is flagged.
  */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -18,8 +21,14 @@ import type { Aggregator } from '../../../types/crm2';
 const inr = (n: number | null | undefined) => n != null ? `₹${Number(n).toLocaleString('en-IN')}` : '—';
 const thisMonth = () => new Date().toISOString().slice(0, 7);
 
-interface ImportSummary { id: string; totalRows: number; matched: number; unmatched: number; missingCaseIds: string[]; }
+interface MissingEntry { misId: string; caseId: string; loginId: string | null; loanAccountNo: string | null; }
+interface ImportSummary { id: string; totalRows: number; matched: number; unmatched: number; missing: MissingEntry[]; }
 interface ReconRow { id: string; rowIndex: number; loanAccountNo: string | null; bankApplicationNo: string | null; dsaCode: string | null; amount: number | null; dateIso: string | null; matched: boolean; matchType: string; matchedCaseId: string | null; amountVariance: number | null; }
+
+/** Server returns missingEntries (per disbursed login); older imports only had
+ *  missingCaseIds — fall back so they still render (dispute then omits loginId). */
+const toMissing = (r: { missingEntries?: MissingEntry[]; missingCaseIds?: string[] }): MissingEntry[] =>
+  r.missingEntries ?? (r.missingCaseIds ?? []).map((caseId) => ({ misId: caseId, caseId, loginId: null, loanAccountNo: null }));
 
 export function ReconPage() {
   const { profile } = useAuth();
@@ -35,16 +44,18 @@ export function ReconPage() {
 
   const canDispute = hasCrm2Perm(profile, 'payout.write');
   const canMoney = hasCrm2Perm(profile, 'payout.amounts.read');
+  const canWrite = hasCrm2Perm(profile, 'recon.write');   // upload + match/unmatch
 
   const upload = async (file: File) => {
     if (!connectorId) { toast.error('Pick the connector first'); return; }
     setBusy(true);
     try {
       const b64 = await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] ?? ''); r.onerror = rej; r.readAsDataURL(file); });
-      const r = await apiCrm2<{ ok: boolean } & ImportSummary>('POST', '/api/crm2/recon/imports', { connectorId, reportingMonth: month, fileBase64: b64, fileName: file.name });
+      const r = await apiCrm2<{ ok: boolean; importId: string; totalRows: number; matched: number; unmatched: number; missingCaseIds: string[]; missingEntries?: MissingEntry[] }>(
+        'POST', '/api/crm2/recon/imports', { connectorId, reportingMonth: month, fileBase64: b64, fileName: file.name });
       toast.success(`Imported ${r.totalRows} rows — ${r.matched} matched, ${r.unmatched} unmatched`);
-      setSummary({ id: r.id, totalRows: r.totalRows, matched: r.matched, unmatched: r.unmatched, missingCaseIds: r.missingCaseIds });
-      await loadImport(r.id);
+      setSummary({ id: r.importId, totalRows: r.totalRows, matched: r.matched, unmatched: r.unmatched, missing: toMissing(r) });
+      await loadImport(r.importId);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Import failed');
     } finally { setBusy(false); }
@@ -55,12 +66,15 @@ export function ReconPage() {
     setRows(r.rows); setImportMeta(r.import);
   };
 
-  const dispute = async (caseId: string) => {
-    if (!confirm(`Flag ${caseId} as missing from the dump? This sets its payout cycle to DISPUTED.`)) return;
+  const dispute = async (entry: MissingEntry) => {
+    const label = entry.loginId ? `${entry.caseId} · ${entry.loginId}` : entry.caseId;
+    if (!confirm(`Flag ${label} as missing from the dump? This sets its payout cycle to DISPUTED.`)) return;
     try {
-      await apiCrm2('POST', '/api/crm2/recon/dispute', { caseId });
-      toast.success(`${caseId} flagged DISPUTED`);
-      setSummary((s) => s ? { ...s, missingCaseIds: s.missingCaseIds.filter((x) => x !== caseId) } : s);
+      // loginId disambiguates multi-login cases — the server 409s a bare caseId
+      // when the case has more than one payout cycle.
+      await apiCrm2('POST', '/api/crm2/recon/dispute', { caseId: entry.caseId, ...(entry.loginId ? { loginId: entry.loginId } : {}) });
+      toast.success(`${label} flagged DISPUTED`);
+      setSummary((s) => s ? { ...s, missing: s.missing.filter((x) => x.misId !== entry.misId) } : s);
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed'); }
   };
 
@@ -86,12 +100,14 @@ export function ReconPage() {
           <FLabel text="Reporting Month" required />
           <input type="month" className={inp()} value={month} onChange={(e) => setMonth(e.target.value || thisMonth())} />
         </div>
-        <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold cursor-pointer"
-          style={{ backgroundColor: '#C9A961', color: '#0B1538', opacity: busy ? 0.5 : 1 }}>
-          <Upload size={15} /> {busy ? 'Importing…' : 'Upload dump (xlsx/csv)'}
-          <input type="file" accept=".xlsx,.csv" className="hidden" disabled={busy}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ''; }} />
-        </label>
+        {canWrite && (
+          <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold cursor-pointer"
+            style={{ backgroundColor: '#C9A961', color: '#0B1538', opacity: busy ? 0.5 : 1 }}>
+            <Upload size={15} /> {busy ? 'Importing…' : 'Upload dump (xlsx/csv)'}
+            <input type="file" accept=".xlsx,.csv" className="hidden" disabled={busy}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ''; }} />
+          </label>
+        )}
       </div>
 
       {summary && (
@@ -105,21 +121,23 @@ export function ReconPage() {
             ))}
           </div>
 
-          {/* Missing cases → dispute */}
-          {summary.missingCaseIds.length > 0 && (
+          {/* Missing entries (per disbursed login) → dispute */}
+          {summary.missing.length > 0 && (
             <div className="glass-panel p-4">
               <div className="flex items-center gap-2 mb-3">
                 <AlertTriangle size={15} style={{ color: '#f87171' }} />
                 <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
-                  Our cases missing from this dump ({summary.missingCaseIds.length})
+                  Our disbursals missing from this dump ({summary.missing.length})
                 </h3>
               </div>
               <div className="space-y-1.5">
-                {summary.missingCaseIds.map((caseId) => (
-                  <div key={caseId} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ border: '1px solid rgba(248,113,113,0.3)' }}>
-                    <button onClick={() => navigate(`/crm/pipeline/cases/${caseId}`)} className="font-mono text-xs flex-1 text-left hover:underline" style={{ color: '#C9A961' }}>{caseId}</button>
+                {summary.missing.map((entry) => (
+                  <div key={entry.misId} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ border: '1px solid rgba(248,113,113,0.3)' }}>
+                    <button onClick={() => navigate(`/crm/pipeline/cases/${entry.caseId}`)} className="font-mono text-xs flex-1 text-left hover:underline" style={{ color: '#C9A961' }}>
+                      {entry.caseId}{entry.loginId ? ` · ${entry.loginId}` : ''}{entry.loanAccountNo ? ` · ${entry.loanAccountNo}` : ''}
+                    </button>
                     {canDispute && (
-                      <button onClick={() => dispute(caseId)} className="text-[11px] font-semibold px-2.5 py-1 rounded-lg" style={{ backgroundColor: 'rgba(248,113,113,0.15)', color: '#f87171' }}>Flag dispute</button>
+                      <button onClick={() => dispute(entry)} className="text-[11px] font-semibold px-2.5 py-1 rounded-lg" style={{ backgroundColor: 'rgba(248,113,113,0.15)', color: '#f87171' }}>Flag dispute</button>
                     )}
                   </div>
                 ))}
@@ -162,7 +180,7 @@ export function ReconPage() {
                         ) : <span className="text-[11px]" style={{ color: '#fbbf24' }}>unmatched</span>}
                       </td>
                       <td className="px-3 py-2 text-right">
-                        {r.matched && <button onClick={() => unmatch(r.id)} className="text-[10px] hover:underline" style={{ color: 'var(--text-muted)' }}>unmatch</button>}
+                        {r.matched && canWrite && <button onClick={() => unmatch(r.id)} className="text-[10px] hover:underline" style={{ color: 'var(--text-muted)' }}>unmatch</button>}
                       </td>
                     </tr>
                   ))}

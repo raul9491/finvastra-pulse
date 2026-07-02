@@ -72,7 +72,14 @@ export async function approveRegularization(
 
   // 2. Build new checkIn / checkOut timestamps
   const newCheckIn  = req.requestedCheckIn  ? buildTimestamp(req.date, req.requestedCheckIn)  : null;
-  const newCheckOut = req.requestedCheckOut ? buildTimestamp(req.date, req.requestedCheckOut) : null;
+  let   newCheckOut = req.requestedCheckOut ? buildTimestamp(req.date, req.requestedCheckOut) : null;
+
+  // Overnight shift: a checkout at or before the check-in time means it
+  // happened the NEXT day (e.g. 21:00 → 02:00) — roll it forward 24h.
+  // Previously this computed 0 working hours.
+  if (newCheckIn && newCheckOut && newCheckOut.toMillis() <= newCheckIn.toMillis()) {
+    newCheckOut = Timestamp.fromMillis(newCheckOut.toMillis() + 24 * 60 * 60 * 1000);
+  }
 
   // 3. Compute working hours from both times
   let workingHours = 0;

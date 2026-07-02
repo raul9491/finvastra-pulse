@@ -291,7 +291,7 @@ export function Crm2LeadsPage() {
           onClose={() => setShowNew(false)} />
       )}
       {detail && (
-        <LeadDrawer lead={detail} canWrite={canWrite} canConvert={canConvert}
+        <LeadDrawer lead={detail} canWrite={canWrite} canAssign={isManager} canConvert={canConvert}
           faplOptions={faplOptions} productOptions={productOptions} clients={clients}
           clientOptions={clientOptions} subDsaOptions={subDsaOptions} partnerOptions={partnerOptions} refData={refData}
           onClose={() => setDetailFor(null)} />
@@ -555,9 +555,9 @@ function ReleaseControl({ leadId, onReleased }: { leadId: string; onReleased: ()
   );
 }
 
-function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, clients, clientOptions, subDsaOptions, partnerOptions, refData, onClose }: {
+function LeadDrawer({ lead, canWrite, canAssign, canConvert, faplOptions, productOptions, clients, clientOptions, subDsaOptions, partnerOptions, refData, onClose }: {
   lead: LeadRow;
-  canWrite: boolean; canConvert: boolean;
+  canWrite: boolean; canAssign: boolean; canConvert: boolean;
   faplOptions: Opt[]; productOptions: ProductOpt[];
   clients: Array<Client & { id: string }>;
   clientOptions: Opt[]; subDsaOptions: Opt[]; partnerOptions: Opt[]; refData: RefData;
@@ -638,10 +638,18 @@ function LeadDrawer({ lead, canWrite, canConvert, faplOptions, productOptions, c
                     .map((s) => ({ value: s, label: STATUS_META[s].label }))} />
               </div>
               <div>
+                {/* Reassignment is a MANAGER action (server enforces too) — non-managers
+                    see the RM read-only; they claim work via the queue's Get-next-lead. */}
                 <FLabel text="Assigned RM" />
-                <SearchableSelect value={lead.assignedRm ?? ''} disabled={busy}
-                  onChange={(v) => patch({ assignedRm: v || null }, 'RM updated')}
-                  options={[{ value: '', label: 'Unassigned' }, ...faplOptions]} placeholder="Unassigned" />
+                {canAssign ? (
+                  <SearchableSelect value={lead.assignedRm ?? ''} disabled={busy}
+                    onChange={(v) => patch({ assignedRm: v || null }, 'RM updated')}
+                    options={[{ value: '', label: 'Unassigned' }, ...faplOptions]} placeholder="Unassigned" />
+                ) : (
+                  <p className="text-sm px-1 py-2" style={{ color: 'var(--text-secondary)' }}>
+                    {lead.assignedRm ? (faplOptions.find((o) => o.value === lead.assignedRm)?.label ?? lead.assignedRm) : 'Unassigned'}
+                  </p>
+                )}
                 {canWrite && lead.assignedRm && (
                   <ReleaseControl leadId={lead.id} onReleased={() => toast.success('Released back to the queue')} />
                 )}

@@ -94,7 +94,11 @@ export function ApplyLeavePage() {
   function getBalanceLabel(): string {
     if (!BALANCE_TYPES.has(leaveType)) return '';
     if (!balance) return '';
-    const remaining = balance[leaveType as 'casual' | 'sick' | 'earned' | 'comp_off']!.remaining;
+    // A PARTIAL balance doc (e.g. comp-off-only, seeded by a comp-off grant)
+    // has no entry for the other types — fall back to the HR Handbook default
+    // instead of crashing on a non-null assertion.
+    const t = leaveType as 'casual' | 'sick' | 'earned' | 'comp_off';
+    const remaining = balance[t]?.remaining ?? LEAVE_DEFAULT_TOTALS[t];
     return `${leaveType.charAt(0).toUpperCase() + leaveType.slice(1)} balance: ${remaining} day(s) remaining`;
   }
 

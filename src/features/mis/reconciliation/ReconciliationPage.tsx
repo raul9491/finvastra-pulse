@@ -9,6 +9,7 @@ import { LineMatchModal } from './LineMatchModal';
 import { Modal } from '../../../components/ui/Modal';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { useToast } from '../../../components/ui/Toast';
+import { userFacingError } from '../../../lib/errors';
 import type { CommissionStatement, StatementLine, StatementLineStatus } from '../../../types';
 import type { SearchableSelectOption } from '../../../components/ui/SearchableSelect';
 
@@ -164,7 +165,7 @@ export function ReconciliationPage() {
         'Auto-Match',
       );
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Auto-match failed.', 'Error');
+      toast.error(userFacingError(e, 'Auto-match failed — please try again.'), 'Error');
     } finally {
       setAutoMatchRunning(false);
     }
@@ -187,7 +188,7 @@ export function ReconciliationPage() {
       setExcludingLine(null);
       setExcludeReason('');
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Failed to exclude.', 'Error');
+      toast.error(userFacingError(e, 'Could not exclude the line — please try again.'), 'Error');
     } finally {
       setExcludeSaving(false);
     }
@@ -200,7 +201,7 @@ export function ReconciliationPage() {
       await unmatch(selectedId, line.id);
       toast.info('Line restored to unmatched.');
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Failed to unmatch.', 'Error');
+      toast.error(userFacingError(e, 'Could not unmatch the line — please try again.'), 'Error');
     }
   }
 
@@ -211,7 +212,7 @@ export function ReconciliationPage() {
       await unmatch(selectedId, line.id);
       toast.info('Line restored to unmatched.');
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Failed to restore.', 'Error');
+      toast.error(userFacingError(e, 'Could not restore the line — please try again.'), 'Error');
     }
   }
 
@@ -230,7 +231,7 @@ export function ReconciliationPage() {
       toast.success('Statement closed.', 'Closed');
       setCloseModalOpen(false);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Failed to close statement.', 'Error');
+      toast.error(userFacingError(e, 'Could not close the statement — please try again.'), 'Error');
     } finally {
       setCloseSaving(false);
     }

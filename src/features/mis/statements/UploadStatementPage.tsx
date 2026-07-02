@@ -4,6 +4,8 @@ import { useProviders } from '../../crm/hooks/useOpportunities';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../../lib/firebase';
+import { useToast } from '../../../components/ui/Toast';
+import { userFacingError } from '../../../lib/errors';
 import type { SearchableSelectOption } from '../../../components/ui/SearchableSelect';
 import type { StatementTemplate } from '../../../types';
 
@@ -123,6 +125,7 @@ function ColumnSelect({
 export function UploadStatementPage() {
   const navigate = useNavigate();
   const providers = useProviders();
+  const toast = useToast();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [error, setError] = useState<string | null>(null);
@@ -219,7 +222,7 @@ export function UploadStatementPage() {
       setConfirmedCols(mapped);
       setStep(2);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Upload failed.');
+      setError(userFacingError(e, 'Upload failed — please try again.'));
     } finally {
       setSubmitting(false);
     }
@@ -259,9 +262,10 @@ export function UploadStatementPage() {
       // Optionally persist the confirmed mapping as a bank template
       if (saveAsTemplate && !templateFound && uploadResp) {
         const h = uploadResp.headers;
+        const bankName = providers.find((p) => p.id === uploadResp.providerId)?.name ?? uploadResp.providerId;
         setDoc(doc(db, 'commission_statement_templates', uploadResp.providerId), {
           bankId: uploadResp.providerId,
-          bankName: providers.find((p) => p.id === uploadResp.providerId)?.name ?? uploadResp.providerId,
+          bankName,
           columnMappings: {
             date: h[confirmedCols.dateCol] ?? '',
             description: h[confirmedCols.descCol] ?? '',
@@ -270,10 +274,15 @@ export function UploadStatementPage() {
           },
           dateFormat: 'DD/MM/YYYY', skipRows: 0, amountMultiplier: 1,
           createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
-        }, { merge: true }).catch(() => {});
+        }, { merge: true })
+          .then(() => toast.success(`Column mapping saved as a template for ${bankName}.`, 'Template saved'))
+          .catch((e) => toast.error(
+            userFacingError(e, 'The statement imported, but the template could not be saved.'),
+            'Template not saved',
+          ));
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Processing failed.');
+      setError(userFacingError(e, 'Processing failed — please try again.'));
     } finally {
       setSubmitting(false);
     }

@@ -911,6 +911,7 @@ function EncashmentTab({ actorUid }: { actorUid: string }) {
   const [showRej,   setShowRej]   = useState<string | null>(null);
   const [busy,      setBusy]      = useState<string | null>(null);
   const [toast,     setToast]     = useState('');
+  const [toastErr,  setToastErr]  = useState(false);
 
   const pendingRequests = requests.filter((r) => r.status === 'pending');
   const otherRequests   = requests.filter((r) => r.status !== 'pending');
@@ -919,8 +920,14 @@ function EncashmentTab({ actorUid }: { actorUid: string }) {
     setBusy(id);
     try {
       await approveEncashmentRequest(id, actorUid);
+      setToastErr(false);
       setToast('Encashment request approved.');
-    } catch { setToast('Failed to approve.'); }
+    } catch (e) {
+      // The hook throws human-readable rejections (insufficient EL balance,
+      // FY 30-day cap, already processed) — show the actual reason.
+      setToastErr(true);
+      setToast(e instanceof Error && e.message ? e.message : 'Failed to approve.');
+    }
     finally { setBusy(null); }
   };
 
@@ -931,8 +938,9 @@ function EncashmentTab({ actorUid }: { actorUid: string }) {
       await rejectEncashmentRequest(id, actorUid, rejReason.trim());
       setShowRej(null);
       setRejReason('');
+      setToastErr(false);
       setToast('Encashment request rejected.');
-    } catch { setToast('Failed to reject.'); }
+    } catch { setToastErr(true); setToast('Failed to reject.'); }
     finally { setBusy(null); }
   };
 
@@ -941,9 +949,9 @@ function EncashmentTab({ actorUid }: { actorUid: string }) {
   return (
     <div className="p-6 space-y-5">
       {toast && (
-        <div className="flex items-center gap-2 p-3 rounded-xl" style={{ backgroundColor: '#F0FDF4' }}>
-          <CheckCircle2 size={14} style={{ color: '#059669' }} />
-          <p className="text-sm" style={{ color: '#065F46' }}>{toast}</p>
+        <div className="flex items-center gap-2 p-3 rounded-xl" style={{ backgroundColor: toastErr ? '#FEF2F2' : '#F0FDF4' }}>
+          <CheckCircle2 size={14} style={{ color: toastErr ? '#DC2626' : '#059669' }} />
+          <p className="text-sm" style={{ color: toastErr ? '#991B1B' : '#065F46' }}>{toast}</p>
         </div>
       )}
 

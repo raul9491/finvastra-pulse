@@ -5,7 +5,8 @@ import {
   where,
   orderBy,
   onSnapshot,
-  addDoc,
+  doc,
+  runTransaction,
 } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import type { Payslip } from '../../../types';
@@ -61,7 +62,21 @@ export function useAllPayslips(month: string): { payslips: Payslip[]; loading: b
 
 // ─── createPayslip ────────────────────────────────────────────────────────────
 // Admin only. Writes a new payslip document and returns its Firestore ID.
+//
+// Deterministic doc id `{employeeId}_{month}` + a transaction guarantee at
+// most ONE payslip per employee per month (the old addDoc random id allowed
+// silent duplicates on double-click / re-generation). Payslips created before
+// this change under random ids remain fully valid — every reader queries by
+// the employeeId/month FIELDS, never by document id.
 export async function createPayslip(data: Omit<Payslip, 'id'>): Promise<string> {
-  const ref = await addDoc(collection(db, 'payslips'), data);
-  return ref.id;
+  const id  = `${data.employeeId}_${data.month}`;
+  const ref = doc(db, 'payslips', id);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists()) {
+      throw new Error('A payslip for this employee and month already exists.');
+    }
+    tx.set(ref, data);
+  });
+  return id;
 }

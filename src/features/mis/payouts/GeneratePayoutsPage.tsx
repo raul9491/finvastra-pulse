@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { usePayoutSlabs, generatePayouts, previewPayouts } from '../hooks/usePayouts';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
+import { userFacingError } from '../../../lib/errors';
 import type { PayoutPreviewRow } from '../hooks/usePayouts';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -18,7 +19,6 @@ export function GeneratePayoutsPage() {
   const { user, profile } = useAuth();
 
   const isAdmin = profile?.role === 'admin' || profile?.misAccess === 'admin';
-  if (!isAdmin) return <Navigate to="/mis/payouts" replace />;
 
   const { slabs } = usePayoutSlabs();
   const { employees } = useAllEmployees();
@@ -32,6 +32,10 @@ export function GeneratePayoutsPage() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Guard AFTER all hooks — an early return above hooks crashes with React #310
+  // if the admin flag flips between renders (repo rule: hooks above any return).
+  if (!isAdmin) return <Navigate to="/mis/payouts" replace />;
+
   async function handlePreview() {
     if (!period) { setError('Please select a period.'); return; }
     setError(null);
@@ -43,7 +47,7 @@ export function GeneratePayoutsPage() {
         setError('No paid commission records found for this period.');
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Preview failed.');
+      setError(userFacingError(e, 'Could not build the payout preview — please try again.'));
     } finally {
       setPreviewing(false);
     }
@@ -65,7 +69,7 @@ export function GeneratePayoutsPage() {
         state: { successMessage: `${count} payout${count !== 1 ? 's' : ''} generated successfully.` },
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Generation failed.');
+      setError(userFacingError(e, 'Could not generate payouts — please try again.'));
       setGenerating(false);
     }
   }

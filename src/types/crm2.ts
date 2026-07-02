@@ -40,7 +40,7 @@ export const CRM2_PERM_KEYS = [
   'crm.cases.read', 'crm.cases.write',
   'crm.masters.write',
   'payout.read', 'payout.write', 'payout.amounts.read',
-  'mis.read', 'recon.read',
+  'mis.read', 'recon.read', 'recon.write',
 ] as const;
 export type Crm2PermKey = typeof CRM2_PERM_KEYS[number];
 export type PermsMap = Partial<Record<Crm2PermKey, boolean>>;

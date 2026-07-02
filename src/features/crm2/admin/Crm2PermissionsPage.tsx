@@ -19,7 +19,7 @@ import type { UserProfile } from '../../../types';
 const KEY_GROUPS: Array<{ label: string; keys: Crm2PermKey[] }> = [
   { label: 'CRM',    keys: ['crm.leads.read', 'crm.leads.write', 'crm.cases.read', 'crm.cases.write', 'crm.masters.write'] },
   { label: 'Payout', keys: ['payout.read', 'payout.write', 'payout.amounts.read'] },
-  { label: 'MIS & Recon', keys: ['mis.read', 'recon.read'] },
+  { label: 'MIS & Recon', keys: ['mis.read', 'recon.read', 'recon.write'] },
 ];
 
 type EmployeeRow = UserProfile & { perms?: Partial<Record<Crm2PermKey, boolean>> };

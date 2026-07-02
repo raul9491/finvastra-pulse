@@ -34,6 +34,8 @@ export function MisGridPage() {
   const [busy, setBusy] = useState(false);
   const { rows: aggregators } = useCrm2Collection<Aggregator & { id: string }>('aggregators');
   const canMoney = hasCrm2Perm(profile, 'payout.amounts.read');
+  // Share stamps dataSharedAt on the cycles → needs payout.write too (NOTHING LOCKED: omit, don't disable).
+  const canShare = canMoney && hasCrm2Perm(profile, 'payout.write');
 
   const load = async () => {
     setLoading(true);
@@ -53,24 +55,28 @@ export function MisGridPage() {
     return [...m.entries()];
   }, [rows]);
 
-  // xlsx download (and share) go through fetch directly to read the binary / json.
+  // xlsx download stays a pure GET; the SHARE action mutates the cycles (stamps
+  // dataSharedAt) so it goes via POST /api/crm2/mis/business-sheet/share — the
+  // server requires payout.amounts.read + payout.write for it.
   const callSheet = async (share: boolean) => {
     setBusy(true);
     try {
-      const token = await auth.currentUser?.getIdToken();
-      const qs = new URLSearchParams({ month });
-      if (connectorId) qs.set('connectorId', connectorId);
-      if (share) { qs.set('share', '1'); qs.set('dataSharedTo', connectorId ? (aggregators.find((a) => a.id === connectorId)?.name ?? connectorId) : 'aggregator'); }
-      const res = await fetch(`/api/crm2/mis/business-sheet?${qs}`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       if (share) {
-        const data = await res.json();
+        const dataSharedTo = connectorId ? (aggregators.find((a) => a.id === connectorId)?.name ?? connectorId) : 'aggregator';
+        const data = await apiCrm2<{ ok: boolean; shared: number; base64: string }>(
+          'POST', '/api/crm2/mis/business-sheet/share',
+          { month, ...(connectorId ? { connectorId } : {}), dataSharedTo });
         toast.success(`Shared — dataSharedAt stamped on ${data.shared} cycle(s)`);
         // also offer the file
         const blob = new Blob([Uint8Array.from(atob(data.base64), (c) => c.charCodeAt(0))], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         triggerDownload(blob);
         await load();
       } else {
+        const token = await auth.currentUser?.getIdToken();
+        const qs = new URLSearchParams({ month });
+        if (connectorId) qs.set('connectorId', connectorId);
+        const res = await fetch(`/api/crm2/mis/business-sheet?${qs}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         triggerDownload(await res.blob());
       }
     } catch (e) {
@@ -107,7 +113,7 @@ export function MisGridPage() {
             {rmOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
           </select>
           <button onClick={() => callSheet(false)} disabled={busy} className="glass-panel px-3 py-2 text-sm flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}><Download size={14} /> xlsx</button>
-          <button onClick={() => callSheet(true)} disabled={busy} className="px-3 py-2 rounded-lg text-sm font-semibold inline-flex items-center gap-1.5" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}><Send size={14} /> Share sheet</button>
+          {canShare && <button onClick={() => callSheet(true)} disabled={busy} className="px-3 py-2 rounded-lg text-sm font-semibold inline-flex items-center gap-1.5" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}><Send size={14} /> Share sheet</button>}
           <button onClick={load} className="glass-panel px-2.5 py-2" style={{ color: 'var(--text-secondary)' }}><RefreshCw size={14} /></button>
         </div>
       </div>

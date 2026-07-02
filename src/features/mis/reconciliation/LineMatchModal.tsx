@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { Modal } from '../../../components/ui/Modal';
+import { userFacingError } from '../../../lib/errors';
 import { manualMatch } from '../hooks/useReconciliation';
 import type { StatementLine, CommissionRecord } from '../../../types';
 
@@ -60,7 +61,7 @@ export function LineMatchModal({ isOpen, onClose, statementId, line, reconciledB
         setRecords(snap.docs.map((d) => ({ id: d.id, ...d.data() } as RecordWithId)));
       })
       .catch((e: unknown) => {
-        setError(e instanceof Error ? e.message : 'Failed to load commission records.');
+        setError(userFacingError(e, 'Could not load commission records — please try again.'));
       })
       .finally(() => setRecordsLoading(false));
   }, [isOpen, line.providerId]);
@@ -93,7 +94,7 @@ export function LineMatchModal({ isOpen, onClose, statementId, line, reconciledB
       );
       onClose();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to save match.');
+      setError(userFacingError(e, 'Could not save the match — please try again.'));
     } finally {
       setSaving(false);
     }

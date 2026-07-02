@@ -10,6 +10,7 @@ import {
   setDoc,
   doc,
   getDoc,
+  runTransaction,
   serverTimestamp,
 } from 'firebase/firestore';
 import { parseISO, eachDayOfInterval, format } from 'date-fns';
@@ -24,6 +25,16 @@ import type { LeaveApplication, LeaveBalance, LeaveType, Holiday } from '../../.
 export function currentLeaveYear(): number {
   const now = new Date();
   return now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+}
+
+// Financial year a given YYYY-MM-DD date belongs to — same April–March
+// convention as currentLeaveYear(). Balance mutations must be keyed off the
+// LEAVE'S OWN dates (fromDate), not the day the admin happens to click
+// approve/cancel: a March leave approved in April previously debited the NEW
+// FY's fresh balance instead of the FY the leave was taken in.
+export function leaveYearOf(dateStr: string): number {
+  const d = parseISO(dateStr);
+  return d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
 }
 
 // HR Handbook annual entitlements — used when a balance doc/entry doesn't
@@ -179,42 +190,55 @@ export async function approveLeave(
   _calendarTokens?: unknown,
 ): Promise<void> {
   const appRef = doc(db, 'leave_applications', applicationId);
-  const appSnap = await getDoc(appRef);
-  if (!appSnap.exists()) throw new Error('Leave application not found');
 
-  const application = appSnap.data() as Omit<LeaveApplication, 'id'>;
+  // One atomic transaction covering the application doc + the balance doc:
+  //  - a second approve click (or two admins) re-reads status inside the tx
+  //    and bails, so the balance can never be decremented twice;
+  //  - the status flip and the balance debit commit together or not at all.
+  // Firestore tx rule: ALL reads happen before any write.
+  await runTransaction(db, async (tx) => {
+    const appSnap = await tx.get(appRef);
+    if (!appSnap.exists()) throw new Error('Leave application not found');
+    const application = appSnap.data() as Omit<LeaveApplication, 'id'>;
 
-  // Update application status
-  await updateDoc(appRef, {
-    status: 'approved',
-    approvedBy,
-    approvedAt: serverTimestamp(),
+    if (application.status !== 'pending') {
+      throw new Error('This leave application has already been processed.');
+    }
+
+    // Deduct from leave balance (casual / sick / earned / comp_off have tracked balances)
+    const balanceType = application.type as LeaveType;
+    let commitBalance: (() => void) | null = null;
+    if (balanceType === 'casual' || balanceType === 'sick' || balanceType === 'earned' || balanceType === 'comp_off') {
+      // FY keyed off the leave's OWN fromDate, not the approval click date (C3).
+      const year = leaveYearOf(application.fromDate);
+      const balanceRef = doc(db, 'leave_balances', `${application.employeeId}_${year}`);
+      const balSnap = await tx.get(balanceRef);
+
+      // When the doc or the type entry is missing, seed from the HR Handbook
+      // defaults — NOT total:0, which would permanently show a zero balance once
+      // the doc exists (the UI's "?? default" fallback only applies to a null doc).
+      const existingEntry = balSnap.exists()
+        ? (balSnap.data() as LeaveBalance)[balanceType]
+        : undefined;
+      const total = existingEntry?.total ?? LEAVE_DEFAULT_TOTALS[balanceType];
+
+      const newUsed      = (existingEntry?.used ?? 0) + application.days;
+      const newRemaining = Math.max(0, total - newUsed);
+
+      commitBalance = () => tx.set(balanceRef, {
+        employeeId: application.employeeId,
+        year,
+        [balanceType]: { total, used: newUsed, remaining: newRemaining },
+      }, { merge: true });
+    }
+
+    tx.update(appRef, {
+      status: 'approved',
+      approvedBy,
+      approvedAt: serverTimestamp(),
+    });
+    commitBalance?.();
   });
-
-  // Deduct from leave balance (casual / sick / earned / comp_off have tracked balances)
-  const balanceType = application.type as LeaveType;
-  if (balanceType === 'casual' || balanceType === 'sick' || balanceType === 'earned' || balanceType === 'comp_off') {
-    const year = currentLeaveYear();
-    const balanceRef = doc(db, 'leave_balances', `${application.employeeId}_${year}`);
-    const balSnap = await getDoc(balanceRef);
-
-    // When the doc or the type entry is missing, seed from the HR Handbook
-    // defaults — NOT total:0, which would permanently show a zero balance once
-    // the doc exists (the UI's "?? default" fallback only applies to a null doc).
-    const existingEntry = balSnap.exists()
-      ? (balSnap.data() as LeaveBalance)[balanceType]
-      : undefined;
-    const total = existingEntry?.total ?? LEAVE_DEFAULT_TOTALS[balanceType];
-
-    const newUsed      = (existingEntry?.used ?? 0) + application.days;
-    const newRemaining = Math.max(0, total - newUsed);
-
-    await setDoc(balanceRef, {
-      employeeId: application.employeeId,
-      year,
-      [balanceType]: { total, used: newUsed, remaining: newRemaining },
-    }, { merge: true });
-  }
 
   // Fire-and-forget: ask the server to create a Google Calendar event.
   // The server uses the admin's stored oauth2Client credentials, so no tokens
@@ -267,7 +291,9 @@ export async function cancelLeave(applicationId: string): Promise<void> {
   const balanceType = application?.type as LeaveType | undefined;
   if (application?.status === 'approved' &&
       (balanceType === 'casual' || balanceType === 'sick' || balanceType === 'earned' || balanceType === 'comp_off')) {
-    const year = currentLeaveYear();
+    // Refund the SAME FY doc the approval debited — keyed off the leave's own
+    // fromDate, not the cancellation click date (C3).
+    const year = leaveYearOf(application.fromDate);
     const balanceRef = doc(db, 'leave_balances', `${application.employeeId}_${year}`);
     const balSnap = await getDoc(balanceRef);
     if (balSnap.exists()) {

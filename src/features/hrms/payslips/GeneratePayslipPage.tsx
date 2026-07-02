@@ -229,6 +229,8 @@ export function GeneratePayslipPage() {
   const [saving, setSaving] = useState<Set<string>>(new Set());
   const [generateAllBusy, setGenerateAllBusy] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  // Human-readable generation error (e.g. duplicate payslip) — shown in a banner.
+  const [genError, setGenError] = useState('');
 
   // MIS payout suggestions: Map<userId, payoutAmount> for approved/paid payouts this month
   const [misPayouts,  setMisPayouts]  = useState<Map<string, number>>(new Map());
@@ -442,7 +444,11 @@ export function GeneratePayslipPage() {
 
   // ─── Generate one payslip ─────────────────────────────────────────────────
 
-  async function handleGenerate(emp: UserProfile) {
+  // Returns true on success, false when this employee was skipped (e.g. a
+  // payslip already exists — createPayslip throws on its deterministic-id
+  // duplicate guard). Errors are caught HERE so a single failure never crashes
+  // the button click nor aborts a Generate-All batch.
+  async function handleGenerate(emp: UserProfile): Promise<boolean> {
     const values = formState.get(emp.userId) ?? defaultValues();
     const { totalEarnings, totalDeductions, netPay } = computeNetPay(values);
 
@@ -494,6 +500,12 @@ export function GeneratePayslipPage() {
           ctaLink:  'https://pulse.finvastra.com/hrms/payslips',
         }),
       }).catch(() => {});
+      return true;
+    } catch (err) {
+      console.error('[GeneratePayslipPage] generate failed:', err);
+      const msg = err instanceof Error && err.message ? err.message : 'Failed to generate payslip.';
+      setGenError(`${emp.displayName || emp.userId}: ${msg}`);
+      return false;
     } finally {
       setSaving((prev) => {
         const next = new Set(prev);
@@ -518,12 +530,21 @@ export function GeneratePayslipPage() {
   async function handleGenerateAll() {
     setShowConfirm(false);
     setGenerateAllBusy(true);
+    setGenError('');
+    let done = 0;
+    let skipped = 0;
     try {
       for (const emp of pendingEmployees) {
-        await handleGenerate(emp);
+        // handleGenerate catches its own errors (duplicate payslip etc.) and
+        // returns false — one bad employee must not abort the whole batch.
+        const ok = await handleGenerate(emp);
+        if (ok) done += 1; else skipped += 1;
       }
     } finally {
       setGenerateAllBusy(false);
+    }
+    if (skipped > 0) {
+      setGenError(`Generated ${done} payslip(s); skipped ${skipped} (e.g. a payslip already exists for that employee and month).`);
     }
   }
 
@@ -592,6 +613,23 @@ export function GeneratePayslipPage() {
           </button>
         </div>
       </div>
+
+      {/* Generation error banner (duplicate payslip, write failure, …) */}
+      {genError && (
+        <div
+          className="mb-4 flex items-start justify-between gap-3 p-3 rounded-xl text-sm"
+          style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA', color: '#991B1B' }}
+        >
+          <span>{genError}</span>
+          <button
+            onClick={() => setGenError('')}
+            className="text-xs font-semibold shrink-0 hover:opacity-70"
+            style={{ color: '#991B1B' }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Confirm modal */}
       {showConfirm && (

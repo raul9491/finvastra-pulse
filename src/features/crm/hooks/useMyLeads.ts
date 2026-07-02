@@ -95,7 +95,9 @@ function sortByUrgency(items: LeadWithOpportunity[]): LeadWithOpportunity[] {
 /**
  * Real-time subscription to all active leads assigned to `userId` as
  * primaryOwner.  For each lead it fetches the most-recent open loan
- * opportunity (one getDocs per lead, batched via Promise.all).
+ * opportunity — fetched once per lead and cached; on subsequent snapshots
+ * only added/modified leads refetch their subcollection (avoids the N+1
+ * "refetch every lead's opportunities on any single lead change" pattern).
  *
  * The returned `leads` array is sorted by urgency:
  *   1. Overdue SLA (earliest deadline first)
@@ -131,34 +133,60 @@ export function useMyLeads(userId: string): UseMyLeadsResult {
       orderBy('createdAt', 'desc'),
     );
 
+    // Per-lead cache of the resolved first open opportunity. Persists across
+    // snapshots for the lifetime of this subscription, so unchanged leads
+    // never refetch their opportunities subcollection.
+    const oppCache = new Map<string, Opportunity | null>();
+    // Guards against out-of-order async snapshot processing: only the latest
+    // snapshot's results are applied to state.
+    let latestVersion = 0;
+    let disposed = false;
+
     const unsubscribe = onSnapshot(
       leadsQuery,
       async (snapshot) => {
+        const version = ++latestVersion;
         try {
-          const rawLeads = snapshot.docs.map(
-            (d) => ({ id: d.id, ...d.data() } as Lead),
-          );
+          // Determine which leads actually need an opportunity (re)fetch.
+          // First snapshot reports every doc as 'added'; later snapshots only
+          // the deltas — the same trigger points the old code had for a
+          // changed lead, minus the redundant refetch of every OTHER lead.
+          const toFetch: string[] = [];
+          for (const change of snapshot.docChanges()) {
+            if (change.type === 'removed') {
+              oppCache.delete(change.doc.id);
+            } else {
+              // 'added' | 'modified' — refresh this lead's open opportunity
+              toFetch.push(change.doc.id);
+            }
+          }
 
-          // Batch-fetch the first open loan opportunity for every lead.
-          // Doing this concurrently (Promise.all) rather than sequentially
-          // keeps the waterfall flat even for large lead lists.
-          const leadsWithOpps: LeadWithOpportunity[] = await Promise.all(
-            rawLeads.map(async (lead) => {
+          await Promise.all(
+            toFetch.map(async (leadId) => {
               const oppsSnap = await getDocs(
                 query(
-                  collection(db, 'leads', lead.id, 'opportunities'),
+                  collection(db, 'leads', leadId, 'opportunities'),
                   where('status', '==', 'open'),
                   orderBy('createdAt', 'desc'),
                   limit(1),
                 ),
               );
-              const firstOpenOpportunity = oppsSnap.empty
-                ? null
-                : ({ id: oppsSnap.docs[0].id, ...oppsSnap.docs[0].data() } as Opportunity);
-
-              return { lead, firstOpenOpportunity };
+              oppCache.set(
+                leadId,
+                oppsSnap.empty
+                  ? null
+                  : ({ id: oppsSnap.docs[0].id, ...oppsSnap.docs[0].data() } as Opportunity),
+              );
             }),
           );
+
+          // A newer snapshot arrived while we were fetching — let it win.
+          if (disposed || version !== latestVersion) return;
+
+          const leadsWithOpps: LeadWithOpportunity[] = snapshot.docs.map((d) => {
+            const lead = { id: d.id, ...d.data() } as Lead;
+            return { lead, firstOpenOpportunity: oppCache.get(lead.id) ?? null };
+          });
 
           // Compute counts from unsorted raw data so numbers are stable
           // regardless of how the sorted array ends up ordered.
@@ -181,6 +209,7 @@ export function useMyLeads(userId: string): UseMyLeadsResult {
           setTotal(leadsWithOpps.length);
           setLoading(false);
         } catch (err) {
+          if (disposed || version !== latestVersion) return;
           setError(err instanceof Error ? err.message : String(err));
           setLoading(false);
         }
@@ -191,7 +220,10 @@ export function useMyLeads(userId: string): UseMyLeadsResult {
       },
     );
 
-    return unsubscribe;
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
   }, [userId]);
 
   // All hooks declared above — safe to short-circuit for empty userId.

@@ -20,7 +20,7 @@ import {
   BarChart3, Upload, PackageOpen, User, Webhook, GitMerge, IndianRupee,
   AlertTriangle, Command,
   Layers, Eye, Share2, Trash2, Contact, Hourglass, ClipboardCheck, PieChart, Banknote, Award, FileSpreadsheet, Wallet,
-  MessageCircle, BellRing,
+  MessageCircle, BellRing, PhoneCall,
 } from 'lucide-react';
 import type { User as FbUser } from 'firebase/auth';
 import type { UserProfile } from '../types';
@@ -156,6 +156,7 @@ export const NAV_NODES: NavNode[] = [
   { key: 'crm.dashboards',        label: 'Analytics',           route: '/crm/pipeline/dashboards',    module: 'crm', icon: 'BarChart3',       group: 'Dashboard', access: crmAdmin, keywords: ['crm 2.0 dashboards', 'funnel', 'payout health', 'receivables', 'margin', 'scorecard', 'reports'] },
   { key: 'crm.tasks',             label: 'Tasks',               route: '/crm/tasks',                  module: 'crm', icon: 'ListChecks',      group: 'Workspace', access: crm, keywords: ['my queue', 'meetings'], badgeKey: 'crm.queueOverdue' },
   { key: 'crm.targets',           label: 'Targets',             route: '/crm/targets',                module: 'crm', icon: 'Target',          group: 'Workspace', access: crm, badgeKey: 'crm.targetMissing' },
+  { key: 'crm.myActivity',        label: 'My Activity',         route: '/crm/my-activity',            module: 'crm', icon: 'PhoneCall',       group: 'Workspace', access: crm, keywords: ['calls', 'outbound', 'call log', 'untouched', 'activity', 'attempts'] },
   { key: 'crm.customers',         label: 'Customers',           route: '/crm/leads',                  module: 'crm', icon: 'Contact',      group: 'Customers', access: crm, keywords: ['leads', 'cold', 'prospects', 'contacts'] },
   { key: 'crm.pipeline-leads',    label: 'Leads',               route: '/crm/pipeline/leads',         module: 'crm', icon: 'Inbox',           group: 'Pipeline',  access: crmLeads, keywords: ['qualified', 'crm 2.0', 'interested'], end: true },
   { key: 'crm.pipeline-clients',  label: 'Clients',             route: '/crm/pipeline/clients',       module: 'crm', icon: 'Building2',       group: 'Pipeline',  access: crmClients, end: true },
@@ -230,7 +231,7 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   BarChart3, Upload, PackageOpen, User, Webhook, GitMerge, IndianRupee,
   AlertTriangle, Command,
   Layers, Eye, Share2, Trash2, Contact, Hourglass, ClipboardCheck, PieChart, Banknote, Award, FileSpreadsheet, Wallet,
-  MessageCircle, BellRing,
+  MessageCircle, BellRing, PhoneCall,
 };
 
 export function resolveNavIcon(name: string): LucideIcon {

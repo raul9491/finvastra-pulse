@@ -2931,6 +2931,10 @@ async function startServer() {
       // Per-person lead-status breakdown — what each rep's customers answered, so
       // a manager can see status at a glance before deciding any manual reassign.
       status: { new: 0, interested: 0, callback: 0, not_interested: 0, no_response: 0, wrong_number: 0, converted: 0 } as Record<string, number>,
+      // Tagged→attempted funnel: attempted = firstContactedAt stamped (first call/
+      // attempt logged); untouched = still status 'new' AND never contacted — the
+      // "data given but not worked" signal managers need at a glance.
+      attempted: 0, untouched: 0,
       lastActivityMs: 0,
     });
 
@@ -2944,6 +2948,8 @@ async function startServer() {
       a.leads++;
       const st = (typeof l.leadStatus === "string" && l.leadStatus) ? l.leadStatus : "new";
       a.status[st] = (a.status[st] ?? 0) + 1;
+      if (l.firstContactedAt) a.attempted++;
+      else if (st === "new") a.untouched++;
       const uMs = l.updatedAt?.toMillis ? l.updatedAt.toMillis() : 0;
       if (uMs > a.lastActivityMs) a.lastActivityMs = uMs;
       const cms = l.createdAt?.toMillis ? l.createdAt.toMillis() : 0;
@@ -3116,6 +3122,97 @@ async function startServer() {
         .filter((m) => byUid.has(m.uid))
         .sort((a, b) => a.name.localeCompare(b.name));
       return res.json({ managers });
+    } catch (e) { return res.status(500).json({ error: String(e) }); }
+  });
+
+  // GET /api/crm/activity/summary?period=YYYY-MM[&uid=UID]
+  // The outbound-call activity view for ONE person: tagged → attempted → outcome.
+  // Powers /crm/my-activity. Anyone may view THEMSELVES; a CRM manager may view
+  // anyone in their downline; admin/super-admin may view anyone. Pure aggregation
+  // via Admin SDK over the person's owned leads + their logged activities (the
+  // existing activities (by, at) collection-group index).
+  app.get("/api/crm/activity/summary", async (req, res) => {
+    try {
+      const uid = await verifyFirebaseToken(req);
+      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+      const q = req.query.period;
+      const period = typeof q === "string" && /^\d{4}-\d{2}$/.test(q) ? q : new Date().toISOString().slice(0, 7);
+      const reqUid = typeof req.query.uid === "string" && req.query.uid ? req.query.uid : uid;
+
+      let target = uid;
+      if (reqUid !== uid) {
+        const callerDoc = await db.collection("users").doc(uid).get();
+        const caller: any = callerDoc.data() ?? {};
+        if (caller.role === "admin" || isSuperAdmin(uid)) target = reqUid;
+        else if (caller.crmRole === "manager") {
+          const usersSnap = await db.collection("users").get();
+          const users = usersSnap.docs.map((d) => ({ uid: d.id, ...(d.data() as any) }));
+          if (!computeDownline(users, uid).has(reqUid)) return res.status(403).json({ error: "Not your team member" });
+          target = reqUid;
+        } else return res.status(403).json({ error: "Forbidden" });
+      }
+
+      const startMs = periodStartMs(period);
+      const endMs = new Date(Number(period.slice(0, 4)), Number(period.slice(5, 7)), 1).getTime();
+      const TOUCH_TYPES = ["call", "whatsapp", "email", "meeting"];
+      const [leadsSnap, actSnap, targetDoc] = await Promise.all([
+        db.collection("leads").where("primaryOwnerId", "==", target).where("deleted", "==", false).get(),
+        db.collectionGroup("activities").where("by", "==", target).orderBy("at", "desc").limit(5000).get(),
+        db.collection("users").doc(target).get(),
+      ]);
+
+      // Owned customers: total tagged, tagged this period (when the data was
+      // handed to them), attempted (first contact stamped), disposition mix, and
+      // the untouched list — status still 'new' AND never contacted.
+      const status: Record<string, number> = { new: 0, interested: 0, callback: 0, not_interested: 0, no_response: 0, wrong_number: 0, converted: 0 };
+      let tagged = 0, taggedInPeriod = 0, attempted = 0;
+      const untouched: Array<{ leadId: string; name: string; taggedAtMs: number | null; importName: string | null }> = [];
+      leadsSnap.forEach((d) => {
+        const l: any = d.data();
+        tagged++;
+        const st = (typeof l.leadStatus === "string" && l.leadStatus) ? l.leadStatus : "new";
+        status[st] = (status[st] ?? 0) + 1;
+        const tMs = l.assignedToCurrentOwnerAt?.toMillis ? l.assignedToCurrentOwnerAt.toMillis()
+          : (l.createdAt?.toMillis ? l.createdAt.toMillis() : 0);
+        if (tMs >= startMs && tMs < endMs) taggedInPeriod++;
+        if (l.firstContactedAt) attempted++;
+        else if (st === "new") untouched.push({ leadId: d.id, name: l.displayName ?? "Lead", taggedAtMs: tMs || null, importName: l.importName ?? null });
+      });
+      untouched.sort((a, b) => (a.taggedAtMs ?? 0) - (b.taggedAtMs ?? 0)); // oldest data first
+
+      // Activity in the period: counts by type, per-IST-day outreach, unique
+      // customers touched, and a recent drill-down list.
+      const byType: Record<string, number> = { call: 0, whatsapp: 0, email: 0, meeting: 0, note: 0, status_change: 0 };
+      const daily = new Map<string, number>();
+      const touchedLeads = new Set<string>();
+      const recent: any[] = [];
+      actSnap.forEach((d) => {
+        const a: any = d.data();
+        const atMs = a.at?.toMillis ? a.at.toMillis() : 0;
+        if (atMs < startMs || atMs >= endMs) return;
+        const type = typeof a.type === "string" ? a.type : "note";
+        byType[type] = (byType[type] ?? 0) + 1;
+        const segs = d.ref.path.split("/");
+        const leadId = segs[0] === "leads" ? segs[1] : null;
+        if (TOUCH_TYPES.includes(type)) {
+          if (leadId) touchedLeads.add(leadId);
+          const istDay = new Date(atMs + 330 * 60000).toISOString().slice(0, 10);
+          daily.set(istDay, (daily.get(istDay) ?? 0) + 1);
+        }
+        if (recent.length < 150) recent.push({ leadId, type, atMs, content: typeof a.content === "string" ? a.content.slice(0, 140) : "" });
+      });
+      const nameById = new Map(leadsSnap.docs.map((d) => [d.id, (d.data() as any).displayName ?? "Customer"]));
+      for (const r of recent) r.leadName = (r.leadId && nameById.get(r.leadId)) || "Customer";
+
+      return res.json({
+        period, uid: target, name: targetDoc.data()?.displayName ?? "—",
+        tagged, taggedInPeriod, attempted, status,
+        untouchedCount: untouched.length, untouched: untouched.slice(0, 100),
+        byType, totalTouches: TOUCH_TYPES.reduce((s, t) => s + byType[t], 0),
+        uniqueCustomersTouched: touchedLeads.size,
+        daily: [...daily.entries()].sort().map(([date, count]) => ({ date, count })),
+        recent,
+      });
     } catch (e) { return res.status(500).json({ error: String(e) }); }
   });
 

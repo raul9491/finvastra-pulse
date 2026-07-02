@@ -56,6 +56,8 @@ interface MemberRow {
   conversionRate: number;           // converted / leads, %
   inactiveDays: number | null;      // days since last lead activity (null = never)
   callsLogged?: number | null;      // contact touches this period (call/whatsapp/email/meeting)
+  attempted?: number;               // owned leads with a first contact stamped
+  untouched?: number;               // tagged but never contacted AND still status 'new'
   isHead?: boolean;
 }
 interface ManagerOption { uid: string; name: string; memberCount: number; }
@@ -762,6 +764,7 @@ export function TeamPerformancePage() {
                     <th className="text-right font-semibold px-3 py-2">SLA</th>
                     <th className="text-right font-semibold px-3 py-2">Callbacks</th>
                     <th className="text-right font-semibold px-3 py-2" title="Call / WhatsApp / email / meeting activities logged this month">Touches</th>
+                    <th className="text-right font-semibold px-3 py-2" title="Tagged customers this person has never contacted">Untouched</th>
                     <th className="text-center font-semibold px-3 py-2">Flag</th>
                     <th className="text-right font-semibold px-4 py-2"></th>
                   </tr>
@@ -803,7 +806,14 @@ export function TeamPerformancePage() {
                       </td>
                       <td className="text-right px-3 py-2.5" style={{ color: m.overdueSla > 0 ? '#f87171' : 'var(--text-muted)', fontWeight: m.overdueSla > 0 ? 700 : 400 }}>{m.overdueSla}</td>
                       <td className="text-right px-3 py-2.5" style={{ color: m.dueCallbacks > 0 ? '#C9A961' : 'var(--text-muted)', fontWeight: m.dueCallbacks > 0 ? 700 : 400 }}>{m.dueCallbacks}</td>
-                      <td className="text-right px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{m.callsLogged ?? '—'}</td>
+                      <td className="text-right px-3 py-2.5">
+                        <button onClick={() => navigate(`/crm/my-activity?uid=${m.uid}`)}
+                          className="font-semibold hover:underline" title="Open this person's call activity"
+                          style={{ color: '#C9A961' }}>
+                          {m.callsLogged ?? '—'}
+                        </button>
+                      </td>
+                      <td className="text-right px-3 py-2.5" style={{ color: (m.untouched ?? 0) > 0 ? '#f87171' : 'var(--text-muted)', fontWeight: (m.untouched ?? 0) > 0 ? 700 : 400 }}>{m.untouched ?? '—'}</td>
                       <td className="text-center px-3 py-2.5"><FlagPill flag={coachFlag(m, teamTopDisbursal)} /></td>
                       <td className="text-right px-4 py-2.5">
                         <button onClick={() => setDrillMember(m)}

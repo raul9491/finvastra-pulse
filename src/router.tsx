@@ -147,6 +147,7 @@ const MyReferralsPage          = lazyPage(() => import('./features/crm/referrals
 const SubmitReferralPage       = lazyPage(() => import('./features/crm/referrals/SubmitReferralPage'), 'SubmitReferralPage');
 const ImportReferralsPage      = lazyPage(() => import('./features/crm/referrals/ImportReferralsPage'), 'ImportReferralsPage');
 const TargetsPage              = lazyPage(() => import('./features/crm/targets/TargetsPage'), 'TargetsPage');
+const MyActivityPage           = lazyPage(() => import('./features/crm/activity/MyActivityPage'), 'MyActivityPage');
 const LeadAgingPage            = lazyPage(() => import('./features/crm/reports/LeadAgingPage'), 'LeadAgingPage');
 const CommandCentrePage        = lazyPage(() => import('./features/crm/dashboard/CommandCentrePage'), 'CommandCentrePage');
 const TeamPerformancePage      = lazyPage(() => import('./features/crm/team/TeamPerformancePage'), 'TeamPerformancePage');
@@ -330,6 +331,7 @@ export const router = createBrowserRouter([
       { path: 'import/queue',                element: s(<ImportQueuePage />) },
       { path: 'import/history',          element: s(<ImportHistoryPage />) },
       { path: 'targets',                     element: s(<TargetsPage />) },
+      { path: 'my-activity',                 element: s(<MyActivityPage />) },
       { path: 'meetings',                    element: s(<MyMeetingsPage />) },
       { path: 'learn',                       element: s(<CrmLearnPage />) },
       { path: 'reports/aging',               element: s(<LeadAgingPage />) },

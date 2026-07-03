@@ -40,8 +40,11 @@ function TableSkeleton() {
   );
 }
 
+// "Interested" is deliberately NOT a board column: marking a customer Interested
+// promotes them into CRM 2.0 Leads (they leave this page). An interested-but-not-
+// yet-promoted customer (dispositioned by someone without crm.leads.write) stays
+// in the TABLE with a green "move to Leads" badge so a manager promotes them.
 const LEAD_BOARD_COLUMNS = [
-  { key: 'interested',     label: 'Interested',     color: '#34d399' },
   { key: 'callback',       label: 'Callback later', color: '#C9A961' },
   { key: 'no_response',    label: 'No response',    color: '#fbbf24' },
   { key: 'not_interested', label: 'Not interested', color: '#f87171' },
@@ -114,15 +117,16 @@ export function LeadsPage() {
     });
   }, [leads, search, filterSource, filterImport, filterRm, filterUnassigned]);
 
-  // Dispositioned leads move to the Kanban board; only "remaining" leads stay in the table.
+  // Dispositioned leads move to the answer board; un-actioned leads stay in the
+  // table — PLUS interested-but-not-yet-promoted ones (they need moving to Leads).
   const tableLeads = useMemo(
-    () => filtered.filter((l) => !l.leadStatus || l.leadStatus === 'new'),
+    () => filtered.filter((l) => !l.leadStatus || l.leadStatus === 'new' || l.leadStatus === 'interested'),
     [filtered],
   );
   const boardByStatus = useMemo(() => {
     const m = new Map<string, Lead[]>();
     filtered.forEach((l) => {
-      if (l.leadStatus && l.leadStatus !== 'new') {
+      if (l.leadStatus && l.leadStatus !== 'new' && l.leadStatus !== 'interested') {
         if (!m.has(l.leadStatus)) m.set(l.leadStatus, []);
         m.get(l.leadStatus)!.push(l);
       }
@@ -266,14 +270,14 @@ export function LeadsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="min-w-0">
-          <h1 className="h-display text-3xl" style={{ color: 'var(--text-primary)' }}>
-            Customers <span className="text-base align-middle px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-muted)' }}>Legacy</span>
-          </h1>
+          <h1 className="h-display text-3xl" style={{ color: 'var(--text-primary)' }}>Customers</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            {loading ? 'Loading…' : `Everyone you talk to — ${tableLeads.length} to action · ${filtered.length} total.`}
+            {loading
+              ? 'Loading…'
+              : `${tableLeads.length} waiting for a call (table below) · ${filtered.length - tableLeads.length} already answered (boards above) · ${filtered.length} total.`}
           </p>
           <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-            Older list — being phased into <strong style={{ color: 'var(--text-secondary)' }}>Leads</strong>. Mark a customer “Interested” to move them across.
+            Mark a customer <strong style={{ color: '#34d399' }}>Interested</strong> and they move into <strong style={{ color: 'var(--text-secondary)' }}>Leads</strong> to be worked as a deal.
           </p>
         </div>
         <button
@@ -451,6 +455,12 @@ export function LeadsPage() {
                     <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                       {lead.displayName}
                     </p>
+                    {lead.leadStatus === 'interested' && (
+                      <span className="inline-block mt-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                        style={{ color: '#34d399', backgroundColor: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.35)' }}>
+                        Interested — move to Leads
+                      </span>
+                    )}
                     <p className="text-xs mt-0.5" onClick={(e) => e.stopPropagation()}>
                       <PhoneLink phone={lead.phone} mono={false} className="text-xs" />
                     </p>
@@ -522,7 +532,15 @@ export function LeadsPage() {
                       />
                     </td>
                     <td className="px-5 py-4">
-                      <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{lead.displayName}</p>
+                      <p className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                        {lead.displayName}
+                        {lead.leadStatus === 'interested' && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
+                            style={{ color: '#34d399', backgroundColor: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.35)' }}>
+                            Interested — move to Leads
+                          </span>
+                        )}
+                      </p>
                       {lead.importExtras && Object.keys(lead.importExtras).length > 0 && (
                         <p className="text-[11px] mt-0.5 max-w-md truncate" style={{ color: 'var(--text-muted)' }}
                           title={Object.entries(lead.importExtras).map(([k, v]) => `${k}: ${v}`).join(' · ')}>

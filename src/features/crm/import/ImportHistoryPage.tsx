@@ -250,7 +250,7 @@ interface ImportPerfRow {
   firstMs: number; lastMs: number;
 }
 
-function ImportPerformanceSection() {
+export function ImportPerformanceSection() {
   const [rows, setRows] = useState<ImportPerfRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

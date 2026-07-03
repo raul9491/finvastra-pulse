@@ -32,7 +32,7 @@ interface Row {
   lastActivity: string; daysSinceActivity: number;
 }
 
-export function LeadAgingPage() {
+export function LeadAgingPage({ embedded = false }: { embedded?: boolean } = {}) {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const canAccess = profile?.role === 'admin' || profile?.crmRole === 'manager';
@@ -129,13 +129,15 @@ export function LeadAgingPage() {
   if (!canAccess) return <div className="glass-panel p-6 text-center text-sm" style={{ color: 'var(--shell-text-dim)' }}>Admin / manager access only.</div>;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-5">
+    <div className={embedded ? 'space-y-5' : 'max-w-6xl mx-auto space-y-5'}>
+      {!embedded && (
       <div>
         <h2 className="text-3xl mb-1 flex items-center gap-2" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
           <Clock size={22} style={{ color: '#C9A961' }} /> Lead Aging
         </h2>
         <p className="text-sm" style={{ color: 'var(--shell-text-dim)' }}>How long leads have sat since creation. Click a bucket to filter.</p>
       </div>
+      )}
 
       {/* Summary strip — cards (interactive filters) ⇄ donut */}
       <DataView headless

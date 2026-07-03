@@ -33,7 +33,7 @@ export const SHAREABLE_PAGES = {
   'crm.pipeline':       { title: 'Pipeline Board',        route: '/crm/pipeline',               module: 'crm',  icon: 'Kanban',          description: 'Kanban board of open deals by stage.' },
   'crm.targets':        { title: 'Targets',               route: '/crm/targets',                module: 'crm',  icon: 'Target',          description: 'Monthly RM targets vs live actuals.' },
   'crm.command-centre': { title: 'Command Centre',        route: '/crm/command-centre',         module: 'crm',  icon: 'Monitor',         description: 'Cross-module manager dashboard (HR + CRM + MIS).' },
-  'crm.lead-aging':     { title: 'Lead Aging Report',     route: '/crm/reports/aging',          module: 'crm',  icon: 'BarChart2',       description: 'Fresh / Active / Aging / Stale lead buckets.' },
+  'crm.lead-aging':     { title: 'Lead Aging Report',     route: '/crm/performance?tab=aging',          module: 'crm',  icon: 'BarChart2',       description: 'Fresh / Active / Aging / Stale lead buckets.' },
   'crm.commissions':    { title: 'Commission Records',    route: '/crm/commissions',            module: 'crm',  icon: 'IndianRupee',     description: 'Expected commissions per disbursal with status.' },
   'crm.referrals':      { title: 'My Referrals',          route: '/crm/referrals',              module: 'crm',  icon: 'Share2',          description: 'Employee-submitted referral leads and their status.' },
   'crm.import-queue':   { title: 'Import Queue',          route: '/crm/import/queue',           module: 'crm',  icon: 'Upload',          description: 'Bulk-imported lead batches awaiting distribution.' },

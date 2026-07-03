@@ -512,7 +512,7 @@ function AllTeamsSection({ period }: { period: string }) {
   );
 }
 
-export function TeamPerformancePage() {
+export function TeamPerformancePage({ embedded = false, initialViewUid }: { embedded?: boolean; initialViewUid?: string } = {}) {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [period, setPeriod] = useState(currentPeriod());
@@ -550,7 +550,7 @@ export function TeamPerformancePage() {
 
   // Admin/super-admin: list of all managers to pick whose team to inspect.
   const [managers, setManagers] = useState<ManagerOption[]>([]);
-  const [viewUid, setViewUid] = useState('');   // '' = my own team
+  const [viewUid, setViewUid] = useState(initialViewUid ?? '');   // '' = my own team; seeded ONCE from ?uid= when embedded
 
   useEffect(() => {
     if (!isAdmin || !user) return;
@@ -598,8 +598,9 @@ export function TeamPerformancePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      {/* Header — the big title is skipped when embedded in the Performance hub */}
+      <div className={embedded ? 'flex flex-wrap items-center justify-end gap-3' : 'flex flex-wrap items-end justify-between gap-3'}>
+        {!embedded && (
         <div>
           <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontVariationSettings: '"SOFT" 30', fontWeight: 300, color: 'var(--text-primary)' }}>
             {viewingName ? `${viewingName} & Team` : 'My Performance & Team'}
@@ -610,6 +611,7 @@ export function TeamPerformancePage() {
               : 'Your own numbers first, then your team — clear enough to see who to appreciate and who needs help'}
           </p>
         </div>
+        )}
         <div className="flex items-center gap-2 flex-wrap">
           {/* Super-admin / admin: pick any team to inspect */}
           {isAdmin && managers.length > 0 && (

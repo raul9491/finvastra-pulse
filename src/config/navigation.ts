@@ -98,7 +98,7 @@ export interface NavNode {
 // Per-module section order (drives the unified sidebar in Phase 2).
 export const MODULE_GROUP_ORDER: Record<ModuleKey, string[]> = {
   hrms: ['General', 'My Work', 'Company', 'Growth', 'Support', 'People', 'Time & Leave', 'Payroll & Compliance', 'Performance', 'Communications', 'Lifecycle', 'Admin Tools'],
-  crm:  ['Dashboard', 'Workspace', 'Customers', 'Pipeline', 'Teams', 'Admin'],
+  crm:  ['Home', 'Work', 'Pipeline', 'Manage', 'Admin'],
   mis:  ['MIS', 'Archive · old MIS'],
   command: ['Command'],
   lms: ['Learn'],
@@ -152,23 +152,21 @@ export const NAV_NODES: NavNode[] = [
   { key: 'hrms.data-import',      label: 'Data Import',         route: '/hrms/admin/data-import',     module: 'hrms', icon: 'Database',        group: 'Admin Tools', access: sa },
 
   // ════════════════════════════ CRM ════════════════════════════
-  { key: 'crm.dashboard',         label: 'Overview',            route: '/crm/dashboard',              module: 'crm', icon: 'LayoutDashboard', group: 'Dashboard', access: crm, end: true, keywords: ['dashboard', 'snapshot'] },
-  { key: 'crm.dashboards',        label: 'Analytics',           route: '/crm/pipeline/dashboards',    module: 'crm', icon: 'BarChart3',       group: 'Dashboard', access: crmAdmin, keywords: ['crm 2.0 dashboards', 'funnel', 'payout health', 'receivables', 'margin', 'scorecard', 'reports'] },
-  { key: 'crm.tasks',             label: 'Tasks',               route: '/crm/tasks',                  module: 'crm', icon: 'ListChecks',      group: 'Workspace', access: crm, keywords: ['my queue', 'meetings'], badgeKey: 'crm.queueOverdue' },
-  { key: 'crm.targets',           label: 'Targets',             route: '/crm/targets',                module: 'crm', icon: 'Target',          group: 'Workspace', access: crm, badgeKey: 'crm.targetMissing' },
-  { key: 'crm.myActivity',        label: 'My Activity',         route: '/crm/my-activity',            module: 'crm', icon: 'PhoneCall',       group: 'Workspace', access: crm, keywords: ['calls', 'outbound', 'call log', 'untouched', 'activity', 'attempts'] },
-  { key: 'crm.customers',         label: 'Customers',           route: '/crm/leads',                  module: 'crm', icon: 'Contact',      group: 'Customers', access: crm, keywords: ['leads', 'cold', 'prospects', 'contacts'] },
+  { key: 'crm.dashboard',         label: 'Home',                route: '/crm/dashboard',              module: 'crm', icon: 'LayoutDashboard', group: 'Home', access: crm, end: true, keywords: ['dashboard', 'overview', 'snapshot', 'my day', 'team pulse', 'business pulse'] },
+  { key: 'crm.performance',       label: 'Performance',         route: '/crm/performance',            module: 'crm', icon: 'PhoneCall',       group: 'Home', access: crm, keywords: ['my activity', 'team', 'calls', 'outbound', 'untouched', 'aging', 'coaching', 'import performance', 'data quality'] },
+  { key: 'crm.dashboards',        label: 'Analytics',           route: '/crm/pipeline/dashboards',    module: 'crm', icon: 'BarChart3',       group: 'Home', access: crmAdmin, keywords: ['crm 2.0 dashboards', 'funnel', 'payout health', 'receivables', 'margin', 'scorecard', 'reports'] },
+  { key: 'crm.tasks',             label: 'Tasks',               route: '/crm/tasks',                  module: 'crm', icon: 'ListChecks',      group: 'Work', access: crm, keywords: ['my queue', 'meetings'], badgeKey: 'crm.queueOverdue' },
+  { key: 'crm.targets',           label: 'Targets',             route: '/crm/targets',                module: 'crm', icon: 'Target',          group: 'Work', access: crm, badgeKey: 'crm.targetMissing' },
+  { key: 'crm.customers',         label: 'Customers',           route: '/crm/leads',                  module: 'crm', icon: 'Contact',      group: 'Work', access: crm, keywords: ['leads', 'cold', 'prospects', 'contacts'] },
   { key: 'crm.pipeline-leads',    label: 'Leads',               route: '/crm/pipeline/leads',         module: 'crm', icon: 'Inbox',           group: 'Pipeline',  access: crmLeads, keywords: ['qualified', 'crm 2.0', 'interested'], end: true },
   { key: 'crm.pipeline-clients',  label: 'Clients',             route: '/crm/pipeline/clients',       module: 'crm', icon: 'Building2',       group: 'Pipeline',  access: crmClients, end: true },
   { key: 'crm.pipeline-cases',    label: 'Cases',               route: '/crm/pipeline/cases',         module: 'crm', icon: 'Briefcase',       group: 'Pipeline',  access: crmCases },
-  { key: 'crm.team',              label: 'My Team',             route: '/crm/team',                   module: 'crm', icon: 'UsersRound',      group: 'Teams',     access: crmManager, end: true },
-  { key: 'crm.reports',           label: 'Lead Aging',             route: '/crm/reports/aging',          module: 'crm', icon: 'Hourglass',       group: 'Teams',     access: crmManager, keywords: ['lead aging'] },
-  { key: 'crm.import',            label: 'Import',              route: '/crm/import',                 module: 'crm', icon: 'Upload',          group: 'Teams',     access: crmImport, end: true },
-  { key: 'crm.import-queue',      label: 'Import Queue',        route: '/crm/import/queue',           module: 'crm', icon: 'PackageOpen',     group: 'Teams',     access: crmImport, badgeKey: 'crm.queueAwaiting' },
+  { key: 'crm.import',            label: 'Import',              route: '/crm/import',                 module: 'crm', icon: 'Upload',          group: 'Manage',    access: crmImport, end: true },
+  { key: 'crm.import-queue',      label: 'Import Queue',        route: '/crm/import/queue',           module: 'crm', icon: 'PackageOpen',     group: 'Manage',    access: crmImport, badgeKey: 'crm.queueAwaiting' },
   { key: 'crm.masters',           label: 'Masters',             route: '/crm/pipeline/masters',       module: 'crm', icon: 'Layers',        group: 'Admin',     access: sa },
   { key: 'crm.notifications',     label: 'Notifications',       route: '/crm/admin/notifications',    module: 'crm', icon: 'BellRing',      group: 'Admin',     access: (c) => c.isSA || c.isAdmin || c.isCrmManager, keywords: ['alerts', 'emails', 'subscriptions', 'scorecards', 'reminders', 'digest'] },
   { key: 'crm.permissions',       label: 'CRM Permissions',         route: '/crm/pipeline/permissions',   module: 'crm', icon: 'User',            group: 'Admin',     access: crmAdmin },
-  { key: 'crm.import-history',    label: 'Import History',      route: '/crm/import/history',         module: 'crm', icon: 'Clock',           group: 'Admin',     access: (c) => crmManager(c) || crmImport(c), keywords: ['import performance', 'data quality', 'which data worked'] },
+  { key: 'crm.import-history',    label: 'Import History',      route: '/crm/import/history',         module: 'crm', icon: 'Clock',           group: 'Manage',    access: (c) => crmManager(c) || crmImport(c), keywords: ['import jobs', 'errors', 'retry'] },
   { key: 'crm.commission-leakage',label: 'Commission Leakage',  route: '/crm/admin/commission-leakage',module: 'crm', icon: 'AlertTriangle',       group: 'Admin',     access: crmAdmin },
   { key: 'crm.competitor-intel',  label: 'Competitor Intel',    route: '/crm/admin/competitor-intelligence', module: 'crm', icon: 'Eye', group: 'Admin',     access: crmAdmin },
   { key: 'crm.referral-intel',    label: 'Referral Intel',      route: '/crm/admin/referrers',        module: 'crm', icon: 'Share2',        group: 'Admin',     access: crmAdmin },
@@ -241,7 +239,7 @@ export function resolveNavIcon(name: string): LucideIcon {
 // `data-tour` anchors the first-run guided tours target (src/features/learn).
 // Kept here so the unified sidebar can stamp them on the right nav rows.
 export const NODE_DATA_TOUR: Record<string, string> = {
-  'crm.dashboard': 'crm-dashboard', 'crm.customers': 'crm-customers', 'crm.targets': 'crm-targets', 'crm.team': 'crm-team',
+  'crm.dashboard': 'crm-dashboard', 'crm.customers': 'crm-customers', 'crm.targets': 'crm-targets', 'crm.performance': 'crm-team',
   'hrms.attendance': 'hrms-attendance', 'hrms.leave': 'hrms-leave', 'hrms.payslips': 'hrms-payslips', 'hrms.claims': 'hrms-claims', 'hrms.announcements': 'hrms-announcements', 'hrms.guide': 'learn',
   'mis.cases-mis': 'mis-overview', 'mis.recon': 'mis-reconciliation', 'mis.statements': 'mis-statements', 'mis.disputes': 'mis-disputes', 'mis.payouts': 'mis-payouts', 'mis.learn': 'learn',
 };

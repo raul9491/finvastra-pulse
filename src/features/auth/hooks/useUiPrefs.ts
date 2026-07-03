@@ -8,7 +8,7 @@
 // per module; when unset we fall back to DEFAULT_OPEN_GROUPS.
 
 import { useSyncExternalStore } from 'react';
-import type { ModuleKey } from '../../../config/navigation';
+import { MODULE_GROUP_ORDER, type ModuleKey } from '../../../config/navigation';
 
 const KEY = 'fv-ui-prefs';
 
@@ -19,7 +19,7 @@ interface Prefs {
 
 export const DEFAULT_OPEN_GROUPS: Record<ModuleKey, string[]> = {
   hrms: ['General', 'My Work', 'Company', 'Growth', 'Support'],
-  crm:  ['Dashboard', 'Workspace', 'Customers', 'Pipeline', 'Teams'],
+  crm:  ['Home', 'Work', 'Pipeline', 'Manage'],
   mis:  ['MIS'],
   command: ['Command'],
   lms: ['Learn'],
@@ -71,7 +71,17 @@ function snapshot() { return state; }
 export function useUiPrefs() {
   const s = useSyncExternalStore(subscribe, snapshot, snapshot);
 
-  const openGroups = (m: ModuleKey): string[] => s.openSections[m] ?? DEFAULT_OPEN_GROUPS[m] ?? [];
+  // Saved names from BEFORE a group rename (e.g. the 2026-07 CRM regroup:
+  // Dashboard/Workspace/Customers/Teams → Home/Work/Manage) match nothing and
+  // would render every section collapsed — treat a saved list with zero
+  // current names as unset so the module falls back to its defaults.
+  const openGroups = (m: ModuleKey): string[] => {
+    const saved = s.openSections[m];
+    const defaults = DEFAULT_OPEN_GROUPS[m] ?? [];
+    if (!saved) return defaults;
+    const current = new Set([...defaults, ...(MODULE_GROUP_ORDER[m] ?? [])]);
+    return saved.some((g) => current.has(g)) ? saved : defaults;
+  };
 
   return {
     pins: s.pins,

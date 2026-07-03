@@ -46,8 +46,8 @@ const crm: TourStep[] = [
   },
   {
     target: '[data-tour="crm-team"]',
-    title: 'My Team',
-    body: 'Managers: see every team member’s leads and their statuses at a glance, and reassign customers between people when needed.',
+    title: 'Performance',
+    body: 'Your calls and results in one place — and for managers, every team member’s numbers, flags and data quality, with reassignment built in.',
   },
   {
     target: '[data-tour="learn"]',

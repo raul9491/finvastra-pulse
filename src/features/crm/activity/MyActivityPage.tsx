@@ -61,14 +61,14 @@ interface Summary {
 const fmtDay = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 const fmtAt = (ms: number) => new Date(ms).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true });
 
-export function MyActivityPage() {
+export function MyActivityPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { user, profile } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [period, setPeriod] = useState(() => new Date().toISOString().slice(0, 7));
   const [data, setData] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState<'log' | 'untouched'>('log');
+  const [tab, setTab] = useState<'log' | 'untouched'>(() => (searchParams.get('view') === 'untouched' ? 'untouched' : 'log'));
   const [people, setPeople] = useState<Array<{ uid: string; name: string; mgr?: string }>>([]);
   const [importFilter, setImportFilter] = useState('');
 
@@ -136,15 +136,8 @@ export function MyActivityPage() {
   const viewingSelf = !viewUid || viewUid === user?.uid;
   const attemptPct = data && data.tagged > 0 ? Math.round((data.attempted / data.tagged) * 100) : 0;
 
-  return (
-    <div className="max-w-6xl mx-auto">
-      <PageHeader
-        title={viewingSelf ? 'My Activity' : `Activity — ${data?.name ?? '…'}`}
-        subtitle={importFilter
-          ? `Showing only customers from the import "${importFilter}".`
-          : 'Tagged → attempted → outcome. Calls made this month, the statuses set, and which customers are still waiting.'}
-        pinKey="crm.myActivity"
-        actions={
+  const headerActions = (
+    <>
           <div className="flex flex-wrap items-center gap-2">
             {(isAdmin || isManager) && people.length > 0 && (
               <div className="w-52">
@@ -175,8 +168,31 @@ export function MyActivityPage() {
               <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
             </button>
           </div>
-        }
-      />
+    </>
+  );
+
+  return (
+    <div className={embedded ? '' : 'max-w-6xl mx-auto'}>
+      {embedded ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            {viewingSelf ? '' : `Viewing ${data?.name ?? '…'} · `}
+            {importFilter
+              ? `Only customers from the import "${importFilter}".`
+              : 'Tagged → attempted → outcome for the selected month.'}
+          </p>
+          {headerActions}
+        </div>
+      ) : (
+        <PageHeader
+          title={viewingSelf ? 'My Activity' : `Activity — ${data?.name ?? '…'}`}
+          subtitle={importFilter
+            ? `Showing only customers from the import "${importFilter}".`
+            : 'Tagged → attempted → outcome. Calls made this month, the statuses set, and which customers are still waiting.'}
+          pinKey="crm.performance"
+          actions={headerActions}
+        />
+      )}
 
       {error && (
         <div className="mb-4 px-4 py-3 rounded-xl text-sm" style={{ backgroundColor: 'rgba(248,113,113,0.10)', color: '#f87171', border: '1px solid rgba(248,113,113,0.25)' }}>

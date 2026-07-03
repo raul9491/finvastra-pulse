@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Navigate, useLocation } from 'react-router-dom';
 import { lazy, Suspense, type ComponentType, type ReactElement } from 'react';
 
 // ── Load immediately (lightweight, must be instant) ──────────────────────────
@@ -119,7 +119,8 @@ const PulseGuidePage           = lazyPage(() => import('./features/hrms/guide/Pu
 
 // ── CRM (lazy group) ─────────────────────────────────────────────────────────
 const CrmShell                 = lazyPage(() => import('./components/layout/CrmShell'), 'CrmShell');
-const CrmDashboardPage         = lazyPage(() => import('./features/crm/dashboard/CrmDashboardPage'), 'CrmDashboardPage');
+const CrmHomePage              = lazyPage(() => import('./features/crm/home/CrmHomePage'), 'CrmHomePage');
+const PerformanceHubPage       = lazyPage(() => import('./features/crm/performance/PerformanceHubPage'), 'PerformanceHubPage');
 const LeadsPage                = lazyPage(() => import('./features/crm/leads/LeadsPage'), 'LeadsPage');
 const NewLeadPage              = lazyPage(() => import('./features/crm/leads/NewLeadPage'), 'NewLeadPage');
 const LeadDetailPage           = lazyPage(() => import('./features/crm/leads/LeadDetailPage'), 'LeadDetailPage');
@@ -147,10 +148,7 @@ const MyReferralsPage          = lazyPage(() => import('./features/crm/referrals
 const SubmitReferralPage       = lazyPage(() => import('./features/crm/referrals/SubmitReferralPage'), 'SubmitReferralPage');
 const ImportReferralsPage      = lazyPage(() => import('./features/crm/referrals/ImportReferralsPage'), 'ImportReferralsPage');
 const TargetsPage              = lazyPage(() => import('./features/crm/targets/TargetsPage'), 'TargetsPage');
-const MyActivityPage           = lazyPage(() => import('./features/crm/activity/MyActivityPage'), 'MyActivityPage');
-const LeadAgingPage            = lazyPage(() => import('./features/crm/reports/LeadAgingPage'), 'LeadAgingPage');
 const CommandCentrePage        = lazyPage(() => import('./features/crm/dashboard/CommandCentrePage'), 'CommandCentrePage');
-const TeamPerformancePage      = lazyPage(() => import('./features/crm/team/TeamPerformancePage'), 'TeamPerformancePage');
 const MyMeetingsPage           = lazyPage(() => import('./features/crm/meetings/MyMeetingsPage'), 'MyMeetingsPage');
 const CrmLearnPage             = lazyPage(() => import('./features/crm/learn/CrmLearnPage'), 'CrmLearnPage');
 const Crm2MastersPage          = lazyPage(() => import('./features/crm2/masters/MastersPage'), 'Crm2MastersPage');
@@ -184,6 +182,15 @@ const StatementTemplatesPage   = lazyPage(() => import('./features/mis/admin/Sta
 // Social Media module (WhatsApp inbox; grows to FB/IG)
 const SocialShell              = lazyPage(() => import('./components/layout/SocialShell'), 'SocialShell');
 const SocialInboxPage          = lazyPage(() => import('./features/social/InboxPage'), 'InboxPage');
+
+// Legacy performance routes → the consolidated /crm/performance hub (2026-07-03).
+// Preserves the incoming query (?uid, ?period) so old deep links keep working.
+function LegacyTab({ tab }: { tab: string }) {
+  const { search } = useLocation();
+  const p = new URLSearchParams(search);
+  p.set('tab', tab);
+  return <Navigate to={{ pathname: '/crm/performance', search: p.toString() }} replace />;
+}
 
 export const router = createBrowserRouter([
   {
@@ -303,8 +310,9 @@ export const router = createBrowserRouter([
     children: [
       { index: true,       element: <Navigate to="/crm/dashboard" replace /> },
       { path: 'command-centre', element: s(<CommandCentrePage />) },
-      { path: 'team',           element: s(<TeamPerformancePage />) },
-      { path: 'dashboard',   element: s(<CrmDashboardPage />) },
+      { path: 'team',           element: <LegacyTab tab="team" /> },
+      { path: 'dashboard',   element: s(<CrmHomePage />) },
+      { path: 'performance', element: s(<PerformanceHubPage />) },
       { path: 'my-queue',    element: s(<MyQueuePage />) },
       // leads/new before leads/:leadId so 'new' isn't treated as a leadId param
       { path: 'leads',                                     element: s(<LeadsPage />) },
@@ -331,10 +339,10 @@ export const router = createBrowserRouter([
       { path: 'import/queue',                element: s(<ImportQueuePage />) },
       { path: 'import/history',          element: s(<ImportHistoryPage />) },
       { path: 'targets',                     element: s(<TargetsPage />) },
-      { path: 'my-activity',                 element: s(<MyActivityPage />) },
+      { path: 'my-activity',                 element: <LegacyTab tab="me" /> },
       { path: 'meetings',                    element: s(<MyMeetingsPage />) },
       { path: 'learn',                       element: s(<CrmLearnPage />) },
-      { path: 'reports/aging',               element: s(<LeadAgingPage />) },
+      { path: 'reports/aging',               element: <LegacyTab tab="aging" /> },
       // CRM 2.0 / Pipeline (PLAN.md) — coexists with the old CRM until migration
       { path: 'pipeline/masters',            element: s(<Crm2MastersPage />) },
       { path: 'pipeline/leads',              element: s(<Crm2LeadsPage />) },

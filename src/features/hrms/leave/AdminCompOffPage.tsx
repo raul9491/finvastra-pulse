@@ -18,6 +18,7 @@ import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { useAllCompOffCredits, grantCompOff } from '../hooks/useCompOff';
 import { useMyLeaveBalance, currentLeaveYear } from '../hooks/useLeave';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Balance chip ─────────────────────────────────────────────────────────────
 
@@ -136,13 +137,11 @@ export function AdminCompOffPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       {/* Header */}
-      <div>
-        <h2 className="text-3xl mb-1"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-          Compensatory Off
-        </h2>
-        <p className="text-sm text-(--text-muted)">Grant comp off credits when employees work on Sundays or public holidays.</p>
-      </div>
+      <PageHeader
+        title="Compensatory Off"
+        subtitle="Grant comp off credits when employees work on Sundays or public holidays."
+        pinKey="hrms.comp-off"
+      />
 
       {/* Grant Form */}
       <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl p-6 space-y-5">

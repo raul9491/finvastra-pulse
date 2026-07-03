@@ -22,6 +22,7 @@ import {
 import type { TrainingCategory, TrainingProgram, TrainingRecord } from '../../../types';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -482,36 +483,37 @@ export function AdminTrainingPage() {
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ backgroundColor: '#0B1538' }}>
-            <BookOpen size={20} style={{ color: '#C9A961' }} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Fraunces, serif' }}>
-              Training &amp; Development
-            </h1>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Manage training programs and track employee completion
-            </p>
-          </div>
-        </div>
-        {tab === 'programs' && (
-          <button onClick={() => setShowAddProgram(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl text-white"
-            style={{ backgroundColor: '#0B1538' }}>
-            <Plus size={15} />New Program
-          </button>
-        )}
-        {tab === 'records' && (
-          <button onClick={() => { loadEmployees(); setShowEnroll(true); }}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl text-white"
-            style={{ backgroundColor: '#0B1538' }}>
-            <Plus size={15} />Enroll Employee
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title={
+          <span className="flex items-center gap-3">
+            <span className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: '#0B1538' }}>
+              <BookOpen size={20} style={{ color: '#C9A961' }} />
+            </span>
+            Training &amp; Development
+          </span>
+        }
+        subtitle="Manage training programs and track employee completion"
+        pinKey="hrms.training-admin"
+        actions={
+          <>
+            {tab === 'programs' && (
+              <button onClick={() => setShowAddProgram(true)}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl text-white"
+                style={{ backgroundColor: '#0B1538' }}>
+                <Plus size={15} />New Program
+              </button>
+            )}
+            {tab === 'records' && (
+              <button onClick={() => { loadEmployees(); setShowEnroll(true); }}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl text-white"
+                style={{ backgroundColor: '#0B1538' }}>
+                <Plus size={15} />Enroll Employee
+              </button>
+            )}
+          </>
+        }
+      />
 
       {/* Stats strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

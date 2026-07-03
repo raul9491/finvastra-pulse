@@ -7,6 +7,7 @@ import { applyForLeave, useMyLeaveBalance, calculateWorkingDays, currentLeaveYea
 import { notifyManagerOfRequest } from '../../../lib/notifications';
 import { useHolidays } from '../hooks/useHolidays';
 import type { LeaveType } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 const LEAVE_TYPES: { value: LeaveType; label: string }[] = [
   { value: 'casual',    label: 'Casual Leave' },
@@ -148,27 +149,21 @@ export function ApplyLeavePage() {
   return (
     <div className="max-w-xl space-y-6">
       {/* ── Header ── */}
-      <div className="flex items-center gap-3">
-        <Link
-          to="/hrms/leave"
-          className="p-1.5 rounded-lg transition-colors hover:bg-(--glass-panel-bg)"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          <ArrowLeft size={18} />
-        </Link>
-        <h2
-          className="text-3xl"
-          style={{
-            fontFamily: '"Fraunces", Georgia, serif',
-            fontStyle: 'italic',
-            fontVariationSettings: '"SOFT" 30',
-            fontWeight: 300,
-            color: 'var(--text-primary)',
-          }}
-        >
-          Apply for Leave
-        </h2>
-      </div>
+      <PageHeader
+        title={
+          <span className="flex items-center gap-3">
+            <Link
+              to="/hrms/leave"
+              className="p-1.5 rounded-lg transition-colors hover:bg-(--glass-panel-bg)"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              <ArrowLeft size={18} />
+            </Link>
+            Apply for Leave
+          </span>
+        }
+        subtitle="Request time off — your manager will be notified for approval."
+      />
 
       {/* ── Form ── */}
       <form

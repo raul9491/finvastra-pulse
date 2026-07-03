@@ -13,6 +13,7 @@ import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { DEPARTMENTS, DESIGNATIONS } from '../../../config/hrmsConfig';
 import type { JobOpening, JobOpeningStatus, Candidate, CandidateStage, CandidateSource } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -568,15 +569,18 @@ export function RecruitmentPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="p-2 rounded-xl" style={{ background: '#EEF2FF' }}>
-          <Briefcase size={20} style={{ color: '#3730A3' }} />
-        </div>
-        <div>
-          <h1 className="text-xl font-semibold text-(--text-primary)">Recruitment</h1>
-          <p className="text-sm text-muted">{openings.length} opening{openings.length !== 1 ? 's' : ''} · {candidates.length} candidate{candidates.length !== 1 ? 's' : ''}</p>
-        </div>
-      </div>
+      <PageHeader
+        title={
+          <span className="flex items-center gap-3">
+            <span className="p-2 rounded-xl" style={{ background: '#EEF2FF' }}>
+              <Briefcase size={20} style={{ color: '#3730A3' }} />
+            </span>
+            Recruitment
+          </span>
+        }
+        subtitle={`${openings.length} opening${openings.length !== 1 ? 's' : ''} · ${candidates.length} candidate${candidates.length !== 1 ? 's' : ''}`}
+        pinKey="hrms.recruitment"
+      />
 
       {/* Summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

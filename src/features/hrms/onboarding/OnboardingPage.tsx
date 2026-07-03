@@ -14,6 +14,7 @@ import { format } from 'date-fns';
 import type {
   OnboardingChecklist, ChecklistItem, ChecklistStatus, ChecklistItemCategory,
 } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -401,39 +402,42 @@ export function OnboardingPage() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl" style={{ background: '#EFF6FF' }}>
-            <UserPlus size={20} style={{ color: '#1D4ED8' }} />
+      <PageHeader
+        title={
+          <span className="flex items-center gap-3">
+            <span className="p-2 rounded-xl" style={{ background: '#EFF6FF' }}>
+              <UserPlus size={20} style={{ color: '#1D4ED8' }} />
+            </span>
+            Onboarding
+          </span>
+        }
+        subtitle={`${checklists.length} checklist${checklists.length !== 1 ? 's' : ''}`}
+        pinKey="hrms.onboarding"
+        actions={
+          <div className="flex flex-col items-end gap-1.5">
+            <button
+              onClick={handleGenerateAll}
+              disabled={generating}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
+              style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
+            >
+              <Zap size={14} />
+              {generating ? 'Generating…' : 'Generate for all active employees'}
+            </button>
+            {generateResult && (
+              <p className={`text-xs px-3 py-1.5 rounded-lg ${
+                generateResult.startsWith('Error')
+                  ? 'bg-red-50 text-red-600'
+                  : generateResult.includes('already')
+                  ? 'bg-(--glass-panel-bg) text-muted'
+                  : 'bg-green-50 text-green-700'
+              }`}>
+                {generateResult}
+              </p>
+            )}
           </div>
-          <div>
-            <h1 className="text-xl font-semibold text-(--text-primary)">Onboarding</h1>
-            <p className="text-sm text-muted">{checklists.length} checklist{checklists.length !== 1 ? 's' : ''}</p>
-          </div>
-        </div>
-        <div className="flex flex-col items-end gap-1.5">
-          <button
-            onClick={handleGenerateAll}
-            disabled={generating}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
-            style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
-          >
-            <Zap size={14} />
-            {generating ? 'Generating…' : 'Generate for all active employees'}
-          </button>
-          {generateResult && (
-            <p className={`text-xs px-3 py-1.5 rounded-lg ${
-              generateResult.startsWith('Error')
-                ? 'bg-red-50 text-red-600'
-                : generateResult.includes('already')
-                ? 'bg-(--glass-panel-bg) text-muted'
-                : 'bg-green-50 text-green-700'
-            }`}>
-              {generateResult}
-            </p>
-          )}
-        </div>
-      </div>
+        }
+      />
 
       {/* Summary strip */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

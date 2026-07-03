@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 import { Coins, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { writeNotification, sendHrEmailNotification, buildHrEmailHtml } from '../../../lib/notifications';
+import { PageHeader } from '../../../components/ui/primitives';
 import {
   usePendingApprovals,
   approveLeave,
@@ -1086,23 +1087,11 @@ export function AdminLeavePage() {
   return (
     <div className="space-y-6 max-w-5xl">
       {/* ── Header ── */}
-      <div>
-        <h2
-          className="text-3xl mb-1"
-          style={{
-            fontFamily: '"Fraunces", Georgia, serif',
-            fontStyle: 'italic',
-            fontVariationSettings: '"SOFT" 30',
-            fontWeight: 300,
-            color: 'var(--text-primary)',
-          }}
-        >
-          Leave Management
-        </h2>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Review and act on leave applications
-        </p>
-      </div>
+      <PageHeader
+        title="Leave Management"
+        subtitle="Review and act on leave applications"
+        pinKey="hrms.leave-admin"
+      />
 
       {/* ── Card with tabs ── */}
       <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">

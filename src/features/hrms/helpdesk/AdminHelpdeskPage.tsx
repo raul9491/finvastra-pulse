@@ -16,6 +16,7 @@ import {
 import { useAuth } from '../../auth/AuthContext';
 import { useAllTickets, updateTicketStatus, updateAdminNotes } from '../hooks/useHrTickets';
 import type { HrTicketCategory, HrTicketPriority, HrTicketStatus, HrTicket } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -210,20 +211,19 @@ export function AdminHelpdeskPage() {
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ backgroundColor: '#0B1538' }}>
-          <LifeBuoy size={20} style={{ color: '#C9A961' }} />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Fraunces, serif' }}>
+      <PageHeader
+        title={
+          <span className="flex items-center gap-3">
+            <span className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: '#0B1538' }}>
+              <LifeBuoy size={20} style={{ color: '#C9A961' }} />
+            </span>
             HR Helpdesk
-          </h1>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Manage employee HR tickets and POSH complaints
-          </p>
-        </div>
-      </div>
+          </span>
+        }
+        subtitle="Manage employee HR tickets and POSH complaints"
+        pinKey="hrms.helpdesk-admin"
+      />
 
       {/* Stats strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

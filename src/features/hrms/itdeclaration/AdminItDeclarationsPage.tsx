@@ -10,6 +10,7 @@ import {
   MAX_80C, MAX_HOME_LOAN_INT,
 } from '../hooks/useItDeclarations';
 import type { ItDeclaration, ItDeclarationStatus } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -378,39 +379,37 @@ export function AdminItDeclarationsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-            IT Declarations
-          </h2>
-          <p className="text-sm text-(--text-muted)">Review and accept employee investment declarations for TDS.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="text-sm border border-(--shell-border) rounded-xl px-4 py-2 bg-(--glass-panel-bg) outline-none focus:ring-2 focus:ring-blue-100 font-semibold"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            {fyOptions.map((y) => <option key={y} value={y}>{fyLabel(y)}</option>)}
-          </select>
-          <button
-            onClick={() => exportItDeclarationsCSV(
-              selectedYear,
-              activeEmployees.map((e) => ({
-                userId: e.userId, displayName: e.displayName,
-                empCode: e.employeeId, department: e.department,
-              })),
-            )}
-            className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors font-medium"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            <Download size={14} />
-            Export CSV
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="IT Declarations"
+        subtitle="Review and accept employee investment declarations for TDS."
+        pinKey="hrms.it-declarations"
+        actions={
+          <div className="flex items-center gap-3">
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="text-sm border border-(--shell-border) rounded-xl px-4 py-2 bg-(--glass-panel-bg) outline-none focus:ring-2 focus:ring-blue-100 font-semibold"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              {fyOptions.map((y) => <option key={y} value={y}>{fyLabel(y)}</option>)}
+            </select>
+            <button
+              onClick={() => exportItDeclarationsCSV(
+                selectedYear,
+                activeEmployees.map((e) => ({
+                  userId: e.userId, displayName: e.displayName,
+                  empCode: e.employeeId, department: e.department,
+                })),
+              )}
+              className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors font-medium"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              <Download size={14} />
+              Export CSV
+            </button>
+          </div>
+        }
+      />
 
       {/* Summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

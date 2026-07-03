@@ -5,6 +5,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useAnnouncements, markAnnouncementRead } from '../hooks/useAnnouncements';
 import { useHolidays } from '../hooks/useHolidays';
 import type { Announcement, AnnouncementPriority, Holiday } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -204,13 +205,11 @@ export function AnnouncementsPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h2 className="text-3xl mb-1"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-          Announcements
-        </h2>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Company-wide updates from HR and leadership.</p>
-      </div>
+      <PageHeader
+        title="Announcements"
+        subtitle="Company-wide updates from HR and leadership."
+        pinKey="hrms.announcements"
+      />
 
       {/* ── Upcoming Holidays — always shown, zero Firestore writes ── */}
       <UpcomingHolidaysSection holidays={allHolidays} />

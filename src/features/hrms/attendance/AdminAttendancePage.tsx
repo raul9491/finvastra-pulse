@@ -16,6 +16,7 @@ import { writeNotification, sendHrEmailNotification, buildHrEmailHtml } from '..
 import { useGeofenceConfig, saveGeofenceConfig, getCurrentPosition, mapsLink } from '../../../lib/geo';
 import { MultiSearchableSelect } from '../../../components/ui/SearchableSelect';
 import type { Attendance, AttendanceStatus, UserProfile, AttendanceRegularization } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -616,35 +617,28 @@ export function AdminAttendancePage() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       {/* Page header */}
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
-        <div>
-          <h2
-            className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}
-          >
-            Attendance — Admin View
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            View and override attendance records for any employee.
-          </p>
-        </div>
-
-        {activeTab !== 'corrections' && activeTab !== 'geofence' && (
-          <div className="flex flex-wrap items-center gap-3">
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => {
-                setSelectedDate(e.target.value);
-                setEditingUserId(null);
-              }}
-              className="text-sm border border-(--shell-border) rounded-xl px-3 py-2 bg-(--glass-panel-bg)"
-              style={{ color: 'var(--text-primary)' }}
-            />
-            <ExportMonthButton employees={employees} month={exportMonth} />
-          </div>
-        )}
-      </div>
+      <PageHeader
+        title="Attendance — Admin View"
+        subtitle="View and override attendance records for any employee."
+        pinKey="hrms.admin-attendance"
+        actions={
+          activeTab !== 'corrections' && activeTab !== 'geofence' ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => {
+                  setSelectedDate(e.target.value);
+                  setEditingUserId(null);
+                }}
+                className="text-sm border border-(--shell-border) rounded-xl px-3 py-2 bg-(--glass-panel-bg)"
+                style={{ color: 'var(--text-primary)' }}
+              />
+              <ExportMonthButton employees={employees} month={exportMonth} />
+            </div>
+          ) : undefined
+        }
+      />
 
       {/* Tab bar — theme-aware bg (fixed cream was unreadable in dark mode) */}
       <div className="flex flex-wrap gap-1 p-1 rounded-xl mb-6 w-fit" style={{ backgroundColor: 'var(--shell-hover-hard)' }}>

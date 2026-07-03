@@ -44,6 +44,21 @@ import { useMyOpenTicketCount, useOpenTicketCount } from '../../features/hrms/ho
 import { usePendingAcknowledgementCount } from '../../features/hrms/hooks/useDocumentAcknowledgements';
 import { usePendingRegularizationCount } from '../../features/hrms/hooks/useAttendanceRegularization';
 
+// Generic status-filtered live count (admin-gated) — powers the Approvals badge
+// pieces that had no dedicated hook (leave applications, claims).
+function usePendingDocCount(col: string, status: string, enabled: boolean): number {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    return onSnapshot(
+      query(collection(db, col), where('status', '==', status)),
+      (snap) => setCount(snap.size),
+      () => setCount(0),
+    );
+  }, [col, status, enabled]);
+  return count;
+}
+
 function usePendingRequestCount(enabled: boolean): number {
   const [count, setCount] = useState(0);
   useEffect(() => {
@@ -109,90 +124,9 @@ function useInterviewBadge(enabled: boolean): number {
   return count;
 }
 
-type NavEntry = { path: string; label: string; icon: ElementType; live: boolean };
-
-// Employee self-service nav — "Employees" omitted here; rendered conditionally below (admin/HR only)
-const NAV: NavEntry[] = [
-  { path: '/hrms/dashboard',     label: 'Dashboard',      icon: LayoutDashboard, live: true },
-  { path: '/hrms/directory',     label: 'Directory',      icon: BookUser,        live: true },
-  { path: '/hrms/attendance',    label: 'Attendance',     icon: Clock,           live: true },
-  { path: '/hrms/leave',         label: 'Leave',          icon: CalendarOff,     live: true },
-  { path: '/hrms/payslips',      label: 'Payslips',       icon: Receipt,         live: true },
-  { path: '/hrms/claims',        label: 'My Claims',      icon: ReceiptText,     live: true },
-  { path: '/hrms/documents',     label: 'Documents',      icon: FolderOpen,      live: true },
-  { path: '/hrms/announcements', label: 'Announcements',  icon: Megaphone,       live: true },
-  { path: '/hrms/it-declaration',label: 'IT Declaration', icon: FileSearch2,     live: true },
-  { path: '/hrms/performance',   label: 'My Review',      icon: TrendingUp,      live: true },
-  { path: '/hrms/training',      label: 'My Training',    icon: BookOpen,        live: true },
-  { path: '/hrms/hr-helpdesk',   label: 'HR Helpdesk',    icon: LifeBuoy,        live: true },
-  { path: '/hrms/guide',         label: 'Pulse Guide',    icon: HelpCircle,      live: true },
-  { path: '/hrms/settings',      label: 'Settings',       icon: Settings,        live: true },
-];
-
-// Admin nav split into sub-groups for scannability
-type AdminNavGroup = { label: string; items: NavEntry[] };
-const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
-  {
-    label: 'People',
-    items: [
-      { path: '/hrms/employees',              label: 'Employees',        icon: Users,         live: true },
-      { path: '/hrms/admin/access-requests',  label: 'Access Requests',  icon: Inbox,         live: true },
-      { path: '/hrms/admin/import-employees', label: 'Import Employees', icon: UserPlus,      live: true },
-    ],
-  },
-  {
-    label: 'Time & Leave',
-    items: [
-      { path: '/hrms/admin/attendance',      label: 'Attendance',       icon: Clock,         live: true },
-      { path: '/hrms/leave/admin',           label: 'Leave Approvals',  icon: ClipboardList, live: true },
-      { path: '/hrms/admin/comp-off',        label: 'Comp Off Credits', icon: CalendarDays,  live: true },
-      { path: '/hrms/admin/leave-year-end',  label: 'Year-End Reset',   icon: RotateCcw,     live: true },
-      { path: '/hrms/admin/holidays',        label: 'Manage Holidays',  icon: CalendarDays,  live: true },
-    ],
-  },
-  {
-    label: 'Payroll & Finance',
-    items: [
-      { path: '/hrms/admin/payslips',        label: 'Generate Payslips', icon: FileText,    live: true },
-      { path: '/hrms/admin/claims',          label: 'Claims',            icon: ReceiptText, live: true },
-      { path: '/hrms/admin/salary-history',  label: 'Salary History',    icon: TrendingUp,  live: true },
-      { path: '/hrms/admin/it-declarations', label: 'IT Declarations',   icon: FileSearch2, live: true },
-    ],
-  },
-  {
-    label: 'Content',
-    items: [
-      { path: '/hrms/admin/letters',       label: 'HR Letters',    icon: ScrollText, live: true },
-      { path: '/hrms/admin/documents',     label: 'Documents',     icon: FolderOpen, live: true },
-      { path: '/hrms/admin/announcements', label: 'Announcements', icon: Megaphone,  live: true },
-    ],
-  },
-  {
-    label: 'Performance',
-    items: [
-      { path: '/hrms/admin/performance', label: 'Performance Reviews', icon: TrendingUp, live: true },
-      { path: '/hrms/admin/training',    label: 'Training',            icon: BookOpen,   live: true },
-      { path: '/hrms/admin/hr-helpdesk', label: 'HR Helpdesk',         icon: LifeBuoy,   live: true },
-    ],
-  },
-];
-
-const LIFECYCLE_NAV: NavEntry[] = [
-  { path: '/hrms/admin/recruitment',  label: 'Recruitment',  icon: Briefcase,      live: true },
-  { path: '/hrms/admin/assets',       label: 'Assets',       icon: Laptop,         live: true },
-  { path: '/hrms/admin/onboarding',   label: 'Onboarding',   icon: UserPlus,       live: true },
-  { path: '/hrms/admin/probation',    label: 'Probation',    icon: GraduationCap,  live: true },
-  { path: '/hrms/admin/offboarding',  label: 'Offboarding',  icon: UserMinus,      live: true },
-];
-
-const COMPLIANCE_NAV: NavEntry[] = [
-  { path: '/hrms/admin/compliance',  label: 'Compliance Calendar', icon: Building2,   live: true },
-  { path: '/hrms/admin/pf-tracker',  label: 'PF Tracker',          icon: Calculator,  live: true },
-];
-
-
 const PAGE_TITLES: Record<string, string> = {
   '/hrms/dashboard':             'Dashboard',
+  '/hrms/admin/approvals':       'Approvals',
   '/hrms/employees':             'Employees',
   '/hrms/directory':             'Employee Directory',
   '/hrms/attendance':            'Attendance',
@@ -284,6 +218,12 @@ export function HrmsShell() {
   const selfAssessmentBadge = useSelfAssessmentBadge(user?.uid ?? '', _perfYear);
   const pendingReviewCount  = usePendingReviewCount(isAdmin || isHrmsManager);
 
+  // The Approvals-inbox badge: everything waiting on HR across all 9 types.
+  // Leave applications + claims had NO shell badge before (they only surfaced
+  // on the dashboard panel) — two small admin-gated listeners fill the gap.
+  const pendingLeaveApps = usePendingDocCount('leave_applications', 'pending', isAdmin || isHrmsManager);
+  const pendingClaims    = usePendingDocCount('claims', 'pending', isAdmin || isHrmsManager);
+
   // Holidays for current year — used to compute unseen holiday badge on Announcements nav item
   const _now = new Date();
   const { holidays: _holidays } = useHolidays(_now.getFullYear());
@@ -357,6 +297,9 @@ export function HrmsShell() {
   // ── Badge maps for the unified ModuleSidebar (computed in-shell; same values as
   //    the old hand-rolled nav) ───────────────────────────────────────────────
   const navCtx = buildNavCtx(user, profile);
+  const approvalsTotal = pendingLeaveApps + pendingClaims + pendingEncashCount
+    + pendingRegularizations + itDeclAdminBadge + pendingRequests
+    + openTicketCount + probationBadge + pendingReviewCount;
   const hrmsSectionBadges = {
     'My Work':            { count: pendingRegularizations, color: 'gold' as const },
     'Company':            { count: unreadAnnouncements + holidayBadge + pendingAckCount, color: 'gold' as const },
@@ -364,13 +307,13 @@ export function HrmsShell() {
     'Support':            { count: myOpenTickets, color: 'gold' as const },
     'People':             { count: pendingRequests, color: 'red' as const },
     'Time & Leave':       { count: pendingRegularizations + pendingEncashCount + leaveResetBadge, color: 'red' as const },
-    'Payroll & Finance':  { count: itDeclAdminBadge, color: 'red' as const },
+    'Payroll & Compliance': { count: itDeclAdminBadge + overdueCompliance, color: 'red' as const },
     'Performance':        { count: pendingReviewCount + trainingAdminBadge + openTicketCount, color: 'red' as const },
-    'Statutory':          { count: overdueCompliance, color: 'red' as const },
     'Lifecycle':          { count: interviewBadge + onboardingBadge + probationBadge + offboardingBadge, color: 'amber' as const },
   };
   const hrmsItemBadges = {
     '/hrms/dashboard':              { count: dashboardBadge, color: 'gold' as const },
+    '/hrms/admin/approvals':        { count: approvalsTotal, color: 'red' as const },
     '/hrms/documents':              { count: pendingAckCount, color: 'gold' as const },
     '/hrms/announcements':          { count: unreadAnnouncements + holidayBadge, color: 'gold' as const },
     '/hrms/it-declaration':         { count: itDeclEmployeeBadge, color: 'gold' as const },

@@ -12,6 +12,7 @@ import { useDocumentAcknowledgements, useAcknowledgementCountMap } from '../hook
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import type { CompanyDocumentCategory, EmployeeDocumentType, CompanyDocument } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -371,15 +372,11 @@ export function AdminDocumentsPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-            Documents — Admin
-          </h2>
-          <p className="text-sm text-(--text-muted)">Manage company policies and employee documents.</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Documents — Admin"
+        subtitle="Manage company policies and employee documents."
+        pinKey="hrms.admin-documents"
+      />
 
       {/* Tabs */}
       <div className="flex gap-2">

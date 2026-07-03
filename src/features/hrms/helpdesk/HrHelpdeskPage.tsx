@@ -15,6 +15,7 @@ import {
 import { useAuth } from '../../auth/AuthContext';
 import { useMyTickets, createTicket } from '../hooks/useHrTickets';
 import type { HrTicketCategory, HrTicketPriority, HrTicket } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -303,27 +304,26 @@ export function HrHelpdeskPage() {
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+      <PageHeader
+        title={
+          <span className="flex items-center gap-3">
+            <span className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: '#0B1538' }}>
+              <LifeBuoy size={20} style={{ color: '#C9A961' }} />
+            </span>
+            HR Helpdesk
+          </span>
+        }
+        subtitle="Raise HR queries, payroll issues, or workplace concerns"
+        pinKey="hrms.helpdesk"
+        actions={
+          <button onClick={() => setShowNew(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl text-white"
             style={{ backgroundColor: '#0B1538' }}>
-            <LifeBuoy size={20} style={{ color: '#C9A961' }} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Fraunces, serif' }}>
-              HR Helpdesk
-            </h1>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Raise HR queries, payroll issues, or workplace concerns
-            </p>
-          </div>
-        </div>
-        <button onClick={() => setShowNew(true)}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl text-white"
-          style={{ backgroundColor: '#0B1538' }}>
-          <Plus size={15} />Raise Ticket
-        </button>
-      </div>
+            <Plus size={15} />Raise Ticket
+          </button>
+        }
+      />
 
       {/* Info strip for POSH */}
       <div className="p-4 rounded-xl flex items-start gap-3 border border-(--shell-border) bg-(--glass-panel-bg)">

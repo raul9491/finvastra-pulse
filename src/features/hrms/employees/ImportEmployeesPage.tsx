@@ -4,6 +4,7 @@ import { collection, query, where, getDocs, updateDoc, setDoc, doc, serverTimest
 import { ArrowLeft, Link2, Eye, Upload, CheckCircle2, AlertCircle, Info, ChevronRight } from 'lucide-react';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -317,22 +318,20 @@ export function ImportEmployeesPage() {
     <div className="space-y-6 max-w-5xl">
 
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <button onClick={() => navigate('/hrms/employees')}
-          className="p-2 rounded-lg hover:bg-(--glass-panel-bg) transition-colors shrink-0"
-          style={{ color: 'var(--text-muted)' }}>
-          <ArrowLeft size={18} />
-        </button>
-        <div>
-          <h2 className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
+      <PageHeader
+        title={
+          <span className="flex items-center gap-4">
+            <button onClick={() => navigate('/hrms/employees')}
+              className="p-2 rounded-lg hover:bg-(--glass-panel-bg) transition-colors shrink-0"
+              style={{ color: 'var(--text-muted)' }}>
+              <ArrowLeft size={18} />
+            </button>
             Sync from Google Sheet
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Paste the Employee Master sheet link. Personal details, addresses, and salary sync to all employee profiles.
-          </p>
-        </div>
-      </div>
+          </span>
+        }
+        subtitle="Paste the Employee Master sheet link. Personal details, addresses, and salary sync to all employee profiles."
+        pinKey="hrms.import-employees"
+      />
 
       {/* Step indicators */}
       <div className="flex items-center gap-3 bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) px-6 py-4">

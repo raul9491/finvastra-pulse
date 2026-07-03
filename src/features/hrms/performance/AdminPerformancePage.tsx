@@ -14,6 +14,7 @@ import {
   currentReviewYear,
 } from '../hooks/usePerformance';
 import type { PerformanceReview, PerformanceReviewStatus, UserProfile } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -622,43 +623,33 @@ export function AdminPerformancePage() {
   return (
     <div className="space-y-6 max-w-5xl">
       {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-3xl mb-1" style={{
-            fontFamily: '"Fraunces", Georgia, serif',
-            fontStyle: 'italic',
-            fontVariationSettings: '"SOFT" 30',
-            fontWeight: 300,
-            color: 'var(--text-primary)',
-          }}>
-            Performance Reviews
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Annual review cycle management
-          </p>
-        </div>
-        {/* Year picker + start cycle */}
-        <div className="flex items-center gap-3">
-          <select
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-            className="glass-inp rounded-xl px-3 py-2 text-sm focus:outline-none"
-          >
-            {yearOptions.map((y) => (
-              <option key={y} value={y}>{y} Review</option>
-            ))}
-          </select>
-          <button
-            onClick={handleStartCycle}
-            disabled={creatingCycle}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80"
-            style={{ backgroundColor: '#C9A961', color: '#0B1538', opacity: creatingCycle ? 0.6 : 1 }}
-          >
-            <RefreshCw size={14} className={creatingCycle ? 'animate-spin' : ''} />
-            {creatingCycle ? 'Starting…' : 'Start Cycle'}
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Performance Reviews"
+        subtitle="Annual review cycle management"
+        pinKey="hrms.admin-perf"
+        actions={
+          <div className="flex items-center gap-3">
+            <select
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+              className="glass-inp rounded-xl px-3 py-2 text-sm focus:outline-none"
+            >
+              {yearOptions.map((y) => (
+                <option key={y} value={y}>{y} Review</option>
+              ))}
+            </select>
+            <button
+              onClick={handleStartCycle}
+              disabled={creatingCycle}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80"
+              style={{ backgroundColor: '#C9A961', color: '#0B1538', opacity: creatingCycle ? 0.6 : 1 }}
+            >
+              <RefreshCw size={14} className={creatingCycle ? 'animate-spin' : ''} />
+              {creatingCycle ? 'Starting…' : 'Start Cycle'}
+            </button>
+          </div>
+        }
+      />
 
       {cycleMsg && (
         <div className="rounded-xl px-4 py-3 text-sm"

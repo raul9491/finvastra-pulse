@@ -16,6 +16,7 @@ import {
 import { useAuth } from '../../auth/AuthContext';
 import { useAllClaims } from '../hooks/useClaims';
 import type { ClaimType, Claim } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 const CATEGORY_META: Record<ClaimType, { label: string; icon: typeof Car; color: string }> = {
   travel:               { label: 'Travel',               icon: Car,        color: '#3B82F6' },
@@ -123,31 +124,30 @@ export function ClaimsAnalyticsPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-            Claims Spend Analytics
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>By the bill date — where the money actually went, this year.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <select value={year} onChange={(e) => setYear(Number(e.target.value))}
-            className="text-sm border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-gold/30 text-(--text-primary) border-(--shell-border) bg-(--glass-panel-bg)">
-            {years.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-          <div className="inline-flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--shell-border)' }}>
-            {([['settled', 'Approved + Paid'], ['all', 'All claimed']] as const).map(([k, lbl]) => (
-              <button key={k} onClick={() => setBasis(k)} className="text-xs font-semibold px-3 py-2 transition-colors"
-                style={{ backgroundColor: basis === k ? '#C9A961' : 'var(--glass-panel-bg)', color: basis === k ? '#0B1538' : 'var(--text-muted)' }}>
-                {lbl}
-              </button>
-            ))}
+      <PageHeader
+        title="Claims Spend Analytics"
+        subtitle="By the bill date — where the money actually went, this year."
+        pinKey="hrms.claims-analytics"
+        actions={
+          <div className="flex items-center gap-2">
+            <select value={year} onChange={(e) => setYear(Number(e.target.value))}
+              className="text-sm border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-gold/30 text-(--text-primary) border-(--shell-border) bg-(--glass-panel-bg)">
+              {years.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+            <div className="inline-flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--shell-border)' }}>
+              {([['settled', 'Approved + Paid'], ['all', 'All claimed']] as const).map(([k, lbl]) => (
+                <button key={k} onClick={() => setBasis(k)} className="text-xs font-semibold px-3 py-2 transition-colors"
+                  style={{ backgroundColor: basis === k ? '#C9A961' : 'var(--glass-panel-bg)', color: basis === k ? '#0B1538' : 'var(--text-muted)' }}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+            <button onClick={exportCsv} className="glass-panel px-3 py-2 text-sm flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+              <Download size={14} /> CSV
+            </button>
           </div>
-          <button onClick={exportCsv} className="glass-panel px-3 py-2 text-sm flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
-            <Download size={14} /> CSV
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-20">

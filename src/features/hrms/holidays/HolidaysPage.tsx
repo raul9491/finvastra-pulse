@@ -6,6 +6,7 @@ import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useHolidays, addHoliday, deleteHoliday, seedHolidays2026, resetHolidays2026 } from '../hooks/useHolidays';
 import type { Holiday } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 type HolidayType = Holiday['type'];
 
@@ -107,53 +108,39 @@ export function HolidaysPage() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2
-            className="text-3xl mb-1"
-            style={{
-              fontFamily: '"Fraunces", Georgia, serif',
-              fontStyle: 'italic',
-              fontWeight: 300,
-              color: 'var(--text-primary)',
-            }}
-          >
-            Holidays
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Company and national holiday calendar
-          </p>
-        </div>
-
-        {/* Year selector */}
-        <div className="flex items-center gap-3">
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2"
-            style={{
-              borderColor: 'var(--shell-border)',
-              color: 'var(--text-primary)',
-              backgroundColor: 'var(--glass-panel-bg)',
-            }}
-          >
-            {YEAR_OPTIONS.map((y) => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-
-          {isAdmin && (
-            <button
-              onClick={() => setShowAddForm((v) => !v)}
-              className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
-              style={{ backgroundColor: '#0B1538', color: '#FFFFFF' }}
+      <PageHeader
+        title="Holidays"
+        subtitle="Company and national holiday calendar"
+        actions={
+          <div className="flex items-center gap-3">
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2"
+              style={{
+                borderColor: 'var(--shell-border)',
+                color: 'var(--text-primary)',
+                backgroundColor: 'var(--glass-panel-bg)',
+              }}
             >
-              <Plus size={14} />
-              Add Holiday
-            </button>
-          )}
-        </div>
-      </div>
+              {YEAR_OPTIONS.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+
+            {isAdmin && (
+              <button
+                onClick={() => setShowAddForm((v) => !v)}
+                className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
+                style={{ backgroundColor: '#0B1538', color: '#FFFFFF' }}
+              >
+                <Plus size={14} />
+                Add Holiday
+              </button>
+            )}
+          </div>
+        }
+      />
 
       {/* Add-holiday form */}
       {isAdmin && showAddForm && (

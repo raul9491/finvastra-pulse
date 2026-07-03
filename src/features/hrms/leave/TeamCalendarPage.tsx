@@ -20,6 +20,7 @@ import { useAllApprovedLeaves } from '../hooks/useLeave';
 import { useHolidays } from '../hooks/useHolidays';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import type { LeaveType } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -273,46 +274,39 @@ export function TeamCalendarPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-5">
       {/* ── Header ── */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-            Team Calendar
-          </h2>
-          <p className="text-sm text-(--text-muted)">
-            {canSeeAll ? 'Approved leave across all employees.' : `Approved leave in your team (${profile?.department ?? 'your department'}).`}
-          </p>
-        </div>
-
-        {/* Month nav */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setViewDate((d) => subMonths(d, 1))}
-            className="p-2 rounded-lg hover:bg-(--glass-panel-bg) transition-colors"
-          >
-            <ChevronLeft size={18} style={{ color: 'var(--text-primary)' }} />
-          </button>
-          <div className="text-center w-32">
-            <p className="text-sm font-semibold text-(--text-primary)">{format(viewDate, 'MMMM yyyy')}</p>
-          </div>
-          <button
-            onClick={() => setViewDate((d) => addMonths(d, 1))}
-            className="p-2 rounded-lg hover:bg-(--glass-panel-bg) transition-colors"
-          >
-            <ChevronRight size={18} style={{ color: 'var(--text-primary)' }} />
-          </button>
-          {/* Jump to today */}
-          {!isSameMonth(viewDate, today) && (
+      <PageHeader
+        title="Team Calendar"
+        subtitle={canSeeAll ? 'Approved leave across all employees.' : `Approved leave in your team (${profile?.department ?? 'your department'}).`}
+        actions={
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setViewDate(new Date())}
-              className="ml-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-(--shell-border) hover:bg-(--glass-panel-bg)"
-              style={{ color: 'var(--text-primary)' }}
+              onClick={() => setViewDate((d) => subMonths(d, 1))}
+              className="p-2 rounded-lg hover:bg-(--glass-panel-bg) transition-colors"
             >
-              Today
+              <ChevronLeft size={18} style={{ color: 'var(--text-primary)' }} />
             </button>
-          )}
-        </div>
-      </div>
+            <div className="text-center w-32">
+              <p className="text-sm font-semibold text-(--text-primary)">{format(viewDate, 'MMMM yyyy')}</p>
+            </div>
+            <button
+              onClick={() => setViewDate((d) => addMonths(d, 1))}
+              className="p-2 rounded-lg hover:bg-(--glass-panel-bg) transition-colors"
+            >
+              <ChevronRight size={18} style={{ color: 'var(--text-primary)' }} />
+            </button>
+            {/* Jump to today */}
+            {!isSameMonth(viewDate, today) && (
+              <button
+                onClick={() => setViewDate(new Date())}
+                className="ml-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-(--shell-border) hover:bg-(--glass-panel-bg)"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                Today
+              </button>
+            )}
+          </div>
+        }
+      />
 
       {/* ── Stats + Filter strip ── */}
       <div className="flex items-center justify-between gap-4 flex-wrap">

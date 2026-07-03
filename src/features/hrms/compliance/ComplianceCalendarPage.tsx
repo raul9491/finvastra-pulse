@@ -14,6 +14,7 @@ import {
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import type { ComplianceRecord, ComplianceType, ComplianceStatus } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Static metadata (keyed by category — `title` carries the specific obligation) ──
 
@@ -780,17 +781,11 @@ export function ComplianceCalendarPage() {
     <div className="max-w-5xl">
 
       {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-3xl mb-1" style={{
-          fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic',
-          fontWeight: 300, color: 'var(--text-primary)',
-        }}>
-          Compliance Calendar
-        </h2>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Every statutory deadline — TDS/TCS, GST, Income Tax, PF, ESI, PT &amp; MCA/ROC · CA calendar FY 2026-27
-        </p>
-      </div>
+      <PageHeader
+        title="Compliance Calendar"
+        subtitle="Every statutory deadline — TDS/TCS, GST, Income Tax, PF, ESI, PT & MCA/ROC · CA calendar FY 2026-27"
+        pinKey="hrms.compliance"
+      />
 
       {/* Month navigator + view toggle */}
       <div className="flex items-center gap-3 mb-6 flex-wrap">

@@ -25,6 +25,7 @@ import {
 } from '../../../config/hrmsConfig';
 import type { UserProfile, CrmRole, ConvertorVertical, MisAccess, ExitReason } from '../../../types';
 import { EXIT_REASON_LABELS } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 const CRM_ROLE_LABELS: Record<NonNullable<CrmRole>, string> = {
   viewer:          'Viewer (read-only)',
@@ -685,33 +686,30 @@ export function EmployeesPage() {
   return (
     <>
       <div>
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-              Employees
-            </h2>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              {loading ? 'Loading…' : `${filtered.length} of ${employees.length} employees`}
-            </p>
-          </div>
-          {isAdmin && (
-            <div className="flex items-center gap-2">
-              <button onClick={() => navigate('/hrms/admin/permissions')}
-                className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg border transition-colors hover:bg-(--glass-panel-bg)"
-                style={{ borderColor: 'var(--shell-border)', color: 'var(--text-primary)' }}>
-                <Shield size={14} /> Manage Permissions
-              </button>
-              <button onClick={handleExport} disabled={employees.length === 0}
-                className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg border transition-colors hover:bg-(--glass-panel-bg) disabled:opacity-40"
-                style={{ borderColor: 'var(--shell-border)', color: 'var(--text-primary)' }}>
-                <Download size={14} /> Export CSV
-              </button>
-              <Button variant="primary" icon={<UserPlus size={14} />} onClick={() => setShowAddModal(true)}>
-                Add Employee
-              </Button>
-            </div>
-          )}
-        </div>
+        <PageHeader
+          title="Employees"
+          subtitle={loading ? 'Loading…' : `${filtered.length} of ${employees.length} employees`}
+          pinKey="hrms.employees"
+          actions={
+            isAdmin ? (
+              <div className="flex items-center gap-2">
+                <button onClick={() => navigate('/hrms/admin/permissions')}
+                  className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg border transition-colors hover:bg-(--glass-panel-bg)"
+                  style={{ borderColor: 'var(--shell-border)', color: 'var(--text-primary)' }}>
+                  <Shield size={14} /> Manage Permissions
+                </button>
+                <button onClick={handleExport} disabled={employees.length === 0}
+                  className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-lg border transition-colors hover:bg-(--glass-panel-bg) disabled:opacity-40"
+                  style={{ borderColor: 'var(--shell-border)', color: 'var(--text-primary)' }}>
+                  <Download size={14} /> Export CSV
+                </button>
+                <Button variant="primary" icon={<UserPlus size={14} />} onClick={() => setShowAddModal(true)}>
+                  Add Employee
+                </Button>
+              </div>
+            ) : undefined
+          }
+        />
 
         {/* Search + status filter */}
         <div className="flex items-center gap-3 mb-4 flex-wrap">

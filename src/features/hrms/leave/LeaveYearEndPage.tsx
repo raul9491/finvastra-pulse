@@ -28,6 +28,7 @@ import { db, auth } from '../../../lib/firebase';
 import { getIdToken } from 'firebase/auth';
 import { currentFyYear, useLeaveYearResetStatus } from '../hooks/useLeaveYearReset';
 import type { UserProfile, LeaveBalance } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Preview row ──────────────────────────────────────────────────────────────
 
@@ -150,16 +151,11 @@ export function LeaveYearEndPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       {/* Header */}
-      <div>
-        <h2 className="text-3xl mb-1"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-          Leave Year-End Reset
-        </h2>
-        <p className="text-sm text-(--text-muted)">
-          Resets all employee leave balances at the start of each financial year (April 1).
-          EL carry-forward is capped at 30 days; 15 new EL days are always added.
-        </p>
-      </div>
+      <PageHeader
+        title="Leave Year-End Reset"
+        subtitle="Resets all employee leave balances at the start of each financial year (April 1). EL carry-forward is capped at 30 days; 15 new EL days are always added."
+        pinKey="hrms.leave-year-end"
+      />
 
       {/* Status card */}
       {!resetLoading && (

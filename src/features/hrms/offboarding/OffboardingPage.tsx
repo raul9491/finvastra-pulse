@@ -19,6 +19,7 @@ import type {
   ChecklistItemCategory, FnFDetails, FnFStatus, ExitReason, UserProfile,
 } from '../../../types';
 import { EXIT_REASON_LABELS } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -1215,15 +1216,18 @@ export function OffboardingPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="p-2 rounded-xl" style={{ background: '#FFF1F2' }}>
-          <UserMinus size={20} style={{ color: '#BE123C' }} />
-        </div>
-        <div>
-          <h1 className="text-xl font-semibold text-(--text-primary)">Offboarding</h1>
-          <p className="text-sm text-muted">{checklists.length} checklist{checklists.length !== 1 ? 's' : ''}</p>
-        </div>
-      </div>
+      <PageHeader
+        title={
+          <span className="flex items-center gap-3">
+            <span className="p-2 rounded-xl" style={{ background: '#FFF1F2' }}>
+              <UserMinus size={20} style={{ color: '#BE123C' }} />
+            </span>
+            Offboarding
+          </span>
+        }
+        subtitle={`${checklists.length} checklist${checklists.length !== 1 ? 's' : ''}`}
+        pinKey="hrms.offboarding"
+      />
 
       {/* Summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">

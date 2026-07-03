@@ -14,6 +14,7 @@ import {
 import { useAuth } from '../../auth/AuthContext';
 import { useMyTrainingRecords, useTrainingPrograms } from '../hooks/useTraining';
 import type { TrainingCategory, TrainingRecord } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -169,18 +170,19 @@ export function TrainingPage() {
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ backgroundColor: '#0B1538' }}>
-          <BookOpen size={20} style={{ color: '#C9A961' }} />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Fraunces, serif' }}>
+      <PageHeader
+        title={
+          <span className="flex items-center gap-3">
+            <span className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: '#0B1538' }}>
+              <BookOpen size={20} style={{ color: '#C9A961' }} />
+            </span>
             My Training
-          </h1>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Track your training and certification status</p>
-        </div>
-      </div>
+          </span>
+        }
+        subtitle="Track your training and certification status"
+        pinKey="hrms.training"
+      />
 
       {loading ? (
         <div className="text-center py-16 text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</div>

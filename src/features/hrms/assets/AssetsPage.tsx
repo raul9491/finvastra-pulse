@@ -14,6 +14,7 @@ import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { Modal } from '../../../components/ui/Modal';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import type { Asset, AssetType, AssetStatus, AssetCondition } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -457,25 +458,21 @@ export function AssetsPage() {
   return (
     <div className="max-w-6xl">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h2 className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-            Asset Inventory
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Track company assets — laptops, SIM cards, phones, and access cards
-          </p>
-        </div>
-        <button
-          onClick={() => setAddEditAsset('new')}
-          className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl"
-          style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
-        >
-          <Plus size={15} />
-          Add Asset
-        </button>
-      </div>
+      <PageHeader
+        title="Asset Inventory"
+        subtitle="Track company assets — laptops, SIM cards, phones, and access cards"
+        pinKey="hrms.assets"
+        actions={
+          <button
+            onClick={() => setAddEditAsset('new')}
+            className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl"
+            style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
+          >
+            <Plus size={15} />
+            Add Asset
+          </button>
+        }
+      />
 
       {/* Summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">

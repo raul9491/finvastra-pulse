@@ -8,6 +8,7 @@ import {
   useMyPerformanceReview, submitSelfAssessment, currentReviewYear,
 } from '../hooks/usePerformance';
 import type { PerformanceReviewStatus } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -111,23 +112,11 @@ export function PerformancePage() {
   return (
     <div className="max-w-2xl space-y-6">
       {/* ── Header ── */}
-      <div>
-        <h2
-          className="text-3xl mb-1"
-          style={{
-            fontFamily: '"Fraunces", Georgia, serif',
-            fontStyle: 'italic',
-            fontVariationSettings: '"SOFT" 30',
-            fontWeight: 300,
-            color: 'var(--text-primary)',
-          }}
-        >
-          My Performance Review
-        </h2>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          {year} Annual Review
-        </p>
-      </div>
+      <PageHeader
+        title="My Performance Review"
+        subtitle={`${year} Annual Review`}
+        pinKey="hrms.performance"
+      />
 
       {/* ── No review created yet ── */}
       {!review && (

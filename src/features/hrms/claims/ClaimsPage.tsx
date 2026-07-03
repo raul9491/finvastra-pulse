@@ -8,6 +8,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useMyClaims, submitClaim, cancelClaim } from '../hooks/useClaims';
 import { notifyManagerOfRequest } from '../../../lib/notifications';
 import type { ClaimType, ClaimStatus, Claim, ClaimTravelDetails } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -339,27 +340,25 @@ export function ClaimsPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-            My Claims
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Submit and track your expense reimbursements.</p>
-        </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
-          style={{
-            background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
-            color:      '#0B1538',
-            border:     '1px solid rgba(201,169,97,0.40)',
-          }}
-        >
-          <PlusCircle size={16} />
-          New Claim
-        </button>
-      </div>
+      <PageHeader
+        title="My Claims"
+        subtitle="Submit and track your expense reimbursements."
+        pinKey="hrms.claims"
+        actions={
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
+            style={{
+              background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
+              color:      '#0B1538',
+              border:     '1px solid rgba(201,169,97,0.40)',
+            }}
+          >
+            <PlusCircle size={16} />
+            New Claim
+          </button>
+        }
+      />
 
       {/* Summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

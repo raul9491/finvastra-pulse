@@ -1,15 +1,14 @@
 import { Mail, Phone, MessageSquare } from 'lucide-react';
+import { PageHeader } from '../../../components/ui/primitives';
 
 export function HrmsSettingsPage() {
   return (
     <div>
-      <h2 className="text-3xl mb-1"
-        style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-        Settings
-      </h2>
-      <p className="mb-8 text-sm" style={{ color: 'var(--text-muted)' }}>
-        Need help? Reach out to HR directly.
-      </p>
+      <PageHeader
+        title="Settings"
+        subtitle="Need help? Reach out to HR directly."
+        pinKey="hrms.settings"
+      />
 
       <div className="max-w-xl space-y-4">
         {/* Contact HR card */}

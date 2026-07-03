@@ -4,6 +4,7 @@ import { PlusCircle, Pin, PinOff, Eye, EyeOff, X } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllAnnouncements, createAnnouncement, toggleAnnouncementActive, updateAnnouncementPinned } from '../hooks/useAnnouncements';
 import type { AnnouncementPriority } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 const PRIORITY_OPTIONS: { value: AnnouncementPriority; label: string }[] = [
   { value: 'normal',    label: 'Normal' },
@@ -116,21 +117,19 @@ export function AdminAnnouncementsPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-            Announcements — Admin
-          </h2>
-          <p className="text-sm text-(--text-muted)">Post and manage company-wide announcements.</p>
-        </div>
-        <button onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold"
-          style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
-          <PlusCircle size={16} />
-          New Announcement
-        </button>
-      </div>
+      <PageHeader
+        title="Announcements — Admin"
+        subtitle="Post and manage company-wide announcements."
+        pinKey="hrms.admin-announce"
+        actions={
+          <button onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold"
+            style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
+            <PlusCircle size={16} />
+            New Announcement
+          </button>
+        }
+      />
 
       <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">
         {loading ? (

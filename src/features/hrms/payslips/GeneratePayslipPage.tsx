@@ -10,6 +10,7 @@ import { writeNotification, sendHrEmailNotification, buildHrEmailHtml } from '..
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { generatePayslipPdf } from './payslipPdf';
 import type { Payslip, UserProfile, Attendance, PayslipExtras, LeaveBalance } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -568,51 +569,39 @@ export function GeneratePayslipPage() {
   return (
     <div className="p-6 max-w-full">
       {/* Title */}
-      <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
-        <div>
-          <h2
-            className="text-4xl mb-1"
-            style={{
-              fontFamily: '"Fraunces", Georgia, serif',
-              fontStyle: 'italic',
-              fontWeight: 300,
-              color: 'var(--text-primary)',
-            }}
-          >
-            Generate Payslips
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Enter salary figures provided by CA
-          </p>
-        </div>
+      <PageHeader
+        title="Generate Payslips"
+        subtitle="Enter salary figures provided by CA"
+        pinKey="hrms.gen-payslips"
+        actions={
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Month selector */}
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="px-3 py-2 rounded-lg text-sm"
+              style={{
+                border: '1px solid #E5E7EB',
+                backgroundColor: 'var(--glass-panel-bg)',
+                color: 'var(--text-primary)',
+              }}
+            />
 
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Month selector */}
-          <input
-            type="month"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-3 py-2 rounded-lg text-sm"
-            style={{
-              border: '1px solid #E5E7EB',
-              backgroundColor: 'var(--glass-panel-bg)',
-              color: 'var(--text-primary)',
-            }}
-          />
-
-          {/* Generate All button */}
-          <button
-            onClick={() => setShowConfirm(true)}
-            disabled={generateAllBusy || pendingEmployees.length === 0 || isLoading}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50"
-            style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
-          >
-            {generateAllBusy
-              ? 'Generating…'
-              : `Generate All (${pendingEmployees.length} pending)`}
-          </button>
-        </div>
-      </div>
+            {/* Generate All button */}
+            <button
+              onClick={() => setShowConfirm(true)}
+              disabled={generateAllBusy || pendingEmployees.length === 0 || isLoading}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50"
+              style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
+            >
+              {generateAllBusy
+                ? 'Generating…'
+                : `Generate All (${pendingEmployees.length} pending)`}
+            </button>
+          </div>
+        }
+      />
 
       {/* Generation error banner (duplicate payslip, write failure, …) */}
       {genError && (

@@ -12,7 +12,7 @@ import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestor
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { StatCard, PageHeader } from '../../../components/ui/primitives';
-import { useMyAttendance } from '../hooks/useAttendance';
+import { useMyAttendance, useTodayAttendance } from '../hooks/useAttendance';
 import { useMyLeaveBalance, usePendingApprovals } from '../hooks/useLeave';
 import { useHolidays, seedHolidays2026 } from '../hooks/useHolidays';
 import { useMyPayslips } from '../hooks/usePayslips';
@@ -667,6 +667,72 @@ function useHeadcount(enabled: boolean) {
   return data;
 }
 
+function fmtClock(iso: unknown): string {
+  const d = typeof iso === 'string' ? new Date(iso) : (iso as { toDate?: () => Date } | null)?.toDate?.();
+  return d ? d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }) : '';
+}
+
+
+// ─── MyRequestsCard ───────────────────────────────────────────────────────────
+// One glance at everything the EMPLOYEE has asked for that's still pending —
+// leave, claims, attendance corrections, encashment. Before this, each status
+// lived on its own page. Hidden entirely when nothing is pending.
+
+function useMyPendingRequests(uid: string) {
+  const [items, setItems] = useState<Array<{ key: string; label: string; detail: string; link: string }>>([]);
+  useEffect(() => {
+    if (!uid) return;
+    const unsubs: Array<() => void> = [];
+    const parts: Record<string, Array<{ key: string; label: string; detail: string; link: string }>> = {};
+    const emit = () => setItems(Object.values(parts).flat());
+    const sub = (col: string, field: string, label: string, link: string, detail: (d: Record<string, unknown>) => string) => {
+      unsubs.push(onSnapshot(
+        query(collection(db, col), where(field, '==', uid), where('status', '==', 'pending')),
+        (snap) => { parts[col] = snap.docs.map((doc) => ({ key: `${col}_${doc.id}`, label, detail: detail(doc.data()), link })); emit(); },
+        () => { parts[col] = []; emit(); },
+      ));
+    };
+    sub('leave_applications', 'employeeId', 'Leave', '/hrms/leave',
+      (d) => `${String(d.type ?? '')} · ${String(d.fromDate ?? '')} → ${String(d.toDate ?? '')}`);
+    sub('claims', 'employeeId', 'Claim', '/hrms/claims',
+      (d) => `${String(d.claimType ?? '')} · ₹${Number(d.amount ?? 0).toLocaleString('en-IN')}`);
+    sub('attendance_regularizations', 'employeeId', 'Attendance correction', '/hrms/attendance',
+      (d) => String(d.date ?? ''));
+    sub('leave_encashment_requests', 'employeeId', 'Encashment', '/hrms/leave',
+      (d) => `${Number(d.leaveDays ?? 0)} day(s) · ₹${Number(d.totalAmount ?? 0).toLocaleString('en-IN')}`);
+    return () => unsubs.forEach((u) => u());
+  }, [uid]);
+  return items;
+}
+
+function MyRequestsCard({ uid }: { uid: string }) {
+  const navigate = useNavigate();
+  const items = useMyPendingRequests(uid);
+  if (items.length === 0) return null;
+  return (
+    <div className="glass-panel p-4 mb-6">
+      <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
+        My pending requests
+      </p>
+      <div className="divide-y" style={{ borderColor: 'var(--shell-border)' }}>
+        {items.map((it) => (
+          <button key={it.key} onClick={() => navigate(it.link)}
+            className="w-full flex items-center justify-between gap-3 py-2 text-left hover:bg-(--shell-hover-soft) rounded px-2 -mx-2 transition-colors">
+            <p className="text-sm min-w-0 truncate" style={{ color: 'var(--text-primary)' }}>
+              <span className="font-medium">{it.label}</span>
+              <span className="ml-2 text-xs" style={{ color: 'var(--text-muted)' }}>{it.detail}</span>
+            </p>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
+              style={{ color: '#fbbf24', backgroundColor: 'rgba(251,191,36,0.12)' }}>
+              Waiting for approval
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── HrPendingActionsPanel ────────────────────────────────────────────────────
 // Consolidated panel showing every pending HR action type in one place.
 
@@ -691,7 +757,12 @@ function HrPendingActionsPanel({
   if (total === 0) return null;
 
   return (
-    <div className="glass-panel p-5 mb-6" style={{ borderColor: 'rgba(201,169,97,0.20)' }}>
+    <div className="glass-panel p-5 mb-6 relative" style={{ borderColor: 'rgba(201,169,97,0.20)' }}>
+      <button onClick={() => navigate('/hrms/admin/approvals')}
+        className="absolute top-4 right-5 text-xs font-semibold hover:opacity-80"
+        style={{ color: '#C9A961' }}>
+        Open Approvals inbox →
+      </button>
       <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: '#C9A961' }}>
         {total} pending action{total !== 1 ? 's' : ''} need your review
       </p>
@@ -726,7 +797,7 @@ function HeadcountCard({ total, byDept }: { total: number; byDept: [string, numb
 
   return (
     <button
-      onClick={() => navigate('/hrms/admin/employees')}
+      onClick={() => navigate('/hrms/employees')}
       className="group w-full text-left glass-panel glass-card p-6 transition-all">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -773,6 +844,7 @@ export function HrmsDashboardPage() {
   const currentYear  = today.getFullYear();
 
   const { records: attendanceRecords, loading: attLoading } = useMyAttendance(uid, currentMonth);
+  const { record: todayAttendance } = useTodayAttendance(uid);
   const { balance,  loading: balLoading }  = useMyLeaveBalance(uid, currentYear);
   const { holidays, loading: holLoading }  = useHolidays(currentYear);
   const { payslips, loading: payLoading }  = useMyPayslips(uid);
@@ -929,8 +1001,10 @@ export function HrmsDashboardPage() {
           icon={<Clock size={18} />}
           label="Attendance this month"
           value={`${presentDays + halfDays} / ${workingDays}`}
-          sub={halfDays > 0 ? `${presentDays} full · ${halfDays} half-day` : 'working days present'}
-          accent="#5B9BD5"
+          sub={todayAttendance?.checkIn
+            ? (todayAttendance.checkOut ? 'Today: done for the day ✓' : `Today: clocked in ${fmtClock(todayAttendance.checkIn)}`)
+            : 'Today: not clocked in yet'}
+          accent={todayAttendance?.checkIn ? '#5B9BD5' : '#F59E0B'}
           link="/hrms/attendance"
           loading={attLoading}
         />
@@ -948,6 +1022,9 @@ export function HrmsDashboardPage() {
           loading={payLoading}
         />
       </div>
+
+      {/* Employee: status of everything I've requested (hidden when nothing pending) */}
+      <MyRequestsCard uid={uid} />
 
       {/* Manager: consolidated pending actions panel (leave + claims + IT decl + encashment) */}
       {isManager && (

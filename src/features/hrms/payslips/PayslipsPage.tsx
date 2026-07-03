@@ -10,6 +10,7 @@ import { Button } from '../../../components/ui/Button';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import type { Payslip, UserProfile, PayslipExtras, LeaveBalance } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -283,13 +284,11 @@ export function PayslipsPage() {
       {profile && <ProfileMeta  profile={profile as UserProfile} />}
 
       {/* Section title */}
-      <h3
-        className="text-3xl mb-1 text-(--text-primary)"
-        style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300 }}
-      >
-        Payslips
-      </h3>
-      <p className="text-sm text-(--text-muted) mb-6">Last 12 months · click a row to expand</p>
+      <PageHeader
+        title="Payslips"
+        subtitle="Last 12 months · click a row to expand"
+        pinKey="hrms.payslips"
+      />
 
       {/* Table — horizontally scrollable on mobile */}
       <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) overflow-hidden">

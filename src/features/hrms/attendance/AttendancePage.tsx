@@ -24,6 +24,7 @@ import {
 } from '../hooks/useAttendanceRegularization';
 import { notifyManagerOfRequest } from '../../../lib/notifications';
 import type { AttendanceRegularization } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -425,13 +426,11 @@ export function AttendancePage() {
       {profile && <ProfileMeta  profile={profile as UserProfile} />}
 
       {/* Page heading */}
-      <h2
-        className="text-3xl mb-1"
-        style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}
-      >
-        Attendance
-      </h2>
-      <p className="mb-8 text-sm" style={{ color: 'var(--text-muted)' }}>Your clock-in history and monthly summary.</p>
+      <PageHeader
+        title="Attendance"
+        subtitle="Your clock-in history and monthly summary."
+        pinKey="hrms.attendance"
+      />
 
       {/* ── Today Card — mobile-first large clock-in ───────────────────── */}
       <div className="glass-panel overflow-hidden mb-6">

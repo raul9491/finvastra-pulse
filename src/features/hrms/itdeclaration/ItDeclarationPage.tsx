@@ -10,6 +10,7 @@ import {
   type ItDeclFormData,
 } from '../hooks/useItDeclarations';
 import type { ItDeclSection80C } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -325,30 +326,26 @@ export function ItDeclarationPage() {
     <div className="max-w-3xl mx-auto space-y-5">
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-            IT Declaration
-          </h2>
-          <p className="text-sm text-(--text-muted)">Declare your investments and exemptions for TDS computation.</p>
-        </div>
-
-        {/* FY selector */}
-        <select
-          value={selectedYear}
-          onChange={(e) => {
-            formYearRef.current = -1;
-            setSelectedYear(Number(e.target.value));
-          }}
-          className="text-sm border border-(--shell-border) rounded-xl px-4 py-2 bg-(--glass-panel-bg) outline-none focus:ring-2 focus:ring-blue-100 font-semibold shrink-0"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          {fyOptions.map((y) => (
-            <option key={y} value={y}>{fyLabel(y)}</option>
-          ))}
-        </select>
-      </div>
+      <PageHeader
+        title="IT Declaration"
+        subtitle="Declare your investments and exemptions for TDS computation."
+        pinKey="hrms.it-declaration"
+        actions={
+          <select
+            value={selectedYear}
+            onChange={(e) => {
+              formYearRef.current = -1;
+              setSelectedYear(Number(e.target.value));
+            }}
+            className="text-sm border border-(--shell-border) rounded-xl px-4 py-2 bg-(--glass-panel-bg) outline-none focus:ring-2 focus:ring-blue-100 font-semibold shrink-0"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            {fyOptions.map((y) => (
+              <option key={y} value={y}>{fyLabel(y)}</option>
+            ))}
+          </select>
+        }
+      />
 
       {/* Status banner */}
       {!loading && declaration && (

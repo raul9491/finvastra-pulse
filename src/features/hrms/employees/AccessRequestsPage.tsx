@@ -7,6 +7,7 @@ import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { Modal } from '../../../components/ui/Modal';
 import type { AccessRequest, AccessRequestStatus, CrmRole, MisAccess } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
@@ -301,15 +302,11 @@ export function AccessRequestsPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-5">
-      <div>
-        <h2 className="text-3xl mb-1"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-          Access Requests
-        </h2>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Review and approve or reject employee account requests.
-        </p>
-      </div>
+      <PageHeader
+        title="Access Requests"
+        subtitle="Review and approve or reject employee account requests."
+        pinKey="hrms.access-requests"
+      />
 
       {/* Filter tabs */}
       <div className="flex gap-1 bg-(--glass-panel-bg) rounded-xl p-1 w-fit">

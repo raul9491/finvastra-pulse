@@ -9,6 +9,7 @@ import {
   submitEncashmentRequest,
 } from '../hooks/useLeaveEncashment';
 import type { LeaveApplication, LeaveStatus } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Status pill ─────────────────────────────────────────────────────────────
 
@@ -166,54 +167,42 @@ export function LeavePage() {
   return (
     <div className="space-y-8 max-w-4xl">
       {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2
-            className="text-3xl mb-1"
-            style={{
-              fontFamily: '"Fraunces", Georgia, serif',
-              fontStyle: 'italic',
-              fontVariationSettings: '"SOFT" 30',
-              fontWeight: 300,
-              color: 'var(--text-primary)',
-            }}
-          >
-            Leave
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            {year} balance &amp; applications
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Secondary links — surfaced here since they're removed from the main nav */}
-          <Link
-            to="/hrms/leave/team-calendar"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors hover:bg-(--shell-hover-mid)"
-            style={{ color: 'var(--text-muted)', border: '1px solid var(--shell-border-mid)' }}
-          >
-            Team Calendar →
-          </Link>
-          <Link
-            to="/hrms/holidays"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors hover:bg-(--shell-hover-mid)"
-            style={{ color: 'var(--text-muted)', border: '1px solid var(--shell-border-mid)' }}
-          >
-            Holidays →
-          </Link>
-          <Link
-            to="/hrms/leave/apply"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
-            style={{
-              background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
-              color:      '#0B1538',
-              border:     '1px solid rgba(201,169,97,0.40)',
-            }}
-          >
-            <Plus size={15} />
-            Apply for Leave
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="Leave"
+        subtitle={`${year} balance & applications`}
+        pinKey="hrms.leave"
+        actions={
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Secondary links — surfaced here since they're removed from the main nav */}
+            <Link
+              to="/hrms/leave/team-calendar"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors hover:bg-(--shell-hover-mid)"
+              style={{ color: 'var(--text-muted)', border: '1px solid var(--shell-border-mid)' }}
+            >
+              Team Calendar →
+            </Link>
+            <Link
+              to="/hrms/holidays"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors hover:bg-(--shell-hover-mid)"
+              style={{ color: 'var(--text-muted)', border: '1px solid var(--shell-border-mid)' }}
+            >
+              Holidays →
+            </Link>
+            <Link
+              to="/hrms/leave/apply"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:brightness-110"
+              style={{
+                background: 'linear-gradient(135deg, rgba(201,169,97,0.85), rgba(154,126,63,0.85))',
+                color:      '#0B1538',
+                border:     '1px solid rgba(201,169,97,0.40)',
+              }}
+            >
+              <Plus size={15} />
+              Apply for Leave
+            </Link>
+          </div>
+        }
+      />
 
       {/* ── Balance cards ── */}
       {balLoading ? (

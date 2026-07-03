@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 import { Search, Mail, MapPin, Users, Filter } from 'lucide-react';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { useAuth } from '../../auth/AuthContext';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── EmployeeCard ─────────────────────────────────────────────────────────────
 
@@ -165,22 +166,18 @@ export function EmployeeDirectoryPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-            Employee Directory
-          </h2>
-          <p className="text-sm text-(--text-muted)">
-            {loading ? 'Loading…' : `${activeEmployees.length} active team member${activeEmployees.length !== 1 ? 's' : ''}`}
-          </p>
-        </div>
-        <Link to="/hrms/org-chart"
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors hover:bg-(--glass-panel-bg) shrink-0"
-          style={{ color: 'var(--text-muted)', border: '1px solid var(--shell-border)' }}>
-          Org Chart →
-        </Link>
-      </div>
+      <PageHeader
+        title="Employee Directory"
+        subtitle={loading ? 'Loading…' : `${activeEmployees.length} active team member${activeEmployees.length !== 1 ? 's' : ''}`}
+        pinKey="hrms.directory"
+        actions={
+          <Link to="/hrms/org-chart"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors hover:bg-(--glass-panel-bg) shrink-0"
+            style={{ color: 'var(--text-muted)', border: '1px solid var(--shell-border)' }}>
+            Org Chart →
+          </Link>
+        }
+      />
 
       {/* Search + filter bar */}
       <div className="flex flex-col sm:flex-row gap-3">

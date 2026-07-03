@@ -97,7 +97,7 @@ export interface NavNode {
 
 // Per-module section order (drives the unified sidebar in Phase 2).
 export const MODULE_GROUP_ORDER: Record<ModuleKey, string[]> = {
-  hrms: ['General', 'My Work', 'Company', 'Growth', 'Support', 'People', 'Time & Leave', 'Payroll & Compliance', 'Performance', 'Communications', 'Lifecycle', 'Admin Tools'],
+  hrms: ['General', 'Approvals', 'My Work', 'Company', 'Growth', 'Support', 'People', 'Time & Leave', 'Payroll & Compliance', 'Communications', 'Performance', 'Lifecycle', 'Admin Tools'],
   crm:  ['Home', 'Work', 'Pipeline', 'Manage', 'Admin'],
   mis:  ['MIS', 'Archive · old MIS'],
   command: ['Command'],
@@ -108,6 +108,7 @@ export const MODULE_GROUP_ORDER: Record<ModuleKey, string[]> = {
 export const NAV_NODES: NavNode[] = [
   // ════════════════════════════ HRMS ════════════════════════════
   { key: 'hrms.dashboard',        label: 'Dashboard',           route: '/hrms/dashboard',             module: 'hrms', icon: 'LayoutDashboard', group: 'General',  access: hrms, end: true },
+  { key: 'hrms.approvals',        label: 'Approvals',           route: '/hrms/admin/approvals',       module: 'hrms', icon: 'ClipboardCheck',  group: 'Approvals', access: hrmsAdmin, keywords: ['pending', 'approve', 'leave approvals', 'claims', 'corrections', 'inbox', 'review'] },
   { key: 'hrms.attendance',       label: 'Attendance',          route: '/hrms/attendance',            module: 'hrms', icon: 'Clock',           group: 'My Work',  access: hrms },
   { key: 'hrms.leave',            label: 'Leave',               route: '/hrms/leave',                 module: 'hrms', icon: 'CalendarOff',     group: 'My Work',  access: hrms },
   { key: 'hrms.payslips',         label: 'Payslips',            route: '/hrms/payslips',              module: 'hrms', icon: 'Receipt',         group: 'My Work',  access: hrms },

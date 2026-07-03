@@ -7,6 +7,7 @@ import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { writeNotification, sendHrEmailNotification, buildHrEmailHtml } from '../../../lib/notifications';
 import type { ClaimType, ClaimStatus, Claim } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Helpers (same as ClaimsPage) ─────────────────────────────────────────────
 
@@ -351,21 +352,19 @@ export function AdminClaimsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl mb-1"
-            style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-            Claims — Admin
-          </h2>
-          <p className="text-sm text-(--text-muted)">Review, approve, and mark claims as paid.</p>
-        </div>
-        <button onClick={() => exportClaimsCSV(month)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors"
-          style={{ color: 'var(--text-primary)' }}>
-          <Download size={16} />
-          Export {month}
-        </button>
-      </div>
+      <PageHeader
+        title="Claims — Admin"
+        subtitle="Review, approve, and mark claims as paid."
+        pinKey="hrms.admin-claims"
+        actions={
+          <button onClick={() => exportClaimsCSV(month)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors"
+            style={{ color: 'var(--text-primary)' }}>
+            <Download size={16} />
+            Export {month}
+          </button>
+        }
+      />
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">

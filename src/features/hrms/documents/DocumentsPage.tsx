@@ -5,6 +5,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useCompanyDocuments, useMyEmployeeDocuments } from '../hooks/useDocuments';
 import { useMyAcknowledgements, usePendingAcknowledgements, acknowledgeDocument } from '../hooks/useDocumentAcknowledgements';
 import type { CompanyDocument, EmployeeDocument, CompanyDocumentCategory, EmployeeDocumentType } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -196,13 +197,11 @@ export function DocumentsPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
-      <div>
-        <h2 className="text-3xl mb-1"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-          Documents
-        </h2>
-        <p className="text-sm text-(--text-muted)">Company policies and your personal documents.</p>
-      </div>
+      <PageHeader
+        title="Documents"
+        subtitle="Company policies and your personal documents."
+        pinKey="hrms.documents"
+      />
 
       {/* ── Pending Acknowledgements ── */}
       {!acksLoading && visiblePending.length > 0 && (

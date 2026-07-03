@@ -6,6 +6,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import type { Payslip, UserProfile, EmployeeProfile } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── PF calculation helpers ───────────────────────────────────────────────────
 
@@ -190,17 +191,11 @@ export function PfTrackerPage() {
   return (
     <div className="max-w-6xl">
       {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-3xl mb-1" style={{
-          fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic',
-          fontWeight: 300, color: 'var(--text-primary)',
-        }}>
-          PF Tracker
-        </h2>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Employee Provident Fund contributions — auto-calculated from payslips
-        </p>
-      </div>
+      <PageHeader
+        title="PF Tracker"
+        subtitle="Employee Provident Fund contributions — auto-calculated from payslips"
+        pinKey="hrms.pf-tracker"
+      />
 
       {/* Month selector */}
       <div className="flex items-center gap-4 mb-6">

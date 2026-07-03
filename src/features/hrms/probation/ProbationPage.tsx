@@ -21,6 +21,7 @@ import {
   extendProbation,
 } from '../hooks/useProbation';
 import type { ProbationRecord, ProbationStatus, UserProfile } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -793,23 +794,11 @@ export function ProbationPage() {
   return (
     <div className="space-y-6 max-w-5xl">
       {/* ── Header ── */}
-      <div>
-        <h2
-          className="text-3xl mb-1"
-          style={{
-            fontFamily: '"Fraunces", Georgia, serif',
-            fontStyle: 'italic',
-            fontVariationSettings: '"SOFT" 30',
-            fontWeight: 300,
-            color: 'var(--text-primary)',
-          }}
-        >
-          Probation Management
-        </h2>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          6-month probation tracking · confirmation &amp; extension letters
-        </p>
-      </div>
+      <PageHeader
+        title="Probation Management"
+        subtitle="6-month probation tracking · confirmation & extension letters"
+        pinKey="hrms.probation"
+      />
 
       {/* ── Stats ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

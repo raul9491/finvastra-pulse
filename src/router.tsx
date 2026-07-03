@@ -119,6 +119,7 @@ const PulseGuidePage           = lazyPage(() => import('./features/hrms/guide/Pu
 
 // ── CRM (lazy group) ─────────────────────────────────────────────────────────
 const CrmShell                 = lazyPage(() => import('./components/layout/CrmShell'), 'CrmShell');
+const HrmsApprovalsPage        = lazyPage(() => import('./features/hrms/approvals/ApprovalsPage'), 'ApprovalsPage');
 const CrmHomePage              = lazyPage(() => import('./features/crm/home/CrmHomePage'), 'CrmHomePage');
 const PerformanceHubPage       = lazyPage(() => import('./features/crm/performance/PerformanceHubPage'), 'PerformanceHubPage');
 const LeadsPage                = lazyPage(() => import('./features/crm/leads/LeadsPage'), 'LeadsPage');
@@ -255,6 +256,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true,        element: <Navigate to="/hrms/dashboard" replace /> },
       { path: 'dashboard',  element: s(<HrmsDashboardPage />) },
+      { path: 'admin/approvals', element: s(<HrmsApprovalsPage />) },
       { path: 'employees',                element: s(<EmployeesPage />) },
       { path: 'employees/:userId',        element: s(<EmployeeProfilePage />) },
       { path: 'admin/access-requests',     element: s(<AccessRequestsPage />) },

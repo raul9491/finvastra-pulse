@@ -36,6 +36,7 @@ import {
   type OfferLetterData, type AppointmentData, type ConfirmationData,
   type ProbationExtensionData, type ConsultantAgreementData,
 } from './letterPdf';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Letter type catalogue ────────────────────────────────────────────────────
 
@@ -496,15 +497,11 @@ export function HrLetterGeneratorPage() {
     <div className="max-w-4xl mx-auto space-y-8">
 
       {/* Header */}
-      <div>
-        <h2 className="text-3xl mb-1"
-          style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-          HR Letters
-        </h2>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Generate official Finvastra HR letters — stored in Firebase and available for employees to download.
-        </p>
-      </div>
+      <PageHeader
+        title="HR Letters"
+        subtitle="Generate official Finvastra HR letters — stored in Firebase and available for employees to download."
+        pinKey="hrms.letters"
+      />
 
       {/* Form */}
       <div className="bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl p-6 space-y-5">

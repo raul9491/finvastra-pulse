@@ -21,6 +21,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useAllSalaryHistory, useEmployeeSalaryHistory, recordSalaryRevision } from '../hooks/useSalaryHistory';
 import type { SalaryRevisionReason, SalaryHistory } from '../../../types';
 import { SALARY_REVISION_REASON_LABELS } from '../../../types';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -392,33 +393,32 @@ export function AdminSalaryHistoryPage() {
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ backgroundColor: '#0B1538' }}>
-            <TrendingUp size={20} style={{ color: '#C9A961' }} />
+      <PageHeader
+        title={
+          <span className="flex items-center gap-3">
+            <span className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: '#0B1538' }}>
+              <TrendingUp size={20} style={{ color: '#C9A961' }} />
+            </span>
+            Salary History
+          </span>
+        }
+        subtitle="Track CTC revisions — joining, increments, promotions"
+        pinKey="hrms.salary-history"
+        actions={
+          <div className="flex gap-2">
+            <button onClick={exportCSV}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors">
+              <Download size={14} />CSV
+            </button>
+            <button onClick={() => { loadEmployees(); setShowAdd(true); }}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl text-white"
+              style={{ backgroundColor: '#0B1538' }}>
+              <Plus size={15} />Record Revision
+            </button>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)', fontFamily: 'Fraunces, serif' }}>
-              Salary History
-            </h1>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Track CTC revisions — joining, increments, promotions
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={exportCSV}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors">
-            <Download size={14} />CSV
-          </button>
-          <button onClick={() => { loadEmployees(); setShowAdd(true); }}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl text-white"
-            style={{ backgroundColor: '#0B1538' }}>
-            <Plus size={15} />Record Revision
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">

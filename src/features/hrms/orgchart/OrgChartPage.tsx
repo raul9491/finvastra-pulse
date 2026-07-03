@@ -20,6 +20,7 @@ import { useState, useMemo } from 'react';
 import { ChevronDown, ChevronRight, Users } from 'lucide-react';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { DEPARTMENTS } from '../../../config/hrmsConfig';
+import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -312,23 +313,11 @@ export function OrgChartPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2
-          className="text-3xl mb-1"
-          style={{
-            fontFamily: '"Fraunces", Georgia, serif',
-            fontStyle: 'italic',
-            fontVariationSettings: '"SOFT" 30',
-            fontWeight: 300,
-            color: 'var(--text-primary)',
-          }}
-        >
-          Organisation Chart
-        </h2>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-          Reporting structure across Finvastra
-        </p>
-      </div>
+      <PageHeader
+        title="Organisation Chart"
+        subtitle="Reporting structure across Finvastra"
+        pinKey="hrms.orgchart"
+      />
 
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3">

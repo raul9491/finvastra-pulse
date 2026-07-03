@@ -174,7 +174,7 @@ function RegularizeModal({
           { label: 'Requested', value: [checkInTime && `In ${checkInTime}`, checkOutTime && `Out ${checkOutTime}`].filter(Boolean).join(' · ') || '—' },
           { label: 'Reason', value: reason.trim() },
         ],
-        link: '/hrms/admin/attendance',
+        link: '/hrms/admin/attendance?tab=corrections',
       }).catch(() => {});
       onClose();
     } catch {

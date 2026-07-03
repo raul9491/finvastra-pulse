@@ -74,7 +74,7 @@ const SECTIONS: SectionDef[] = [
   },
   {
     key: 'corrections', title: 'Attendance corrections', Icon: Clock3, color: '#F59E0B',
-    route: '/hrms/admin/attendance', col: 'attendance_regularizations',
+    route: '/hrms/admin/attendance?tab=corrections', col: 'attendance_regularizations',
     wheres: [where('status', '==', 'pending')],
     map: (id, d) => ({
       id, name: str(d.employeeName),

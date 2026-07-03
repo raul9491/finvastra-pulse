@@ -154,17 +154,39 @@ export async function checkOut(
 // ─── adminMarkAttendance ──────────────────────────────────────────────────────
 // Admin / manager override: create or update an attendance record for any user
 // on any date, setting status and optional notes.
+// Build a fixed-IST instant for "HH:mm on YYYY-MM-DD" — same convention as the
+// regularization approve path (buildTimestamp in useAttendanceRegularization).
+function istInstant(date: string, hhmm: string): Date {
+  const [y, mo, d] = date.split('-').map(Number);
+  const [hh, mm] = hhmm.split(':').map(Number);
+  return new Date(Date.UTC(y, mo - 1, d, hh - 5, mm - 30));
+}
+
 export async function adminMarkAttendance(
   recordId: string | null,
   userId: string,
   date: string,
   status: AttendanceStatus,
   notes: string,
+  checkInTime?: string,   // optional "HH:mm" — lets the admin editor set times
+  checkOutTime?: string,  // optional "HH:mm" (rolls +24h if ≤ check-in)
 ): Promise<void> {
+  const checkIn = checkInTime ? istInstant(date, checkInTime) : null;
+  let checkOut = checkOutTime ? istInstant(date, checkOutTime) : null;
+  if (checkIn && checkOut && checkOut.getTime() <= checkIn.getTime()) {
+    checkOut = new Date(checkOut.getTime() + 24 * 60 * 60 * 1000); // overnight shift
+  }
+  const workingHours = checkIn && checkOut
+    ? Math.round(((checkOut.getTime() - checkIn.getTime()) / 3600000) * 100) / 100
+    : 0;
+  const times = (checkInTime || checkOutTime)
+    ? { checkIn, checkOut, workingHours }
+    : {};
   if (recordId) {
     await updateDoc(doc(db, 'attendance', recordId), {
       status,
       notes,
+      ...times,
       markedBy: 'admin' as const,
       updatedAt: serverTimestamp(),
     });
@@ -172,9 +194,9 @@ export async function adminMarkAttendance(
     await addDoc(collection(db, 'attendance'), {
       userId,
       date,
-      checkIn: null,
-      checkOut: null,
-      workingHours: 0,
+      checkIn: checkIn ?? null,
+      checkOut: checkOut ?? null,
+      workingHours,
       status,
       markedBy: 'admin' as const,
       notes,

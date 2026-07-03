@@ -57,57 +57,60 @@ interface EditRowProps {
 function EditRow({ record, userId, date, onSave, onCancel }: EditRowProps) {
   const [status, setStatus] = useState<AttendanceStatus>(record?.status ?? 'present');
   const [notes, setNotes] = useState(record?.notes ?? '');
+  const [inTime, setInTime] = useState('');
+  const [outTime, setOutTime] = useState('');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSave = async () => {
-    setSaving(true);
+    setSaving(true); setError('');
     try {
-      await adminMarkAttendance(record?.id ?? null, userId, date, status, notes);
+      await adminMarkAttendance(record?.id ?? null, userId, date, status, notes,
+        inTime || undefined, outTime || undefined);
       onSave();
+    } catch (e) {
+      console.error('adminMarkAttendance failed', e);
+      setError('Could not save — you may not have permission, or the connection dropped. Try again.');
     } finally {
       setSaving(false);
     }
   };
 
+  const inp = 'text-sm border border-(--shell-border) rounded-lg px-2 py-1.5 bg-(--ss-bg)';
   return (
     <tr style={{ backgroundColor: 'var(--glass-panel-bg)' }}>
-      <td colSpan={4} />
-      <td colSpan={2} className="px-4 py-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as AttendanceStatus)}
-            className="text-sm border border-(--shell-border) rounded-lg px-2 py-1.5 bg-(--glass-panel-bg)"
-            style={{ color: 'var(--text-primary)' }}
-          >
+      <td colSpan={6} className="px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <select value={status} onChange={(e) => setStatus(e.target.value as AttendanceStatus)}
+            className={inp} style={{ color: 'var(--text-primary)' }}>
             {ALL_STATUSES.map((s) => (
               <option key={s} value={s}>{STATUS_STYLES[s].label}</option>
             ))}
           </select>
-          <input
-            type="text"
-            placeholder="Notes (optional)"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="text-sm border border-(--shell-border) rounded-lg px-2 py-1.5 bg-(--glass-panel-bg) flex-1 min-w-[140px]"
-            style={{ color: 'var(--text-primary)' }}
-          />
-          <button
-            onClick={handleSave}
-            disabled={saving}
+          <label className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+            In
+            <input type="time" value={inTime} onChange={(e) => setInTime(e.target.value)}
+              className={inp} style={{ color: 'var(--text-primary)' }} />
+          </label>
+          <label className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+            Out
+            <input type="time" value={outTime} onChange={(e) => setOutTime(e.target.value)}
+              className={inp} style={{ color: 'var(--text-primary)' }} />
+          </label>
+          <input type="text" placeholder="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)}
+            className={`${inp} flex-1 min-w-[140px]`} style={{ color: 'var(--text-primary)' }} />
+          <button onClick={handleSave} disabled={saving}
             className="px-4 py-1.5 rounded-lg text-sm font-semibold disabled:opacity-50"
-            style={{ backgroundColor: '#0B1538', color: '#C9A961' }}
-          >
+            style={{ backgroundColor: '#0B1538', color: '#C9A961' }}>
             {saving ? 'Saving…' : 'Save'}
           </button>
-          <button
-            onClick={onCancel}
-            className="px-3 py-1.5 rounded-lg text-sm border border-(--shell-border) hover:bg-(--glass-panel-bg)"
-            style={{ color: 'var(--text-primary)' }}
-          >
+          <button onClick={onCancel}
+            className="px-3 py-1.5 rounded-lg text-sm border border-(--shell-border) hover:bg-(--shell-hover-soft)"
+            style={{ color: 'var(--text-primary)' }}>
             Cancel
           </button>
         </div>
+        {error && <p className="mt-2 text-xs" style={{ color: '#f87171' }}>{error}</p>}
       </td>
     </tr>
   );
@@ -590,7 +593,13 @@ export function AdminAttendancePage() {
   // Guard comes AFTER hooks. When profile is null (still loading), we skip
   // the guard and render nothing until profile resolves.
   const today = format(new Date(), 'yyyy-MM-dd');
-  const [activeTab, setActiveTab] = useState<'day' | 'month' | 'corrections' | 'geofence'>('day');
+  // Deep-linkable tab (?tab=corrections) — correction notifications + the
+  // Approvals inbox land the reviewer directly on the request, not the Daily view.
+  const initialTab = (() => {
+    const t = new URLSearchParams(window.location.search).get('tab');
+    return (t === 'month' || t === 'corrections' || t === 'geofence') ? t : 'day';
+  })();
+  const [activeTab, setActiveTab] = useState<'day' | 'month' | 'corrections' | 'geofence'>(initialTab);
   const [selectedDate, setSelectedDate] = useState<string>(today);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
 

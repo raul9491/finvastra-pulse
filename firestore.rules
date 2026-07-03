@@ -850,10 +850,14 @@ service cloud.firestore {
     match /attendance/{recordId} {
       allow read:   if isAdmin() || isHrmsManager() ||
                        (isSignedIn() && resource.data.get('userId', '') == request.auth.uid);
-      allow create: if isSignedIn() &&
-                       incoming().keys().hasAll(['userId', 'date', 'status']) &&
-                       incoming().userId == request.auth.uid &&
-                       incoming().date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+      // Self-create (clock-in) OR admin/HR marking someone's day from the admin
+      // attendance page (the inline editor / correction flows). The admin branch
+      // was missing — admin "mark present" for a no-record day was silently
+      // rules-denied (2026-07-03 fix).
+      allow create: if incoming().keys().hasAll(['userId', 'date', 'status']) &&
+                       incoming().date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+                       (isAdmin() || isHrmsManager() ||
+                        (isSignedIn() && incoming().userId == request.auth.uid));
       allow update: if isAdmin() || isHrmsManager() ||
                        // Employee can only check out their own record
                        (isSignedIn() &&

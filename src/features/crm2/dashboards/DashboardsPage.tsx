@@ -8,6 +8,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { PageHeader } from '../../../components/ui/primitives';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { apiCrm2, hasCrm2Perm } from '../lib';
@@ -75,16 +76,17 @@ export function DashboardsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>Analytics</h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Funnel · pipeline · disbursals · payout health · receivables · margin</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <input type="month" className="glass-inp text-sm" value={period} onChange={(e) => setPeriod(e.target.value || thisMonth())} />
-          <button onClick={load} className="glass-panel px-3 py-2 text-sm flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}><RefreshCw size={14} /> Refresh</button>
-        </div>
-      </div>
+      <PageHeader
+        title="Analytics"
+        subtitle="Funnel, pipeline value, disbursements and scorecards for the whole company."
+        pinKey="crm.dashboards"
+        actions={
+          <div className="flex items-center gap-2">
+            <input type="month" className="glass-inp text-sm" value={period} onChange={(e) => setPeriod(e.target.value || thisMonth())} />
+            <button onClick={load} className="glass-panel px-3 py-2 text-sm flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}><RefreshCw size={14} /> Refresh</button>
+          </div>
+        }
+      />
 
       {loading || !d ? (
         <div className="glass-panel p-10 text-center text-sm" style={{ color: 'var(--text-muted)' }}>Loading…</div>

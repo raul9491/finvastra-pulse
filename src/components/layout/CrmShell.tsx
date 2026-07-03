@@ -197,6 +197,10 @@ export function CrmShell() {
   const isManager = profile?.crmRole === 'manager';
   const isViewer  = profile?.crmRole === 'viewer' && !isAdmin;
   const canImport = isAdmin || profile?.crmRole === 'manager' || profile?.crmCanImport === true;
+  // Mobile tab persona: a plain case-worker (crm.cases.read, not manager/admin)
+  // works Pipeline Cases day-to-day; everyone else's 4th tab is Performance.
+  const isCaseWorker = !isAdmin && !isManager
+    && ((profile as (typeof profile & { perms?: Record<string, boolean> }) | null)?.perms?.['crm.cases.read'] === true);
   const queueAwaiting = importJobs.filter(
     (j) => !!j.importName && j.distributed !== true && (j.successCount ?? 0) > 0 && (j.status === 'completed' || j.status === 'partial'),
   ).length;
@@ -417,10 +421,15 @@ export function CrmShell() {
                   { label: 'Submit',    path: '/crm/referrals/new', Icon: Plus },
                 ] as MobileTab[])
               : ([
-                  { label: 'Overview', path: '/crm/dashboard', Icon: LayoutDashboard, end: true },
+                  { label: 'Home',      path: '/crm/dashboard', Icon: LayoutDashboard, end: true },
                   { label: 'Tasks',     path: '/crm/tasks',     Icon: ListChecks, end: true },
                   { label: 'Customers', path: '/crm/leads',     Icon: Inbox },
-                  { label: 'Cases',     path: '/crm/pipeline/cases', Icon: Briefcase },
+                  // Case-workers get Cases; everyone else gets Performance.
+                  // (Fixes the old mismatch: the Cases tab showed even for users
+                  // whose sidebar hides Cases for lack of crm.cases.read.)
+                  isCaseWorker
+                    ? { label: 'Cases',       path: '/crm/pipeline/cases', Icon: Briefcase }
+                    : { label: 'Performance', path: '/crm/performance',    Icon: BarChart3 },
                 ] as MobileTab[])
           }
           onMenu={() => setMobileNavOpen(true)}

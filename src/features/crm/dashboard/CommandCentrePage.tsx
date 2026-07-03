@@ -8,6 +8,7 @@ import {
   FileText, ClockAlert, TrendingUp, CheckCircle2, ArrowRight, Loader2,
 } from 'lucide-react';
 import { db } from '../../../lib/firebase';
+import { PageHeader } from '../../../components/ui/primitives';
 import { useAuth } from '../../auth/AuthContext';
 import { useTeamTargets, achievementPct } from '../hooks/useRmTargets';
 import { DataView } from '../../../components/ui/DataView';
@@ -220,15 +221,10 @@ export function CommandCentrePage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* ── PART 1 — Header ── */}
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <Command size={22} style={{ color: '#C9A961' }} />
-          <h2 className="text-2xl" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-            {greeting}, {firstName}
-          </h2>
-        </div>
-        <p className="text-sm" style={{ color: 'var(--shell-text-dim)' }}>{dateLabel}</p>
-      </div>
+      <PageHeader
+        title={<span className="flex items-center gap-2"><Command size={22} style={{ color: '#C9A961' }} /> {greeting}, {firstName}</span>}
+        subtitle={`${dateLabel} — one screen across HR, CRM and payouts.`}
+      />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Chip icon={Users2}       label="checked in today"   count={data?.present.length ?? 0} onClick={() => scrollTo(attendanceRef)} />

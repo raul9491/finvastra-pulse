@@ -143,13 +143,13 @@ export function Crm2LeadsPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-            Pipeline Leads
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h1 className="h-display text-3xl" style={{ color: 'var(--text-primary)' }}>Leads</h1>
+          </div>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
             {seesAll
-              ? 'Funnel: received → qualified → converted to client + case'
+              ? 'Qualified prospects on their way to becoming cases — received → qualified → converted.'
               : 'Showing leads assigned to you. Use “Get next lead”, or ask your manager to assign more.'}
           </p>
         </div>

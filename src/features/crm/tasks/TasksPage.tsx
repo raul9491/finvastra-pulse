@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Inbox, CalendarClock, ListChecks } from 'lucide-react';
+import { PageHeader } from '../../../components/ui/primitives';
 import { MyQueuePage } from '../leads/MyQueuePage';
 import { MyMeetingsPage } from '../meetings/MyMeetingsPage';
 import { apiCrm2 } from '../../crm2/lib';
@@ -28,12 +29,11 @@ export function TasksPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-          Tasks
-        </h2>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Your queue, meetings, case tasks and follow-ups in one place.</p>
-      </div>
+      <PageHeader
+        title="Tasks"
+        subtitle="Your queue, meetings, case tasks and follow-ups in one place."
+        pinKey="crm.tasks"
+      />
 
       <div className="flex items-center gap-1.5 flex-wrap p-1 rounded-xl w-fit" style={{ backgroundColor: 'var(--shell-hover-soft)' }}>
         <TabBtn id="queue" label="My Queue" Icon={Inbox} />

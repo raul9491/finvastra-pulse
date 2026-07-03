@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore';
 import { Target, Loader2, Pencil, FileText } from 'lucide-react';
 import { db, auth } from '../../../lib/firebase';
+import { PageHeader } from '../../../components/ui/primitives';
 import { useAuth } from '../../auth/AuthContext';
 import { DataView } from '../../../components/ui/DataView';
 import { ReBar } from '../../../components/ui/charts';
@@ -314,14 +315,12 @@ export function TargetsPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-3xl mb-1 flex items-center gap-2" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-            <Target size={24} style={{ color: '#C9A961' }} /> Targets
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--shell-text-dim)' }}>Monthly performance against target.</p>
-        </div>
-        <div className="flex items-center gap-3">
+      <PageHeader
+        title="Targets"
+        subtitle="Monthly goals vs live actuals — set once, track all month."
+        pinKey="crm.targets"
+        actions={
+          <div className="flex items-center gap-3">
           {canManage && (
             <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: 'var(--shell-border)' }}>
               {(['mine', 'team'] as const).map((v) => (
@@ -333,8 +332,9 @@ export function TargetsPage() {
             </div>
           )}
           <input type="month" value={period} onChange={(e) => setPeriod(e.target.value || currentPeriod())} className="glass-inp text-sm" />
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {view === 'mine' ? (
         <>

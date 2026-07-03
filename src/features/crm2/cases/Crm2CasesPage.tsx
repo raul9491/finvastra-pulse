@@ -98,12 +98,10 @@ export function Crm2CasesPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-            Pipeline Cases
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            {seesAll ? '10-stage pipeline: opened → disbursed → closed' : 'Showing cases assigned to you or shared with you.'}
+        <div className="min-w-0">
+          <h1 className="h-display text-3xl" style={{ color: 'var(--text-primary)' }}>Cases</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+            {seesAll ? 'Active files in processing — opened → login → disbursed → closed.' : 'Showing cases assigned to you or shared with you.'}
           </p>
         </div>
         {canWrite && (

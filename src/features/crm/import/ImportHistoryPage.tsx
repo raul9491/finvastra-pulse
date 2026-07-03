@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Download, ArrowLeft, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { PageHeader } from '../../../components/ui/primitives';
 import { useAuth } from '../../auth/AuthContext';
 import { auth } from '../../../lib/firebase';
 import { useToast } from '../../../components/ui/Toast';
@@ -74,29 +75,26 @@ export function ImportHistoryPage() {
         <ArrowLeft size={15} /> Back to Import
       </button>
 
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-3xl mb-1" style={{ fontFamily: '"Fraunces", Georgia, serif', fontStyle: 'italic', fontWeight: 300, color: 'var(--text-primary)' }}>
-            {view === 'history' ? 'Import History' : 'Import Performance'}
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            {view === 'history'
-              ? 'All past import jobs. Click the red error count to see what failed.'
-              : 'Which data sets worked: tagged → attempted → outcome per import file (and manually-added customers).'}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {(['history', 'performance'] as const).map((v) => (
-            <button key={v} onClick={() => setView(v)}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-              style={view === v
-                ? { backgroundColor: '#0B1538', color: '#E5C97C' }
-                : { backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-secondary)' }}>
-              {v === 'history' ? 'History' : 'Performance'}
-            </button>
-          ))}
-        </div>
-      </div>
+      <PageHeader
+        title={view === 'history' ? 'Import History' : 'Import Performance'}
+        subtitle={view === 'history'
+          ? 'All past import jobs. Click the red error count to see what failed.'
+          : 'Which data sets worked: tagged → attempted → outcome per import file.'}
+        pinKey="crm.import-history"
+        actions={
+          <div className="flex items-center gap-2">
+            {(['history', 'performance'] as const).map((v) => (
+              <button key={v} onClick={() => setView(v)}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                style={view === v
+                  ? { backgroundColor: '#0B1538', color: '#E5C97C' }
+                  : { backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-secondary)' }}>
+                {v === 'history' ? 'History' : 'Performance'}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       {view === 'performance' && <ImportPerformanceSection />}
 

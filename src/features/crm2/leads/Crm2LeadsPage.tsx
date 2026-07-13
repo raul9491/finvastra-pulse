@@ -555,6 +555,42 @@ function ReleaseControl({ leadId, onReleased }: { leadId: string; onReleased: ()
   );
 }
 
+// One-click push of a lead into the PARTNER funnel (details auto-picked). The
+// candidate lands at Inquiry, inactive; screening + activation stay super-admin
+// (Masters -> Connectors). Emphasised when the lead is already categorised
+// PARTNER_DSA (e.g. from the website partner form).
+function PromotePartnerRow({ lead }: { lead: LeadRow }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const isPartnerCat = lead.category === 'PARTNER_DSA';
+  const go = async () => {
+    if (!window.confirm(`Move ${lead.name} into the partner funnel? They'll be logged as an Inquiry candidate for screening; this lead closes as Converted.`)) return;
+    setBusy(true);
+    try {
+      const r = await apiCrm2<{ ok: boolean; connectorCode: string }>('POST', `/api/crm2/leads/${lead.id}/promote-partner`, {});
+      toast.success(`${r.connectorCode} created — a super admin screens & onboards them in Masters → Connectors`);
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Could not move to partner funnel'); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg"
+      style={isPartnerCat
+        ? { backgroundColor: 'rgba(201,169,97,0.10)', border: '1px solid rgba(201,169,97,0.35)' }
+        : { border: '1px solid var(--shell-border)' }}>
+      <p className="text-xs" style={{ color: isPartnerCat ? '#C9A961' : 'var(--text-muted)' }}>
+        {isPartnerCat
+          ? 'This is a PARTNER request — move them into the partner funnel for screening.'
+          : 'Asking to become a partner / use our DSA code?'}
+      </p>
+      <button onClick={go} disabled={busy}
+        className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
+        style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+        {busy ? 'Moving…' : 'Move to Partner funnel'}
+      </button>
+    </div>
+  );
+}
+
 function LeadDrawer({ lead, canWrite, canAssign, canConvert, faplOptions, productOptions, clients, clientOptions, subDsaOptions, partnerOptions, refData, onClose }: {
   lead: LeadRow;
   canWrite: boolean; canAssign: boolean; canConvert: boolean;
@@ -621,12 +657,17 @@ function LeadDrawer({ lead, canWrite, canAssign, canConvert, faplOptions, produc
           {lead.converted && (
             <div className="px-3.5 py-2.5 rounded-lg text-sm"
               style={{ backgroundColor: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.3)', color: '#34d399' }}>
-              Converted → {lead.linkedSubDsaId
-                ? <span className="font-mono">{lead.linkedSubDsaId} (sub-DSA)</span>
-                : <span className="font-mono">{lead.linkedClientId} / {lead.linkedCaseId}</span>}
+              Converted → {lead.linkedConnectorId
+                ? <span>partner funnel <span className="font-mono">{lead.linkedConnectorId.slice(0, 8)}…</span> (screening continues in Masters → Connectors)</span>
+                : lead.linkedSubDsaId
+                  ? <span className="font-mono">{lead.linkedSubDsaId} (sub-DSA)</span>
+                  : <span className="font-mono">{lead.linkedClientId} / {lead.linkedCaseId}</span>}
             </div>
           )}
 
+          {canWrite && !lead.converted && (
+            <PromotePartnerRow lead={lead} />
+          )}
           {canWrite && !lead.converted && (
             <div className="grid grid-cols-2 gap-3">
               <div>

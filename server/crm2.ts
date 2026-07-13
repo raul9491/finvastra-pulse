@@ -1346,6 +1346,31 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       });
       return newId;
     });
+
+    // Partner-intent auto-detect: a submission from the "become a partner" form/
+    // page (or explicitly categorised PARTNER_DSA) ALSO lands as an Inquiry-stage
+    // partner candidate, and the lead is closed+linked so it doesn't sit in the
+    // telecaller queue as GENERAL. Deterministic — category or form/page name.
+    // Best-effort: if candidate creation fails, the lead stays open and the team
+    // can use "Move to Partner funnel" on it manually.
+    if (isPartnerIntent(category, optStr(b, "formId"), optStr(b, "sourceUrl"))) {
+      try {
+        const cand = await createPartnerCandidate({
+          name, mobile, email, leadSource: "Website Form",
+          productInterestStated: optStr(b, "productInterest"),
+          createdBy: "public:website-partner",
+        });
+        await db.collection("leads").doc(id).update({
+          converted: true, convertedAt: FieldValue.serverTimestamp(),
+          status: "CONVERTED", linkedConnectorId: cand.id, category: "PARTNER_DSA",
+          activityLog: FieldValue.arrayUnion({
+            at: Timestamp.now(), by: "system",
+            note: `Auto-routed to partner funnel as ${cand.code} (website partner form)`,
+            action: "convert",
+          }),
+        });
+      } catch (e) { console.error("[partner auto-route failed]", e); }
+    }
     res.json({ ok: true, id });
   }));
 
@@ -1354,9 +1379,49 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   // Inquiry-stage Connector (status:'inactive' — hidden from RM pickers until
   // Active), scored by the current rubric. Same guards as the leads intake:
   // honeypot, per-IP rate limit (trusted Apps-Script secret bypasses it).
+  /** Create an Inquiry-stage partner candidate (a Connector doc, status inactive,
+   *  scored by the current rubric). Shared by the public partner form, the
+   *  website-lead auto-detect, and the promote-from-lead action. */
+  async function createPartnerCandidate(input: {
+    name: string; mobile: string; email?: string | null; firmName?: string | null;
+    leadSource?: string; occupation?: unknown; networkType?: unknown; networkSize?: unknown;
+    productInterestStated?: unknown; createdBy: string;
+  }): Promise<{ id: string; code: string }> {
+    const screening = partnerScreeningFields({
+      leadSource: PARTNER_LEAD_SOURCE.includes(String(input.leadSource)) ? input.leadSource : "Website Form",
+      occupation: input.occupation, networkType: input.networkType, networkSize: input.networkSize,
+      productInterestStated: input.productInterestStated,
+    });
+    const merged = { ...screening, funnelStatus: "Inquiry" };
+    const partnerScoring = scoreFor(merged, await getPartnerRubric());
+    const code = await nextConnectorCodeServer();
+    const ref = db.collection("connectors").doc();
+    await ref.set({
+      connectorCode: code, displayName: input.name, mobile: input.mobile, mobiles: [input.mobile],
+      email: input.email ?? "", address: "", firmName: input.firmName ?? "",
+      gstin: null, ownDsaCode: null, verticals: [], payoutRules: [], deleted: false,
+      status: "inactive", funnelStatus: "Inquiry", ...screening,
+      onboardingChecklist: { ...EMPTY_ONBOARDING }, partnerScoring,
+      ...createAudit(input.createdBy),
+    });
+    await ref.collection("private").doc("financial").set({
+      panEnc: null, panLast4: null, aadhaarLast4: null, payoutBank: null, tdsPct: null,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return { id: ref.id, code };
+  }
+
+  /** Deterministic partner-intent detector for website submissions: explicit
+   *  PARTNER_DSA category, or the submitting form/page names itself "partner". */
+  function isPartnerIntent(category: string, formId: string | null, sourceUrl: string | null): boolean {
+    if (category === "PARTNER_DSA") return true;
+    const hay = ((formId ?? "") + " " + (sourceUrl ?? "")).toLowerCase();
+    return /partner|dsa[-_ ]?code|become[-_ ]?a[-_ ]?agent/.test(hay);
+  }
+
   app.post("/api/public/partner-inquiry", route(async (req, res) => {
     const b = (req.body ?? {}) as Record<string, unknown>;
-    if (isStr(b.website)) { res.json({ ok: true }); return; }   // honeypot → no write
+    if (isStr(b.website)) { res.json({ ok: true }); return; }   // honeypot -> no write
     const trusted = !!process.env.WEBSITE_WEBHOOK_SECRET
       && req.headers["x-finvastra-webhook-secret"] === process.env.WEBSITE_WEBHOOK_SECRET;
     const ip = extractClientIp(req.headers["x-forwarded-for"], req.ip);
@@ -1367,31 +1432,54 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     if (name.length < 2 || name.length > 120) throw new ApiError(400, "name must be 2–120 chars");
     const mobile = normaliseMobile(String(b.mobile ?? ""));
     if (!mobile) throw new ApiError(400, "mobile must be a valid 10-digit Indian mobile");
-
-    // Only the safe screening subset is accepted from an unauthenticated form.
-    const screening = partnerScreeningFields({
-      leadSource: PARTNER_LEAD_SOURCE.includes(String(b.leadSource)) ? b.leadSource : "Website Form",
-      occupation: b.occupation, networkType: b.networkType, networkSize: b.networkSize,
-      productInterestStated: b.productInterestStated, email: undefined,
-    });
-    const onboarding = { ...EMPTY_ONBOARDING };
-    const merged = { ...screening, funnelStatus: "Inquiry" };
-    const partnerScoring = scoreFor(merged, await getPartnerRubric());
-    const code = await nextConnectorCodeServer();
-    const ref = db.collection("connectors").doc();
-    await ref.set({
-      connectorCode: code, displayName: name, mobile, mobiles: [mobile],
-      email: optStr(b, "email") ?? "", address: "", firmName: optStr(b, "firmName") ?? "",
-      gstin: null, ownDsaCode: null, verticals: [], payoutRules: [], deleted: false,
-      status: "inactive", funnelStatus: "Inquiry", ...screening,
-      onboardingChecklist: onboarding, partnerScoring,
-      ...createAudit("public:partner-form"),
-    });
-    await ref.collection("private").doc("financial").set({
-      panEnc: null, panLast4: null, aadhaarLast4: null, payoutBank: null, tdsPct: null,
-      updatedAt: FieldValue.serverTimestamp(),
+    await createPartnerCandidate({
+      name, mobile, email: optStr(b, "email"), firmName: optStr(b, "firmName"),
+      leadSource: String(b.leadSource ?? "Website Form"), occupation: b.occupation,
+      networkType: b.networkType, networkSize: b.networkSize,
+      productInterestStated: b.productInterestStated, createdBy: "public:partner-form",
     });
     res.json({ ok: true });
+  }));
+
+  // ─── Promote a CRM 2.0 lead into the partner funnel ───────────────────────────
+  // A telecaller gauging a lead who turns out to be a PARTNER request pushes them
+  // into the funnel with one click — details auto-picked from the lead. Screening,
+  // scoring and (especially) ACTIVATION stay super-admin-only in Masters →
+  // Connectors; this action only logs the candidate.
+  app.post("/api/crm2/leads/:id/promote-partner", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "crm.leads.write");
+    if (!caller) return;
+    const leadRef = db.collection("leads").doc(req.params.id);
+    const snap = await leadRef.get();
+    if (!snap.exists) throw new ApiError(404, "lead not found");
+    const lead = snap.data() as Record<string, unknown>;
+    if (lead.converted || lead.linkedConnectorId) {
+      throw new ApiError(409, "This lead is already converted / already in the partner funnel");
+    }
+    const mobile = normaliseMobile(String(lead.mobile ?? "")) || String(lead.mobile ?? "");
+    if (!mobile) throw new ApiError(400, "lead has no usable mobile");
+    const SRC_TO_PARTNER: Record<string, string> = {
+      WEBSITE: "Website Form", WALKIN: "Walk-in",
+      REFERRAL_CLIENT: "Referral", REFERRAL_SUBDSA: "Referral",
+    };
+    const { id, code } = await createPartnerCandidate({
+      name: String(lead.customerName ?? lead.name ?? "Partner candidate"),
+      mobile, email: (lead.email as string | null) ?? null,
+      firmName: (lead.entityName as string | null) ?? null,
+      leadSource: SRC_TO_PARTNER[String(lead.source)] ?? "Other",
+      productInterestStated: (lead.sourceMeta as Record<string, unknown> | null)?.productInterest,
+      createdBy: caller.fapl,
+    });
+    await leadRef.update({
+      converted: true, convertedAt: FieldValue.serverTimestamp(),
+      status: "CONVERTED", linkedConnectorId: id, category: "PARTNER_DSA",
+      activityLog: FieldValue.arrayUnion({
+        at: Timestamp.now(), by: caller.fapl,
+        note: `Moved to partner funnel as ${code} (Inquiry)`, action: "convert",
+      }),
+      ...updateAudit(caller.fapl),
+    });
+    res.json({ ok: true, connectorId: id, connectorCode: code });
   }));
 
   // ═══ Meta Lead Ads → CRM 2.0 lead — Phase 1 (capture + queue) ═════════════════

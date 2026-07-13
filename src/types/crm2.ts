@@ -219,6 +219,7 @@ export interface Crm2LeadFields {
   // conversion outputs — server-written
   converted: boolean; convertedAt: Ts | null;
   linkedClientId: string | null; linkedCaseId: string | null; linkedSubDsaId: string | null;
+  linkedConnectorId?: string | null;   // set when promoted into the PARTNER funnel (CON- candidate)
   // dedupe — server-written on create
   duplicateOfLeadId: string | null;
   dupeKeys: string[];                 // ["m:9701097333","e:x@y.com"]

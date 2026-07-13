@@ -1143,6 +1143,77 @@ export type ConnectorEntityType = 'INDIVIDUAL' | 'PROPRIETORSHIP' | 'PARTNERSHIP
 // 'connector_own' → the connector's own code; the bank pays them directly
 export type DsaCodeUsed = 'finvastra' | 'connector_own';
 
+// ─── Partner intake funnel (pre-active lifecycle on the Connector entity) ─────
+// A partner candidate IS a Connector doc from first inquiry — no separate entity.
+// `funnelStatus` is the pre-active lifecycle (distinct from the binary `status`,
+// which stays the picker gate: a candidate is `status:'inactive'` until it
+// reaches `funnelStatus:'Active'`, which derives `status:'active'`).
+export type PartnerFunnelStatus =
+  | 'Inquiry' | 'Screening' | 'KYC Collection' | 'Agreement Sent'
+  | 'Agreement Signed' | 'Training' | 'Active' | 'Rejected' | 'On Hold';
+
+export type PartnerLeadSource = 'Website Form' | 'WhatsApp Inquiry' | 'Referral' | 'Walk-in' | 'Other';
+export type PartnerNetworkType =
+  | 'CA / Accountant' | 'Property Dealer / Broker' | 'Insurance Agent'
+  | 'HR / Corporate Contact' | 'Society / RWA Office Bearer'
+  | 'Freelance Loan Agent' | 'Other / Unclear';
+export type PartnerNetworkSize = '>100 contacts' | '30-100 contacts' | '<30 contacts' | 'Not Shared';
+export type PartnerProductFit = 'Strong Fit' | 'Partial Fit' | 'Unclear';
+export type PartnerTrackRecord = 'Proven with Examples' | 'Some Experience' | 'None';
+export type PartnerVolume = '>5 cases/month' | '2-5 cases/month' | '<2 cases/month' | 'Not Shared';
+export type PartnerKycReadiness = 'Ready' | 'Partial' | 'Not Ready';
+export type PartnerNextAction =
+  | 'Send Screening Call' | 'Collect KYC Docs' | 'Send Agreement'
+  | 'Schedule Training' | 'Grant Pulse Access' | 'Reject' | 'On Hold';
+export type PartnerTier = 'Hot' | 'Warm' | 'Cold';
+
+// Server-computed rubric score (deny client writes — see server/crm2.ts).
+export interface PartnerScoring {
+  networkTypeScore: number;
+  networkSizeScore: number;
+  productFitScore: number;
+  trackRecordScore: number;
+  volumeScore: number;
+  kycScore: number;
+  conflictPenalty: number;
+  totalScore: number;
+  tier: PartnerTier;
+  rubricVersion: number;
+  computedAt: import('firebase/firestore').Timestamp;
+}
+
+// Onboarding checklist — booleans/dates client-writable; progressPct server-computed.
+// panCollected/aadhaarCollected/bankDetailsCollected are "collected?" flags on top
+// of the real encrypted values in /connectors/{id}/private/financial. gstNumber is
+// NOT here — the connector's `gstin` field is reused.
+export interface PartnerOnboarding {
+  panCollected: boolean;
+  aadhaarCollected: boolean;
+  bankDetailsCollected: boolean;
+  agreementSentDate?: import('firebase/firestore').Timestamp | null;
+  agreementSignedDate?: import('firebase/firestore').Timestamp | null;
+  trainingCompleted: boolean;
+  pulseAccessCreated: boolean;
+  firstCaseLogged: boolean;
+  onboardingCompleteDate?: import('firebase/firestore').Timestamp | null;
+  progressPct: number;             // server-computed 0–100
+}
+
+// partnerScoringConfig/default — admin-editable rubric (bump version to recompute).
+export interface PartnerScoringConfig {
+  version: number;
+  networkType: Record<string, number>;
+  networkSize: Record<string, number>;
+  productDemandFit: Record<string, number>;
+  priorTrackRecord: Record<string, number>;
+  expectedMonthlyVolume: Record<string, number>;
+  kycReadiness: Record<string, number>;
+  conflictPenalty: number;
+  tierThresholds: { hot: number; warm: number };
+  updatedAt: import('firebase/firestore').Timestamp;
+  updatedBy: string;
+}
+
 // Public-ish record — readable by CRM users (for the case picker) + admin/HR.
 // Sensitive PAN + bank live in /connectors/{id}/private/financial (admin/HR only).
 export interface Connector {
@@ -1165,6 +1236,26 @@ export interface Connector {
   status: ConnectorStatus;
   notes?: string;
   deleted?: boolean;
+  // ── Partner intake funnel (optional; absent on legacy connectors) ──
+  funnelStatus?: PartnerFunnelStatus;
+  owner?: string;                 // FAPL/uid of the Finvastra person handling this candidate
+  leadSource?: PartnerLeadSource;
+  occupation?: string;
+  networkType?: PartnerNetworkType;
+  networkSize?: PartnerNetworkSize;
+  productInterestStated?: string;
+  productDemandFit?: PartnerProductFit;
+  priorTrackRecord?: PartnerTrackRecord;
+  trackRecordNotes?: string;
+  expectedMonthlyVolume?: PartnerVolume;
+  kycReadinessInput?: PartnerKycReadiness;
+  existingDsaCodeElsewhere?: boolean;
+  conflictNotes?: string;
+  screeningCallDone?: boolean;
+  screeningCallDate?: import('firebase/firestore').Timestamp | null;
+  nextAction?: PartnerNextAction;
+  partnerScoring?: PartnerScoring;        // server-computed
+  onboardingChecklist?: PartnerOnboarding;
   createdBy: string;
   createdAt: import('firebase/firestore').Timestamp;
   updatedAt: import('firebase/firestore').Timestamp;

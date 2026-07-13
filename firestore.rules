@@ -999,6 +999,11 @@ service cloud.firestore {
     // connector (quick-add when a partner walks in with a case) — main record only;
     // edits stay admin/HR. Sensitive PAN + bank live in a /private sub-doc readable
     // only by admin/HR. Soft-delete only (deleted flag).
+    // Partner intake funnel lives on THIS entity (funnelStatus / partnerScoring /
+    // onboardingChecklist are fields on the connector doc). partnerScoring and
+    // onboardingChecklist.progressPct are SERVER-COMPUTED — the /api/crm2/connectors
+    // routes recompute them on every write and never accept them from the body;
+    // update stays admin/HR only, so there is no client path to forge them.
     match /connectors/{connectorId} {
       allow read:   if isAdmin() || isHrmsManager() || hasCrmAccess();
       allow create: if isAdmin() || isHrmsManager() || hasCrmAccess();
@@ -1008,6 +1013,14 @@ service cloud.firestore {
       match /private/{docId} {
         allow read, write: if isAdmin() || isHrmsManager();
       }
+    }
+
+    // Partner scoring rubric (single doc `default`). Read so the UI can render the
+    // breakdown / settings; writes go ONLY through the server (Admin SDK) which
+    // bumps `version` + batch-recomputes candidates.
+    match /partnerScoringConfig/{docId} {
+      allow read:  if isAdmin() || isHrmsManager() || hasCrmAccess();
+      allow write: if false;
     }
 
     // What Finvastra owes a connector for a sourced case. Admin/HR only.

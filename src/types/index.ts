@@ -1182,6 +1182,27 @@ export interface PartnerScoring {
   computedAt: import('firebase/firestore').Timestamp;
 }
 
+// Stage-2 practical assessment — the assessor's fixed-choice ratings are
+// client-writable; scores/result are server-computed. `result` gates Active.
+export interface PartnerPractical {
+  productKnowledge?: string | null;       // 'Strong' | 'Adequate' | 'Weak'
+  sampleCaseQuality?: string | null;      // 'Complete & clean' | 'Minor gaps' | 'Poor'
+  responsiveness?: string | null;         // 'Prompt' | 'Acceptable' | 'Slow'
+  processUnderstanding?: string | null;   // 'Clear' | 'Partial' | 'None'
+  assessorNotes?: string;
+  assessedBy?: string | null;
+  assessedAt?: import('firebase/firestore').Timestamp | null;
+  // server-computed:
+  productKnowledgeScore: number;
+  sampleCaseQualityScore: number;
+  responsivenessScore: number;
+  processUnderstandingScore: number;
+  totalScore: number;
+  maxScore: number;
+  result: 'Pass' | 'Fail' | 'Pending';
+  rubricVersion: number;
+}
+
 // Onboarding checklist — booleans/dates client-writable; progressPct server-computed.
 // panCollected/aadhaarCollected/bankDetailsCollected are "collected?" flags on top
 // of the real encrypted values in /connectors/{id}/private/financial. gstNumber is
@@ -1210,6 +1231,13 @@ export interface PartnerScoringConfig {
   kycReadiness: Record<string, number>;
   conflictPenalty: number;
   tierThresholds: { hot: number; warm: number };
+  practical: {
+    productKnowledge: Record<string, number>;
+    sampleCaseQuality: Record<string, number>;
+    responsiveness: Record<string, number>;
+    processUnderstanding: Record<string, number>;
+    passThreshold: number;
+  };
   updatedAt: import('firebase/firestore').Timestamp;
   updatedBy: string;
 }
@@ -1255,6 +1283,7 @@ export interface Connector {
   screeningCallDate?: import('firebase/firestore').Timestamp | null;
   nextAction?: PartnerNextAction;
   partnerScoring?: PartnerScoring;        // server-computed
+  practicalAssessment?: PartnerPractical; // ratings client-writable; scores/result server-computed
   onboardingChecklist?: PartnerOnboarding;
   createdBy: string;
   createdAt: import('firebase/firestore').Timestamp;

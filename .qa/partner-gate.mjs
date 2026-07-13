@@ -94,11 +94,33 @@ async function main() {
   fv(fv(doc, 'partnerScoring'), 'totalScore') !== 999
     ? ok('forged partnerScoring ignored (server recomputes)') : bad('forge blocked', 'totalScore=999 leaked');
 
-  // 4. funnelStatus → Active derives status:'active'.
+  // 4. ACTIVATION CHAIN: Active is BLOCKED until practical assessment passed +
+  //    agreement signed + PAN collected — then it derives status:'active'.
+  const blocked = await api('PATCH', `/api/crm2/connectors/${id}`, token, { funnelStatus: 'Active' });
+  blocked.status === 422 && /practical assessment/.test(blocked.data.error ?? '')
+    ? ok('Active BLOCKED before practical assessment (422 names what is missing)') : bad('activation gate', JSON.stringify(blocked));
+
+  // Fail the practical -> still blocked with the FAILED message.
+  await api('PATCH', `/api/crm2/connectors/${id}`, token, {
+    practicalAssessment: { productKnowledge: 'Weak', sampleCaseQuality: 'Poor', responsiveness: 'Slow', processUnderstanding: 'None' },
+  });
+  const failedTry = await api('PATCH', `/api/crm2/connectors/${id}`, token, { funnelStatus: 'Active' });
+  failedTry.status === 422 && /FAILED/.test(failedTry.data.error ?? '')
+    ? ok('a FAILED assessment still blocks Active') : bad('failed-assessment gate', JSON.stringify(failedTry));
+
+  // Pass the practical + sign agreement + collect PAN -> Active goes through.
+  await api('PATCH', `/api/crm2/connectors/${id}`, token, {
+    practicalAssessment: { productKnowledge: 'Strong', sampleCaseQuality: 'Complete & clean', responsiveness: 'Prompt', processUnderstanding: 'Clear', assessorNotes: 'Sharp; clean sample file' },
+    onboardingChecklist: { agreementSignedDate: '2026-07-10', panCollected: true },
+  });
+  doc = await getDoc(`connectors/${id}`);
+  const paDoc = fv(doc, 'practicalAssessment');
+  fv(paDoc, 'result') === 'Pass' && fv(paDoc, 'totalScore') === 10
+    ? ok('practical assessment scored server-side (Pass 10/10)') : bad('practical score', JSON.stringify({ r: fv(paDoc, 'result'), t: fv(paDoc, 'totalScore') }));
   await api('PATCH', `/api/crm2/connectors/${id}`, token, { funnelStatus: 'Active' });
   doc = await getDoc(`connectors/${id}`);
   fv(doc, 'status') === 'active' && fv(doc, 'funnelStatus') === 'Active'
-    ? ok('funnelStatus Active → status active (now pickable by RMs)') : bad('activate', JSON.stringify({ s: fv(doc, 'status') }));
+    ? ok('chain complete → Active allowed → status active (pickable by RMs)') : bad('activate', JSON.stringify({ s: fv(doc, 'status') }));
 
   // 5. Onboarding checklist → progressPct + completion date.
   await api('PATCH', `/api/crm2/connectors/${id}`, token, {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   computePartnerScore, computeOnboardingProgress, sanitizePartnerRubric,
-  DEFAULT_PARTNER_RUBRIC, type PartnerRubric,
+  computePracticalAssessment, DEFAULT_PARTNER_RUBRIC, type PartnerRubric,
 } from './partnerScoring';
 
 const R = DEFAULT_PARTNER_RUBRIC;
@@ -98,7 +98,49 @@ describe('computeOnboardingProgress', () => {
   });
 });
 
+describe('computePracticalAssessment', () => {
+  it('is Pending until every item is rated (never accidental Pass)', () => {
+    expect(computePracticalAssessment(null, R).result).toBe('Pending');
+    expect(computePracticalAssessment({ productKnowledge: 'Strong' }, R).result).toBe('Pending');
+  });
+
+  it('passes a strong candidate (total >= threshold)', () => {
+    const a = computePracticalAssessment({
+      productKnowledge: 'Strong', sampleCaseQuality: 'Complete & clean',
+      responsiveness: 'Prompt', processUnderstanding: 'Clear',
+    }, R);
+    expect(a.totalScore).toBe(10);
+    expect(a.maxScore).toBe(10);
+    expect(a.result).toBe('Pass');
+  });
+
+  it('fails a weak candidate even when fully rated', () => {
+    const a = computePracticalAssessment({
+      productKnowledge: 'Weak', sampleCaseQuality: 'Poor',
+      responsiveness: 'Slow', processUnderstanding: 'Partial',
+    }, R);
+    expect(a.totalScore).toBe(1);
+    expect(a.result).toBe('Fail');
+  });
+
+  it('falls back to the default practical rubric when the config predates it', () => {
+    const legacy = { ...R, practical: undefined } as unknown as PartnerRubric;
+    const a = computePracticalAssessment({
+      productKnowledge: 'Strong', sampleCaseQuality: 'Complete & clean',
+      responsiveness: 'Prompt', processUnderstanding: 'Clear',
+    }, legacy);
+    expect(a.result).toBe('Pass');
+  });
+});
+
 describe('sanitizePartnerRubric', () => {
+  it('sanitizes the practical section and keeps prev threshold when untouched', () => {
+    const out = sanitizePartnerRubric({ practical: { passThreshold: 9, productKnowledge: { Strong: '4' } } }, R);
+    expect(out.practical.passThreshold).toBe(9);
+    expect(out.practical.productKnowledge.Strong).toBe(4);
+    expect(out.practical.responsiveness).toEqual(R.practical.responsiveness);
+  });
+
   it('keeps prev version and coerces numbers, dropping non-numeric', () => {
     const out = sanitizePartnerRubric(
       { networkType: { 'CA / Accountant': '5', Junk: 'x' }, conflictPenalty: '-3', tierThresholds: { hot: 10 } },

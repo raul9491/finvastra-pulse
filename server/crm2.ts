@@ -22,7 +22,7 @@ import { findSlabOverlaps, resolveSlab, computeExpectedAmounts, SlabResolutionEr
 import { resolveChannelPartnerRule, computeChannelPartnerPayout } from "../src/lib/crm2/channelPartnerPayout.js";
 import {
   computePartnerScore, computeOnboardingProgress, sanitizePartnerRubric,
-  DEFAULT_PARTNER_RUBRIC, type PartnerRubric,
+  computePracticalAssessment, DEFAULT_PARTNER_RUBRIC, type PartnerRubric,
 } from "../src/lib/crm2/partnerScoring.js";
 import { buildDupeKeys, normaliseMobile } from "../src/lib/crm2/dedupe.js";
 import { extractClientIp } from "../src/lib/crm2/http.js";
@@ -649,6 +649,50 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     return out;
   }
 
+  const PRACTICAL_KNOWLEDGE = ["Strong", "Adequate", "Weak"];
+  const PRACTICAL_CASE = ["Complete & clean", "Minor gaps", "Poor"];
+  const PRACTICAL_RESP = ["Prompt", "Acceptable", "Slow"];
+  const PRACTICAL_PROC = ["Clear", "Partial", "None"];
+
+  // Practical-assessment ratings (fixed choices) + notes; scores/result are NEVER
+  // read from the body — recomputed from these ratings x the rubric.
+  function partnerPracticalFields(b: Record<string, unknown>): Record<string, unknown> | undefined {
+    const pa = b.practicalAssessment;
+    if (!pa || typeof pa !== "object") return undefined;
+    const o = pa as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    const setE = (k: string, allowed: string[]) => {
+      if (o[k] === undefined) return;
+      if (o[k] === null || o[k] === "") { out[k] = null; return; }
+      const v = String(o[k]);
+      if (!allowed.includes(v)) throw new ApiError(400, `practicalAssessment.${k} must be one of: ${allowed.join(", ")}`);
+      out[k] = v;
+    };
+    setE("productKnowledge", PRACTICAL_KNOWLEDGE);
+    setE("sampleCaseQuality", PRACTICAL_CASE);
+    setE("responsiveness", PRACTICAL_RESP);
+    setE("processUnderstanding", PRACTICAL_PROC);
+    if (o.assessorNotes !== undefined) out.assessorNotes = isStr(o.assessorNotes) ? String(o.assessorNotes).slice(0, 2000) : "";
+    return out;
+  }
+
+  /** The onboarding chain gate: what still blocks a candidate from going Active.
+   *  Returns a human list of missing items (empty = clear to activate). Legacy
+   *  connectors (already Active / pre-funnel actives) are never re-gated. */
+  function activationBlockers(merged: Record<string, unknown>, panLast4Present: boolean): string[] {
+    const missing: string[] = [];
+    const pa = merged.practicalAssessment as Record<string, unknown> | undefined;
+    if (!pa || pa.result !== "Pass") {
+      missing.push(pa?.result === "Fail"
+        ? "practical assessment is FAILED — re-assess before activating"
+        : "practical assessment not passed yet (complete all 4 ratings in the Assessment tab)");
+    }
+    const oc = merged.onboardingChecklist as Record<string, unknown> | undefined;
+    if (!oc?.agreementSignedDate) missing.push("agreement not signed (Onboarding tab)");
+    if (!oc?.panCollected && !panLast4Present) missing.push("PAN not collected (Details/Onboarding tab)");
+    return missing;
+  }
+
   const EMPTY_ONBOARDING = {
     panCollected: false, aadhaarCollected: false, bankDetailsCollected: false,
     agreementSentDate: null, agreementSignedDate: null,
@@ -792,6 +836,19 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       update.partnerScoring = scoreFor(merged, await getPartnerRubric());
     }
 
+    // Practical assessment: merge ratings, recompute score/result server-side.
+    const practicalIn = partnerPracticalFields(b);
+    if (practicalIn) {
+      const curPa = (cur.practicalAssessment as Record<string, unknown>) ?? {};
+      const paMerged = { ...curPa, ...practicalIn };
+      const computed = computePracticalAssessment(paMerged as never, await getPartnerRubric());
+      update.practicalAssessment = {
+        ...paMerged, ...computed,
+        assessedBy: caller.fapl, assessedAt: FieldValue.serverTimestamp(),
+      };
+      merged.practicalAssessment = update.practicalAssessment;
+    }
+
     // Onboarding checklist: merge, recompute progressPct, stamp completion date.
     if (onboardingIn) {
       const curOc = (cur.onboardingChecklist as Record<string, unknown>) ?? EMPTY_ONBOARDING;
@@ -806,6 +863,24 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     // Derive the picker gate from funnelStatus whenever it's set (Active → active,
     // anything else → inactive). Legacy connectors without funnelStatus are untouched.
     if ("funnelStatus" in screening) {
+      // ONBOARDING GATE: a candidate can only TRANSITION to Active when the chain
+      // is complete — practical assessment passed, agreement signed, PAN in.
+      // Legacy bypass: a connector that is already Active (or was active before
+      // the funnel existed) is never re-gated by an ordinary edit.
+      const alreadyActive = cur.funnelStatus === "Active"
+        || (cur.status === "active" && !cur.funnelStatus);
+      if (screening.funnelStatus === "Active" && !alreadyActive) {
+        if (onboardingIn && !update.onboardingChecklist) {
+          // (ordering safety — onboarding merge happens above; nothing to do)
+        }
+        const mergedForGate = { ...merged, ...(update.onboardingChecklist ? { onboardingChecklist: update.onboardingChecklist } : {}) };
+        const finSnap = await ref.collection("private").doc("financial").get();
+        const panPresent = !!(finSnap.data()?.panLast4) || isStr(b.pan);
+        const missing = activationBlockers(mergedForGate, panPresent);
+        if (missing.length) {
+          throw new ApiError(422, `Cannot activate yet — ${missing.join("; ")}`);
+        }
+      }
       update.status = screening.funnelStatus === "Active" ? "active" : "inactive";
     }
 

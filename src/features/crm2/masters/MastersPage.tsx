@@ -23,7 +23,7 @@ import {
   useConnectors, nextConnectorCode, setConnectorStatus, getConnectorFinancial,
 } from '../../hrms/hooks/useConnectors';
 import { CONSTITUTION_OPTS } from '../clients/ClientFormModal';
-import { computePartnerScore, computeOnboardingProgress, sanitizePartnerRubric, type PartnerRubric } from '../../../lib/crm2/partnerScoring';
+import { computePartnerScore, computeOnboardingProgress, computePracticalAssessment, sanitizePartnerRubric, type PartnerRubric } from '../../../lib/crm2/partnerScoring';
 import type { Connector, ConnectorVertical, ConnectorFinancial } from '../../../types';
 import type { Lender, Product, Aggregator, DocumentDef, SubProduct } from '../../../types/crm2';
 
@@ -117,6 +117,19 @@ const PARTNER_TRACK_OPTS = ['Proven with Examples', 'Some Experience', 'None'].m
 const PARTNER_VOLUME_OPTS = ['>5 cases/month', '2-5 cases/month', '<2 cases/month', 'Not Shared'].map(opt);
 const PARTNER_KYC_OPTS = ['Ready', 'Partial', 'Not Ready'].map(opt);
 const PARTNER_NEXT_ACTION_OPTS = ['Send Screening Call', 'Collect KYC Docs', 'Send Agreement', 'Schedule Training', 'Grant Pulse Access', 'Reject', 'On Hold'].map(opt);
+
+const PRACTICAL_OPTS = {
+  productKnowledge: ['Strong', 'Adequate', 'Weak'].map(opt),
+  sampleCaseQuality: ['Complete & clean', 'Minor gaps', 'Poor'].map(opt),
+  responsiveness: ['Prompt', 'Acceptable', 'Slow'].map(opt),
+  processUnderstanding: ['Clear', 'Partial', 'None'].map(opt),
+};
+
+// The italic "ask this" line under a screening field — the tab doubles as the
+// call script so nobody needs a separate question sheet.
+function AskQ({ q }: { q: string }) {
+  return <p className="text-[11px] italic mb-1" style={{ color: 'var(--text-dim)' }}>Ask: “{q}”</p>;
+}
 
 const TIER_STYLE: Record<string, { color: string; bg: string }> = {
   Hot: { color: '#34d399', bg: 'rgba(52,211,153,0.14)' },
@@ -503,7 +516,7 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
   }, [initial]);
 
   // ── Partner funnel state ──
-  const [tab, setTab] = useState<'details' | 'screening' | 'onboarding'>('details');
+  const [tab, setTab] = useState<'details' | 'screening' | 'assessment' | 'onboarding'>('details');
   // Legacy connectors have no funnelStatus — default to Active when they're already
   // active (an established partner) so editing them doesn't silently deactivate them.
   const [funnelStatus, setFunnelStatus] = useState<string>(
@@ -531,6 +544,14 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
     pulseAccessCreated: !!oc0?.pulseAccessCreated, firstCaseLogged: !!oc0?.firstCaseLogged,
     agreementSentDate: tsToInput(oc0?.agreementSentDate), agreementSignedDate: tsToInput(oc0?.agreementSignedDate),
   });
+  const pa0 = initial?.practicalAssessment;
+  const [pa, setPa] = useState({
+    productKnowledge: pa0?.productKnowledge ?? '',
+    sampleCaseQuality: pa0?.sampleCaseQuality ?? '',
+    responsiveness: pa0?.responsiveness ?? '',
+    processUnderstanding: pa0?.processUnderstanding ?? '',
+    assessorNotes: pa0?.assessorNotes ?? '',
+  });
   const [rubric, setRubric] = useState<PartnerRubric | null>(null);
   useEffect(() => { apiCrm2<{ config: PartnerRubric }>('GET', '/api/crm2/partner-scoring-config').then((r) => setRubric(r.config)).catch(() => {}); }, []);
 
@@ -540,6 +561,7 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
     return computePartnerScore({ networkType, networkSize, productDemandFit, priorTrackRecord, expectedMonthlyVolume, kycReadinessInput, existingDsaCodeElsewhere }, rubric);
   }, [rubric, networkType, networkSize, productDemandFit, priorTrackRecord, expectedMonthlyVolume, kycReadinessInput, existingDsaCodeElsewhere]);
   const onbProgress = computeOnboardingProgress({ ...onb, agreementSignedDate: onb.agreementSignedDate || null });
+  const paPreview = useMemo(() => (rubric ? computePracticalAssessment(pa, rubric) : null), [rubric, pa]);
 
   const toggleV = (v: ConnectorVertical) => setVerticals((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v]));
   const setMobileAt = (i: number, v: string) => setMobiles((p) => p.map((m, j) => (j === i ? v : m)));
@@ -573,6 +595,13 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
         expectedMonthlyVolume: expectedMonthlyVolume || null, kycReadinessInput: kycReadinessInput || null,
         existingDsaCodeElsewhere, conflictNotes,
         screeningCallDone, screeningCallDate: screeningCallDate || null, nextAction: nextAction || null,
+        practicalAssessment: {
+          productKnowledge: pa.productKnowledge || null,
+          sampleCaseQuality: pa.sampleCaseQuality || null,
+          responsiveness: pa.responsiveness || null,
+          processUnderstanding: pa.processUnderstanding || null,
+          assessorNotes: pa.assessorNotes,
+        },
         onboardingChecklist: {
           panCollected: onb.panCollected, aadhaarCollected: onb.aadhaarCollected,
           bankDetailsCollected: onb.bankDetailsCollected, trainingCompleted: onb.trainingCompleted,
@@ -597,7 +626,10 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
   };
 
   const TABS: Array<{ k: typeof tab; label: string }> = [
-    { k: 'details', label: 'Details' }, { k: 'screening', label: 'Screening' }, { k: 'onboarding', label: `Onboarding · ${onbProgress}%` },
+    { k: 'details', label: '1 · Details' },
+    { k: 'screening', label: '2 · Screening' },
+    { k: 'assessment', label: `3 · Assessment${paPreview ? (paPreview.result === 'Pass' ? ' ✓' : paPreview.result === 'Fail' ? ' ✗' : '') : ''}` },
+    { k: 'onboarding', label: `4 · Onboarding · ${onbProgress}%` },
   ];
 
   return (
@@ -765,23 +797,62 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
           </>}
 
           {tab === 'screening' && <>
+            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              This tab IS the screening call script — work top to bottom, ask each question as written, pick the answer.
+              The score updates live below; no separate question sheet needed.
+            </p>
             <div className="grid grid-cols-2 gap-3">
               <div><FLabel text="Lead Source" /><SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_LEAD_SOURCE_OPTS]} value={leadSource} onChange={setLeadSource} /></div>
               <div><FLabel text="Owner (who's handling)" /><input className={inp()} value={owner} onChange={(e) => setOwner(e.target.value)} placeholder="FAPL-… or name" /></div>
-              <div><FLabel text="Occupation" /><input className={inp()} value={occupation} onChange={(e) => setOccupation(e.target.value)} placeholder="e.g. Practising CA" /></div>
-              <div><FLabel text="Network Type" /><SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_NETWORK_TYPE_OPTS]} value={networkType} onChange={setNetworkType} /></div>
-              <div><FLabel text="Network Size" /><SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_NETWORK_SIZE_OPTS]} value={networkSize} onChange={setNetworkSize} /></div>
-              <div><FLabel text="Expected Volume" /><SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_VOLUME_OPTS]} value={expectedMonthlyVolume} onChange={setExpectedMonthlyVolume} /></div>
-              <div><FLabel text="Product Interest (stated)" /><input className={inp()} value={productInterestStated} onChange={(e) => setProductInterestStated(e.target.value)} placeholder="e.g. Home Loans, LAP" /></div>
-              <div><FLabel text="Product / Demand Fit" /><SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_FIT_OPTS]} value={productDemandFit} onChange={setProductDemandFit} /></div>
-              <div><FLabel text="Prior Track Record" /><SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_TRACK_OPTS]} value={priorTrackRecord} onChange={setPriorTrackRecord} /></div>
-              <div><FLabel text="KYC Readiness" /><SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_KYC_OPTS]} value={kycReadinessInput} onChange={setKycReadinessInput} /></div>
+              <div>
+                <FLabel text="1 · Occupation" />
+                <AskQ q="What do you do currently — your main line of work?" />
+                <input className={inp()} value={occupation} onChange={(e) => setOccupation(e.target.value)} placeholder="e.g. Practising CA" />
+              </div>
+              <div>
+                <FLabel text="2 · Network Type" />
+                <AskQ q="Who is in your circle — CAs, property dealers, corporates, societies…?" />
+                <SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_NETWORK_TYPE_OPTS]} value={networkType} onChange={setNetworkType} />
+              </div>
+              <div>
+                <FLabel text="3 · Network Size" />
+                <AskQ q="Roughly how many people could you realistically refer from your network?" />
+                <SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_NETWORK_SIZE_OPTS]} value={networkSize} onChange={setNetworkSize} />
+              </div>
+              <div>
+                <FLabel text="4 · Product Interest (stated)" />
+                <AskQ q="Which products do you want to work on — home loans, LAP, insurance…?" />
+                <input className={inp()} value={productInterestStated} onChange={(e) => setProductInterestStated(e.target.value)} placeholder="e.g. Home Loans, LAP" />
+              </div>
+              <div>
+                <FLabel text="5 · Product / Demand Fit" />
+                <AskQ q="(your read) Does what they bring match what we actually sell?" />
+                <SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_FIT_OPTS]} value={productDemandFit} onChange={setProductDemandFit} />
+              </div>
+              <div>
+                <FLabel text="6 · Prior Track Record" />
+                <AskQ q="Have you sourced loans or insurance before? Give me one or two examples." />
+                <SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_TRACK_OPTS]} value={priorTrackRecord} onChange={setPriorTrackRecord} />
+              </div>
+              <div>
+                <FLabel text="7 · Expected Volume" />
+                <AskQ q="How many cases a month do you honestly expect to bring?" />
+                <SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_VOLUME_OPTS]} value={expectedMonthlyVolume} onChange={setExpectedMonthlyVolume} />
+              </div>
+              <div>
+                <FLabel text="8 · KYC Readiness" />
+                <AskQ q="Do you have PAN, Aadhaar and bank details ready to share?" />
+                <SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_KYC_OPTS]} value={kycReadinessInput} onChange={setKycReadinessInput} />
+              </div>
             </div>
-            <div><FLabel text="Track Record Notes" /><textarea className={`${inp()} min-h-[52px]`} value={trackRecordNotes} onChange={(e) => setTrackRecordNotes(e.target.value)} placeholder="Examples / references they gave" /></div>
-            <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
-              <input type="checkbox" checked={existingDsaCodeElsewhere} onChange={(e) => setExistingDsa(e.target.checked)} />
-              Already holds a DSA code elsewhere (applies a scoring penalty)
-            </label>
+            <div><FLabel text="Track Record Notes" /><textarea className={`${inp()} min-h-13`} value={trackRecordNotes} onChange={(e) => setTrackRecordNotes(e.target.value)} placeholder="Examples / references they gave" /></div>
+            <div>
+              <AskQ q="9 · Do you already hold a DSA code with any other company?" />
+              <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+                <input type="checkbox" checked={existingDsaCodeElsewhere} onChange={(e) => setExistingDsa(e.target.checked)} />
+                Already holds a DSA code elsewhere (applies a scoring penalty)
+              </label>
+            </div>
             {existingDsaCodeElsewhere && <div><FLabel text="Conflict Notes" /><input className={inp()} value={conflictNotes} onChange={(e) => setConflictNotes(e.target.value)} placeholder="Which lender / arrangement?" /></div>}
             <div className="grid grid-cols-2 gap-3">
               <div><FLabel text="Next Action" /><SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_NEXT_ACTION_OPTS]} value={nextAction} onChange={setNextAction} /></div>
@@ -806,6 +877,52 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
                 </div>
               )}
               <p className="text-[10px] mt-2" style={{ color: 'var(--text-dim)' }}>Saved after you click {initial ? 'Save Changes' : 'Create'} — thresholds are set in the Partner Scoring tab.</p>
+            </div>
+          </>}
+
+          {tab === 'assessment' && <>
+            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              Stage 2 — the hands-on check after screening. Give them a sample case brief, watch how they work,
+              then rate each item below. All four ratings + a passing score are required before this candidate can be made <strong>Active</strong>.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FLabel text="Product knowledge" />
+                <AskQ q="Walk me through how you'd pitch the products you want to work on." />
+                <SearchableSelect options={[{ value: '', label: '— not rated —' }, ...PRACTICAL_OPTS.productKnowledge]} value={pa.productKnowledge} onChange={(v) => setPa((x) => ({ ...x, productKnowledge: v }))} />
+              </div>
+              <div>
+                <FLabel text="Sample case quality" />
+                <AskQ q="Here's a sample customer — send me the file you'd log for them." />
+                <SearchableSelect options={[{ value: '', label: '— not rated —' }, ...PRACTICAL_OPTS.sampleCaseQuality]} value={pa.sampleCaseQuality} onChange={(v) => setPa((x) => ({ ...x, sampleCaseQuality: v }))} />
+              </div>
+              <div>
+                <FLabel text="Responsiveness" />
+                <AskQ q="(observe) How quickly did they respond through this process?" />
+                <SearchableSelect options={[{ value: '', label: '— not rated —' }, ...PRACTICAL_OPTS.responsiveness]} value={pa.responsiveness} onChange={(v) => setPa((x) => ({ ...x, responsiveness: v }))} />
+              </div>
+              <div>
+                <FLabel text="Process understanding" />
+                <AskQ q="What documents does a home-loan file need, and what happens after login?" />
+                <SearchableSelect options={[{ value: '', label: '— not rated —' }, ...PRACTICAL_OPTS.processUnderstanding]} value={pa.processUnderstanding} onChange={(v) => setPa((x) => ({ ...x, processUnderstanding: v }))} />
+              </div>
+            </div>
+            <div>
+              <FLabel text="Assessor Notes" />
+              <textarea className={inp() + ' min-h-13'} value={pa.assessorNotes} onChange={(e) => setPa((x) => ({ ...x, assessorNotes: e.target.value }))} placeholder="What stood out, concerns, anything promised" />
+            </div>
+            <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--shell-hover-soft)', border: '1px solid var(--shell-border)' }}>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Assessment result</span>
+                {paPreview ? (
+                  <span className="text-sm font-bold" style={{ color: paPreview.result === 'Pass' ? '#34d399' : paPreview.result === 'Fail' ? '#f87171' : '#fbbf24' }}>
+                    {paPreview.result === 'Pending' ? `Pending — rate all four (${paPreview.totalScore}/${paPreview.maxScore} so far)` : `${paPreview.result} · ${paPreview.totalScore}/${paPreview.maxScore} (need ≥ ${rubric?.practical?.passThreshold ?? '—'})`}
+                  </span>
+                ) : <span className="text-xs" style={{ color: 'var(--text-dim)' }}>loading rubric…</span>}
+              </div>
+              <p className="text-[10px] mt-1.5" style={{ color: 'var(--text-dim)' }}>
+                The chain: Screening score triages (Hot/Warm/Cold) → this assessment must PASS → agreement signed + PAN collected → only then can the stage be set to Active. Pulse enforces it — no side sheet needed.
+              </p>
             </div>
           </>}
 
@@ -909,6 +1026,26 @@ function PartnerScoringTab() {
           </div>
         </div>
       ))}
+
+      <p className="text-xs font-bold uppercase tracking-wider pt-2" style={{ color: '#C9A961' }}>Practical assessment (stage 2 — gates Active)</p>
+      {(['productKnowledge', 'sampleCaseQuality', 'responsiveness', 'processUnderstanding'] as const).map((k) => (
+        <div key={k}>
+          <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>{k === 'productKnowledge' ? 'Product knowledge' : k === 'sampleCaseQuality' ? 'Sample case quality' : k === 'responsiveness' ? 'Responsiveness' : 'Process understanding'}</p>
+          <div className="grid grid-cols-3 gap-2">
+            {Object.keys((cfg.practical ?? { productKnowledge: {}, sampleCaseQuality: {}, responsiveness: {}, processUnderstanding: {}, passThreshold: 7 })[k] ?? {}).map((o) => (
+              <div key={o} className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg" style={{ backgroundColor: 'var(--shell-hover-soft)' }}>
+                <span className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{o}</span>
+                <input type="number" className="glass-inp w-14 text-sm text-right"
+                  value={cfg.practical?.[k]?.[o] ?? 0}
+                  onChange={(e) => setCfg((p) => p ? { ...p, practical: { ...p.practical, [k]: { ...p.practical[k], [o]: Number(e.target.value) || 0 } } } : p)} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      <div className="grid grid-cols-3 gap-3">
+        <div><FLabel text="Practical pass threshold (≥)" /><input type="number" className="glass-inp w-full text-sm" value={cfg.practical?.passThreshold ?? 7} onChange={(e) => setCfg((p) => p ? { ...p, practical: { ...p.practical, passThreshold: Number(e.target.value) || 0 } } : p)} /></div>
+      </div>
 
       <div className="grid grid-cols-3 gap-3 pt-1">
         <div><FLabel text="DSA conflict penalty" /><input type="number" className="glass-inp w-full text-sm" value={cfg.conflictPenalty} onChange={(e) => setCfg((p) => p ? { ...p, conflictPenalty: Number(e.target.value) || 0 } : p)} /></div>

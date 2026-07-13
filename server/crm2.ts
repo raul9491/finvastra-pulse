@@ -20,6 +20,10 @@ import crypto from "crypto";
 import { encryptField } from "../src/lib/encryption.js";
 import { findSlabOverlaps, resolveSlab, computeExpectedAmounts, SlabResolutionError, type SlabForResolution } from "../src/lib/crm2/slab.js";
 import { resolveChannelPartnerRule, computeChannelPartnerPayout } from "../src/lib/crm2/channelPartnerPayout.js";
+import {
+  computePartnerScore, computeOnboardingProgress, sanitizePartnerRubric,
+  DEFAULT_PARTNER_RUBRIC, type PartnerRubric,
+} from "../src/lib/crm2/partnerScoring.js";
 import { buildDupeKeys, normaliseMobile } from "../src/lib/crm2/dedupe.js";
 import { extractClientIp } from "../src/lib/crm2/http.js";
 import {
@@ -577,6 +581,98 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     return `CON-${String(max + 1).padStart(3, "0")}`;
   }
 
+  // ─── Partner intake funnel (fields ON the connector; see src/lib/crm2/partnerScoring) ──
+  const PARTNER_FUNNEL = ["Inquiry", "Screening", "KYC Collection", "Agreement Sent", "Agreement Signed", "Training", "Active", "Rejected", "On Hold"];
+  const PARTNER_TERMINAL = new Set(["Active", "Rejected"]);   // config recompute skips these
+  const PARTNER_NETWORK_TYPE = ["CA / Accountant", "Property Dealer / Broker", "Insurance Agent", "HR / Corporate Contact", "Society / RWA Office Bearer", "Freelance Loan Agent", "Other / Unclear"];
+  const PARTNER_NETWORK_SIZE = [">100 contacts", "30-100 contacts", "<30 contacts", "Not Shared"];
+  const PARTNER_FIT = ["Strong Fit", "Partial Fit", "Unclear"];
+  const PARTNER_TRACK = ["Proven with Examples", "Some Experience", "None"];
+  const PARTNER_VOLUME = [">5 cases/month", "2-5 cases/month", "<2 cases/month", "Not Shared"];
+  const PARTNER_KYC = ["Ready", "Partial", "Not Ready"];
+  const PARTNER_LEAD_SOURCE = ["Website Form", "WhatsApp Inquiry", "Referral", "Walk-in", "Other"];
+  const PARTNER_NEXT_ACTION = ["Send Screening Call", "Collect KYC Docs", "Send Agreement", "Schedule Training", "Grant Pulse Access", "Reject", "On Hold"];
+
+  const optBool = (b: Record<string, unknown>, f: string): boolean | undefined =>
+    (b[f] === undefined ? undefined : b[f] === true);
+  const optEnum = (b: Record<string, unknown>, f: string, allowed: string[]): string | null | undefined => {
+    if (b[f] === undefined) return undefined;
+    if (b[f] === null || b[f] === "") return null;
+    const v = String(b[f]);
+    if (!allowed.includes(v)) throw new ApiError(400, `${f} must be one of: ${allowed.join(", ")}`);
+    return v;
+  };
+
+  // Screening/funnel fields the client may set on a connector (allowlist). Scoring
+  // fields (partnerScoring) are NEVER read from the body — always recomputed.
+  function partnerScreeningFields(b: Record<string, unknown>): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    const set = (k: string, v: unknown) => { if (v !== undefined) out[k] = v; };
+    set("funnelStatus", optEnum(b, "funnelStatus", PARTNER_FUNNEL));
+    set("owner", optStr(b, "owner") === null && b.owner === undefined ? undefined : (optStr(b, "owner") ?? null));
+    set("leadSource", optEnum(b, "leadSource", PARTNER_LEAD_SOURCE));
+    set("occupation", b.occupation === undefined ? undefined : (optStr(b, "occupation") ?? ""));
+    set("networkType", optEnum(b, "networkType", PARTNER_NETWORK_TYPE));
+    set("networkSize", optEnum(b, "networkSize", PARTNER_NETWORK_SIZE));
+    set("productInterestStated", b.productInterestStated === undefined ? undefined : (optStr(b, "productInterestStated") ?? ""));
+    set("productDemandFit", optEnum(b, "productDemandFit", PARTNER_FIT));
+    set("priorTrackRecord", optEnum(b, "priorTrackRecord", PARTNER_TRACK));
+    set("trackRecordNotes", b.trackRecordNotes === undefined ? undefined : (optStr(b, "trackRecordNotes") ?? ""));
+    set("expectedMonthlyVolume", optEnum(b, "expectedMonthlyVolume", PARTNER_VOLUME));
+    set("kycReadinessInput", optEnum(b, "kycReadinessInput", PARTNER_KYC));
+    set("existingDsaCodeElsewhere", optBool(b, "existingDsaCodeElsewhere"));
+    set("conflictNotes", b.conflictNotes === undefined ? undefined : (optStr(b, "conflictNotes") ?? ""));
+    set("screeningCallDone", optBool(b, "screeningCallDone"));
+    set("nextAction", optEnum(b, "nextAction", PARTNER_NEXT_ACTION));
+    if (b.screeningCallDate !== undefined) {
+      out.screeningCallDate = isStr(b.screeningCallDate) && b.screeningCallDate
+        ? Timestamp.fromDate(new Date(String(b.screeningCallDate))) : null;
+    }
+    if (b.notes !== undefined) out.notes = optStr(b, "notes") ?? "";
+    if (b.ownDsaCode !== undefined) out.ownDsaCode = optStr(b, "ownDsaCode");
+    return out;
+  }
+
+  // Onboarding checklist fields (booleans/dates); progressPct is recomputed, never set here.
+  function partnerOnboardingFields(b: Record<string, unknown>): Record<string, unknown> | undefined {
+    const oc = b.onboardingChecklist;
+    if (!oc || typeof oc !== "object") return undefined;
+    const o = oc as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    const setB = (k: string) => { if (o[k] !== undefined) out[k] = o[k] === true; };
+    const setD = (k: string) => {
+      if (o[k] !== undefined) out[k] = isStr(o[k]) && o[k] ? Timestamp.fromDate(new Date(String(o[k]))) : null;
+    };
+    setB("panCollected"); setB("aadhaarCollected"); setB("bankDetailsCollected");
+    setB("trainingCompleted"); setB("pulseAccessCreated"); setB("firstCaseLogged");
+    setD("agreementSentDate"); setD("agreementSignedDate");
+    return out;
+  }
+
+  const EMPTY_ONBOARDING = {
+    panCollected: false, aadhaarCollected: false, bankDetailsCollected: false,
+    agreementSentDate: null, agreementSignedDate: null,
+    trainingCompleted: false, pulseAccessCreated: false, firstCaseLogged: false,
+    onboardingCompleteDate: null, progressPct: 0,
+  };
+
+  /** Load the rubric config, seeding partnerScoringConfig/default on first read. */
+  async function getPartnerRubric(): Promise<PartnerRubric> {
+    const ref = db.collection("partnerScoringConfig").doc("default");
+    const snap = await ref.get();
+    if (!snap.exists) {
+      await ref.set({ ...DEFAULT_PARTNER_RUBRIC, updatedAt: FieldValue.serverTimestamp(), updatedBy: "system:seed" });
+      return DEFAULT_PARTNER_RUBRIC;
+    }
+    return snap.data() as PartnerRubric;
+  }
+
+  /** Score fields for a merged connector doc — stamps computedAt server-side. */
+  function scoreFor(merged: Record<string, unknown>, rubric: PartnerRubric): Record<string, unknown> {
+    const s = computePartnerScore(merged as never, rubric);
+    return { ...s, computedAt: FieldValue.serverTimestamp() };
+  }
+
   function connectorMainFields(b: Record<string, unknown>, isCreate: boolean): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     if (isCreate || b.displayName !== undefined) out.displayName = reqStr(b, "displayName");
@@ -634,21 +730,41 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const b = (req.body ?? {}) as Record<string, unknown>;
     rejectFullAadhaar(b);
     const main = connectorMainFields(b, true);
+    const screening = partnerScreeningFields(b);
+    const onboardingIn = partnerOnboardingFields(b);
 
-    // Financial (private) — PAN required.
+    // Financial (private) — PAN is now OPTIONAL (a minimal Inquiry candidate can be
+    // logged with just name+mobile+source; PAN/KYC is collected as they progress).
     const pan = String(b.pan ?? "").trim().toUpperCase();
-    if (!pan) throw new ApiError(400, "PAN is required for a connector");
-    if (!PAN_RE.test(pan)) throw new ApiError(400, "PAN format invalid (expected ABCDE1234F)");
-    const fin: Record<string, unknown> = { panEnc: encryptField(pan), panLast4: pan.slice(-4) };
+    const fin: Record<string, unknown> = { aadhaarLast4: null, panEnc: null, panLast4: null, payoutBank: null, tdsPct: null };
+    if (pan) {
+      if (!PAN_RE.test(pan)) throw new ApiError(400, "PAN format invalid (expected ABCDE1234F)");
+      fin.panEnc = encryptField(pan); fin.panLast4 = pan.slice(-4);
+    }
     const a = String(b.aadhaarLast4 ?? "").trim();
     if (a && !/^\d{4}$/.test(a)) throw new ApiError(400, "aadhaarLast4 must be exactly 4 digits — full Aadhaar is never stored");
     fin.aadhaarLast4 = a || null;
     fin.tdsPct = optNum(b, "tdsPct");
     fin.payoutBank = buildPayoutBank(b.bank, null);
 
+    // Funnel defaults: a new candidate starts at Inquiry, inactive (hidden from RM
+    // pickers) until it reaches Active. `status` is DERIVED from funnelStatus.
+    const funnelStatus = (screening.funnelStatus as string | undefined) ?? "Inquiry";
+    const onboarding = { ...EMPTY_ONBOARDING, ...(onboardingIn ?? {}) };
+    onboarding.progressPct = computeOnboardingProgress(onboarding as never);
+    const merged = { ...main, ...screening, funnelStatus };
+    const rubric = await getPartnerRubric();
+    const partnerScoring = scoreFor(merged, rubric);
+    const status = funnelStatus === "Active" ? "active" : "inactive";
+
     const code = await nextConnectorCodeServer();
     const ref = db.collection("connectors").doc();
-    await ref.set({ connectorCode: code, address: "", ownDsaCode: null, payoutRules: [], deleted: false, ...main, ...createAudit(caller.fapl) });
+    await ref.set({
+      connectorCode: code, address: "", ownDsaCode: null, payoutRules: [], deleted: false,
+      ...main, ...screening, funnelStatus, status,
+      onboardingChecklist: onboarding, partnerScoring,
+      ...createAudit(caller.fapl),
+    });
     await ref.collection("private").doc("financial").set({ ...fin, updatedAt: FieldValue.serverTimestamp() });
     res.json({ ok: true, id: ref.id, connectorCode: code });
   }));
@@ -659,12 +775,45 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const b = (req.body ?? {}) as Record<string, unknown>;
     rejectFullAadhaar(b);
     const ref = db.collection("connectors").doc(req.params.id);
-    if (!(await ref.get()).exists) throw new ApiError(404, "connector not found");
+    const cur = (await ref.get()).data();
+    if (!cur) throw new ApiError(404, "connector not found");
     const main = connectorMainFields(b, false);
-    if (Object.keys(main).length) await ref.update({ ...main, ...updateAudit(caller.fapl) });
+    const screening = partnerScreeningFields(b);
+    const onboardingIn = partnerOnboardingFields(b);
 
+    // Merge the incoming changes over the current doc so scoring/status derive from
+    // the FULL picture (a lone screening edit still re-tiers correctly).
+    const merged: Record<string, unknown> = { ...cur, ...main, ...screening };
+    const update: Record<string, unknown> = { ...main, ...screening };
+
+    // Recompute the rubric score whenever any scored screening field changed.
+    const SCORED = ["networkType", "networkSize", "productDemandFit", "priorTrackRecord", "expectedMonthlyVolume", "kycReadinessInput", "existingDsaCodeElsewhere"];
+    if (SCORED.some((k) => k in screening)) {
+      update.partnerScoring = scoreFor(merged, await getPartnerRubric());
+    }
+
+    // Onboarding checklist: merge, recompute progressPct, stamp completion date.
+    if (onboardingIn) {
+      const curOc = (cur.onboardingChecklist as Record<string, unknown>) ?? EMPTY_ONBOARDING;
+      const oc = { ...EMPTY_ONBOARDING, ...curOc, ...onboardingIn };
+      oc.progressPct = computeOnboardingProgress(oc as never);
+      oc.onboardingCompleteDate = oc.progressPct === 100
+        ? (curOc.onboardingCompleteDate ?? FieldValue.serverTimestamp())
+        : null;
+      update.onboardingChecklist = oc;
+    }
+
+    // Derive the picker gate from funnelStatus whenever it's set (Active → active,
+    // anything else → inactive). Legacy connectors without funnelStatus are untouched.
+    if ("funnelStatus" in screening) {
+      update.status = screening.funnelStatus === "Active" ? "active" : "inactive";
+    }
+
+    if (Object.keys(update).length) await ref.update({ ...update, ...updateAudit(caller.fapl) });
+
+    // Private financial sub-doc (PAN optional on edit; blank keeps existing enc).
     const finRef = ref.collection("private").doc("financial");
-    const cur = (await finRef.get()).data() ?? {};
+    const curFin = (await finRef.get()).data() ?? {};
     const fin: Record<string, unknown> = {};
     if (isStr(b.pan) && String(b.pan).trim()) {
       const pan = String(b.pan).trim().toUpperCase();
@@ -672,14 +821,46 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       fin.panEnc = encryptField(pan); fin.panLast4 = pan.slice(-4);
     }
     if (b.aadhaarLast4 !== undefined) {
-      const a = String(b.aadhaarLast4 ?? "").trim();
-      if (a && !/^\d{4}$/.test(a)) throw new ApiError(400, "aadhaarLast4 must be exactly 4 digits — full Aadhaar is never stored");
-      fin.aadhaarLast4 = a || null;
+      const av = String(b.aadhaarLast4 ?? "").trim();
+      if (av && !/^\d{4}$/.test(av)) throw new ApiError(400, "aadhaarLast4 must be exactly 4 digits — full Aadhaar is never stored");
+      fin.aadhaarLast4 = av || null;
     }
     if (b.tdsPct !== undefined) fin.tdsPct = optNum(b, "tdsPct");
-    if (b.bank !== undefined) fin.payoutBank = buildPayoutBank(b.bank, (cur.payoutBank as Record<string, unknown> | null) ?? null);
+    if (b.bank !== undefined) fin.payoutBank = buildPayoutBank(b.bank, (curFin.payoutBank as Record<string, unknown> | null) ?? null);
     if (Object.keys(fin).length) await finRef.set({ ...fin, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
     res.json({ ok: true });
+  }));
+
+  // ─── Partner scoring rubric config (partnerScoringConfig/default) ──────────────
+  app.get("/api/crm2/partner-scoring-config", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "crm.masters.write");
+    if (!caller) return;
+    res.json({ ok: true, config: await getPartnerRubric() });
+  }));
+
+  app.patch("/api/crm2/partner-scoring-config", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "crm.masters.write");
+    if (!caller) return;
+    const prev = await getPartnerRubric();
+    const next = sanitizePartnerRubric(req.body ?? {}, prev);
+    next.version = (prev.version ?? 0) + 1;   // bump → triggers recompute
+    await db.collection("partnerScoringConfig").doc("default").set({
+      ...next, updatedAt: FieldValue.serverTimestamp(), updatedBy: caller.fapl,
+    });
+
+    // Re-tier every NON-TERMINAL candidate (skip Active/Rejected — settled).
+    const snap = await db.collection("connectors").where("deleted", "==", false).get();
+    let recomputed = 0;
+    const chunks: FirebaseFirestore.WriteBatch[] = [db.batch()];
+    for (const doc of snap.docs) {
+      const d = doc.data();
+      if (!d.funnelStatus || PARTNER_TERMINAL.has(String(d.funnelStatus))) continue;
+      chunks[chunks.length - 1].update(doc.ref, { partnerScoring: scoreFor(d, next) });
+      recomputed++;
+      if (recomputed % 400 === 0) chunks.push(db.batch());
+    }
+    if (recomputed > 0) await Promise.all(chunks.map((c) => c.commit()));
+    res.json({ ok: true, version: next.version, recomputed });
   }));
 
   // ─── One-time: rename legacy connector codes FAC-/CONN-### → CON-### ──────────
@@ -1166,6 +1347,51 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       return newId;
     });
     res.json({ ok: true, id });
+  }));
+
+  // ─── Public PARTNER intake (finvastra.com "become a partner" form) ────────────
+  // People asking to become a Finvastra partner / use our DSA code. Lands as an
+  // Inquiry-stage Connector (status:'inactive' — hidden from RM pickers until
+  // Active), scored by the current rubric. Same guards as the leads intake:
+  // honeypot, per-IP rate limit (trusted Apps-Script secret bypasses it).
+  app.post("/api/public/partner-inquiry", route(async (req, res) => {
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    if (isStr(b.website)) { res.json({ ok: true }); return; }   // honeypot → no write
+    const trusted = !!process.env.WEBSITE_WEBHOOK_SECRET
+      && req.headers["x-finvastra-webhook-secret"] === process.env.WEBSITE_WEBHOOK_SECRET;
+    const ip = extractClientIp(req.headers["x-forwarded-for"], req.ip);
+    if (!trusted && !(await rateLimit(`partnerpub:${ip}`, 20, 60 * 60 * 1000))) {
+      throw new ApiError(429, "Too many submissions — try again later");
+    }
+    const name = reqStr(b, "name");
+    if (name.length < 2 || name.length > 120) throw new ApiError(400, "name must be 2–120 chars");
+    const mobile = normaliseMobile(String(b.mobile ?? ""));
+    if (!mobile) throw new ApiError(400, "mobile must be a valid 10-digit Indian mobile");
+
+    // Only the safe screening subset is accepted from an unauthenticated form.
+    const screening = partnerScreeningFields({
+      leadSource: PARTNER_LEAD_SOURCE.includes(String(b.leadSource)) ? b.leadSource : "Website Form",
+      occupation: b.occupation, networkType: b.networkType, networkSize: b.networkSize,
+      productInterestStated: b.productInterestStated, email: undefined,
+    });
+    const onboarding = { ...EMPTY_ONBOARDING };
+    const merged = { ...screening, funnelStatus: "Inquiry" };
+    const partnerScoring = scoreFor(merged, await getPartnerRubric());
+    const code = await nextConnectorCodeServer();
+    const ref = db.collection("connectors").doc();
+    await ref.set({
+      connectorCode: code, displayName: name, mobile, mobiles: [mobile],
+      email: optStr(b, "email") ?? "", address: "", firmName: optStr(b, "firmName") ?? "",
+      gstin: null, ownDsaCode: null, verticals: [], payoutRules: [], deleted: false,
+      status: "inactive", funnelStatus: "Inquiry", ...screening,
+      onboardingChecklist: onboarding, partnerScoring,
+      ...createAudit("public:partner-form"),
+    });
+    await ref.collection("private").doc("financial").set({
+      panEnc: null, panLast4: null, aadhaarLast4: null, payoutBank: null, tdsPct: null,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    res.json({ ok: true });
   }));
 
   // ═══ Meta Lead Ads → CRM 2.0 lead — Phase 1 (capture + queue) ═════════════════

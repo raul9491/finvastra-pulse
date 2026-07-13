@@ -33,6 +33,7 @@
     "qa:meta:inspect": "tsx scripts/test/inspectMetaLead.ts",
     "qa:sla": "bash .qa/run-sla-gate.sh",
     "qa:queue": "bash .qa/run-queue-gate.sh",
+    "qa:partner": "bash .qa/run-partner-gate.sh",
     "sla:inspect": "tsx scripts/test/inspectLeadSla.ts",
     "queue:inspect": "tsx scripts/test/inspectQueue.ts",
     "seed:golive": "tsx scripts/seed/seedGoLiveConfig.ts",

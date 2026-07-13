@@ -12,7 +12,7 @@
  * mapping editor (slab timeline, end-and-add flow) is purpose-built.
  */
 import { useMemo, useState, useEffect } from 'react';
-import { Plus, Pencil, X, Landmark, Package, Network, FileText, GitBranch, Handshake, Layers } from 'lucide-react';
+import { Plus, Pencil, X, Landmark, Package, Network, FileText, GitBranch, Handshake, Layers, Gauge } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect, MultiSearchableSelect } from '../../../components/ui/SearchableSelect';
@@ -23,6 +23,7 @@ import {
   useConnectors, nextConnectorCode, setConnectorStatus, getConnectorFinancial,
 } from '../../hrms/hooks/useConnectors';
 import { CONSTITUTION_OPTS } from '../clients/ClientFormModal';
+import { computePartnerScore, computeOnboardingProgress, sanitizePartnerRubric, type PartnerRubric } from '../../../lib/crm2/partnerScoring';
 import type { Connector, ConnectorVertical, ConnectorFinancial } from '../../../types';
 import type { Lender, Product, Aggregator, DocumentDef, SubProduct } from '../../../types/crm2';
 
@@ -104,6 +105,37 @@ function StringListEditor({ value, onChange, placeholder, addLabel }: {
 }
 
 const STATUS_AI = [{ value: 'ACTIVE', label: 'Active' }, { value: 'INACTIVE', label: 'Inactive' }];
+
+// ─── Partner intake funnel — option lists + badge styling ─────────────────────
+const opt = (v: string) => ({ value: v, label: v });
+const PARTNER_FUNNEL_OPTS = ['Inquiry', 'Screening', 'KYC Collection', 'Agreement Sent', 'Agreement Signed', 'Training', 'Active', 'Rejected', 'On Hold'].map(opt);
+const PARTNER_LEAD_SOURCE_OPTS = ['Website Form', 'WhatsApp Inquiry', 'Referral', 'Walk-in', 'Other'].map(opt);
+const PARTNER_NETWORK_TYPE_OPTS = ['CA / Accountant', 'Property Dealer / Broker', 'Insurance Agent', 'HR / Corporate Contact', 'Society / RWA Office Bearer', 'Freelance Loan Agent', 'Other / Unclear'].map(opt);
+const PARTNER_NETWORK_SIZE_OPTS = ['>100 contacts', '30-100 contacts', '<30 contacts', 'Not Shared'].map(opt);
+const PARTNER_FIT_OPTS = ['Strong Fit', 'Partial Fit', 'Unclear'].map(opt);
+const PARTNER_TRACK_OPTS = ['Proven with Examples', 'Some Experience', 'None'].map(opt);
+const PARTNER_VOLUME_OPTS = ['>5 cases/month', '2-5 cases/month', '<2 cases/month', 'Not Shared'].map(opt);
+const PARTNER_KYC_OPTS = ['Ready', 'Partial', 'Not Ready'].map(opt);
+const PARTNER_NEXT_ACTION_OPTS = ['Send Screening Call', 'Collect KYC Docs', 'Send Agreement', 'Schedule Training', 'Grant Pulse Access', 'Reject', 'On Hold'].map(opt);
+
+const TIER_STYLE: Record<string, { color: string; bg: string }> = {
+  Hot: { color: '#34d399', bg: 'rgba(52,211,153,0.14)' },
+  Warm: { color: '#fbbf24', bg: 'rgba(251,191,36,0.14)' },
+  Cold: { color: '#f87171', bg: 'rgba(248,113,113,0.14)' },
+};
+function TierBadge({ tier }: { tier?: string }) {
+  if (!tier) return <span style={{ color: 'var(--text-dim)' }}>—</span>;
+  const s = TIER_STYLE[tier] ?? { color: 'var(--text-muted)', bg: 'var(--shell-hover-hard)' };
+  return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: s.color, backgroundColor: s.bg }}>{tier}</span>;
+}
+// Colour a funnel stage: settled-good (Active) green, terminal-bad (Rejected) red,
+// holding amber, in-progress neutral gold.
+function funnelColor(f?: string): string {
+  if (f === 'Active') return '#34d399';
+  if (f === 'Rejected') return '#f87171';
+  if (f === 'On Hold') return '#fbbf24';
+  return '#C9A961';
+}
 
 export const inp = (bad?: boolean) =>
   `glass-inp w-full text-sm ${bad ? 'border-red-400! focus:ring-red-200/50!' : ''}`;
@@ -423,6 +455,12 @@ const VERTICAL_OPTS: Array<{ value: ConnectorVertical; label: string }> = [
   { value: 'loan', label: 'Loan' }, { value: 'wealth', label: 'Wealth' }, { value: 'insurance', label: 'Insurance' },
 ];
 const EMPTY_BANK = { bankName: '', accountHolderName: '', ifsc: '', accountNo: '', branchName: '' };
+
+// Firestore Timestamp (or null) → yyyy-mm-dd for a <input type="date">.
+function tsToInput(ts: unknown): string {
+  const d = (ts as { toDate?: () => Date } | null | undefined)?.toDate?.();
+  return d ? d.toISOString().slice(0, 10) : '';
+}
 const SectionLabel = ({ text }: { text: string }) => (
   <p className="text-[11px] font-bold uppercase tracking-widest pt-1" style={{ color: '#C9A961' }}>{text}</p>
 );
@@ -440,7 +478,6 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
   const [firmName, setFirmName] = useState(initial?.firmName ?? '');
   const [gstin, setGstin] = useState(initial?.gstin ?? '');
   const [verticals, setVerticals] = useState<ConnectorVertical[]>(initial?.verticals ?? []);
-  const [status, setStatus] = useState<Connector['status']>(initial?.status ?? 'active');
   const [pan, setPan] = useState('');
   const [aadhaar, setAadhaar] = useState('');
   const [bank, setBank] = useState({ ...EMPTY_BANK });
@@ -465,6 +502,45 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
     });
   }, [initial]);
 
+  // ── Partner funnel state ──
+  const [tab, setTab] = useState<'details' | 'screening' | 'onboarding'>('details');
+  // Legacy connectors have no funnelStatus — default to Active when they're already
+  // active (an established partner) so editing them doesn't silently deactivate them.
+  const [funnelStatus, setFunnelStatus] = useState<string>(
+    initial?.funnelStatus ?? (initial?.status === 'active' ? 'Active' : 'Inquiry'));
+  const [owner, setOwner] = useState(initial?.owner ?? '');
+  const [leadSource, setLeadSource] = useState(initial?.leadSource ?? '');
+  const [occupation, setOccupation] = useState(initial?.occupation ?? '');
+  const [networkType, setNetworkType] = useState(initial?.networkType ?? '');
+  const [networkSize, setNetworkSize] = useState(initial?.networkSize ?? '');
+  const [productInterestStated, setProductInterestStated] = useState(initial?.productInterestStated ?? '');
+  const [productDemandFit, setProductDemandFit] = useState(initial?.productDemandFit ?? '');
+  const [priorTrackRecord, setPriorTrackRecord] = useState(initial?.priorTrackRecord ?? '');
+  const [trackRecordNotes, setTrackRecordNotes] = useState(initial?.trackRecordNotes ?? '');
+  const [expectedMonthlyVolume, setExpectedMonthlyVolume] = useState(initial?.expectedMonthlyVolume ?? '');
+  const [kycReadinessInput, setKycReadinessInput] = useState(initial?.kycReadinessInput ?? '');
+  const [existingDsaCodeElsewhere, setExistingDsa] = useState(!!initial?.existingDsaCodeElsewhere);
+  const [conflictNotes, setConflictNotes] = useState(initial?.conflictNotes ?? '');
+  const [screeningCallDone, setScreeningCallDone] = useState(!!initial?.screeningCallDone);
+  const [screeningCallDate, setScreeningCallDate] = useState(tsToInput(initial?.screeningCallDate));
+  const [nextAction, setNextAction] = useState(initial?.nextAction ?? '');
+  const oc0 = initial?.onboardingChecklist;
+  const [onb, setOnb] = useState({
+    panCollected: !!oc0?.panCollected, aadhaarCollected: !!oc0?.aadhaarCollected,
+    bankDetailsCollected: !!oc0?.bankDetailsCollected, trainingCompleted: !!oc0?.trainingCompleted,
+    pulseAccessCreated: !!oc0?.pulseAccessCreated, firstCaseLogged: !!oc0?.firstCaseLogged,
+    agreementSentDate: tsToInput(oc0?.agreementSentDate), agreementSignedDate: tsToInput(oc0?.agreementSignedDate),
+  });
+  const [rubric, setRubric] = useState<PartnerRubric | null>(null);
+  useEffect(() => { apiCrm2<{ config: PartnerRubric }>('GET', '/api/crm2/partner-scoring-config').then((r) => setRubric(r.config)).catch(() => {}); }, []);
+
+  // Live score preview from the current screening answers (never a black box).
+  const preview = useMemo(() => {
+    if (!rubric) return null;
+    return computePartnerScore({ networkType, networkSize, productDemandFit, priorTrackRecord, expectedMonthlyVolume, kycReadinessInput, existingDsaCodeElsewhere }, rubric);
+  }, [rubric, networkType, networkSize, productDemandFit, priorTrackRecord, expectedMonthlyVolume, kycReadinessInput, existingDsaCodeElsewhere]);
+  const onbProgress = computeOnboardingProgress({ ...onb, agreementSignedDate: onb.agreementSignedDate || null });
+
   const toggleV = (v: ConnectorVertical) => setVerticals((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v]));
   const setMobileAt = (i: number, v: string) => setMobiles((p) => p.map((m, j) => (j === i ? v : m)));
   const setB = (k: keyof typeof EMPTY_BANK, v: string) => setBank((p) => ({ ...p, [k]: v }));
@@ -477,18 +553,32 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
     else if (cleanMobiles.some((m) => !/^[6-9]\d{9}$/.test(m))) e.mobile = 'Each must be a 10-digit mobile';
     if (verticals.length === 0) e.verticals = 'Pick at least one';
     const panUp = pan.trim().toUpperCase();
-    if (!initial && !panUp) e.pan = 'PAN is required';
-    else if (panUp && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(panUp)) e.pan = 'Invalid PAN (ABCDE1234F)';
+    // PAN is optional now (a candidate can be logged at Inquiry before KYC).
+    if (panUp && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(panUp)) e.pan = 'Invalid PAN (ABCDE1234F)';
     if (aadhaar.trim() && !/^\d{4}$/.test(aadhaar.trim())) e.aadhaar = 'Last 4 digits only';
     if (bank.ifsc.trim() && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(bank.ifsc.trim().toUpperCase())) e.ifsc = 'Invalid IFSC';
     if (bank.accountNo.trim() && !/^\d{6,20}$/.test(bank.accountNo.replace(/\s/g, ''))) e.accountNo = '6–20 digits';
-    if (Object.keys(e).length) { setErrs(e); return; }
+    if (Object.keys(e).length) { setErrs(e); setTab('details'); return; }
     setErrs({}); setServerError(''); setBusy(true);
     try {
       const payload = {
         entityType: entityType || null, displayName: displayName.trim(), mobiles: cleanMobiles,
         email: email.trim() || null, firmName: firmName.trim() || null, gstin: gstin.trim() || null,
-        verticals, status,
+        verticals,
+        // Screening / funnel (status is DERIVED server-side from funnelStatus)
+        funnelStatus, owner: owner.trim() || null, leadSource: leadSource || null,
+        occupation, networkType: networkType || null, networkSize: networkSize || null,
+        productInterestStated, productDemandFit: productDemandFit || null,
+        priorTrackRecord: priorTrackRecord || null, trackRecordNotes,
+        expectedMonthlyVolume: expectedMonthlyVolume || null, kycReadinessInput: kycReadinessInput || null,
+        existingDsaCodeElsewhere, conflictNotes,
+        screeningCallDone, screeningCallDate: screeningCallDate || null, nextAction: nextAction || null,
+        onboardingChecklist: {
+          panCollected: onb.panCollected, aadhaarCollected: onb.aadhaarCollected,
+          bankDetailsCollected: onb.bankDetailsCollected, trainingCompleted: onb.trainingCompleted,
+          pulseAccessCreated: onb.pulseAccessCreated, firstCaseLogged: onb.firstCaseLogged,
+          agreementSentDate: onb.agreementSentDate || null, agreementSignedDate: onb.agreementSignedDate || null,
+        },
         ...(panUp ? { pan: panUp } : {}),
         aadhaarLast4: aadhaar.trim() || null,
         tdsPct: tdsPct.trim() ? Number(tdsPct) : null,
@@ -506,22 +596,45 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
     } finally { setBusy(false); }
   };
 
+  const TABS: Array<{ k: typeof tab; label: string }> = [
+    { k: 'details', label: 'Details' }, { k: 'screening', label: 'Screening' }, { k: 'onboarding', label: `Onboarding · ${onbProgress}%` },
+  ];
+
   return (
     <div className="glass-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="glass-modal-panel w-full max-w-lg rounded-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="glass-modal-header flex items-center justify-between px-5 py-4">
-          <div>
-            <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
-              {initial ? `Edit ${initial.connectorCode}` : 'New Connector'}
+          <div className="min-w-0">
+            <h3 className="text-base font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              {initial ? `Edit ${initial.connectorCode}` : 'New Partner / Connector'}
+              {preview && <TierBadge tier={preview.tier} />}
             </h3>
             <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-              Code <span className="font-mono font-semibold" style={{ color: '#C9A961' }}>{initial?.connectorCode ?? autoCode}</span> · auto-assigned, not editable
+              Code <span className="font-mono font-semibold" style={{ color: '#C9A961' }}>{initial?.connectorCode ?? autoCode}</span> · auto-assigned
             </p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard)" aria-label="Close">
             <X size={17} style={{ color: 'var(--text-muted)' }} />
           </button>
         </div>
+
+        {/* Funnel stage selector + tab pills */}
+        <div className="px-5 pt-3 flex flex-wrap items-center gap-2 justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Stage</span>
+            <span className="w-44"><SearchableSelect options={PARTNER_FUNNEL_OPTS} value={funnelStatus} onChange={setFunnelStatus} /></span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {TABS.map((t) => (
+              <button key={t.k} onClick={() => setTab(t.k)}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                style={tab === t.k ? { backgroundColor: '#0B1538', color: '#E5C97C' } : { backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-secondary)' }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="p-5 space-y-4">
           {serverError && (
             <div className="px-3.5 py-2.5 rounded-lg text-sm"
@@ -530,6 +643,7 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
             </div>
           )}
 
+          {tab === 'details' && <>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <FLabel text="Name" required error={errs.displayName} />
@@ -597,10 +711,10 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
           <SectionLabel text="KYC" />
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <FLabel text="PAN" required={!initial} error={errs.pan} />
+              <FLabel text="PAN" error={errs.pan} />
               <input className={`${inp(!!errs.pan)} uppercase`} value={pan} maxLength={10}
                 onChange={(e) => setPan(e.target.value.toUpperCase())}
-                placeholder={fin?.panLast4 ? `current ••••${fin.panLast4} — blank keeps it` : 'ABCDE1234F'} />
+                placeholder={fin?.panLast4 ? `current ••••${fin.panLast4} — blank keeps it` : 'optional'} />
             </div>
             <div>
               <FLabel text="Aadhaar (last 4)" error={errs.aadhaar} />
@@ -645,11 +759,80 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
             </div>
           </div>
 
-          <div>
-            <FLabel text="Status" />
-            <SearchableSelect options={STATUS_AI.map((s) => ({ value: s.value.toLowerCase(), label: s.label }))}
-              value={status} onChange={(v) => setStatus(v as Connector['status'])} />
-          </div>
+          <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+            Active/inactive is derived from the funnel <strong>Stage</strong> above — a candidate becomes pickable by RMs only when the stage is <strong>Active</strong>.
+          </p>
+          </>}
+
+          {tab === 'screening' && <>
+            <div className="grid grid-cols-2 gap-3">
+              <div><FLabel text="Lead Source" /><SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_LEAD_SOURCE_OPTS]} value={leadSource} onChange={setLeadSource} /></div>
+              <div><FLabel text="Owner (who's handling)" /><input className={inp()} value={owner} onChange={(e) => setOwner(e.target.value)} placeholder="FAPL-… or name" /></div>
+              <div><FLabel text="Occupation" /><input className={inp()} value={occupation} onChange={(e) => setOccupation(e.target.value)} placeholder="e.g. Practising CA" /></div>
+              <div><FLabel text="Network Type" /><SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_NETWORK_TYPE_OPTS]} value={networkType} onChange={setNetworkType} /></div>
+              <div><FLabel text="Network Size" /><SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_NETWORK_SIZE_OPTS]} value={networkSize} onChange={setNetworkSize} /></div>
+              <div><FLabel text="Expected Volume" /><SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_VOLUME_OPTS]} value={expectedMonthlyVolume} onChange={setExpectedMonthlyVolume} /></div>
+              <div><FLabel text="Product Interest (stated)" /><input className={inp()} value={productInterestStated} onChange={(e) => setProductInterestStated(e.target.value)} placeholder="e.g. Home Loans, LAP" /></div>
+              <div><FLabel text="Product / Demand Fit" /><SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_FIT_OPTS]} value={productDemandFit} onChange={setProductDemandFit} /></div>
+              <div><FLabel text="Prior Track Record" /><SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_TRACK_OPTS]} value={priorTrackRecord} onChange={setPriorTrackRecord} /></div>
+              <div><FLabel text="KYC Readiness" /><SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_KYC_OPTS]} value={kycReadinessInput} onChange={setKycReadinessInput} /></div>
+            </div>
+            <div><FLabel text="Track Record Notes" /><textarea className={`${inp()} min-h-[52px]`} value={trackRecordNotes} onChange={(e) => setTrackRecordNotes(e.target.value)} placeholder="Examples / references they gave" /></div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+              <input type="checkbox" checked={existingDsaCodeElsewhere} onChange={(e) => setExistingDsa(e.target.checked)} />
+              Already holds a DSA code elsewhere (applies a scoring penalty)
+            </label>
+            {existingDsaCodeElsewhere && <div><FLabel text="Conflict Notes" /><input className={inp()} value={conflictNotes} onChange={(e) => setConflictNotes(e.target.value)} placeholder="Which lender / arrangement?" /></div>}
+            <div className="grid grid-cols-2 gap-3">
+              <div><FLabel text="Next Action" /><SearchableSelect options={[{ value: '', label: '—' }, ...PARTNER_NEXT_ACTION_OPTS]} value={nextAction} onChange={setNextAction} /></div>
+              <div><FLabel text="Screening Call Date" /><input type="date" className={inp()} value={screeningCallDate} onChange={(e) => setScreeningCallDate(e.target.value)} /></div>
+            </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+              <input type="checkbox" checked={screeningCallDone} onChange={(e) => setScreeningCallDone(e.target.checked)} />
+              Screening call done
+            </label>
+
+            {/* Read-only score breakdown — the tier is never a black box */}
+            <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--shell-hover-soft)', border: '1px solid var(--shell-border)' }}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Score breakdown</span>
+                {preview ? <span className="flex items-center gap-2"><TierBadge tier={preview.tier} /><span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{preview.totalScore} pts</span></span> : <span className="text-xs" style={{ color: 'var(--text-dim)' }}>loading rubric…</span>}
+              </div>
+              {preview && (
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                  {[['Network type', preview.networkTypeScore], ['Network size', preview.networkSizeScore], ['Product fit', preview.productFitScore], ['Track record', preview.trackRecordScore], ['Volume', preview.volumeScore], ['KYC readiness', preview.kycScore], ['DSA conflict', preview.conflictPenalty]].map(([k, v]) => (
+                    <div key={k as string} className="flex justify-between"><span>{k}</span><span className="font-semibold" style={{ color: (v as number) < 0 ? '#f87171' : 'var(--text-primary)' }}>{v as number > 0 ? '+' : ''}{v as number}</span></div>
+                  ))}
+                </div>
+              )}
+              <p className="text-[10px] mt-2" style={{ color: 'var(--text-dim)' }}>Saved after you click {initial ? 'Save Changes' : 'Create'} — thresholds are set in the Partner Scoring tab.</p>
+            </div>
+          </>}
+
+          {tab === 'onboarding' && <>
+            <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--shell-hover-soft)', border: '1px solid var(--shell-border)' }}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Onboarding progress</span>
+                <span className="text-sm font-bold" style={{ color: onbProgress === 100 ? '#34d399' : '#C9A961' }}>{onbProgress}%</span>
+              </div>
+              <div className="h-2.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--shell-hover-hard)' }}>
+                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${onbProgress}%`, backgroundColor: onbProgress === 100 ? '#34d399' : '#C9A961' }} />
+              </div>
+            </div>
+            {([
+              ['panCollected', 'PAN collected'], ['aadhaarCollected', 'Aadhaar collected'], ['bankDetailsCollected', 'Bank details collected'],
+              ['trainingCompleted', 'Training completed'], ['pulseAccessCreated', 'Pulse access created'], ['firstCaseLogged', 'First case logged'],
+            ] as const).map(([k, label]) => (
+              <label key={k} className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+                <input type="checkbox" checked={onb[k]} onChange={(e) => setOnb((p) => ({ ...p, [k]: e.target.checked }))} /> {label}
+              </label>
+            ))}
+            <div className="grid grid-cols-2 gap-3">
+              <div><FLabel text="Agreement Sent" /><input type="date" className={inp()} value={onb.agreementSentDate} onChange={(e) => setOnb((p) => ({ ...p, agreementSentDate: e.target.value }))} /></div>
+              <div><FLabel text="Agreement Signed" /><input type="date" className={inp()} value={onb.agreementSignedDate} onChange={(e) => setOnb((p) => ({ ...p, agreementSignedDate: e.target.value }))} /></div>
+            </div>
+            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>KYC boxes flag that you've collected the docs; the actual PAN/Aadhaar/bank are stored (encrypted) in the Details tab.</p>
+          </>}
 
           <div className="flex gap-3 pt-1">
             <button onClick={onClose} className="flex-1 py-2.5 rounded-lg text-sm font-semibold border"
@@ -666,10 +849,88 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
   );
 }
 
+// ─── Partner Scoring rubric settings (super-admin) ────────────────────────────
+// Editable weights + thresholds. Save bumps the version and batch-recomputes every
+// non-terminal candidate server-side. The score maps are edited as-is (each answer
+// option → points); the pure lib clamps/validates on the server.
+const RUBRIC_SECTIONS: Array<{ key: keyof PartnerRubric; label: string; opts: string[] }> = [
+  { key: 'networkType', label: 'Network type', opts: PARTNER_NETWORK_TYPE_OPTS.map((o) => o.value) },
+  { key: 'networkSize', label: 'Network size', opts: PARTNER_NETWORK_SIZE_OPTS.map((o) => o.value) },
+  { key: 'productDemandFit', label: 'Product / demand fit', opts: PARTNER_FIT_OPTS.map((o) => o.value) },
+  { key: 'priorTrackRecord', label: 'Prior track record', opts: PARTNER_TRACK_OPTS.map((o) => o.value) },
+  { key: 'expectedMonthlyVolume', label: 'Expected volume', opts: PARTNER_VOLUME_OPTS.map((o) => o.value) },
+  { key: 'kycReadiness', label: 'KYC readiness', opts: PARTNER_KYC_OPTS.map((o) => o.value) },
+];
+
+function PartnerScoringTab() {
+  const toast = useToast();
+  const [cfg, setCfg] = useState<PartnerRubric | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { apiCrm2<{ config: PartnerRubric }>('GET', '/api/crm2/partner-scoring-config').then((r) => setCfg(r.config)).catch(() => toast.error('Could not load rubric')); }, [toast]);
+
+  const setWeight = (section: keyof PartnerRubric, opt: string, v: string) =>
+    setCfg((p) => p ? { ...p, [section]: { ...(p[section] as Record<string, number>), [opt]: Number(v) || 0 } } : p);
+
+  const save = async () => {
+    if (!cfg) return;
+    setBusy(true);
+    try {
+      // sanitize client-side too (server re-sanitizes) so the payload is clean.
+      const clean = sanitizePartnerRubric(cfg, cfg);
+      const r = await apiCrm2<{ ok: boolean; version: number; recomputed: number }>('PATCH', '/api/crm2/partner-scoring-config', clean);
+      toast.success(`Saved (v${r.version}) — re-scored ${r.recomputed} candidate${r.recomputed === 1 ? '' : 's'}`);
+      const fresh = await apiCrm2<{ config: PartnerRubric }>('GET', '/api/crm2/partner-scoring-config');
+      setCfg(fresh.config);
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Save failed'); }
+    finally { setBusy(false); }
+  };
+
+  if (!cfg) return <p className="text-sm py-8 text-center" style={{ color: 'var(--text-muted)' }}>Loading rubric…</p>;
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+      <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+        Points per screening answer → a total, mapped to <TierBadge tier="Hot" /> / <TierBadge tier="Warm" /> / <TierBadge tier="Cold" />.
+        Saving re-scores every candidate that isn't already Active or Rejected. Config version <strong>v{cfg.version}</strong>.
+      </p>
+
+      {RUBRIC_SECTIONS.map(({ key, label, opts }) => (
+        <div key={key}>
+          <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>{label}</p>
+          <div className="grid grid-cols-2 gap-2">
+            {opts.map((o) => (
+              <div key={o} className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg" style={{ backgroundColor: 'var(--shell-hover-soft)' }}>
+                <span className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{o}</span>
+                <input type="number" className="glass-inp w-16 text-sm text-right"
+                  value={(cfg[key] as Record<string, number>)[o] ?? 0}
+                  onChange={(e) => setWeight(key, o, e.target.value)} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <div className="grid grid-cols-3 gap-3 pt-1">
+        <div><FLabel text="DSA conflict penalty" /><input type="number" className="glass-inp w-full text-sm" value={cfg.conflictPenalty} onChange={(e) => setCfg((p) => p ? { ...p, conflictPenalty: Number(e.target.value) || 0 } : p)} /></div>
+        <div><FLabel text="Hot threshold (≥)" /><input type="number" className="glass-inp w-full text-sm" value={cfg.tierThresholds.hot} onChange={(e) => setCfg((p) => p ? { ...p, tierThresholds: { ...p.tierThresholds, hot: Number(e.target.value) || 0 } } : p)} /></div>
+        <div><FLabel text="Warm threshold (≥)" /><input type="number" className="glass-inp w-full text-sm" value={cfg.tierThresholds.warm} onChange={(e) => setCfg((p) => p ? { ...p, tierThresholds: { ...p.tierThresholds, warm: Number(e.target.value) || 0 } } : p)} /></div>
+      </div>
+
+      <button onClick={save} disabled={busy}
+        className="px-5 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50"
+        style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+        {busy ? 'Saving & recomputing…' : 'Save rubric & recompute'}
+      </button>
+    </div>
+  );
+}
+
 function ConnectorsMasterTab() {
   const { connectors, loading } = useConnectors();
   const toast = useToast();
-  const [filter, setFilter] = useState<'active' | 'inactive' | 'all'>('active');
+  const [filter, setFilter] = useState<'active' | 'inactive' | 'all'>('all');
+  const [tierFilter, setTierFilter] = useState<'all' | 'Hot' | 'Warm' | 'Cold'>('all');
+  const [funnelFilter, setFunnelFilter] = useState<string>('');
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState<{ initial: Connector | null } | null>(null);
 
@@ -678,6 +939,8 @@ function ConnectorsMasterTab() {
   const inactiveN = connectors.filter((c) => c.status === 'inactive').length;
   const filtered = connectors.filter((c) =>
     (filter === 'all' || c.status === filter) &&
+    (tierFilter === 'all' || c.partnerScoring?.tier === tierFilter) &&
+    (!funnelFilter || c.funnelStatus === funnelFilter) &&
     (!search || c.displayName.toLowerCase().includes(search.toLowerCase()) || c.connectorCode.toLowerCase().includes(search.toLowerCase())));
 
   const toggleStatus = async (c: Connector) => {
@@ -724,14 +987,28 @@ function ConnectorsMasterTab() {
           <button onClick={() => setModal({ initial: null })}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold"
             style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
-            <Plus size={15} /> Add Connector
+            <Plus size={15} /> Add Partner
           </button>
         </div>
       </div>
 
+      {/* Tier + funnel-stage filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        {(['all', 'Hot', 'Warm', 'Cold'] as const).map((t) => (
+          <button key={t} onClick={() => setTierFilter(t)}
+            className="px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
+            style={tierFilter === t
+              ? (t === 'all' ? { backgroundColor: 'rgba(201,169,97,0.15)', color: '#C9A961', border: '1px solid rgba(201,169,97,0.35)' } : { backgroundColor: (TIER_STYLE[t]?.bg), color: TIER_STYLE[t]?.color, border: `1px solid ${TIER_STYLE[t]?.color}55` })
+              : { color: 'var(--text-muted)', border: '1px solid var(--shell-border)' }}>
+            {t === 'all' ? 'All tiers' : t}
+          </button>
+        ))}
+        <span className="w-48"><SearchableSelect options={[{ value: '', label: 'All stages' }, ...PARTNER_FUNNEL_OPTS]} value={funnelFilter} onChange={setFunnelFilter} placeholder="All stages" /></span>
+      </div>
+
       <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-        Connectors source customers. Next code: <span className="font-mono font-semibold" style={{ color: '#C9A961' }}>{autoCode}</span>.
-        They appear in the Add Customer “Connector” picker once active.
+        Partners / connectors source customers. Next code: <span className="font-mono font-semibold" style={{ color: '#C9A961' }}>{autoCode}</span>.
+        A candidate becomes pickable by RMs only once its funnel stage is <strong>Active</strong>.
       </p>
 
       {legacyCount > 0 && (
@@ -755,9 +1032,9 @@ function ConnectorsMasterTab() {
               <tr className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                 <th className="text-left font-semibold px-4 py-2.5">Code</th>
                 <th className="text-left font-semibold px-3 py-2.5">Name</th>
-                <th className="text-left font-semibold px-3 py-2.5">Entity Type</th>
+                <th className="text-left font-semibold px-3 py-2.5">Tier</th>
+                <th className="text-left font-semibold px-3 py-2.5">Stage</th>
                 <th className="text-left font-semibold px-3 py-2.5">Mobile</th>
-                <th className="text-left font-semibold px-3 py-2.5">Verticals</th>
                 <th className="text-left font-semibold px-3 py-2.5">Status</th>
                 <th className="px-3 py-2.5" />
               </tr>
@@ -777,9 +1054,9 @@ function ConnectorsMasterTab() {
                   <td className="px-3 py-2.5 font-medium" style={{ color: 'var(--text-primary)' }}>
                     {c.displayName}{c.firmName ? <span className="text-xs" style={{ color: 'var(--text-muted)' }}> · {c.firmName}</span> : null}
                   </td>
-                  <td className="px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{CONSTITUTION_OPTS.find((o) => o.value === c.entityType)?.label ?? '—'}</td>
+                  <td className="px-3 py-2.5"><TierBadge tier={c.partnerScoring?.tier} /></td>
+                  <td className="px-3 py-2.5 text-xs font-semibold" style={{ color: funnelColor(c.funnelStatus) }}>{c.funnelStatus ?? '—'}</td>
                   <td className="px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{c.mobile}{c.mobiles && c.mobiles.length > 1 ? <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}> +{c.mobiles.length - 1}</span> : null}</td>
-                  <td className="px-3 py-2.5 capitalize" style={{ color: 'var(--text-secondary)' }}>{c.verticals?.join(', ') || '—'}</td>
                   <td className="px-3 py-2.5">
                     <span className={c.status === 'active' ? 'badge-glass-success' : 'badge-glass-muted'}>{c.status}</span>
                   </td>
@@ -849,6 +1126,7 @@ const TABS = [
   { key: 'aggregators',    label: 'Aggregators', Icon: Network },
   { key: 'mappings',       label: 'DSA Codes',  Icon: GitBranch },
   { key: 'documentMaster', label: 'Documents',  Icon: FileText },
+  { key: 'partnerScoring', label: 'Partner Scoring', Icon: Gauge },
 ] as const;
 
 export function Crm2MastersPage() {
@@ -1007,6 +1285,7 @@ export function Crm2MastersPage() {
       )}
 
       {tab === 'mappings' && <MappingsTab productOptions={productOptions} />}
+      {tab === 'partnerScoring' && <PartnerScoringTab />}
 
       {tab === 'documentMaster' && (
         <MasterTab<WithId<DocumentDef>>

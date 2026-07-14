@@ -1286,6 +1286,11 @@ export interface Connector {
   partnerScoring?: PartnerScoring;        // server-computed
   practicalAssessment?: PartnerPractical; // ratings client-writable; scores/result server-computed
   onboardingChecklist?: PartnerOnboarding;
+  // Activity timeline + follow-up (mirrors the CRM 2.0 lead pattern)
+  activityLog?: Array<{ at: import('firebase/firestore').Timestamp; by: string; note: string; action: string }>;
+  nextFollowUpAt?: import('firebase/firestore').Timestamp | null;
+  nextFollowUpNote?: string | null;
+  followUpReminderSent?: boolean;
   createdBy: string;
   createdAt: import('firebase/firestore').Timestamp;
   updatedAt: import('firebase/firestore').Timestamp;

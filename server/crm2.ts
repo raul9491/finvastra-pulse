@@ -860,6 +860,26 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       update.onboardingChecklist = oc;
     }
 
+    // Follow-up scheduling (mirrors the CRM 2.0 lead pattern): setting/changing
+    // the time re-arms the 15-min reminder sweep, which bells+emails super admins.
+    if (b.nextFollowUpAt !== undefined) {
+      update.nextFollowUpAt = optTs(b, "nextFollowUpAt");
+      update.followUpReminderSent = false;
+    }
+    if (b.nextFollowUpNote !== undefined) update.nextFollowUpNote = optStr(b, "nextFollowUpNote");
+
+    // Quick activity log — call / whatsapp / email / note entries appended to the
+    // candidate's timeline (arrayUnion; screening histories stay small).
+    const activity = (b.activity ?? null) as { note?: unknown; action?: unknown } | null;
+    if (activity && isStr(activity.note) && String(activity.note).trim()) {
+      update.activityLog = FieldValue.arrayUnion({
+        at: Timestamp.now(),   // arrayUnion cannot hold serverTimestamp()
+        by: caller.fapl,
+        note: String(activity.note).slice(0, 2000),
+        action: isStr(activity.action) ? String(activity.action).slice(0, 60) : "note",
+      });
+    }
+
     // Derive the picker gate from funnelStatus whenever it's set (Active → active,
     // anything else → inactive). Legacy connectors without funnelStatus are untouched.
     if ("funnelStatus" in screening) {

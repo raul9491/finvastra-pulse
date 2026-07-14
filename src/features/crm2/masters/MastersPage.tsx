@@ -516,7 +516,7 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
   }, [initial]);
 
   // ── Partner funnel state ──
-  const [tab, setTab] = useState<'details' | 'screening' | 'assessment' | 'onboarding'>('details');
+  const [tab, setTab] = useState<'details' | 'screening' | 'assessment' | 'onboarding' | 'activity'>('details');
   // Legacy connectors have no funnelStatus — default to Active when they're already
   // active (an established partner) so editing them doesn't silently deactivate them.
   const [funnelStatus, setFunnelStatus] = useState<string>(
@@ -625,11 +625,13 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
     } finally { setBusy(false); }
   };
 
+  const followUpDue = !!initial?.nextFollowUpAt?.toMillis && initial.nextFollowUpAt.toMillis() <= Date.now();
   const TABS: Array<{ k: typeof tab; label: string }> = [
     { k: 'details', label: '1 · Details' },
     { k: 'screening', label: '2 · Screening' },
     { k: 'assessment', label: `3 · Assessment${paPreview ? (paPreview.result === 'Pass' ? ' ✓' : paPreview.result === 'Fail' ? ' ✗' : '') : ''}` },
     { k: 'onboarding', label: `4 · Onboarding · ${onbProgress}%` },
+    ...(initial ? [{ k: 'activity' as const, label: `5 · Activity${followUpDue ? ' 🔔' : ''}` }] : []),
   ];
 
   return (
@@ -951,6 +953,14 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
             <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>KYC boxes flag that you've collected the docs; the actual PAN/Aadhaar/bank are stored (encrypted) in the Details tab.</p>
           </>}
 
+          {tab === 'activity' && initial && (
+            <ConnectorActivityTab connector={initial} />
+          )}
+
+          {tab === 'activity' && initial && (
+            <ConnectorActivityTab connector={initial} />
+          )}
+
           <div className="flex gap-3 pt-1">
             <button onClick={onClose} className="flex-1 py-2.5 rounded-lg text-sm font-semibold border"
               style={{ borderColor: 'var(--shell-border)', color: 'var(--text-muted)' }}>Cancel</button>
@@ -1059,6 +1069,133 @@ function PartnerScoringTab() {
         {busy ? 'Saving & recomputing…' : 'Save rubric & recompute'}
       </button>
     </div>
+  );
+}
+
+// Activity & follow-up for a partner candidate — quick call/whatsapp/email/note
+// logging (instant PATCH, arrayUnion timeline) + a follow-up scheduler that feeds
+// the 15-min reminder sweep (bell + email to super admins when due).
+const LOG_ACTIONS = [
+  { key: 'call', label: '📞 Call' }, { key: 'whatsapp', label: '💬 WhatsApp' },
+  { key: 'email', label: '✉️ Email' }, { key: 'note', label: '📝 Note' },
+] as const;
+
+function ConnectorActivityTab({ connector }: { connector: Connector }) {
+  const toast = useToast();
+  const [entries, setEntries] = useState(connector.activityLog ?? []);
+  const [action, setAction] = useState<string>('call');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [fuAt, setFuAt] = useState(() => {
+    const d = connector.nextFollowUpAt?.toDate?.();
+    return d ? new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
+  });
+  const [fuNote, setFuNote] = useState(connector.nextFollowUpNote ?? '');
+  const [fuBusy, setFuBusy] = useState(false);
+
+  const logEntry = async () => {
+    if (note.trim().length < 3) { toast.error('Write a short note about what happened'); return; }
+    setBusy(true);
+    try {
+      await apiCrm2('PATCH', `/api/crm2/connectors/${connector.id}`, { activity: { action, note: note.trim() } });
+      setEntries((p) => [...p, { at: { toDate: () => new Date() } as never, by: 'you', note: note.trim(), action }]);
+      setNote('');
+      toast.success('Logged');
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Could not log'); }
+    finally { setBusy(false); }
+  };
+
+  const saveFollowUp = async () => {
+    setFuBusy(true);
+    try {
+      await apiCrm2('PATCH', `/api/crm2/connectors/${connector.id}`, {
+        nextFollowUpAt: fuAt ? new Date(fuAt).toISOString() : null,
+        nextFollowUpNote: fuNote.trim() || null,
+      });
+      toast.success(fuAt ? 'Follow-up scheduled — you will get a bell + email when it is due' : 'Follow-up cleared');
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Could not save follow-up'); }
+    finally { setFuBusy(false); }
+  };
+
+  const sorted = [...entries].sort((a, b) => {
+    const am = (a.at as { toDate?: () => Date })?.toDate?.()?.getTime() ?? 0;
+    const bm = (b.at as { toDate?: () => Date })?.toDate?.()?.getTime() ?? 0;
+    return bm - am;
+  });
+
+  return (
+    <>
+      {/* Follow-up scheduler */}
+      <div className="rounded-xl p-4 space-y-2.5" style={{ backgroundColor: 'var(--shell-hover-soft)', border: '1px solid var(--shell-border)' }}>
+        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#C9A961' }}>Follow-up</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <FLabel text="Reach them again on" />
+            <input type="datetime-local" className={inp()} value={fuAt} onChange={(e) => setFuAt(e.target.value)} />
+          </div>
+          <div>
+            <FLabel text="Why / what they asked" />
+            <input className={inp()} value={fuNote} onChange={(e) => setFuNote(e.target.value)} placeholder="e.g. asked to call after 20th, travelling" />
+          </div>
+        </div>
+        <button onClick={saveFollowUp} disabled={fuBusy}
+          className="text-xs font-semibold px-3.5 py-2 rounded-lg disabled:opacity-50"
+          style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+          {fuBusy ? 'Saving…' : 'Save follow-up'}
+        </button>
+        <p className="text-[10px]" style={{ color: 'var(--text-dim)' }}>
+          When it is due you get an in-app bell + email, and the row shows red in the Connectors list.
+        </p>
+      </div>
+
+      {/* Quick log */}
+      <div>
+        <FLabel text="Log an interaction" />
+        <div className="flex items-center gap-1.5 mb-2">
+          {LOG_ACTIONS.map((a) => (
+            <button key={a.key} onClick={() => setAction(a.key)}
+              className="text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors"
+              style={action === a.key
+                ? { backgroundColor: '#0B1538', color: '#E5C97C' }
+                : { backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-secondary)' }}>
+              {a.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <input className={inp()} value={note} onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') void logEntry(); }}
+            placeholder="What happened on this call / message?" />
+          <button onClick={logEntry} disabled={busy}
+            className="shrink-0 text-xs font-semibold px-3.5 py-2.5 rounded-lg disabled:opacity-50"
+            style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+            {busy ? '…' : 'Log'}
+          </button>
+        </div>
+      </div>
+
+      {/* Timeline */}
+      <div className="divide-y" style={{ borderColor: 'var(--shell-border)' }}>
+        {sorted.length === 0 && (
+          <p className="py-4 text-sm text-center" style={{ color: 'var(--text-dim)' }}>No interactions logged yet.</p>
+        )}
+        {sorted.map((e, i) => {
+          const d = (e.at as { toDate?: () => Date })?.toDate?.();
+          const meta = LOG_ACTIONS.find((a) => a.key === e.action);
+          return (
+            <div key={i} className="py-2 flex items-baseline justify-between gap-3">
+              <p className="text-sm min-w-0" style={{ color: 'var(--text-primary)' }}>
+                <span className="mr-1.5">{(meta?.label ?? '📝').split(' ')[0]}</span>{e.note}
+                <span className="ml-2 text-[10px]" style={{ color: 'var(--text-dim)' }}>{e.by}</span>
+              </p>
+              <span className="text-[11px] shrink-0" style={{ color: 'var(--text-dim)' }}>
+                {d ? d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true }) : ''}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
@@ -1172,6 +1309,7 @@ function ConnectorsMasterTab() {
                 <th className="text-left font-semibold px-3 py-2.5">Tier</th>
                 <th className="text-left font-semibold px-3 py-2.5">Stage</th>
                 <th className="text-left font-semibold px-3 py-2.5">Mobile</th>
+                <th className="text-left font-semibold px-3 py-2.5">Follow-up</th>
                 <th className="text-left font-semibold px-3 py-2.5">Status</th>
                 <th className="px-3 py-2.5" />
               </tr>
@@ -1194,6 +1332,17 @@ function ConnectorsMasterTab() {
                   <td className="px-3 py-2.5"><TierBadge tier={c.partnerScoring?.tier} /></td>
                   <td className="px-3 py-2.5 text-xs font-semibold" style={{ color: funnelColor(c.funnelStatus) }}>{c.funnelStatus ?? '—'}</td>
                   <td className="px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{c.mobile}{c.mobiles && c.mobiles.length > 1 ? <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}> +{c.mobiles.length - 1}</span> : null}</td>
+                  <td className="px-3 py-2.5 text-xs">
+                    {(() => {
+                      const d = c.nextFollowUpAt?.toDate?.();
+                      if (!d) return <span style={{ color: 'var(--text-dim)' }}>—</span>;
+                      const over = d.getTime() <= Date.now();
+                      return <span className="font-semibold" style={{ color: over ? '#f87171' : '#C9A961' }}
+                        title={c.nextFollowUpNote ?? undefined}>
+                        {over ? 'DUE · ' : ''}{d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true })}
+                      </span>;
+                    })()}
+                  </td>
                   <td className="px-3 py-2.5">
                     <span className={c.status === 'active' ? 'badge-glass-success' : 'badge-glass-muted'}>{c.status}</span>
                   </td>

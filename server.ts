@@ -3709,7 +3709,52 @@ async function startServer() {
         await d.ref.update({ followUpReminderSent: true });
         notified++;
       }
-      return res.json({ checked: snap.size, notified });
+
+      // ── Partner candidates (connectors in the intake funnel) ─────────────────
+      // Same contract: nextFollowUpAt due + reminder not yet sent → bell + email.
+      // Audience = super admins (screening lives in the SA-only Masters screen).
+      let partnerNotified = 0;
+      const connSnap = await db.collection("connectors")
+        .where("followUpReminderSent", "==", false).get();
+      const saUids = [...new Set(SUPER_ADMIN_UIDS_LIST)];
+      for (const d of connSnap.docs) {
+        const c: any = d.data();
+        if (c.deleted === true) continue;
+        if (!c.funnelStatus || ["Active", "Rejected"].includes(String(c.funnelStatus))) continue;
+        const due = c.nextFollowUpAt?.toMillis ? c.nextFollowUpAt.toMillis() : null;
+        if (due === null || due > now) continue;
+        for (const uid of saUids) {
+          await db.collection("notifications").doc(uid).collection("items").add({
+            type: "partner_candidate",
+            title: `Partner follow-up due — ${c.displayName ?? "Candidate"}`,
+            body: c.nextFollowUpNote ? String(c.nextFollowUpNote).slice(0, 140) : "They asked to be contacted again — the follow-up is due now.",
+            link: "/crm/pipeline/masters",
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          }).catch(() => {});
+          try {
+            const u = await admin.auth().getUser(uid);
+            if (u.email) {
+              const html = buildBrandEmail({
+                title: "Partner follow-up due",
+                intro: `You scheduled a follow-up with partner candidate ${c.displayName ?? "-"} (${c.connectorCode ?? "-"}) — it's due now.`,
+                rows: [
+                  { label: "Candidate", value: c.displayName ?? "-" },
+                  { label: "Code", value: c.connectorCode ?? "-" },
+                  { label: "Mobile", value: c.mobile ?? "-" },
+                  ...(c.nextFollowUpNote ? [{ label: "Your note", value: String(c.nextFollowUpNote) }] : []),
+                ],
+                ctaLabel: "Open Connectors", ctaLink: "https://pulse.finvastra.com/crm/pipeline/masters",
+              });
+              await sendGmailMessage(u.email, `Partner follow-up due — ${c.displayName ?? "Candidate"}`, html).catch(() => {});
+            }
+          } catch { /* no auth user / email — bell already delivered */ }
+        }
+        await d.ref.update({ followUpReminderSent: true }).catch(() => {});
+        partnerNotified++;
+      }
+
+      return res.json({ checked: snap.size, notified, partnerChecked: connSnap.size, partnerNotified });
     } catch (e) { return res.status(500).json({ error: String(e) }); }
   });
 

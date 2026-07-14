@@ -176,6 +176,17 @@ async function main() {
   const pr2 = await api('POST', `/api/crm2/leads/${gl.data.id}/promote-partner`, token, {});
   pr2.status === 409 ? ok('second promote rejected (409 already in funnel)') : bad('promote idempotency', JSON.stringify(pr2));
 
+  // 11. Activity log + follow-up on the candidate.
+  const act = await api('PATCH', `/api/crm2/connectors/${id2}`, token, {
+    activity: { action: 'call', note: 'Spoke — wants a callback after the 20th' },
+    nextFollowUpAt: '2026-07-21T10:00:00.000Z', nextFollowUpNote: 'call after 20th',
+  });
+  act.status === 200 ? ok('activity + follow-up PATCH accepted') : bad('activity patch', JSON.stringify(act));
+  const d2b = await getDoc(`connectors/${id2}`);
+  const alog = d2b?.activityLog?.arrayValue?.values ?? [];
+  alog.length === 1 && d2b?.nextFollowUpAt?.timestampValue && fv(d2b, 'followUpReminderSent') === false
+    ? ok('activity appended + follow-up armed (reminderSent=false)') : bad('activity state', JSON.stringify({ n: alog.length, fu: d2b?.nextFollowUpAt, rs: fv(d2b, 'followUpReminderSent') }));
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }

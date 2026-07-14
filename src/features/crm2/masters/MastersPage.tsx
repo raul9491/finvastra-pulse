@@ -21,6 +21,7 @@ import { isSuperAdmin } from '../../../config/hrmsConfig';
 import { MappingsTab } from './MappingsTab';
 import {
   useConnectors, nextConnectorCode, setConnectorStatus, getConnectorFinancial,
+  useConnectorPayouts, markConnectorPayoutPaid,
 } from '../../hrms/hooks/useConnectors';
 import { CONSTITUTION_OPTS } from '../clients/ClientFormModal';
 import { computePartnerScore, computeOnboardingProgress, computePracticalAssessment, sanitizePartnerRubric, type PartnerRubric } from '../../../lib/crm2/partnerScoring';
@@ -523,7 +524,7 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
   }, [initial]);
 
   // ── Partner funnel state ──
-  const [tab, setTab] = useState<'details' | 'screening' | 'assessment' | 'onboarding' | 'activity'>('details');
+  const [tab, setTab] = useState<'details' | 'screening' | 'assessment' | 'onboarding' | 'activity' | 'payouts'>('details');
   // Legacy connectors have no funnelStatus — default to Active when they're already
   // active (an established partner) so editing them doesn't silently deactivate them.
   const [funnelStatus, setFunnelStatus] = useState<string>(
@@ -638,7 +639,7 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
     { k: 'screening', label: '2 · Screening' },
     { k: 'assessment', label: `3 · Assessment${paPreview ? (paPreview.result === 'Pass' ? ' ✓' : paPreview.result === 'Fail' ? ' ✗' : '') : ''}` },
     { k: 'onboarding', label: `4 · Onboarding · ${onbProgress}%` },
-    ...(initial ? [{ k: 'activity' as const, label: `5 · Activity${followUpDue ? ' 🔔' : ''}` }] : []),
+    ...(initial ? [{ k: 'activity' as const, label: `5 · Activity${followUpDue ? ' 🔔' : ''}` }, { k: 'payouts' as const, label: '6 · Payouts' }] : []),
   ];
 
   return (
@@ -963,9 +964,15 @@ function ConnectorFormModal({ initial, autoCode, onClose, onSaved }: {
           {tab === 'activity' && initial && (
             <ConnectorActivityTab connector={initial} />
           )}
+          {tab === 'payouts' && initial && (
+            <ConnectorPayoutsTab connector={initial} />
+          )}
 
           {tab === 'activity' && initial && (
             <ConnectorActivityTab connector={initial} />
+          )}
+          {tab === 'payouts' && initial && (
+            <ConnectorPayoutsTab connector={initial} />
           )}
 
           <div className="flex gap-3 pt-1">
@@ -1086,6 +1093,117 @@ const LOG_ACTIONS = [
   { key: 'call', label: '📞 Call' }, { key: 'whatsapp', label: '💬 WhatsApp' },
   { key: 'email', label: '✉️ Email' }, { key: 'note', label: '📝 Note' },
 ] as const;
+
+// Payouts for a CON- partner: (a) per-product payout RULES — what we owe them
+// per case sourced (flat / % of disbursed / % of our payout); read by the CRM 2.0
+// disburse step to auto-create connector_payouts. (b) their payout ledger with
+// mark-as-paid. Rules save instantly via the connector PATCH (server-sanitized).
+const PAYOUT_BASIS_OPTS = [
+  { value: 'DISBURSED_PCT', label: '% of disbursed amount' },
+  { value: 'FINVASTRA_PCT', label: "% of Finvastra's payout" },
+  { value: 'FLAT', label: 'Flat ₹ per case' },
+];
+
+function ConnectorPayoutsTab({ connector }: { connector: Connector }) {
+  const toast = useToast();
+  const { user } = useAuth();
+  const { rows: products } = useCrm2Collection<WithId<Product>>('products');
+  const productOpts = [{ value: 'ALL', label: 'All products (fallback)' },
+    ...products.map((pr) => ({ value: pr.id, label: `${pr.name} (${pr.shortCode})` }))];
+  const [rules, setRules] = useState(() => (connector.payoutRules ?? []).map((r) => ({
+    productId: r.productId, basis: r.basis as string, value: String(r.value),
+  })));
+  const [saving, setSaving] = useState(false);
+  const { payouts } = useConnectorPayouts(connector.id);
+  const [payRef, setPayRef] = useState<Record<string, string>>({});
+
+  const saveRules = async () => {
+    setSaving(true);
+    try {
+      const clean = rules
+        .filter((r) => r.productId && r.basis && r.value.trim() !== '')
+        .map((r) => ({ productId: r.productId, basis: r.basis, value: Number(r.value) }));
+      await apiCrm2('PATCH', `/api/crm2/connectors/${connector.id}`, { payoutRules: clean });
+      toast.success('Payout rules saved — future disbursements auto-create their payout');
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Could not save rules'); }
+    finally { setSaving(false); }
+  };
+
+  const markPaid = async (payoutId: string) => {
+    const ref = (payRef[payoutId] ?? '').trim();
+    if (!ref) { toast.error('Enter the payment reference (UTR) first'); return; }
+    try {
+      await markConnectorPayoutPaid(payoutId, user?.uid ?? '', ref);
+      toast.success('Marked paid');
+    } catch { toast.error('Could not mark paid'); }
+  };
+
+  const pending = payouts.filter((po) => po.status === 'pending');
+  const paid = payouts.filter((po) => po.status === 'paid');
+
+  return (
+    <>
+      <div className="rounded-xl p-4 space-y-2.5" style={{ backgroundColor: 'var(--shell-hover-soft)', border: '1px solid var(--shell-border)' }}>
+        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#C9A961' }}>Payout rules (their share per sourced case)</p>
+        {rules.map((r, i) => (
+          <div key={i} className="grid grid-cols-[1fr_1fr_5rem_auto] gap-2 items-center">
+            <SearchableSelect options={productOpts} value={r.productId}
+              onChange={(v) => setRules((p) => p.map((x, j) => (j === i ? { ...x, productId: v } : x)))} placeholder="Product" />
+            <SearchableSelect options={PAYOUT_BASIS_OPTS} value={r.basis}
+              onChange={(v) => setRules((p) => p.map((x, j) => (j === i ? { ...x, basis: v } : x)))} placeholder="Basis" />
+            <input type="number" className={inp()} value={r.value} placeholder={r.basis === 'FLAT' ? '₹' : '%'}
+              onChange={(e) => setRules((p) => p.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))} />
+            <button onClick={() => setRules((p) => p.filter((_, j) => j !== i))}
+              className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard)" aria-label="Remove">
+              <X size={14} style={{ color: '#f87171' }} />
+            </button>
+          </div>
+        ))}
+        <div className="flex items-center gap-3">
+          <button onClick={() => setRules((p) => [...p, { productId: 'ALL', basis: 'DISBURSED_PCT', value: '' }])}
+            className="text-xs font-semibold" style={{ color: '#C9A961' }}>+ Add rule</button>
+          <button onClick={saveRules} disabled={saving}
+            className="text-xs font-semibold px-3.5 py-2 rounded-lg disabled:opacity-50"
+            style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+            {saving ? 'Saving…' : 'Save rules'}
+          </button>
+        </div>
+        <p className="text-[10px]" style={{ color: 'var(--text-dim)' }}>
+          Applied automatically when a case they sourced disburses (exact product wins, “All products” is the fallback; the disburse dialog can override per case). Without a rule, no payout is created.
+        </p>
+      </div>
+
+      <div>
+        <FLabel text={`Payout ledger — ${pending.length} pending · ${paid.length} paid`} />
+        <div className="divide-y" style={{ borderColor: 'var(--shell-border)' }}>
+          {payouts.length === 0 && <p className="py-3 text-sm text-center" style={{ color: 'var(--text-dim)' }}>No payouts yet — they appear when a sourced case disburses.</p>}
+          {payouts.map((po) => (
+            <div key={po.id} className="py-2.5 flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                  ₹{po.amount.toLocaleString('en-IN')}
+                  <span className="ml-2 text-xs" style={{ color: 'var(--text-muted)' }}>{po.caseLabel || po.caseId || po.businessLine}</span>
+                  {po.auto === false && <span className="ml-2 text-[10px]" style={{ color: '#fbbf24' }}>overridden</span>}
+                </p>
+                {po.status === 'paid' && <p className="text-[11px]" style={{ color: '#34d399' }}>Paid · {po.paymentReference ?? ''}</p>}
+              </div>
+              {po.status === 'pending' ? (
+                <span className="flex items-center gap-2">
+                  <input className={`${inp()} w-36`} placeholder="UTR / reference" value={payRef[po.id] ?? ''}
+                    onChange={(e) => setPayRef((p) => ({ ...p, [po.id]: e.target.value }))} />
+                  <button onClick={() => void markPaid(po.id)}
+                    className="text-xs font-semibold px-3 py-2 rounded-lg" style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+                    Mark paid
+                  </button>
+                </span>
+              ) : <span className="badge-glass-success">Paid</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
 
 function ConnectorActivityTab({ connector }: { connector: Connector }) {
   const toast = useToast();

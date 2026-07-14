@@ -201,6 +201,16 @@ async function main() {
   alog.length === 1 && d2b?.nextFollowUpAt?.timestampValue && fv(d2b, 'followUpReminderSent') === false
     ? ok('activity appended + follow-up armed (reminderSent=false)') : bad('activity state', JSON.stringify({ n: alog.length, fu: d2b?.nextFollowUpAt, rs: fv(d2b, 'followUpReminderSent') }));
 
+  // 12. Payout rules persist (sanitized) via the connector PATCH.
+  const pr12 = await api('PATCH', `/api/crm2/connectors/${id}`, token, {
+    payoutRules: [{ productId: 'ALL', basis: 'DISBURSED_PCT', value: 0.25 }, { productId: '', basis: 'BAD', value: -1 }],
+  });
+  pr12.status === 200 ? ok('payoutRules PATCH accepted') : bad('payoutRules patch', JSON.stringify(pr12));
+  const dRules = await getDoc(`connectors/${id}`);
+  const rulesArr = dRules?.payoutRules?.arrayValue?.values ?? [];
+  rulesArr.length === 1 && fv(rulesArr[0]?.mapValue?.fields, 'basis') === 'DISBURSED_PCT'
+    ? ok('payoutRules sanitized + persisted (1 valid rule kept, junk dropped)') : bad('payoutRules state', JSON.stringify(rulesArr.length));
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }

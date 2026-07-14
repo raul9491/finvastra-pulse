@@ -19,7 +19,7 @@ import type adminNs from "firebase-admin";
 import crypto from "crypto";
 import { encryptField } from "../src/lib/encryption.js";
 import { findSlabOverlaps, resolveSlab, computeExpectedAmounts, SlabResolutionError, type SlabForResolution } from "../src/lib/crm2/slab.js";
-import { resolveChannelPartnerRule, computeChannelPartnerPayout } from "../src/lib/crm2/channelPartnerPayout.js";
+import { resolveChannelPartnerRule, computeChannelPartnerPayout, sanitizeChannelPartnerRule } from "../src/lib/crm2/channelPartnerPayout.js";
 import {
   computePartnerScore, computeOnboardingProgress, sanitizePartnerRubric,
   computePracticalAssessment, DEFAULT_PARTNER_RUBRIC, type PartnerRubric,
@@ -742,6 +742,12 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       out.verticals = v;
     }
     if (isCreate || b.status !== undefined) out.status = b.status === "inactive" ? "inactive" : "active";
+    // Per-product auto-payout rules (the CON- partner's share, paid FROM our
+    // payout at disbursement). Sanitized rule-by-rule; invalid rows dropped.
+    if (b.payoutRules !== undefined) {
+      const raw = Array.isArray(b.payoutRules) ? b.payoutRules : [];
+      out.payoutRules = raw.map((r) => sanitizeChannelPartnerRule(r)).filter(Boolean).slice(0, 20);
+    }
     return out;
   }
 

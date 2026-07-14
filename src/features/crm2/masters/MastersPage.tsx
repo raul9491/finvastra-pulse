@@ -1351,6 +1351,19 @@ function ConnectorsMasterTab() {
   // Undo a premature move: the candidate goes back to the Leads page for normal
   // screening and this CON- code is freed for the next qualified partner.
   const [returning, setReturning] = useState<string | null>(null);
+  // Connector → Sub DSA graduation: they've proven they can work cases alone.
+  // Mints the SDSA record (details/KYC/bank/TDS carried), retires this one.
+  const [graduating, setGraduating] = useState<string | null>(null);
+  const graduate = async (c: Connector) => {
+    if (!window.confirm(`Graduate ${c.displayName} to Sub DSA? They'll get an SDSA- record (higher share tier — set their payout slabs on the DSA Codes / disburse side) with details, KYC, bank and TDS carried over. This Connector record is retired; past connector payouts stay on the ledger.`)) return;
+    setGraduating(c.id);
+    try {
+      const r = await apiCrm2<{ ok: boolean; subDsaId: string }>('POST', `/api/crm2/connectors/${c.id}/graduate-to-subdsa`, {});
+      toast.success(`${c.displayName} graduated → ${r.subDsaId} (see the Sub DSAs tab)`);
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Could not graduate'); }
+    finally { setGraduating(null); }
+  };
+
   const returnToLeads = async (c: Connector) => {
     if (!window.confirm(`Return ${c.displayName} to the Leads page? Their record here is removed and code ${c.connectorCode} is freed. Their screening answers on this card are discarded; the lead keeps its own history.`)) return;
     setReturning(c.id);
@@ -1469,7 +1482,9 @@ function ConnectorsMasterTab() {
                     {c.displayName}{c.firmName ? <span className="text-xs" style={{ color: 'var(--text-muted)' }}> · {c.firmName}</span> : null}
                   </td>
                   <td className="px-3 py-2.5"><TierBadge tier={c.partnerScoring?.tier} /></td>
-                  <td className="px-3 py-2.5 text-xs font-semibold" style={{ color: funnelColor(c.funnelStatus) }}>{c.funnelStatus ?? '—'}</td>
+                  <td className="px-3 py-2.5 text-xs font-semibold" style={{ color: c.graduatedToSubDsaId ? '#8B5CF6' : funnelColor(c.funnelStatus) }}>
+                    {c.graduatedToSubDsaId ? `Graduated → ${c.graduatedToSubDsaId}` : (c.funnelStatus ?? '—')}
+                  </td>
                   <td className="px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{c.mobile}{c.mobiles && c.mobiles.length > 1 ? <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}> +{c.mobiles.length - 1}</span> : null}</td>
                   <td className="px-3 py-2.5 text-xs">
                     {(() => {
@@ -1486,7 +1501,16 @@ function ConnectorsMasterTab() {
                     <span className={c.status === 'active' ? 'badge-glass-success' : 'badge-glass-muted'}>{c.status === 'active' ? 'Active' : 'Inactive'}</span>
                   </td>
                   <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                    {c.funnelStatus && c.funnelStatus !== 'Active' && (
+                    {!c.graduatedToSubDsaId && c.status === 'active' && (
+                      <button onClick={(e) => { e.stopPropagation(); graduate(c); }}
+                        disabled={graduating === c.id}
+                        className="text-xs font-semibold mr-3 transition-opacity hover:opacity-80 disabled:opacity-50"
+                        style={{ color: '#8B5CF6' }}
+                        title="They now work cases independently — promote to the Sub DSA tier (higher share).">
+                        {graduating === c.id ? 'Graduating…' : '↗ Graduate to Sub DSA'}
+                      </button>
+                    )}
+                    {c.funnelStatus && c.funnelStatus !== 'Active' && !c.graduatedToSubDsaId && (
                       <button onClick={(e) => { e.stopPropagation(); returnToLeads(c); }}
                         disabled={returning === c.id}
                         className="text-xs font-semibold mr-3 transition-opacity hover:opacity-80 disabled:opacity-50"

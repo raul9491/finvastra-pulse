@@ -1724,6 +1724,73 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     res.json({ ok: true, leadId, freedCode: c.connectorCode });
   }));
 
+  // ─── Graduate a Connector → Sub DSA ───────────────────────────────────────────
+  // The "start assisted, become independent" path: a Connector (we do the legwork)
+  // who has proven they can run cases alone becomes a Sub DSA (they work cases
+  // themselves on the code, higher share). One transaction: mints SDSA-###
+  // carrying name/contact/KYC/bank/TDS over, and RETIRES the Connector record
+  // (status inactive + graduatedToSubDsaId marker — kept for history; past
+  // connector_payouts stay on the ledger). Payout slabs on the new Sub DSA start
+  // empty — the higher share is negotiated fresh.
+  app.post("/api/crm2/connectors/:id/graduate-to-subdsa", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "crm.masters.write");
+    if (!caller) return;
+    const ref = db.collection("connectors").doc(req.params.id);
+
+    const result = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) throw new ApiError(404, "connector not found");
+      const c = snap.data() as Record<string, unknown>;
+      if (c.deleted) throw new ApiError(404, "connector not found");
+      if (c.graduatedToSubDsaId) {
+        throw new ApiError(409, `Already graduated to ${c.graduatedToSubDsaId}`);
+      }
+      const finSnap = await tx.get(ref.collection("private").doc("financial"));
+      const fin = (finSnap.data() ?? {}) as Record<string, unknown>;
+
+      const subDsaId = await nextIdInTx(tx, "subDsas", "SDSA-", 3);
+      const pb = fin.payoutBank as Record<string, unknown> | null;
+      tx.set(db.collection("subDsas").doc(subDsaId), {
+        name: c.displayName ?? "Partner",
+        type: c.entityType === "INDIVIDUAL" || !c.entityType ? "INDIVIDUAL" : "CORPORATE",
+        sourceLeadId: null,
+        mobile: c.mobile ?? "", email: c.email || null,
+        city: "", state: "",
+        panEnc: fin.panEnc ?? null, panLast4: fin.panLast4 ?? null,
+        gstin: c.gstin ?? null,
+        payoutBank: pb && pb.accountNoEnc ? {
+          accountNoEnc: pb.accountNoEnc, accountNoLast4: pb.accountNoLast4 ?? null,
+          ifsc: pb.ifsc ?? "", bankName: pb.bankName ?? "",
+        } : null,
+        tdsPct: fin.tdsPct ?? null,
+        payoutSlabs: [],
+        relationshipOwner: (typeof c.owner === "string" && /^FAPL-/i.test(c.owner)) ? c.owner : caller.fapl,
+        onboardingDate: FieldValue.serverTimestamp(),
+        status: "ACTIVE",
+        graduatedFromConnectorId: req.params.id,
+        ...createAudit(caller.fapl),
+      });
+      tx.update(ref, {
+        status: "inactive",
+        graduatedToSubDsaId: subDsaId,
+        activityLog: FieldValue.arrayUnion({
+          at: Timestamp.now(), by: caller.fapl,
+          note: `Graduated to Sub DSA ${subDsaId} — now works cases independently (higher share tier)`,
+          action: "note",
+        }),
+        ...updateAudit(caller.fapl),
+      });
+      return { subDsaId, code: c.connectorCode };
+    });
+
+    await db.collection("audit_logs").add({
+      actor: caller.uid, actorFapl: caller.fapl, action: "partner_graduate_subdsa",
+      targetPath: `/connectors/${req.params.id}`,
+      after: { subDsaId: result.subDsaId }, at: FieldValue.serverTimestamp(),
+    });
+    res.json({ ok: true, subDsaId: result.subDsaId });
+  }));
+
   // ═══ Meta Lead Ads → CRM 2.0 lead — Phase 1 (capture + queue) ═════════════════
   //
   // Meta delivers ONLY a leadgen_id; the real answers must be pulled from the Graph

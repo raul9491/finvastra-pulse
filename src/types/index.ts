@@ -1291,6 +1291,7 @@ export interface Connector {
   nextFollowUpAt?: import('firebase/firestore').Timestamp | null;
   nextFollowUpNote?: string | null;
   followUpReminderSent?: boolean;
+  graduatedToSubDsaId?: string | null;    // set when promoted Connector → Sub DSA (record retired)
   createdBy: string;
   createdAt: import('firebase/firestore').Timestamp;
   updatedAt: import('firebase/firestore').Timestamp;

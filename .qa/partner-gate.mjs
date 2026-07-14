@@ -211,6 +211,20 @@ async function main() {
   rulesArr.length === 1 && fv(rulesArr[0]?.mapValue?.fields, 'basis') === 'DISBURSED_PCT'
     ? ok('payoutRules sanitized + persisted (1 valid rule kept, junk dropped)') : bad('payoutRules state', JSON.stringify(rulesArr.length));
 
+  // 13. Graduate Connector -> Sub DSA: SDSA minted with carried KYC; connector retired.
+  const panPatch = await api('PATCH', `/api/crm2/connectors/${id}`, token, { pan: 'ABCDE1234F' });
+  panPatch.status === 200 ? ok('PAN stored (encrypted) ahead of graduation') : bad('pan patch', JSON.stringify(panPatch));
+  const grad = await api('POST', `/api/crm2/connectors/${id}/graduate-to-subdsa`, token, {});
+  grad.status === 200 && grad.data.subDsaId?.startsWith('SDSA-')
+    ? ok(`graduated → ${grad.data.subDsaId}`) : bad('graduate', JSON.stringify(grad));
+  const sd = await getDoc(`subDsas/${grad.data.subDsaId}`);
+  const gradConn = await getDoc(`connectors/${id}`);
+  fv(sd, 'panLast4') === '234F' && fv(sd, 'status') === 'ACTIVE'
+    && fv(gradConn, 'status') === 'inactive' && fv(gradConn, 'graduatedToSubDsaId') === grad.data.subDsaId
+    ? ok('KYC carried (PAN last4), Sub DSA ACTIVE, connector retired + marked') : bad('graduate state', JSON.stringify({ pan: fv(sd, 'panLast4'), cs: fv(gradConn, 'status') }));
+  const grad2 = await api('POST', `/api/crm2/connectors/${id}/graduate-to-subdsa`, token, {});
+  grad2.status === 409 ? ok('second graduation rejected (409)') : bad('graduate idempotency', JSON.stringify(grad2));
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 }

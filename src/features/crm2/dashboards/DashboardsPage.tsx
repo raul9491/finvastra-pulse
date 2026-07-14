@@ -200,7 +200,7 @@ export function DashboardsPage() {
             );
           })()}
 
-          {/* Connector scorecard */}
+          {/* Sub DSA scorecard */}
           {d.subDsaScorecard.length > 0 && (() => {
             const cols: Column<typeof d.subDsaScorecard[number]>[] = [
               { key: 'name', label: 'Connector' },
@@ -212,7 +212,7 @@ export function DashboardsPage() {
             ];
             return (
               <DataView
-                title="Connector scorecard"
+                title="Sub DSA scorecard"
                 table={<SimpleTable columns={cols} rows={d.subDsaScorecard} />}
                 graph={<ReBar
                   data={d.subDsaScorecard.map((s) => ({ name: s.name, value: canMoney ? (s.disbursedValue ?? 0) : s.casesSourced }))}

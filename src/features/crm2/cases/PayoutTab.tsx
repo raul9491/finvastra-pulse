@@ -41,7 +41,7 @@ const STEPS: Array<{ step: number; label: string; anchor: keyof PayoutCycle; fie
     { key: 'billNo', label: 'Bill no', type: 'text' }, { key: 'billDate', label: 'Bill date', type: 'date' }, { key: 'billGross', label: 'Bill gross', type: 'number', money: true }, { key: 'billGst', label: 'GST', type: 'number', money: true }, { key: 'billSentAt', label: 'Sent date', type: 'date' } ] },
   { step: 8, label: 'Payout received', anchor: 'receivedAt', fields: [
     { key: 'receivedAt', label: 'Date received', type: 'date' }, { key: 'receivedNet', label: 'Received net', type: 'number', money: true }, { key: 'tdsDeducted', label: 'TDS deducted', type: 'number', money: true }, { key: 'utr', label: 'UTR', type: 'text' } ] },
-  { step: 9, label: 'Connector paid', anchor: 'subDsaPaidAt', fields: [
+  { step: 9, label: 'Sub DSA paid', anchor: 'subDsaPaidAt', fields: [
     { key: 'subDsaPaidAt', label: 'Date paid', type: 'date' }, { key: 'subDsaPaidAmount', label: 'Amount paid', type: 'number', money: true }, { key: 'subDsaTds', label: 'TDS', type: 'number', money: true }, { key: 'subDsaUtr', label: 'UTR', type: 'text' } ] },
   { step: 10, label: 'Closure', anchor: 'closedAt', fields: [
     { key: 'closedAt', label: 'Closed date', type: 'date' } ] },

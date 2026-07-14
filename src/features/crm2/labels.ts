@@ -50,7 +50,7 @@ export const PAYOUT_STATUS_LABEL: Record<PayoutCycleStatus | 'NOT_DUE', string> 
   PAYOUT_CONFIRMED: 'Payout confirmed',
   BILLED: 'Billed',
   RECEIVED: 'Received',
-  SUBDSA_PAID: 'Paid to partner',
+  SUBDSA_PAID: 'Sub DSA paid',
   CLOSED: 'Closed',
   DISPUTED: 'Disputed',
 };

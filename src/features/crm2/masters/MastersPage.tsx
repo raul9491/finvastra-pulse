@@ -12,7 +12,7 @@
  * mapping editor (slab timeline, end-and-add flow) is purpose-built.
  */
 import { useMemo, useState, useEffect } from 'react';
-import { Plus, Pencil, X, Landmark, Package, Network, FileText, GitBranch, Handshake, Layers, Gauge } from 'lucide-react';
+import { Plus, Pencil, X, Landmark, Package, Network, FileText, GitBranch, Handshake, Layers, Gauge, Users2 } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect, MultiSearchableSelect } from '../../../components/ui/SearchableSelect';
@@ -25,7 +25,7 @@ import {
 import { CONSTITUTION_OPTS } from '../clients/ClientFormModal';
 import { computePartnerScore, computeOnboardingProgress, computePracticalAssessment, sanitizePartnerRubric, type PartnerRubric } from '../../../lib/crm2/partnerScoring';
 import type { Connector, ConnectorVertical, ConnectorFinancial } from '../../../types';
-import type { Lender, Product, Aggregator, DocumentDef, SubProduct } from '../../../types/crm2';
+import type { Lender, Product, Aggregator, DocumentDef, SubProduct, SubDsa } from '../../../types/crm2';
 
 type WithId<T> = T & { id: string };
 
@@ -1429,6 +1429,7 @@ function AggregatorMigrationBanner() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 const TABS = [
   { key: 'connectors',     label: 'Connectors', Icon: Handshake },
+  { key: 'subDsas',        label: 'Sub DSAs',   Icon: Users2 },
   { key: 'lenders',        label: 'Lenders',    Icon: Landmark },
   { key: 'products',       label: 'Products',   Icon: Package },
   { key: 'subProducts',    label: 'Sub Products', Icon: Layers },
@@ -1478,7 +1479,9 @@ export function Crm2MastersPage() {
           <strong style={{ color: 'var(--text-secondary)' }}>Product</strong> →{' '}
           <strong style={{ color: 'var(--text-secondary)' }}>Sub-Product</strong> →{' '}
           a <strong style={{ color: 'var(--text-secondary)' }}>DSA code + payout %</strong> (set in “DSA Codes”).{' '}
-          A <strong style={{ color: 'var(--text-secondary)' }}>Connector</strong> is the partner who referred the customer.
+          A <strong style={{ color: 'var(--text-secondary)' }}>Connector</strong> gives us the file and <em>we</em> do the legwork (small share, paid from our payout).{' '}
+          A <strong style={{ color: 'var(--text-secondary)' }}>Sub DSA</strong> works the case <em>themselves</em> and only uses the code (high share).{' '}
+          Finvastra itself is a Sub DSA of the Aggregators whose codes we use.
         </div>
       </div>
 
@@ -1495,6 +1498,38 @@ export function Crm2MastersPage() {
       </div>
 
       {tab === 'connectors' && <ConnectorsMasterTab />}
+      {tab === 'subDsas' && (
+        <>
+          <p className="text-[11px] -mb-1" style={{ color: 'var(--text-muted)' }}>
+            A <strong>Sub DSA</strong> works cases <strong>on their own</strong> and only uses the code — they get the HIGH payout share
+            (deducted from Finvastra's gross at disbursement). Someone who just refers files while we do the legwork is a <strong>Connector</strong>, not a Sub DSA.
+          </p>
+          <MasterTab<WithId<SubDsa>>
+            type="subDsas" label="Sub DSAs"
+            columns={[
+              { header: 'Type', render: (r) => r.type.replace(/_/g, ' ') },
+              { header: 'Mobile', render: (r) => r.mobile },
+              { header: 'Owner', render: (r) => r.relationshipOwner },
+              { header: 'TDS %', render: (r) => (r.tdsPct != null ? `${r.tdsPct}%` : '—') },
+            ]}
+            fields={[
+              { key: 'name', label: 'Name', kind: 'text', required: true },
+              { key: 'type', label: 'Type', kind: 'select', required: true,
+                options: [{ value: 'INDIVIDUAL', label: 'Individual' }, { value: 'CORPORATE', label: 'Corporate' }, { value: 'REFERRAL_CLIENT', label: 'Referral Client' }, { value: 'WALKIN_REFERRER', label: 'Walk-in Referrer' }] },
+              { key: 'mobile', label: 'Mobile', kind: 'text', required: true, placeholder: '9876543210' },
+              { key: 'email', label: 'Email', kind: 'text' },
+              { key: 'city', label: 'City', kind: 'text' },
+              { key: 'state', label: 'State', kind: 'text' },
+              { key: 'relationshipOwner', label: 'Relationship Owner (FAPL)', kind: 'text', required: true, placeholder: 'FAPL-022',
+                hint: 'The Finvastra person who owns this Sub DSA relationship.' },
+              { key: 'gstin', label: 'GSTIN', kind: 'text' },
+              { key: 'tdsPct', label: 'TDS %', kind: 'number', hint: 'Deducted on their payouts.' },
+              { key: 'status', label: 'Status', kind: 'select',
+                options: [{ value: 'ACTIVE', label: 'Active' }, { value: 'INACTIVE', label: 'Inactive' }, { value: 'BLACKLISTED', label: 'Blacklisted' }] },
+            ]}
+          />
+        </>
+      )}
 
       {tab === 'lenders' && (
         <MasterTab<WithId<Lender>>

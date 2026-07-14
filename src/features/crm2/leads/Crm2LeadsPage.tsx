@@ -428,7 +428,7 @@ function NewLeadModal({ faplOptions, productOptions, clientOptions, subDsaOption
             {/* Source-specific referral picker */}
             {f.source === 'REFERRAL_SUBDSA' && (
               <div className="col-span-2">
-                <FLabel text="Referred by (Connector)" />
+                <FLabel text="Referred by (Sub DSA)" />
                 <SearchableSelect value={f.refSubDsaId} onChange={(v) => set('refSubDsaId', v)}
                   options={[{ value: '', label: '— select —' }, ...subDsaOptions]} placeholder="— select —" />
               </div>
@@ -579,8 +579,8 @@ function PromotePartnerRow({ lead }: { lead: LeadRow }) {
         : { border: '1px solid var(--shell-border)' }}>
       <p className="text-xs" style={{ color: isPartnerCat ? '#C9A961' : 'var(--text-muted)' }}>
         {isPartnerCat
-          ? 'PARTNER request — do the initial call here first. Qualified? Move them to Masters (this mints their CON- code).'
-          : 'Asking to become a partner / use our DSA code? Screen here first, then move.'}
+          ? 'PARTNER request — call them first. They REFER files & we do the legwork → this button (Connector). They will work cases THEMSELVES on the code → use Convert to Sub DSA instead.'
+          : 'Will they refer files while we do the legwork? Screen first, then move them to Connectors.'}
       </p>
       <button onClick={go} disabled={busy}
         className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
@@ -728,7 +728,7 @@ function LeadDrawer({ lead, canWrite, canAssign, canConvert, faplOptions, produc
               </div>
               {lead.source === 'REFERRAL_SUBDSA' && (
                 <div className="col-span-2">
-                  <FLabel text="Referred by (Connector)" />
+                  <FLabel text="Referred by (Sub DSA)" />
                   <SearchableSelect value={lead.referredById ?? ''} disabled={busy}
                     onChange={(v) => patch(buildReferral('REFERRAL_SUBDSA', v, '', refData), 'Referral updated')}
                     options={[{ value: '', label: '— none —' }, ...subDsaOptions]} placeholder="— none —" />
@@ -897,11 +897,11 @@ function ConvertModal({ lead, faplOptions, productOptions, clients, onClose, onD
       <div className={`glass-modal-panel w-full ${wide ? 'max-w-2xl' : 'max-w-md'} rounded-2xl max-h-[92vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
         <div className="glass-modal-header px-5 py-4 sticky top-0 z-10">
           <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
-            {isPartner ? 'Convert to Connector' : 'Convert Lead → Client + Case'}
+            {isPartner ? 'Convert to Sub DSA' : 'Convert Lead → Client + Case'}
           </h3>
           <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
             {isPartner
-              ? 'Creates the connector master record from this partner application.'
+              ? 'For a partner who will WORK CASES THEMSELVES using the code (high payout share). If they only refer files and we do the legwork, use Move to Partner funnel instead — that makes them a Connector.'
               : 'Resolve the client (new or existing), then open the case in one transaction.'}
           </p>
         </div>

@@ -1443,28 +1443,21 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     });
 
     // Partner-intent auto-detect: a submission from the "become a partner" form/
-    // page (or explicitly categorised PARTNER_DSA) ALSO lands as an Inquiry-stage
-    // partner candidate, and the lead is closed+linked so it doesn't sit in the
-    // telecaller queue as GENERAL. Deterministic — category or form/page name.
-    // Best-effort: if candidate creation fails, the lead stays open and the team
-    // can use "Move to Partner funnel" on it manually.
-    if (isPartnerIntent(category, optStr(b, "formId"), optStr(b, "sourceUrl"))) {
-      try {
-        const cand = await createPartnerCandidate({
-          name, mobile, email, leadSource: "Website Form",
-          productInterestStated: optStr(b, "productInterest"),
-          createdBy: "public:website-partner",
-        });
-        await db.collection("leads").doc(id).update({
-          converted: true, convertedAt: FieldValue.serverTimestamp(),
-          status: "CONVERTED", linkedConnectorId: cand.id, category: "PARTNER_DSA",
-          activityLog: FieldValue.arrayUnion({
-            at: Timestamp.now(), by: "system",
-            note: `Auto-routed to partner funnel as ${cand.code} (website partner form)`,
-            action: "convert",
-          }),
-        });
-      } catch (e) { console.error("[partner auto-route failed]", e); }
+    // page is STAMPED as category PARTNER_DSA so it's visibly a partner request —
+    // but it stays a normal LEAD. The initial calls/screening happen on the Leads
+    // page like any contact; a CON- code is minted ONLY when someone qualified is
+    // manually moved to Masters → Connectors (promote-partner). No code is ever
+    // spent on an unvetted inquiry.
+    if (category !== "PARTNER_DSA"
+        && isPartnerIntent(category, optStr(b, "formId"), optStr(b, "sourceUrl"))) {
+      await db.collection("leads").doc(id).update({
+        category: "PARTNER_DSA",
+        activityLog: FieldValue.arrayUnion({
+          at: Timestamp.now(), by: "system",
+          note: "Marked as a PARTNER request (website partner form) — screen from Leads, then Move to Partner funnel if qualified",
+          action: "note",
+        }),
+      }).catch((e) => console.error("[partner stamp failed]", e));
     }
     res.json({ ok: true, id });
   }));
@@ -1572,13 +1565,43 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     if (name.length < 2 || name.length > 120) throw new ApiError(400, "name must be 2–120 chars");
     const mobile = normaliseMobile(String(b.mobile ?? ""));
     if (!mobile) throw new ApiError(400, "mobile must be a valid 10-digit Indian mobile");
-    await createPartnerCandidate({
-      name, mobile, email: optStr(b, "email"), firmName: optStr(b, "firmName"),
-      leadSource: String(b.leadSource ?? "Website Form"), occupation: b.occupation,
-      networkType: b.networkType, networkSize: b.networkSize,
-      productInterestStated: b.productInterestStated, createdBy: "public:partner-form",
+    const email = optStr(b, "email");
+
+    // Lands as a normal PARTNER_DSA LEAD — screened from the Leads page; a CON-
+    // code is minted only on the manual move to Masters (promote-partner).
+    const dupeKeys = buildDupeKeys(mobile, email);
+    const duplicate = await findDuplicate(dupeKeys);
+    const id = await db.runTransaction(async (tx) => {
+      const counterRef = db.collection("counters").doc(leadYearCounter());
+      const seq = (((await tx.get(counterRef)).data()?.seq as number | undefined) ?? 0) + 1;
+      const newId = `LD-${new Date().getFullYear()}-${String(seq).padStart(5, "0")}`;
+      tx.set(counterRef, { seq, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      tx.set(db.collection("leads").doc(newId), {
+        leadCode: newId,
+        name, customerName: name, mobile, email,
+        category: "PARTNER_DSA", productId: null,
+        source: "WEBSITE", status: "NEW", priority: "HOT",
+        receivedAt: FieldValue.serverTimestamp(),
+        sourceMeta: {
+          formId: optStr(b, "formId") ?? "partner-inquiry",
+          sourceUrl: optStr(b, "sourceUrl")?.slice(0, 500) ?? null,
+          utm: null, via: trusted ? "apps_script" : "web",
+          productInterest: optStr(b, "productInterestStated") ?? optStr(b, "productInterest"),
+        },
+        assignedRm: null, assignedAt: null,
+        amountRequired: null, city: optStr(b, "city"),
+        nextFollowUpAt: null, nextFollowUpNote: null, followUpReminderSent: false, attempts: 0,
+        activityLog: [],
+        converted: false, convertedAt: null,
+        linkedClientId: null, linkedCaseId: null, linkedSubDsaId: null, linkedConnectorId: null,
+        duplicateOfLeadId: duplicate?.collection === "leads" ? duplicate.id : null,
+        dupeKeys,
+        firstContactedAt: null,
+        ...createAudit("public:partner-form"),
+      });
+      return newId;
     });
-    res.json({ ok: true });
+    res.json({ ok: true, id });
   }));
 
   // ─── Promote a CRM 2.0 lead into the partner funnel ───────────────────────────
@@ -1620,6 +1643,79 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       ...updateAudit(caller.fapl),
     });
     res.json({ ok: true, connectorId: id, connectorCode: code });
+  }));
+
+  // ─── Return a partner candidate to the Leads page ─────────────────────────────
+  // Undo for a premature move: re-opens the source lead (or recreates one) and
+  // HARD-DELETES the candidate's connector doc so the CON- code is freed (the
+  // code minter takes max+1 over remaining docs). Only pre-Active candidates —
+  // an Active partner may already be referenced by cases and cannot be returned.
+  app.post("/api/crm2/connectors/:id/return-to-lead", route(async (req, res) => {
+    const caller = await requirePerm(req, res, "crm.masters.write");
+    if (!caller) return;
+    const ref = db.collection("connectors").doc(req.params.id);
+    const snap = await ref.get();
+    if (!snap.exists) throw new ApiError(404, "connector not found");
+    const c = snap.data() as Record<string, unknown>;
+    if (!c.funnelStatus) throw new ApiError(400, "This is a legacy connector, not a funnel candidate");
+    if (c.funnelStatus === "Active") {
+      throw new ApiError(422, "An Active partner cannot be returned to Leads — deactivate instead");
+    }
+
+    // Re-open the linked lead, or recreate one for public-form candidates.
+    const linked = await db.collection("leads")
+      .where("linkedConnectorId", "==", req.params.id).limit(1).get();
+    let leadId: string;
+    if (!linked.empty) {
+      leadId = linked.docs[0].id;
+      await linked.docs[0].ref.update({
+        converted: false, convertedAt: null, status: "NEW",
+        linkedConnectorId: null, category: "PARTNER_DSA",
+        activityLog: FieldValue.arrayUnion({
+          at: Timestamp.now(), by: caller.fapl,
+          note: `Returned from the partner funnel (${c.connectorCode}) — continue screening from Leads`,
+          action: "note",
+        }),
+        ...updateAudit(caller.fapl),
+      });
+    } else {
+      const mobile = String(c.mobile ?? "");
+      const email = (c.email as string | null) || null;
+      const dupeKeys = buildDupeKeys(mobile || null, email);
+      leadId = await db.runTransaction(async (tx) => {
+        const counterRef = db.collection("counters").doc(leadYearCounter());
+        const seq = (((await tx.get(counterRef)).data()?.seq as number | undefined) ?? 0) + 1;
+        const newId = `LD-${new Date().getFullYear()}-${String(seq).padStart(5, "0")}`;
+        tx.set(counterRef, { seq, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+        tx.set(db.collection("leads").doc(newId), {
+          leadCode: newId, name: String(c.displayName ?? "Partner candidate"),
+          customerName: String(c.displayName ?? "Partner candidate"),
+          mobile, email, category: "PARTNER_DSA", productId: null,
+          source: "WEBSITE", status: "NEW", priority: "HOT",
+          receivedAt: FieldValue.serverTimestamp(),
+          sourceMeta: { formId: "returned-from-funnel", sourceUrl: null, utm: null, via: "internal", productInterest: null },
+          assignedRm: null, assignedAt: null, amountRequired: null, city: null,
+          nextFollowUpAt: null, nextFollowUpNote: null, followUpReminderSent: false, attempts: 0,
+          activityLog: [], converted: false, convertedAt: null,
+          linkedClientId: null, linkedCaseId: null, linkedSubDsaId: null, linkedConnectorId: null,
+          duplicateOfLeadId: null, dupeKeys, firstContactedAt: null,
+          ...createAudit(caller.fapl),
+        });
+        return newId;
+      });
+    }
+
+    // Hard-delete the candidate (Admin SDK bypasses the delete:false rule) —
+    // private sub-doc first, then the main doc. Frees the CON- code.
+    await ref.collection("private").doc("financial").delete().catch(() => {});
+    await ref.delete();
+    await db.collection("audit_logs").add({
+      actor: caller.uid, actorFapl: caller.fapl, action: "partner_return_to_lead",
+      targetPath: `/connectors/${req.params.id}`,
+      before: { connectorCode: c.connectorCode, displayName: c.displayName, funnelStatus: c.funnelStatus },
+      after: { leadId }, at: FieldValue.serverTimestamp(),
+    });
+    res.json({ ok: true, leadId, freedCode: c.connectorCode });
   }));
 
   // ═══ Meta Lead Ads → CRM 2.0 lead — Phase 1 (capture + queue) ═════════════════

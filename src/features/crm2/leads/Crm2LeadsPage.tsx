@@ -579,8 +579,8 @@ function PromotePartnerRow({ lead }: { lead: LeadRow }) {
         : { border: '1px solid var(--shell-border)' }}>
       <p className="text-xs" style={{ color: isPartnerCat ? '#C9A961' : 'var(--text-muted)' }}>
         {isPartnerCat
-          ? 'This is a PARTNER request — move them into the partner funnel for screening.'
-          : 'Asking to become a partner / use our DSA code?'}
+          ? 'PARTNER request — do the initial call here first. Qualified? Move them to Masters (this mints their CON- code).'
+          : 'Asking to become a partner / use our DSA code? Screen here first, then move.'}
       </p>
       <button onClick={go} disabled={busy}
         className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"

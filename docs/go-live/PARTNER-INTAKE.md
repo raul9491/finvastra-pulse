@@ -1,27 +1,22 @@
 # Partner Intake — go-live runbook
 
-The partner funnel (screening → scoring → onboarding) lives on the existing
-Connector entity. Managed in **CRM → Masters → Connectors** (super-admin only).
-A candidate is a Connector record from first inquiry; it moves through
-`funnelStatus` (Inquiry → Screening → KYC Collection → Agreement Sent →
-Agreement Signed → Training → **Active** | Rejected | On Hold) and stays
-`status: inactive` (hidden from RMs' "Sourced by Connector" picker) until it
-reaches **Active**.
+**The flow (lead-first, revised 2026-07-14):**
+1. Partner inquiries (website /partner page, WhatsApp, walk-in) land on the
+   **Leads page** as category **"Partner Sign-up"** — no CON- code is spent yet.
+2. The **initial call/screening happens on the lead** like any contact (call
+   logging, dispositions, follow-ups all work normally).
+3. If qualified, use **"Move to Partner funnel"** in the lead drawer — THAT
+   mints the next CON- code and creates the candidate in CRM → Masters →
+   Connectors (super-admin area), where the deep screening questionnaire,
+   practical assessment, and onboarding checklist run.
+4. Moved someone too early? **"↩ Return to Leads"** on the Connectors row sends
+   them back and frees the code.
+5. Activation is gated: practical assessment passed + agreement signed + PAN
+   collected — only then can the stage be set to **Active**, which makes the
+   partner pickable by RMs on real cases.
 
-## How to assess a candidate (the answer to "what do I ask them")
-Open the candidate → **Screening** tab and fill the seven answers:
-network type · network size · product/demand fit · prior track record ·
-expected monthly volume · KYC readiness · whether they already hold a DSA code
-elsewhere. Pulse shows the **Hot / Warm / Cold** tier with the per-factor
-breakdown live (never a black box). Tier is a triage signal — you always decide
-the stage manually (nothing is auto-rejected).
-
-## Onboarding
-The **Onboarding** tab tracks PAN/Aadhaar/bank collected, agreement sent/signed,
-training, Pulse access, first case — with a progress bar. When you set the stage
-to **Active**, the connector becomes pickable by RMs and can be attached to
-cases exactly like any existing connector; DSA-code mapping + payout rules are
-unchanged.
+Super admins get a bell + email when a candidate is moved into Connectors and
+when a scheduled candidate follow-up falls due.
 
 ## Rubric
 CRM → Masters → **Partner Scoring** (super-admin): edit the points per answer +
@@ -49,8 +44,8 @@ Content-Type: application/json
 }
 ```
 
-A submission lands as an **Inquiry**-stage Connector (`status: inactive`),
-scored by the current rubric, ready to screen in Masters → Connectors.
+A submission lands as a **"Partner Sign-up" LEAD** on the Leads page — screened
+there first; a CON- code is minted only on the manual move to Masters.
 
 **To wire the finvastra.com "become a partner" form** (same pattern as the
 website-leads intake):

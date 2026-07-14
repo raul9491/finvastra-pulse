@@ -1223,6 +1223,19 @@ function ConnectorsMasterTab() {
     catch { toast.error('Could not update status'); }
   };
 
+  // Undo a premature move: the candidate goes back to the Leads page for normal
+  // screening and this CON- code is freed for the next qualified partner.
+  const [returning, setReturning] = useState<string | null>(null);
+  const returnToLeads = async (c: Connector) => {
+    if (!window.confirm(`Return ${c.displayName} to the Leads page? Their record here is removed and code ${c.connectorCode} is freed. Their screening answers on this card are discarded; the lead keeps its own history.`)) return;
+    setReturning(c.id);
+    try {
+      const r = await apiCrm2<{ ok: boolean; leadId: string; freedCode: string }>('POST', `/api/crm2/connectors/${c.id}/return-to-lead`, {});
+      toast.success(`${c.displayName} is back in Leads (${r.leadId}) — code ${r.freedCode} freed`);
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Could not return to Leads'); }
+    finally { setReturning(null); }
+  };
+
   // Legacy codes were FAC-/CONN-### — offer a one-time rename to CON-###.
   const [migBusy, setMigBusy] = useState(false);
   const legacyCount = connectors.filter((c) => /^(?:FAC|CONN)-/.test(c.connectorCode ?? '')).length;
@@ -1281,8 +1294,9 @@ function ConnectorsMasterTab() {
       </div>
 
       <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-        Partners / connectors source customers. Next code: <span className="font-mono font-semibold" style={{ color: '#C9A961' }}>{autoCode}</span>.
-        A candidate becomes pickable by RMs only once its funnel stage is <strong>Active</strong>.
+        The flow: partner inquiries land on the <strong>Leads</strong> page (category “Partner Sign-up”) and are screened there like any contact.
+        Only a QUALIFIED one is moved here — that mints the next code (<span className="font-mono font-semibold" style={{ color: '#C9A961' }}>{autoCode}</span>) and starts assessment + onboarding.
+        A candidate becomes pickable by RMs only once its stage is <strong>Active</strong>. Moved someone too early? “↩ Return to Leads” frees the code.
       </p>
 
       {legacyCount > 0 && (
@@ -1347,6 +1361,15 @@ function ConnectorsMasterTab() {
                     <span className={c.status === 'active' ? 'badge-glass-success' : 'badge-glass-muted'}>{c.status === 'active' ? 'Active' : 'Inactive'}</span>
                   </td>
                   <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                    {c.funnelStatus && c.funnelStatus !== 'Active' && (
+                      <button onClick={(e) => { e.stopPropagation(); returnToLeads(c); }}
+                        disabled={returning === c.id}
+                        className="text-xs font-semibold mr-3 transition-opacity hover:opacity-80 disabled:opacity-50"
+                        style={{ color: 'var(--text-muted)' }}
+                        title="Not ready for the funnel? Send them back to the Leads page and free this CON- code.">
+                        {returning === c.id ? 'Returning…' : '↩ Return to Leads'}
+                      </button>
+                    )}
                     <button onClick={(e) => { e.stopPropagation(); toggleStatus(c); }}
                       className="text-xs font-semibold transition-opacity hover:opacity-80"
                       style={{ color: c.status === 'active' ? '#f87171' : '#34d399' }}>

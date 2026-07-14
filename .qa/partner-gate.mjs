@@ -155,9 +155,11 @@ async function main() {
   const honey = await api('POST', '/api/public/partner-inquiry', null, { name: 'Bot', mobile: '9876500033', website: 'x' });
   honey.status === 200 && honey.data.ok ? ok('honeypot submission swallowed (no write)') : bad('honeypot', JSON.stringify(honey));
   const pub = await api('POST', '/api/public/partner-inquiry', null, {
-    name: 'Walk-in Partner', mobile: '9876500044', leadSource: 'Website Form', networkType: 'Property Dealer / Broker',
+    name: 'Walk-in Partner', mobile: '9876500044',
   });
-  pub.status === 200 && pub.data.ok ? ok('public partner-inquiry created an Inquiry candidate') : bad('public intake', JSON.stringify(pub));
+  const pubDoc = pub.data.id ? await getDoc(`leads/${pub.data.id}`) : null;
+  pub.status === 200 && fv(pubDoc, 'category') === 'PARTNER_DSA' && fv(pubDoc, 'status') === 'NEW'
+    ? ok('public partner-inquiry lands as a PARTNER_DSA LEAD (no connector, no code spent)') : bad('public intake', JSON.stringify(pub));
 
   // 9. Website lead with partner intent auto-routes into the funnel.
   const wl = await api('POST', '/api/public/leads', null, {
@@ -166,8 +168,8 @@ async function main() {
   wl.status === 200 && wl.data.id ? ok('partner-intent website lead accepted') : bad('web lead', JSON.stringify(wl));
   await new Promise((r) => setTimeout(r, 400));
   const wlDoc = await getDoc(`leads/${wl.data.id}`);
-  fv(wlDoc, 'status') === 'CONVERTED' && fv(wlDoc, 'linkedConnectorId')
-    ? ok('auto-routed: lead closed + linked to an Inquiry candidate') : bad('auto-route', JSON.stringify({ s: fv(wlDoc, 'status'), l: fv(wlDoc, 'linkedConnectorId') }));
+  fv(wlDoc, 'status') === 'NEW' && fv(wlDoc, 'category') === 'PARTNER_DSA' && !fv(wlDoc, 'linkedConnectorId')
+    ? ok('auto-detect STAMPS the lead PARTNER_DSA — stays a lead, no code minted') : bad('auto-stamp', JSON.stringify({ s: fv(wlDoc, 'status'), c: fv(wlDoc, 'category') }));
 
   // 10. Promote a GENERAL lead into the funnel manually; second promote -> 409.
   const gl = await api('POST', '/api/public/leads', null, { name: 'General Guy', mobile: '9876500066' });
@@ -175,6 +177,18 @@ async function main() {
   pr.status === 200 && pr.data.connectorCode ? ok(`GENERAL lead promoted to partner funnel (${pr.data.connectorCode})`) : bad('promote', JSON.stringify(pr));
   const pr2 = await api('POST', `/api/crm2/leads/${gl.data.id}/promote-partner`, token, {});
   pr2.status === 409 ? ok('second promote rejected (409 already in funnel)') : bad('promote idempotency', JSON.stringify(pr2));
+
+  // 10c. Return-to-lead: candidate deleted (code freed), lead re-opened.
+  const ret = await api('POST', `/api/crm2/connectors/${pr.data.connectorId}/return-to-lead`, token, {});
+  ret.status === 200 && ret.data.leadId === gl.data.id && ret.data.freedCode === pr.data.connectorCode
+    ? ok(`return-to-lead re-opened ${gl.data.id} and freed ${ret.data.freedCode}`) : bad('return-to-lead', JSON.stringify(ret));
+  const glDoc = await getDoc(`leads/${gl.data.id}`);
+  const connGone = await getDoc(`connectors/${pr.data.connectorId}`);
+  fv(glDoc, 'status') === 'NEW' && !fv(glDoc, 'converted') && connGone === null
+    ? ok('lead is NEW again + connector doc hard-deleted') : bad('return state', JSON.stringify({ s: fv(glDoc, 'status'), gone: connGone === null }));
+  // an ACTIVE candidate cannot be returned
+  const retActive = await api('POST', `/api/crm2/connectors/${id}/return-to-lead`, token, {});
+  retActive.status === 422 ? ok('Active partner cannot be returned (422)') : bad('active return guard', JSON.stringify(retActive));
 
   // 11. Activity log + follow-up on the candidate.
   const act = await api('PATCH', `/api/crm2/connectors/${id2}`, token, {

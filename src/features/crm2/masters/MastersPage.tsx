@@ -360,7 +360,7 @@ function MasterDetailModal({ title, fields, row, onClose, onEdit }: {
 
 // ─── Generic master tab (list + add/edit) ────────────────────────────────────
 function MasterTab<T extends { id: string; name: string; status: string }>({
-  type, label, fields, columns, expand, transform,
+  type, label, fields, columns, expand, transform, noun, singular, intro,
 }: {
   type: string;                       // API master type == collection name
   label: string;
@@ -368,6 +368,9 @@ function MasterTab<T extends { id: string; name: string; status: string }>({
   columns: Array<{ header: string; render: (row: T) => React.ReactNode }>;
   expand?: (row: T) => Record<string, unknown>;        // flatten nested → form keys (edit)
   transform?: (values: Record<string, unknown>) => Record<string, unknown>;  // reassemble before submit
+  noun?: string;                      // display noun for search/empty copy (acronyms keep their casing)
+  singular?: string;                  // Add-button noun
+  intro?: React.ReactNode;            // definition/help line rendered between the toolbar and the table
 }) {
   const { rows, loading, error } = useCrm2Collection<T>(type);
   const toast = useToast();
@@ -381,14 +384,16 @@ function MasterTab<T extends { id: string; name: string; status: string }>({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <input className="glass-inp text-sm w-64" placeholder={`Search ${label.toLowerCase()}…`}
+        <input className="glass-inp text-sm w-64" placeholder={`Search ${noun ?? label.toLowerCase()}…`}
           value={search} onChange={(e) => setSearch(e.target.value)} />
         <button onClick={() => setModal({ initial: null })}
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold"
           style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
-          <Plus size={15} /> Add {label.replace(/s$/, '')}
+          <Plus size={15} /> Add {singular ?? label.replace(/s$/, '')}
         </button>
       </div>
+
+      {intro && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{intro}</p>}
 
       {error && <div className="glass-panel p-4 text-sm" style={{ color: '#f87171' }}>{error}</div>}
 
@@ -408,7 +413,7 @@ function MasterTab<T extends { id: string; name: string; status: string }>({
                 <tr><td colSpan={3 + columns.length} className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>Loading…</td></tr>
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={3 + columns.length} className="px-4 py-8 text-center" style={{ color: 'var(--text-muted)' }}>
-                  No {label.toLowerCase()} yet — add the first one.
+                  No {noun ?? label.toLowerCase()} yet — add the first one.
                 </td></tr>
               ) : filtered.map((r) => (
                 <tr key={r.id} onClick={() => setDetail(r as unknown as Record<string, unknown> & { id: string })}
@@ -418,7 +423,9 @@ function MasterTab<T extends { id: string; name: string; status: string }>({
                   <td className="px-3 py-2.5 font-medium" style={{ color: 'var(--text-primary)' }}>{r.name}</td>
                   {columns.map((c) => <td key={c.header} className="px-3 py-2.5" style={{ color: 'var(--text-secondary)' }}>{c.render(r)}</td>)}
                   <td className="px-3 py-2.5">
-                    <span className={r.status === 'ACTIVE' ? 'badge-glass-success' : 'badge-glass-muted'}>{r.status}</span>
+                    <span className={r.status === 'ACTIVE' ? 'badge-glass-success' : 'badge-glass-muted'}>
+                      {r.status.charAt(0) + r.status.slice(1).toLowerCase()}
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -1500,12 +1507,9 @@ export function Crm2MastersPage() {
       {tab === 'connectors' && <ConnectorsMasterTab />}
       {tab === 'subDsas' && (
         <>
-          <p className="text-[11px] -mb-1" style={{ color: 'var(--text-muted)' }}>
-            A <strong>Sub DSA</strong> works cases <strong>on their own</strong> and only uses the code — they get the HIGH payout share
-            (deducted from Finvastra's gross at disbursement). Someone who just refers files while we do the legwork is a <strong>Connector</strong>, not a Sub DSA.
-          </p>
           <MasterTab<WithId<SubDsa>>
-            type="subDsas" label="Sub DSAs"
+            type="subDsas" label="Sub DSAs" noun="Sub DSAs" singular="Sub DSA"
+            intro={<>A <strong style={{ color: 'var(--text-secondary)' }}>Sub DSA</strong> works cases <strong style={{ color: 'var(--text-secondary)' }}>on their own</strong> and only uses the code — they get the HIGH payout share (deducted from Finvastra's gross at disbursement). Someone who just refers files while we do the legwork is a <strong style={{ color: 'var(--text-secondary)' }}>Connector</strong>, not a Sub DSA.</>}
             columns={[
               { header: 'Type', render: (r) => r.type.replace(/_/g, ' ') },
               { header: 'Mobile', render: (r) => r.mobile },

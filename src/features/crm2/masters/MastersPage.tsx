@@ -1344,7 +1344,7 @@ function ConnectorsMasterTab() {
                     })()}
                   </td>
                   <td className="px-3 py-2.5">
-                    <span className={c.status === 'active' ? 'badge-glass-success' : 'badge-glass-muted'}>{c.status}</span>
+                    <span className={c.status === 'active' ? 'badge-glass-success' : 'badge-glass-muted'}>{c.status === 'active' ? 'Active' : 'Inactive'}</span>
                   </td>
                   <td className="px-3 py-2.5 text-right whitespace-nowrap">
                     <button onClick={(e) => { e.stopPropagation(); toggleStatus(c); }}

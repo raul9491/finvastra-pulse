@@ -39,6 +39,7 @@ const TYPE_META: Record<AppNotification['type'], { icon: string; color: string }
   leave_request:    { icon: '🌴', color: '#60a5fa' },
   claim_request:    { icon: '🧾', color: '#60a5fa' },
   attendance_request: { icon: '🕒', color: '#60a5fa' },
+  partner_candidate: { icon: '🤝', color: '#C9A961' },
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────

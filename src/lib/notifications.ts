@@ -36,7 +36,8 @@ export type NotificationType =
   // employee → reporting-manager request alerts
   | 'leave_request'
   | 'claim_request'
-  | 'attendance_request';
+  | 'attendance_request'
+  | 'partner_candidate';
 
 export interface AppNotification {
   id:        string;

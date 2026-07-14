@@ -23,6 +23,8 @@ export const NOTIFICATION_TOGGLES: NotificationToggle[] = [
   // ── Reminders (time-sensitive nudges) ──
   { key: 'callback_reminders',   label: 'Callback reminders',             group: 'Reminders',
     description: "Bell + email ~15 min before a scheduled customer callback." },
+  { key: 'partner_candidates',   label: 'New partner candidates',         group: 'Reminders',
+    description: "Bell + email to super admins when someone asks to become a partner (website form, auto-routed lead, or manual move)." },
   { key: 'meeting_reminders',    label: 'Meeting reminders',              group: 'Reminders',
     description: "Bell + email ~30 min before a scheduled meeting." },
   { key: 'followup_reminders',   label: 'Lead follow-up reminders',       group: 'Reminders',

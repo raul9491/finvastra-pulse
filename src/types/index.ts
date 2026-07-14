@@ -789,6 +789,7 @@ export type NotificationType =
   | 'leave_request'
   | 'claim_request'
   | 'attendance_request'
+  | 'partner_candidate'
   | 'system';
 
 export interface Notification {

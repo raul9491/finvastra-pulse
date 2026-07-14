@@ -1483,6 +1483,8 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       panEnc: null, panLast4: null, aadhaarLast4: null, payoutBank: null, tdsPct: null,
       updatedAt: FieldValue.serverTimestamp(),
     });
+    void notifyPartnerCandidate(input.name, code, input.mobile,
+      String(input.leadSource ?? "Website Form"));
     return { id: ref.id, code };
   }
 
@@ -1491,7 +1493,50 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   function isPartnerIntent(category: string, formId: string | null, sourceUrl: string | null): boolean {
     if (category === "PARTNER_DSA") return true;
     const hay = ((formId ?? "") + " " + (sourceUrl ?? "")).toLowerCase();
-    return /partner|dsa[-_ ]?code|become[-_ ]?a[-_ ]?agent/.test(hay);
+    // "partner" catches the finvastra.com/partner page URL; the rest are the
+    // page's actual form ids observed in production submissions.
+    return /partner|individual[-_ ]?dsa|corporate[-_ ]?dsa|institutional|co[-_ ]?sourcing|dsa[-_ ]?code|become[-_ ]?a[-_ ]?agent/.test(hay);
+  }
+
+  /** Active super admins (env list ∪ users.superAdmin flag) — the audience for
+   *  partner-candidate alerts, since Masters (where screening happens) is SA-only. */
+  async function resolveSuperAdminUids(): Promise<string[]> {
+    const sa = new Set(superAdminUidsFromEnv());
+    try {
+      const snap = await db.collection("users").where("superAdmin", "==", true).get();
+      for (const u of snap.docs) if (u.data().employeeStatus !== "inactive") sa.add(u.id);
+    } catch { /* env list is the reliable fallback */ }
+    return [...sa];
+  }
+
+  /** Bell + email every super admin about a new partner candidate. Fire-and-forget
+   *  (never blocks intake); togglable via notification settings key partner_candidates. */
+  async function notifyPartnerCandidate(name: string, code: string, mobile: string, source: string): Promise<void> {
+    try {
+      if (!(await notificationsEnabled("partner_candidates"))) return;
+      const uids = await resolveSuperAdminUids();
+      for (const uid of uids) {
+        await notify(uid, {
+          type: "partner_candidate",
+          title: `New partner candidate — ${name}`,
+          body: `${code} · ${mobile} · via ${source}. Screen them in Masters → Connectors.`,
+          link: "/crm/pipeline/masters",
+        });
+        const e = await userEmail(uid);
+        if (e) await sendBrandedEmail(e, `New partner candidate — ${name}`, {
+          title: "New partner candidate",
+          intro: `${name} has asked to become a Finvastra partner. They are logged as ${code} at the Inquiry stage — run the screening call from the Screening tab.`,
+          rows: [
+            { label: "Code", value: code },
+            { label: "Name", value: name },
+            { label: "Mobile", value: mobile },
+            { label: "Source", value: source },
+          ],
+          ctaLabel: "Open Connectors",
+          ctaLink: "https://pulse.finvastra.com/crm/pipeline/masters",
+        });
+      }
+    } catch (e) { console.error("[partner candidate notify failed]", e); }
   }
 
   app.post("/api/public/partner-inquiry", route(async (req, res) => {

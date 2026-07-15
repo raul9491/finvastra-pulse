@@ -2799,6 +2799,21 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     }
     if (Object.keys(fields).length === 0) throw new ApiError(400, "No editable fields in payload");
     await ref.update({ ...fields, ...updateAudit(caller.fapl) });
+
+    // Bell the new RM when a manager (re)assigns a lead, so the handover is
+    // visible immediately (their Tasks → To-Do tab also lists the lead).
+    const newRm = fields.assignedRm as string | null | undefined;
+    if (typeof newRm === "string" && newRm && newRm !== cur.assignedRm && newRm !== caller.fapl) {
+      const rmUid = await faplToUid(newRm);
+      if (rmUid) {
+        await notify(rmUid, {
+          type: "new_lead",
+          title: "Lead assigned to you",
+          body: `${(cur.name as string) ?? "A lead"} — open Tasks to action it`,
+          link: "/crm/tasks",
+        });
+      }
+    }
     res.json({ ok: true });
   }));
 
@@ -3785,6 +3800,87 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       .map((r) => ({ id: r.id, caseId: r.data.caseId, clientName: r.data.clientName, text: r.data.text,
         createdByName: r.data.createdByName, createdAt: ms(r.data.createdAt) || null }));
     res.json({ ok: true, tasks });
+  }));
+
+  // ═══ Ad-hoc tasks — a manager/admin assigns a to-do to any specific person ═══
+  // Collection /crm_tasks — server-only writes (rules: write false); the assignee,
+  // the creator, and managers/admins can read. Assignment bells + emails the
+  // assignee and the task sits on their Tasks → To-Do tab until marked done.
+  app.post("/api/crm2/tasks", route(async (req, res) => {
+    const decoded = await decodeToken(req);
+    if (!decoded) throw new ApiError(401, "Unauthorized");
+    const meta = await getCallerMeta(decoded.uid);
+    if (!meta.isManager) throw new ApiError(403, "Only a manager or admin can assign tasks");
+
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const assignedTo = reqStr(b, "assignedTo");
+    const text = reqStr(b, "text").slice(0, 2000);
+    const dueAt = optTs(b, "dueAt");
+    const link = optStr(b, "link");
+
+    const [uSnap, callerSnap] = await Promise.all([
+      db.collection("users").doc(assignedTo).get(),
+      db.collection("users").doc(decoded.uid).get(),
+    ]);
+    if (!uSnap.exists) throw new ApiError(404, "Assignee not found");
+    const assignee = uSnap.data() ?? {};
+    const callerName = (callerSnap.data()?.displayName as string) ?? decoded.uid;
+
+    const taskRef = await db.collection("crm_tasks").add({
+      assignedTo,
+      assignedToName: (assignee.displayName as string) ?? assignedTo,
+      text,
+      dueAt: dueAt ?? null,
+      link: link ? link.slice(0, 500) : null,
+      status: "open",
+      createdBy: decoded.uid,
+      createdByName: callerName,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      doneAt: null, doneBy: null,
+    });
+
+    await notify(assignedTo, {
+      type: "task_assigned",
+      title: `New task from ${callerName}`,
+      body: text.slice(0, 140),
+      link: "/crm/tasks",
+    });
+    const email = assignee.email as string | undefined;
+    if (email) {
+      void sendBrandedEmail(email, `New task from ${callerName}`, {
+        title: "You have a new task",
+        intro: `${callerName} assigned you a task on Pulse.`,
+        rows: [
+          { label: "Task", value: text.slice(0, 300) },
+          ...(dueAt ? [{ label: "Due", value: dueAt.toDate().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) }] : []),
+        ],
+        ctaLabel: "Open Tasks", ctaLink: "https://pulse.finvastra.com/crm/tasks",
+      }).catch(() => {});
+    }
+    res.json({ ok: true, id: taskRef.id });
+  }));
+
+  // Mark done / reopen — assignee, creator, or a manager/admin.
+  app.patch("/api/crm2/tasks/:id", route(async (req, res) => {
+    const decoded = await decodeToken(req);
+    if (!decoded) throw new ApiError(401, "Unauthorized");
+    const taskRef = db.collection("crm_tasks").doc(req.params.id);
+    const snap = await taskRef.get();
+    if (!snap.exists) throw new ApiError(404, "Task not found");
+    const t = snap.data() ?? {};
+    if (t.assignedTo !== decoded.uid && t.createdBy !== decoded.uid) {
+      const meta = await getCallerMeta(decoded.uid);
+      if (!meta.isManager) throw new ApiError(403, "Not your task");
+    }
+    const status = reqEnum((req.body ?? {}) as Record<string, unknown>, "status", ["open", "done"] as const);
+    await taskRef.update({
+      status,
+      doneAt: status === "done" ? FieldValue.serverTimestamp() : null,
+      doneBy: status === "done" ? decoded.uid : null,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    res.json({ ok: true });
   }));
 
   // ═══ Phase 4 — Logins (per-login pipeline; subcollection cases/{id}/logins) ═══

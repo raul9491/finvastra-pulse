@@ -1299,6 +1299,17 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Ad-hoc CRM tasks — a manager/admin assigns a to-do to a specific person.
+    // Server-only writes (POST/PATCH /api/crm2/tasks via Admin SDK) so assignment
+    // + notifications stay in lockstep; assignee, creator, and managers read.
+    match /crm_tasks/{taskId} {
+      allow read: if isSignedIn()
+                  && (resource.data.assignedTo == request.auth.uid
+                      || resource.data.createdBy == request.auth.uid
+                      || isAdmin() || isManager());
+      allow write: if false;
+    }
+
     // Bank commission-statement parsing templates (MIS). Admin-managed.
     match /commission_statement_templates/{bankId} {
       allow read:   if isAdmin() || hasMisAccess();

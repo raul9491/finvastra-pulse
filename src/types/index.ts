@@ -777,6 +777,7 @@ export interface ImportJob {
 // ─── Notifications ───────────────────────────────────────────────────────────
 
 export type NotificationType =
+  | 'task_assigned'
   | 'leave_approved'
   | 'leave_rejected'
   | 'leave_pending'

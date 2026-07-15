@@ -21,6 +21,7 @@ import { getAuth } from 'firebase/auth';
 
 export type NotificationType =
   | 'new_lead'
+  | 'task_assigned'
   | 'leave_approved'
   | 'leave_rejected'
   | 'claim_approved'

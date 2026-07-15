@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { collection, doc, onSnapshot, orderBy, query as fsQuery } from 'firebase/firestore';
-import { ArrowLeft, Plus, X, Check, AlertTriangle, FileText, Upload, IndianRupee, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Plus, X, Check, AlertTriangle, FileText, Upload, ChevronRight } from 'lucide-react';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
@@ -23,14 +23,7 @@ import { LoginsSection } from './LoginsSection';
 import { payoutStatusLabel } from '../labels';
 import { useConnectors } from '../../hrms/hooks/useConnectors';
 import type { Connector } from '../../../types';
-import {
-  CASE_LEVEL_STAGE_ORDER, type CaseLevelStage,
-  CASE_PIPELINE, activeCasePipelineStage, type LoginStage, type Login,
-  type Crm2Case, type Applicant, type DocTrackerRow,
-  type StageHistoryEntry, type Client, type DocumentDef, type Lender, type Aggregator,
-  type CasePayoutMirror, type VaultDoc, type CaseStage1, type CaseEligibility, type Crm2CaseTask,
-  type SubProduct,
-} from '../../../types/crm2';
+import { CASE_LEVEL_STAGE_ORDER, type CaseLevelStage, CASE_PIPELINE, activeCasePipelineStage, type LoginStage, type Login, type Crm2Case, type Applicant, type DocTrackerRow, type StageHistoryEntry, type Client, type DocumentDef, type Lender, type Aggregator, type CasePayoutMirror, type VaultDoc, type Crm2CaseTask, type SubProduct } from '../../../types/crm2';
 
 type WithId<T> = T & { id: string };
 const fmtTs = (t: { toDate?: () => Date } | null | undefined) =>

@@ -11,10 +11,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import {
-  collection, query, where, orderBy, onSnapshot,
-  addDoc, doc, getDoc, setDoc, updateDoc, serverTimestamp, runTransaction,
-} from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, doc, serverTimestamp, runTransaction } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

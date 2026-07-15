@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { format } from 'date-fns';
-import { Upload, Trash2, FileText, PlusCircle, X, ShieldCheck, Users, CheckCircle2, ToggleLeft, ToggleRight, ChevronRight } from 'lucide-react';
+import { Upload, Trash2, FileText, PlusCircle, X, ShieldCheck, CheckCircle2, ToggleLeft, ToggleRight, ChevronRight } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import {
   useAllCompanyDocuments, useEmployeeDocuments,

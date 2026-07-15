@@ -1,23 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
-import {
-  collection, onSnapshot, doc, updateDoc, serverTimestamp,
-  query, orderBy, getDoc,
-} from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, serverTimestamp, query, orderBy, getDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
-import {
-  UserMinus, ChevronLeft, Check, Clock, CheckCircle2, FileText,
-  Monitor, Package, BookOpen, Circle, Calculator, Download,
-  IndianRupee, AlertCircle, ExternalLink,
-} from 'lucide-react';
+import { UserMinus, ChevronLeft, Check, Clock, CheckCircle2, FileText, Monitor, Package, BookOpen, Circle, Calculator, Download, IndianRupee, AlertCircle, ExternalLink } from 'lucide-react';
 import { format, differenceInYears } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type {
-  OffboardingChecklist, ChecklistItem, ChecklistStatus,
-  ChecklistItemCategory, FnFDetails, FnFStatus, ExitReason, UserProfile,
-} from '../../../types';
+import type { OffboardingChecklist, ChecklistItem, ChecklistStatus, ChecklistItemCategory, FnFDetails, FnFStatus, UserProfile } from '../../../types';
 import { EXIT_REASON_LABELS } from '../../../types';
 import { PageHeader } from '../../../components/ui/primitives';
 

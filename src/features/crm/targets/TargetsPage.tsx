@@ -1,18 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  collection, collectionGroup, doc, getDoc, getDocs, query, where,
-} from 'firebase/firestore';
-import { Target, Loader2, Pencil, FileText } from 'lucide-react';
+import { collectionGroup, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { Loader2, Pencil, FileText } from 'lucide-react';
 import { db, auth } from '../../../lib/firebase';
 import { PageHeader } from '../../../components/ui/primitives';
 import { useAuth } from '../../auth/AuthContext';
 import { DataView } from '../../../components/ui/DataView';
 import { ReBar } from '../../../components/ui/charts';
-import {
-  useMyTargets, useTeamTargets, setTarget, achievementPct,
-  type TeamTargetRow,
-} from '../hooks/useRmTargets';
+import { useMyTargets, useTeamTargets, setTarget, achievementPct, type TeamTargetRow } from '../hooks/useRmTargets';
 import type { RmTarget, RmActuals } from '../../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

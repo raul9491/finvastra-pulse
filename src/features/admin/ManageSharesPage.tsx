@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { ArrowLeft, Share2, Users, Trophy, Search, RotateCcw, Trash2 } from 'lucide-react';
-import {
-  collection, onSnapshot, doc, writeBatch, arrayUnion, serverTimestamp,
-} from 'firebase/firestore';
+import { collection, onSnapshot, doc, writeBatch, arrayUnion } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../auth/AuthContext';

@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { AnimatePresence, motion } from 'motion/react';
-import { MessageCircle, LogOut, Menu, X, User } from 'lucide-react';
+import { MessageCircle, Menu, X, User } from 'lucide-react';
 import { MobileTabBar } from '../ui/MobileTabBar';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';

@@ -4,8 +4,6 @@ import {
   query,
   onSnapshot,
   addDoc,
-  updateDoc,
-  doc,
   orderBy,
   limit,
   serverTimestamp,

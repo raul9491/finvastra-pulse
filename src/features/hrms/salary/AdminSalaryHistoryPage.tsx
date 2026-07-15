@@ -12,14 +12,12 @@
 import { useState, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import {
-  TrendingUp, Plus, X, Search, Download, ArrowUpRight,
-} from 'lucide-react';
+import { TrendingUp, Plus, X, Search, Download, ArrowUpRight } from 'lucide-react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllSalaryHistory, useEmployeeSalaryHistory, recordSalaryRevision } from '../hooks/useSalaryHistory';
-import type { SalaryRevisionReason, SalaryHistory } from '../../../types';
+import type { SalaryRevisionReason } from '../../../types';
 import { SALARY_REVISION_REASON_LABELS } from '../../../types';
 import { PageHeader } from '../../../components/ui/primitives';
 

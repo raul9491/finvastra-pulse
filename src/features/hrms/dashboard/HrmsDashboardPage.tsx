@@ -1,13 +1,7 @@
 import { useMemo, useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  format, startOfMonth, endOfMonth, eachDayOfInterval,
-  isWeekend, parseISO, differenceInCalendarDays,
-} from 'date-fns';
-import {
-  Clock, CalendarOff, CalendarDays, Receipt, ChevronRight,
-  AlertCircle, Megaphone, Pin, AlertTriangle, X, ReceiptText, Users,
-} from 'lucide-react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, parseISO, differenceInCalendarDays } from 'date-fns';
+import { Clock, CalendarOff, CalendarDays, Receipt, ChevronRight, AlertCircle, Megaphone, Pin, AlertTriangle, X, Users } from 'lucide-react';
 import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
@@ -19,7 +13,7 @@ import { useMyPayslips } from '../hooks/usePayslips';
 import { useAnnouncements, markAnnouncementRead, useUnreadAnnouncementCount } from '../hooks/useAnnouncements';
 import { useBirthdayEmployees, type BirthdayEmployee, type UpcomingBirthdayEmployee } from '../hooks/useBirthdayEmployees';
 import { useWorkAnniversaries, milestoneLabel, isMilestoneYear, type AnniversaryEmployee, type UpcomingAnniversaryEmployee } from '../hooks/useWorkAnniversaries';
-import type { UserProfile, Attendance, Announcement } from '../../../types';
+import type { Announcement } from '../../../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

@@ -1,11 +1,8 @@
 import { useState, useEffect } from 'react';
-import {
-  collection, query, where, orderBy, onSnapshot,
-  addDoc, updateDoc, doc, serverTimestamp, getDocs, writeBatch,
-} from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { appendFieldHistory } from '../../../lib/fieldHistory';
-import type { Lead, ActivityType } from '../../../types';
+import type { Lead } from '../../../types';
 import type { LeadFormValues } from '../leads/leadSchema';
 
 // ─── Lead list ───────────────────────────────────────────────────────────────

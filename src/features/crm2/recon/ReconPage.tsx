@@ -7,10 +7,9 @@
  * missing list are keyed per misRecord (== per disbursed LOGIN), and disputes on
  * multi-login cases pass the loginId so the right cycle is flagged.
  */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, X, CheckCircle2, AlertTriangle, Link2 } from 'lucide-react';
-import { auth } from '../../../lib/firebase';
+import { Upload, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
@@ -40,7 +39,6 @@ export function ReconPage() {
   const [busy, setBusy] = useState(false);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [rows, setRows] = useState<ReconRow[]>([]);
-  const [importMeta, setImportMeta] = useState<Record<string, unknown> | null>(null);
 
   const canDispute = hasCrm2Perm(profile, 'payout.write');
   const canMoney = hasCrm2Perm(profile, 'payout.amounts.read');
@@ -63,7 +61,7 @@ export function ReconPage() {
 
   const loadImport = async (id: string) => {
     const r = await apiCrm2<{ ok: boolean; import: Record<string, unknown>; rows: ReconRow[] }>('GET', `/api/crm2/recon/imports/${id}`);
-    setRows(r.rows); setImportMeta(r.import);
+    setRows(r.rows);
   };
 
   const dispute = async (entry: MissingEntry) => {

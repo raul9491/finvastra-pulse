@@ -22,9 +22,9 @@ import {
   RefreshCcw, CheckCircle2, AlertCircle, Loader2,
   ChevronDown, ChevronUp, Calendar,
 } from 'lucide-react';
-import { collection, query, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../../auth/AuthContext';
-import { db, auth } from '../../../lib/firebase';
+import { db } from '../../../lib/firebase';
 import { getIdToken } from 'firebase/auth';
 import { currentFyYear, useLeaveYearResetStatus } from '../hooks/useLeaveYearReset';
 import type { UserProfile, LeaveBalance } from '../../../types';

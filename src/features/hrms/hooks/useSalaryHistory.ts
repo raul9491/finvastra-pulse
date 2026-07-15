@@ -6,10 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import {
-  collection, query, where, orderBy, onSnapshot,
-  addDoc, doc, serverTimestamp,
-} from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import type { SalaryHistory, SalaryRevisionReason } from '../../../types';
 

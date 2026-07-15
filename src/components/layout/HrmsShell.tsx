@@ -1,17 +1,10 @@
-import { type ElementType, useState, useEffect } from 'react';
-import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { format } from 'date-fns';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { AnimatePresence, motion } from 'motion/react';
-import {
-  LayoutDashboard, Users, Clock, CalendarOff, Receipt, CalendarDays,
-  Settings, LogOut, LayoutGrid, ClipboardList, FileText, UserPlus, Inbox,
-  ReceiptText, FolderOpen, Megaphone, Building2, Calculator,
-  Laptop, UserMinus, Lock, FileSearch2, GraduationCap, TrendingUp, Briefcase, BookOpen, LifeBuoy,
-  BookUser, RotateCcw, ScrollText, HelpCircle, Database, User, Handshake,
-  Menu, X, ChevronDown, Search, Network,
-} from 'lucide-react';
+import { LayoutDashboard, Clock, CalendarOff, Receipt, CalendarDays, Settings, FileSearch2, User, Menu, X } from 'lucide-react';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { isSuperAdmin } from '../../config/hrmsConfig';

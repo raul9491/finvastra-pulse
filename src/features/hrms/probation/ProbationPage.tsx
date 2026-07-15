@@ -1,25 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
-import {
-  collection, query, where, getDocs,
-} from 'firebase/firestore';
-import {
-  differenceInDays, parseISO, format, addMonths, isAfter,
-} from 'date-fns';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { differenceInDays, parseISO, format, addMonths } from 'date-fns';
 import { jsPDF } from 'jspdf';
-import {
-  GraduationCap, CheckCircle2, AlertCircle, Clock,
-  ChevronRight, Star, Download, X,
-} from 'lucide-react';
+import { GraduationCap, AlertCircle, Clock, Star, Download, X } from 'lucide-react';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
-import {
-  useProbationRecords,
-  ensureProbationRecord,
-  submitProbationEvaluation,
-  confirmProbation,
-  extendProbation,
-} from '../hooks/useProbation';
+import { useProbationRecords, ensureProbationRecord, submitProbationEvaluation, confirmProbation, extendProbation } from '../hooks/useProbation';
 import type { ProbationRecord, ProbationStatus, UserProfile } from '../../../types';
 import { PageHeader } from '../../../components/ui/primitives';
 

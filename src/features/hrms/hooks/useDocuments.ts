@@ -1,8 +1,5 @@
 import { useState, useEffect } from 'react';
-import {
-  collection, query, where, orderBy, onSnapshot,
-  addDoc, updateDoc, doc, serverTimestamp, getDocs,
-} from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../../lib/firebase';
 import type { CompanyDocument, EmployeeDocument, CompanyDocumentCategory, EmployeeDocumentType } from '../../../types';

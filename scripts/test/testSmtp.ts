@@ -8,7 +8,6 @@
  */
 import nodemailer from "nodemailer";
 import * as dotenv from "dotenv";
-import { readFileSync } from "fs";
 
 // Load .env.local if present
 try { dotenv.config({ path: ".env.local" }); } catch { /* ok */ }

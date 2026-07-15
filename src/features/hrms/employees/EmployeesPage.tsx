@@ -1,16 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  Search, Edit2, Download, UserPlus, Shield, Eye,
-  LogOut, UserCheck, AlertTriangle, CheckSquare, X, Users,
-} from 'lucide-react';
+import { Search, Edit2, Download, UserPlus, Shield, Eye, LogOut, UserCheck, AlertTriangle, CheckSquare, X, Users } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { EmptyState } from '../../../components/ui/EmptyState';
-import {
-  updateDoc, doc, addDoc, collection, getDocs,
-  serverTimestamp, writeBatch,
-} from 'firebase/firestore';
+import { doc, addDoc, collection, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { appendFieldHistory } from '../../../lib/fieldHistory';
 import { useAuth } from '../../auth/AuthContext';
@@ -19,10 +13,7 @@ import { Modal } from '../../../components/ui/Modal';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { useToast } from '../../../components/ui/Toast';
 import { AddEmployeeModal } from './AddEmployeeModal';
-import {
-  DEPARTMENTS, DESIGNATION_GROUPS,
-  SUPER_ADMIN_UIDS, SUPER_ADMIN_LABELS, isSuperAdmin,
-} from '../../../config/hrmsConfig';
+import { DEPARTMENTS, DESIGNATION_GROUPS, isSuperAdmin } from '../../../config/hrmsConfig';
 import type { UserProfile, CrmRole, ConvertorVertical, MisAccess, ExitReason } from '../../../types';
 import { EXIT_REASON_LABELS } from '../../../types';
 import { PageHeader } from '../../../components/ui/primitives';

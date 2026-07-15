@@ -3,10 +3,7 @@ import { Modal } from '../../../components/ui/Modal';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
-import {
-  DEPARTMENTS, DESIGNATION_GROUPS,
-  SUPER_ADMIN_UIDS, isSuperAdmin,
-} from '../../../config/hrmsConfig';
+import { DEPARTMENTS, DESIGNATION_GROUPS, isSuperAdmin } from '../../../config/hrmsConfig';
 import type { EmployeeStatus } from '../../../types';
 
 const EMP_PREFIXES = ['FAPL', 'HK', 'CON'] as const;

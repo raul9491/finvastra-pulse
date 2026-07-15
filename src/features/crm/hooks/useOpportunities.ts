@@ -1,8 +1,5 @@
 import { useState, useEffect } from 'react';
-import {
-  collection, collectionGroup, query, orderBy, onSnapshot,
-  addDoc, updateDoc, getDoc, getDocs, doc, serverTimestamp, where, writeBatch,
-} from 'firebase/firestore';
+import { collection, collectionGroup, query, orderBy, onSnapshot, addDoc, getDoc, doc, serverTimestamp, where, writeBatch } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { appendFieldHistory } from '../../../lib/fieldHistory';
 import type { Opportunity, OpportunityTypeConfig, Provider, Activity, ActivityType, CrmRole, ConvertorVertical, LostDetails, DsaCodeUsed } from '../../../types';

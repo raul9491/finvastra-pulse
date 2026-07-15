@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { format, parseISO, getDaysInMonth } from 'date-fns';
 import { Navigate } from 'react-router-dom';
 import { Timestamp, getDocs, query, collection, where, orderBy } from 'firebase/firestore';
-import { CheckCircle2, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { useTeamAttendance, adminMarkAttendance } from '../hooks/useAttendance';

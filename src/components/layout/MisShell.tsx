@@ -1,11 +1,8 @@
 import { useState, useEffect, type ElementType } from 'react';
-import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { AnimatePresence, motion } from 'motion/react';
-import {
-  LayoutDashboard, FileText, GitMerge, IndianRupee, Settings, LogOut, LayoutGrid, BarChart3,
-  Menu, X, User, AlertTriangle, GraduationCap,
-} from 'lucide-react';
+import { LayoutDashboard, FileText, GitMerge, IndianRupee, Settings, BarChart3, Menu, X, User, AlertTriangle, GraduationCap } from 'lucide-react';
 import { useOpenDisputeCount } from '../../features/mis/hooks/useDisputes';
 import { useAutoStartTour } from '../../features/learn/useTour';
 import { MobileTabBar } from '../ui/MobileTabBar';

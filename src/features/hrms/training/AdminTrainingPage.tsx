@@ -9,16 +9,9 @@
 import { useState, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import {
-  BookOpen, Plus, CheckCircle2, Clock, AlertCircle, Search,
-  ChevronRight, ToggleLeft, ToggleRight, X, ExternalLink,
-} from 'lucide-react';
+import { BookOpen, Plus, CheckCircle2, Clock, AlertCircle, Search, ToggleLeft, ToggleRight, X, ExternalLink } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
-import {
-  useTrainingPrograms, useAllTrainingRecords,
-  createTrainingProgram, updateTrainingProgram,
-  enrollEmployee, markTrainingComplete,
-} from '../hooks/useTraining';
+import { useTrainingPrograms, useAllTrainingRecords, createTrainingProgram, updateTrainingProgram, enrollEmployee, markTrainingComplete } from '../hooks/useTraining';
 import type { TrainingCategory, TrainingProgram, TrainingRecord } from '../../../types';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';

@@ -1,37 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import {
-  collection,
-  query,
-  orderBy,
-  onSnapshot,
-  doc,
-  getDoc,
-  setDoc,
-  addDoc,
-  serverTimestamp,
-} from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, getDoc, setDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
-import { Coins, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Coins, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { writeNotification, sendHrEmailNotification, buildHrEmailHtml } from '../../../lib/notifications';
 import { PageHeader } from '../../../components/ui/primitives';
-import {
-  usePendingApprovals,
-  approveLeave,
-  rejectLeave,
-  currentLeaveYear,
-} from '../hooks/useLeave';
-import {
-  useAllEncashmentRequests,
-  approveEncashmentRequest,
-  rejectEncashmentRequest,
-} from '../hooks/useLeaveEncashment';
+import { usePendingApprovals, approveLeave, rejectLeave, currentLeaveYear } from '../hooks/useLeave';
+import { useAllEncashmentRequests, approveEncashmentRequest, rejectEncashmentRequest } from '../hooks/useLeaveEncashment';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { db } from '../../../lib/firebase';
-import type { LeaveApplication, LeaveBalance, LeaveStatus, LeaveType, LeaveEncashmentRequest } from '../../../types';
+import type { LeaveApplication, LeaveBalance, LeaveStatus, LeaveType } from '../../../types';
 
 // ─── Status pill ─────────────────────────────────────────────────────────────
 

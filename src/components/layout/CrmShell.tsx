@@ -1,13 +1,8 @@
-import { useState, useEffect, type ElementType, type ReactNode } from 'react';
+import { useState, useEffect, type ElementType } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { AnimatePresence, motion } from 'motion/react';
-import {
-  LayoutDashboard, TrendingUp,
-  Upload, Settings, Inbox, Clock, Bookmark, Plus, Webhook, User,
-  Menu, X, PackageOpen, Target, BarChart3, UsersRound, Briefcase,
-  ChevronDown, ListChecks, Building2,
-} from 'lucide-react';
+import { LayoutDashboard, Settings, Inbox, Bookmark, Plus, User, Menu, X, BarChart3, Briefcase, ListChecks } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 import { useAuth } from '../../features/auth/AuthContext';

@@ -20,42 +20,18 @@ import crypto from "crypto";
 import { encryptField } from "../src/lib/encryption.js";
 import { findSlabOverlaps, resolveSlab, computeExpectedAmounts, SlabResolutionError, type SlabForResolution } from "../src/lib/crm2/slab.js";
 import { resolveChannelPartnerRule, computeChannelPartnerPayout, sanitizeChannelPartnerRule } from "../src/lib/crm2/channelPartnerPayout.js";
-import {
-  computePartnerScore, computeOnboardingProgress, sanitizePartnerRubric,
-  computePracticalAssessment, DEFAULT_PARTNER_RUBRIC, type PartnerRubric,
-} from "../src/lib/crm2/partnerScoring.js";
+import { computePartnerScore, computeOnboardingProgress, sanitizePartnerRubric, computePracticalAssessment, DEFAULT_PARTNER_RUBRIC, type PartnerRubric } from "../src/lib/crm2/partnerScoring.js";
 import { buildDupeKeys, normaliseMobile } from "../src/lib/crm2/dedupe.js";
 import { extractClientIp } from "../src/lib/crm2/http.js";
-import {
-  verifyMetaSignature, extractLeadgenEvents, mapMetaFields, type MetaLeadgenEvent,
-} from "../src/lib/crm2/meta.js";
-import {
-  extractWhatsAppMessages, extractWhatsAppStatuses, type WhatsAppInbound,
-} from "../src/lib/crm2/whatsapp.js";
-import {
-  evaluateSla, slaConfigFromDoc, toMs, type SlaConfig,
-} from "../src/lib/crm2/sla.js";
-import {
-  DEFAULT_BUSINESS_HOURS, elapsedWorkingMs, type BusinessHoursConfig,
-} from "../src/lib/crm2/businessHours.js";
-import {
-  queueConfigFromDoc, eligibleQueues, leadEligibleForSkills, queueForLead,
-  isQueueableLead, type QueueDef,
-} from "../src/lib/crm2/queue.js";
-import {
-  validateTransition, gateForStage, keyDateForStage,
-} from "../src/lib/crm2/stages.js";
-import {
-  validateLoginTransition, keyDateForLoginStage, validateCaseLevelTransition, type LoginLite,
-} from "../src/lib/crm2/logins.js";
-import {
-  deriveCycleStatus, computeAgeing, computeBankerMismatch, computePctVariance,
-  computeAmountVariance, computeNetMarginRealised, canClose, validateMilestoneOrder,
-  MILESTONE_STEPS, type MilestoneStep, type PayoutCycleStatus,
-} from "../src/lib/crm2/payout.js";
-import {
-  matchDumpRow, computeSnapshot, type DumpRow, type MisLite, type CycleLite,
-} from "../src/lib/crm2/recon.js";
+import { verifyMetaSignature, extractLeadgenEvents, mapMetaFields, type MetaLeadgenEvent } from "../src/lib/crm2/meta.js";
+import { extractWhatsAppMessages, extractWhatsAppStatuses, type WhatsAppInbound } from "../src/lib/crm2/whatsapp.js";
+import { evaluateSla, slaConfigFromDoc, toMs, type SlaConfig } from "../src/lib/crm2/sla.js";
+import { DEFAULT_BUSINESS_HOURS, elapsedWorkingMs, type BusinessHoursConfig } from "../src/lib/crm2/businessHours.js";
+import { queueConfigFromDoc, eligibleQueues, leadEligibleForSkills, queueForLead, isQueueableLead, type QueueDef } from "../src/lib/crm2/queue.js";
+import { validateTransition, gateForStage, keyDateForStage } from "../src/lib/crm2/stages.js";
+import { validateLoginTransition, keyDateForLoginStage, validateCaseLevelTransition, type LoginLite } from "../src/lib/crm2/logins.js";
+import { deriveCycleStatus, computeAgeing, computeBankerMismatch, computePctVariance, computeAmountVariance, computeNetMarginRealised, canClose, validateMilestoneOrder, MILESTONE_STEPS, type MilestoneStep } from "../src/lib/crm2/payout.js";
+import { matchDumpRow, computeSnapshot, type DumpRow, type MisLite, type CycleLite } from "../src/lib/crm2/recon.js";
 import type { Crm2PermKey } from "../src/types/crm2.js";
 
 type CaseStageT =

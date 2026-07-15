@@ -10,10 +10,7 @@
  */
 
 import { useState, useMemo } from 'react';
-import {
-  format, startOfMonth, endOfMonth, eachDayOfInterval,
-  parseISO, addMonths, subMonths, isSameDay, isSameMonth,
-} from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, isSameMonth } from 'date-fns';
 import { ChevronLeft, ChevronRight, CalendarDays, Filter } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllApprovedLeaves } from '../hooks/useLeave';

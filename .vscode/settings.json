@@ -1,0 +1,6 @@
+{
+  // Editor-only: silences the Tailwind IntelliSense "can be written as ..." style
+  // suggestions (arbitrary values like max-w-[140px] / focus:ring-[#0B1538] are
+  // intentional here). Purely cosmetic — no effect on build, lint, or runtime.
+  "tailwindCSS.lint.suggestCanonicalClasses": "ignore"
+}

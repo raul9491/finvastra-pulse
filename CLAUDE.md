@@ -3093,7 +3093,7 @@ Every collection with a rule block. The global deny-all (`/{document=**}`) rejec
 
 **CRM — config**: `opportunity_types`, `providers`, `document_types`, `commission_slabs`, `commission_records`, `commission_leakage_reports`
 
-**CRM — ops & audit**: `import_logs`, `import_jobs`, `access_requests`, `webhook_logs`, `lead_view_logs` (Phase M), `meta_lead_events` + `meta_lead_deadletters` (Meta webhook write-ahead store + dead-letters — server-only write, admin read), `rtbf_log`, `public_tracker_links`, `crm_documents`
+**CRM — ops & audit**: `import_logs`, `import_jobs`, `access_requests`, `webhook_logs`, `lead_view_logs` (Phase M), `meta_lead_events` + `meta_lead_deadletters` (Meta webhook write-ahead store + dead-letters — server-only write, admin read), `rtbf_log`, `public_tracker_links`, `crm_documents`, `crm_tasks` (ad-hoc assigned to-dos — server-only write; assignee/creator/manager read; 2026-07-15)
 
 **HRMS — attendance & leave**: `attendance`, `attendance_regularizations`, `leave_applications`, `leave_balances`, `leave_balance_adjustments`, `leave_year_resets`, `leave_encashment_requests`, `comp_off_credits`, `holidays`
 

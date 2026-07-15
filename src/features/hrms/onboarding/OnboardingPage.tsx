@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import {
-  collection, onSnapshot, doc, updateDoc, serverTimestamp,
+  collection, onSnapshot, doc, updateDoc, serverTimestamp, Timestamp,
   query, orderBy, getDoc, getDocs, setDoc, where,
 } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import {
-  UserPlus, ChevronLeft, Check, Clock, CheckCircle2,
+  UserPlus, ChevronLeft, Clock, CheckCircle2,
   FileText, Monitor, Package, BookOpen, Circle, Zap,
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -66,92 +66,6 @@ function progressBar(items: ChecklistItem[]) {
   );
 }
 
-// ─── Tick Item Modal ──────────────────────────────────────────────────────────
-
-function TickItemModal({
-  item, checklistId, uid,
-  onClose,
-}: {
-  item: ChecklistItem;
-  checklistId: string;
-  uid: string;
-  onClose: () => void;
-}) {
-  const [notes, setNotes] = useState(item.notes ?? '');
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async (complete: boolean) => {
-    setSaving(true);
-    try {
-      const ref = doc(db, 'onboarding_checklists', checklistId);
-      // We fetch the latest doc to avoid overwriting concurrent changes
-      const snap = await getDoc(ref);
-      if (!snap.exists()) return;
-      const data = snap.data() as Omit<OnboardingChecklist, 'id'>;
-      const updatedItems = data.items.map(i =>
-        i.id === item.id
-          ? {
-              ...i,
-              completed: complete,
-              completedAt: complete ? serverTimestamp() : null,
-              completedBy: complete ? uid : null,
-              notes: notes.trim() || null,
-            }
-          : i
-      );
-
-      const allDone = updatedItems.every(i => i.completed);
-      const anyDone = updatedItems.some(i => i.completed);
-      const newStatus: ChecklistStatus = allDone ? 'completed' : anyDone ? 'in_progress' : 'pending';
-
-      await updateDoc(ref, {
-        items: updatedItems,
-        status: newStatus,
-        completedAt: allDone ? serverTimestamp() : null,
-        updatedAt: serverTimestamp(),
-      });
-    } finally {
-      setSaving(false);
-      onClose();
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-      <div className="bg-(--glass-panel-bg) rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
-        <h3 className="text-base font-semibold text-(--text-primary)">{item.task}</h3>
-        <div>
-          <label className="block text-xs font-medium text-muted mb-1">Notes (optional)</label>
-          <textarea
-            className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm resize-none outline-none focus:ring-2 focus:ring-gold/30"
-            rows={3} value={notes} onChange={e => setNotes(e.target.value)}
-            placeholder="Add a note…" />
-        </div>
-        <div className="flex gap-3 pt-1">
-          <button onClick={onClose} disabled={saving}
-            className="flex-1 border border-(--shell-border) rounded-xl py-2 text-sm font-medium text-muted hover:bg-(--glass-panel-bg) transition-colors">
-            Cancel
-          </button>
-          {item.completed && (
-            <button onClick={() => handleSave(false)} disabled={saving}
-              className="flex-1 border border-amber-200 rounded-xl py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 transition-colors">
-              Mark Incomplete
-            </button>
-          )}
-          {!item.completed && (
-            <button onClick={() => handleSave(true)} disabled={saving}
-              className="flex-1 bg-navy text-white rounded-xl py-2 text-sm font-semibold hover:bg-navy-soft transition-colors flex items-center justify-center gap-1.5">
-              <Check size={14} />
-              Mark Done
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Detail View ──────────────────────────────────────────────────────────────
 
 function ChecklistDetail({
@@ -163,7 +77,42 @@ function ChecklistDetail({
   currentUid: string;
   onBack: () => void;
 }) {
-  const [tickingItem, setTickingItem] = useState<ChecklistItem | null>(null);
+  // Which item is mid-save (disables it briefly + shows a spinner-free dim state)
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  // Direct tick — clicking an item toggles it done/undone immediately, no modal.
+  // NOTE: completedAt uses Timestamp.now() (client), NOT serverTimestamp() —
+  // Firestore forbids serverTimestamp() inside an array element, which was the
+  // silent-failure bug. Top-level completedAt/updatedAt keep serverTimestamp().
+  const toggleItem = async (item: ChecklistItem) => {
+    if (savingId) return;
+    setSavingId(item.id);
+    try {
+      const ref = doc(db, 'onboarding_checklists', checklist.id);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) return;
+      const data = snap.data() as Omit<OnboardingChecklist, 'id'>;
+      const complete = !item.completed;
+      const updatedItems = data.items.map(i =>
+        i.id === item.id
+          ? { ...i, completed: complete, completedAt: complete ? Timestamp.now() : null, completedBy: complete ? currentUid : null }
+          : i
+      );
+      const allDone = updatedItems.every(i => i.completed);
+      const anyDone = updatedItems.some(i => i.completed);
+      const newStatus: ChecklistStatus = allDone ? 'completed' : anyDone ? 'in_progress' : 'pending';
+      await updateDoc(ref, {
+        items: updatedItems,
+        status: newStatus,
+        completedAt: allDone ? serverTimestamp() : null,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (e) {
+      console.error('Failed to toggle onboarding item', e);
+    } finally {
+      setSavingId(null);
+    }
+  };
 
   // Group items by category
   const grouped = Object.entries(
@@ -229,8 +178,8 @@ function ChecklistDetail({
             <ul className="divide-y divide-(--shell-border)">
               {items.map(item => (
                 <li key={item.id}
-                  className="flex items-start gap-3 px-5 py-3 hover:bg-(--glass-panel-bg) transition-colors cursor-pointer"
-                  onClick={() => setTickingItem(item)}>
+                  className={`flex items-start gap-3 px-5 py-3 hover:bg-(--glass-panel-bg) transition-colors cursor-pointer select-none ${savingId === item.id ? 'opacity-50 pointer-events-none' : ''}`}
+                  onClick={() => toggleItem(item)}>
                   <div className="mt-0.5 shrink-0">
                     {item.completed
                       ? <CheckCircle2 size={18} className="text-green-500" />
@@ -256,14 +205,7 @@ function ChecklistDetail({
         );
       })}
 
-      {tickingItem && (
-        <TickItemModal
-          item={tickingItem}
-          checklistId={checklist.id}
-          uid={currentUid}
-          onClose={() => setTickingItem(null)}
-        />
-      )}
+      <p className="text-xs text-muted text-center pt-1">Tap any item to tick it — changes save instantly.</p>
     </div>
   );
 }
@@ -309,7 +251,9 @@ export function OnboardingPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<ChecklistStatus | 'all'>('all');
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<OnboardingChecklist | null>(null);
+  // Track the OPEN checklist by id and derive it live from the snapshot below,
+  // so a tick reflects immediately instead of showing a stale click-time copy.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generateResult, setGenerateResult] = useState<string | null>(null);
 
@@ -375,6 +319,8 @@ export function OnboardingPage() {
   // Guard after hooks
   if (profile && !canAccess) return <Navigate to="/hrms/dashboard" replace />;
 
+  const selected = selectedId ? checklists.find(c => c.id === selectedId) ?? null : null;
+
   const filtered = checklists.filter(c => {
     if (statusFilter !== 'all' && c.status !== statusFilter) return false;
     if (search && !c.employeeName.toLowerCase().includes(search.toLowerCase())) return false;
@@ -393,7 +339,7 @@ export function OnboardingPage() {
         <ChecklistDetail
           checklist={selected}
           currentUid={user?.uid ?? ''}
-          onBack={() => setSelected(null)}
+          onBack={() => setSelectedId(null)}
         />
       </div>
     );
@@ -485,7 +431,7 @@ export function OnboardingPage() {
             const createdDate = toDate(c.createdAt);
 
             return (
-              <button key={c.id} onClick={() => setSelected(c)}
+              <button key={c.id} onClick={() => setSelectedId(c.id)}
                 className="w-full bg-(--glass-panel-bg) border border-(--shell-border) rounded-2xl p-5 shadow-sm text-left hover:border-gold/60 hover:shadow-md transition-all">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">

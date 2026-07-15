@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
-import { collection, onSnapshot, doc, updateDoc, serverTimestamp, query, orderBy, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, serverTimestamp, Timestamp, query, orderBy, getDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import { useAuth } from '../../auth/AuthContext';
 import { UserMinus, ChevronLeft, Check, Clock, CheckCircle2, FileText, Monitor, Package, BookOpen, Circle, Calculator, Download, IndianRupee, AlertCircle, ExternalLink } from 'lucide-react';
@@ -537,7 +537,7 @@ function TickItemModal({
       const data = snap.data() as Omit<OffboardingChecklist, 'id'>;
       const updatedItems = data.items.map(i =>
         i.id === item.id
-          ? { ...i, completed: complete, completedAt: complete ? serverTimestamp() : null, completedBy: complete ? uid : null, notes: notes.trim() || null }
+          ? { ...i, completed: complete, completedAt: complete ? Timestamp.now() : null, completedBy: complete ? uid : null, notes: notes.trim() || null }
           : i
       );
       const allDone = updatedItems.every(i => i.completed);

@@ -19,9 +19,9 @@ import { useState, useMemo, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { format, addMonths, parse } from 'date-fns';
 import {
-  FileText, Download, CheckCircle2, AlertCircle, Loader2, UserPlus, Users, Plus, Minus,
+  FileText, Download, CheckCircle2, AlertCircle, Loader2, UserPlus, Users, Plus, Minus, Sparkles,
 } from 'lucide-react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
@@ -83,6 +83,13 @@ function ctcToWords(n: number): string {
 }
 
 const SALUTATIONS: Salutation[] = ['Mr.', 'Ms.', 'Mrs.', 'Dr.'];
+
+// Admin-only employee docs the letter form prefills from.
+type EmpDetails = { gender?: string; presentAddress?: string; permanentAddress?: string };
+type EmpSalary  = {
+  salaryBasic?: number; salaryHra?: number; salaryConveyance?: number;
+  salaryMedical?: number; salaryOther?: number; grossSalary?: number;
+};
 
 // ─── Default salary row components ───────────────────────────────────────────
 
@@ -212,20 +219,79 @@ export function HrLetterGeneratorPage() {
 
   const selectedEmp = activeEmployees.find((e) => e.userId === empId);
 
-  // Auto-fill common fields when employee is selected or letter type changes
+  // Admin-only detail + salary docs for the selected employee (address, gender,
+  // salary components). Fetched once per selection so the letter fields prefill
+  // straight from the employee master — nothing has to be re-typed per letter.
+  const [empDetails,     setEmpDetails]     = useState<EmpDetails | null>(null);
+  const [empSalary,      setEmpSalary]      = useState<EmpSalary | null>(null);
+  const [prefillLoading, setPrefillLoading] = useState(false);
+
+  useEffect(() => {
+    if (!empId || manualMode) { setEmpDetails(null); setEmpSalary(null); return; }
+    let cancelled = false;
+    setPrefillLoading(true);
+    (async () => {
+      try {
+        const [dSnap, sSnap] = await Promise.all([
+          getDoc(doc(db, 'user_details', empId)),
+          getDoc(doc(db, 'employee_sensitive', empId)),
+        ]);
+        if (cancelled) return;
+        setEmpDetails(dSnap.exists() ? (dSnap.data() as EmpDetails) : null);
+        setEmpSalary(sSnap.exists() ? (sSnap.data() as EmpSalary) : null);
+      } catch {
+        if (!cancelled) { setEmpDetails(null); setEmpSalary(null); }
+      } finally {
+        if (!cancelled) setPrefillLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [empId, manualMode]);
+
+  // Auto-fill the letter fields from the selected employee's master record
+  // (users + user_details + employee_sensitive) when the employee, letter type,
+  // or freshly-fetched detail/salary docs change. Every field stays editable for
+  // a one-off override; a permanent correction is made in the employee's profile.
+  // Only prefills a field when the master actually has a value, so a manual entry
+  // is never blanked out by missing master data.
   useEffect(() => {
     if (!selectedEmp) return;
     const { designation = '', department = '', joiningDate = '' } = selectedEmp;
     const rawDate = joiningDate || '';
+    const address = (empDetails?.presentAddress || empDetails?.permanentAddress || '').trim();
+
+    // Salutation from gender (Male → Mr., Female → Ms.)
+    if (empDetails?.gender === 'Male')        setSalutation('Mr.');
+    else if (empDetails?.gender === 'Female') setSalutation('Ms.');
+
+    // Monthly salary components → annual CTC + Annexure salary breakdown rows
+    const s = empSalary;
+    const monthlyGross = s?.grossSalary
+      ?? [s?.salaryBasic, s?.salaryHra, s?.salaryConveyance, s?.salaryMedical, s?.salaryOther]
+           .reduce((sum: number, v) => sum + (Number(v) || 0), 0);
+    const annualCtcStr = monthlyGross ? Math.round(monthlyGross * 12).toLocaleString('en-IN') : '';
+    const salaryRows: SalaryRow[] = [];
+    const pushRow = (component: string, val?: number, description = '') => {
+      if (val && val > 0) salaryRows.push({ component, description, monthly: String(val) });
+    };
+    pushRow('Basic Salary',              s?.salaryBasic, 'Monthly Fixed');
+    pushRow('House Rent Allowance (HRA)', s?.salaryHra);
+    pushRow('Conveyance Allowance',       s?.salaryConveyance);
+    pushRow('Medical Allowance',          s?.salaryMedical);
+    pushRow('Other Allowance',            s?.salaryOther);
 
     switch (letterType) {
       case 'offer_letter':
         setOfl_designation(designation);
         setOfl_department(department);
+        if (annualCtcStr) setOfl_ctcAnnual(annualCtcStr);
         break;
       case 'appointment':
         setApt_designation(designation);
-        if (rawDate) setApt_joiningDate(rawDate);
+        if (rawDate)           setApt_joiningDate(rawDate);
+        if (address)           setApt_empAddress(address);
+        if (annualCtcStr)      setApt_ctcAnnual(annualCtcStr);
+        if (salaryRows.length) setApt_salaryRows(salaryRows);
         break;
       case 'confirmation':
         setCon_designation(designation);
@@ -235,7 +301,7 @@ export function HrLetterGeneratorPage() {
         break;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [empId, letterType]);
+  }, [empId, letterType, empDetails, empSalary]);
 
   // Auto-format appointment joining date and compute probation end date
   useEffect(() => {
@@ -655,6 +721,35 @@ export function HrLetterGeneratorPage() {
             <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>Ref: {refPreview}</p>
           </div>
         </div>
+
+        {/* Prefill note — details are pulled from the employee master */}
+        {!isConsultant && !manualMode && selectedEmp && (
+          <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-xl text-xs"
+            style={{ backgroundColor: 'rgba(201,169,97,0.08)', border: '1px solid rgba(201,169,97,0.25)' }}>
+            <Sparkles size={14} style={{ color: '#9A7E3F', marginTop: 1, flexShrink: 0 }} />
+            <div style={{ color: 'var(--text-secondary)' }}>
+              {prefillLoading ? (
+                <>Loading {selectedEmp.displayName}'s details…</>
+              ) : (() => {
+                const miss: string[] = [];
+                if (!(empDetails?.presentAddress || empDetails?.permanentAddress)) miss.push('address');
+                if (!empSalary?.grossSalary && !empSalary?.salaryBasic)            miss.push('salary / CTC');
+                return (
+                  <>
+                    Auto-filled from <strong>{selectedEmp.displayName}</strong>'s employee record
+                    {miss.length ? (
+                      <> — <span style={{ color: '#B45309' }}>
+                        {miss.join(' & ')} not on file yet. Add it in the employee's profile so it prefills here next time.
+                      </span></>
+                    ) : (
+                      <>. To correct any detail permanently, edit the employee's profile — no need to re-type it here.</>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        )}
 
         {/* ── Offer Letter fields ── */}
         {letterType === 'offer_letter' && (

@@ -34,9 +34,10 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string }> 
   no_response:    { label: 'No response',  color: '#fbbf24', bg: 'rgba(251,191,36,0.12)' },
   not_interested: { label: 'Not interest', color: '#f87171', bg: 'rgba(248,113,113,0.12)' },
   wrong_number:   { label: 'Wrong no.',    color: '#f87171', bg: 'rgba(248,113,113,0.10)' },
+  not_eligible:   { label: 'Not eligible', color: '#fb7185', bg: 'rgba(251,113,133,0.12)' },
   converted:      { label: 'Converted',    color: '#34d399', bg: 'rgba(52,211,153,0.16)' },
 };
-const STATUS_ORDER = ['interested', 'callback', 'new', 'no_response', 'not_interested', 'wrong_number', 'converted'];
+const STATUS_ORDER = ['interested', 'callback', 'new', 'no_response', 'not_interested', 'wrong_number', 'not_eligible', 'converted'];
 const daysSince = (ms: number) => (ms ? Math.max(0, Math.floor((Date.now() - ms) / 86400000)) : null);
 const tsMs = (v: any): number => (v?.toMillis ? v.toMillis() : (typeof v === 'string' ? new Date(v).getTime() : 0));
 

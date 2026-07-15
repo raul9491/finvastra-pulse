@@ -2930,7 +2930,7 @@ async function startServer() {
       target: 0, achievementPct: 0, overdueSla: 0, dueCallbacks: 0,
       // Per-person lead-status breakdown — what each rep's customers answered, so
       // a manager can see status at a glance before deciding any manual reassign.
-      status: { new: 0, interested: 0, callback: 0, not_interested: 0, no_response: 0, wrong_number: 0, converted: 0 } as Record<string, number>,
+      status: { new: 0, interested: 0, callback: 0, not_interested: 0, no_response: 0, wrong_number: 0, not_eligible: 0, converted: 0 } as Record<string, number>,
       // Tagged→attempted funnel: attempted = firstContactedAt stamped (first call/
       // attempt logged); untouched = still status 'new' AND never contacted — the
       // "data given but not worked" signal managers need at a glance.
@@ -2940,7 +2940,7 @@ async function startServer() {
 
     const callbacks: any[] = [];
     const slaBreaches: any[] = [];
-    const CLOSED = new Set(["not_interested", "no_response", "wrong_number", "converted"]);
+    const CLOSED = new Set(["not_interested", "no_response", "wrong_number", "not_eligible", "converted"]);
 
     leadsSnap.forEach((d) => {
       const l: any = d.data();
@@ -3175,14 +3175,14 @@ async function startServer() {
             g = {
               key, name: label, batchId, leads: 0, unassigned: 0, attempted: 0, untouched: 0,
               converted: 0, interested: 0, callbackDue: 0, dead: 0,
-              status: { new: 0, interested: 0, callback: 0, not_interested: 0, no_response: 0, wrong_number: 0, converted: 0 } as Record<string, number>,
+              status: { new: 0, interested: 0, callback: 0, not_interested: 0, no_response: 0, wrong_number: 0, not_eligible: 0, converted: 0 } as Record<string, number>,
               firstMs: 0, lastMs: 0,
             };
             groups.set(key, g);
           }
           return g;
         };
-        const DEAD = new Set(["not_interested", "no_response", "wrong_number"]);
+        const DEAD = new Set(["not_interested", "no_response", "wrong_number", "not_eligible"]);
         leadsSnap.forEach((d) => {
           const l: any = d.data();
           const batchId = typeof l.importBatchId === "string" && l.importBatchId ? l.importBatchId : null;
@@ -3260,7 +3260,7 @@ async function startServer() {
       // Owned customers: total tagged, tagged this period (when the data was
       // handed to them), attempted (first contact stamped), disposition mix, and
       // the untouched list — status still 'new' AND never contacted.
-      const status: Record<string, number> = { new: 0, interested: 0, callback: 0, not_interested: 0, no_response: 0, wrong_number: 0, converted: 0 };
+      const status: Record<string, number> = { new: 0, interested: 0, callback: 0, not_interested: 0, no_response: 0, wrong_number: 0, not_eligible: 0, converted: 0 };
       let tagged = 0, taggedInPeriod = 0, attempted = 0;
       const untouched: Array<{ leadId: string; name: string; taggedAtMs: number | null; importName: string | null }> = [];
       leadsSnap.forEach((d) => {

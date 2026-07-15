@@ -33,9 +33,10 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
   no_response:    { label: 'No response',      color: '#fbbf24' },
   not_interested: { label: 'Not interested',   color: '#f87171' },
   wrong_number:   { label: 'Wrong number',     color: '#ef4444' },
+  not_eligible:   { label: 'Not eligible',     color: '#fb7185' },
   converted:      { label: 'Converted',        color: '#10b981' },
 };
-const STATUS_ORDER = ['interested', 'callback', 'converted', 'no_response', 'not_interested', 'wrong_number', 'new'];
+const STATUS_ORDER = ['interested', 'callback', 'converted', 'no_response', 'not_interested', 'wrong_number', 'not_eligible', 'new'];
 
 const TYPE_META: Record<string, { label: string; Icon: typeof PhoneCall; color: string }> = {
   call:          { label: 'Call',     Icon: PhoneCall,     color: '#C9A961' },

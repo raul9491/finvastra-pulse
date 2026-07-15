@@ -202,9 +202,10 @@ export function LeadDetailPage() {
     not_interested: 'Not interested',
     no_response:    'No response / not reachable',
     wrong_number:   'Wrong number',
+    not_eligible:   'Not eligible',
     converted:      'Converted',
   };
-  const TERMINAL_STATUSES = new Set<LeadStatus>(['not_interested', 'no_response', 'wrong_number']);
+  const TERMINAL_STATUSES = new Set<LeadStatus>(['not_interested', 'no_response', 'wrong_number', 'not_eligible']);
 
   // Phase 3 — marking a Customer "Interested" promotes it to a CRM 2.0 Lead
   // (moves the same record into the Pipeline Leads funnel). Intercept before the
@@ -535,6 +536,7 @@ export function LeadDetailPage() {
               <option value="not_interested">Not interested</option>
               <option value="no_response">No response / not reachable</option>
               <option value="wrong_number">Wrong number</option>
+              <option value="not_eligible">Not eligible (CIBIL / profile)</option>
             </select>
             {savingStatus && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Saving…</span>}
             {!savingStatus && lead.leadStatus && lead.leadStatus !== 'new' && (

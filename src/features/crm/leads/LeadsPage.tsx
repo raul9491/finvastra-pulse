@@ -49,6 +49,7 @@ const LEAD_BOARD_COLUMNS = [
   { key: 'no_response',    label: 'No response',    color: '#fbbf24' },
   { key: 'not_interested', label: 'Not interested', color: '#f87171' },
   { key: 'wrong_number',   label: 'Wrong number',   color: '#9ca3af' },
+  { key: 'not_eligible',   label: 'Not eligible',   color: '#f43f5e' },
 ] as const;
 
 export function LeadsPage() {

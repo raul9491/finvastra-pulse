@@ -412,7 +412,7 @@ export type TriagePriority = 'high' | 'medium' | 'low';
 
 export type LeadStatus =
   | 'new' | 'interested' | 'callback'
-  | 'not_interested' | 'no_response' | 'wrong_number' | 'converted';
+  | 'not_interested' | 'no_response' | 'wrong_number' | 'not_eligible' | 'converted';
 
 export interface Lead {
   id: string;

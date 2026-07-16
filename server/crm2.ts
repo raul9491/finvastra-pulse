@@ -3809,11 +3809,15 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   app.post("/api/crm2/tasks", route(async (req, res) => {
     const decoded = await decodeToken(req);
     if (!decoded) throw new ApiError(401, "Unauthorized");
-    const meta = await getCallerMeta(decoded.uid);
-    if (!meta.isManager) throw new ApiError(403, "Only a manager or admin can assign tasks");
 
     const b = (req.body ?? {}) as Record<string, unknown>;
     const assignedTo = reqStr(b, "assignedTo");
+    // Anyone may add a task for THEMSELVES (personal to-do); assigning to
+    // someone else stays a manager/admin action.
+    if (assignedTo !== decoded.uid) {
+      const meta = await getCallerMeta(decoded.uid);
+      if (!meta.isManager) throw new ApiError(403, "Only a manager or admin can assign tasks to someone else");
+    }
     const text = reqStr(b, "text").slice(0, 2000);
     const dueAt = optTs(b, "dueAt");
     const link = optStr(b, "link");
@@ -3840,14 +3844,14 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       doneAt: null, doneBy: null,
     });
 
-    await notify(assignedTo, {
+    if (assignedTo !== decoded.uid) await notify(assignedTo, {
       type: "task_assigned",
       title: `New task from ${callerName}`,
       body: text.slice(0, 140),
       link: "/crm/tasks",
     });
     const email = assignee.email as string | undefined;
-    if (email) {
+    if (email && assignedTo !== decoded.uid) {
       void sendBrandedEmail(email, `New task from ${callerName}`, {
         title: "You have a new task",
         intro: `${callerName} assigned you a task on Pulse.`,

@@ -555,14 +555,14 @@ function ReleaseControl({ leadId, onReleased }: { leadId: string; onReleased: ()
   );
 }
 
-// One-click push of a lead into the PARTNER funnel (details auto-picked). The
-// candidate lands at Inquiry, inactive; screening + activation stay super-admin
-// (Masters -> Connectors). Emphasised when the lead is already categorised
-// PARTNER_DSA (e.g. from the website partner form).
+// One-click push of a PARTNER_DSA lead into the partner funnel (details
+// auto-picked). Shown ONLY for leads categorised Partner Sign-up (the website
+// partner form) — business/loan/wealth leads never see this. If a genuine
+// partner request arrived mis-categorised, change its Category to "Partner
+// Sign-up" in the drawer first (the server enforces the same rule).
 function PromotePartnerRow({ lead }: { lead: LeadRow }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
-  const isPartnerCat = lead.category === 'PARTNER_DSA';
   const go = async () => {
     if (!window.confirm(`Move ${lead.name} into the partner funnel? They'll be logged as an Inquiry candidate for screening; this lead closes as Converted.`)) return;
     setBusy(true);
@@ -574,13 +574,9 @@ function PromotePartnerRow({ lead }: { lead: LeadRow }) {
   };
   return (
     <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg"
-      style={isPartnerCat
-        ? { backgroundColor: 'rgba(201,169,97,0.10)', border: '1px solid rgba(201,169,97,0.35)' }
-        : { border: '1px solid var(--shell-border)' }}>
-      <p className="text-xs" style={{ color: isPartnerCat ? '#C9A961' : 'var(--text-muted)' }}>
-        {isPartnerCat
-          ? 'PARTNER request — call them first. They REFER files & we do the legwork → this button (Connector). They will work cases THEMSELVES on the code → use Convert to Sub DSA instead.'
-          : 'Will they refer files while we do the legwork? Screen first, then move them to Connectors.'}
+      style={{ backgroundColor: 'rgba(201,169,97,0.10)', border: '1px solid rgba(201,169,97,0.35)' }}>
+      <p className="text-xs" style={{ color: '#C9A961' }}>
+        PARTNER request — call them first. They REFER files & we do the legwork → this button (Connector). They will work cases THEMSELVES on the code → use Convert to Sub DSA instead.
       </p>
       <button onClick={go} disabled={busy}
         className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
@@ -665,11 +661,17 @@ function LeadDrawer({ lead, canWrite, canAssign, canConvert, faplOptions, produc
             </div>
           )}
 
-          {canWrite && !lead.converted && (
+          {canWrite && !lead.converted && lead.category === 'PARTNER_DSA' && (
             <PromotePartnerRow lead={lead} />
           )}
           {canWrite && !lead.converted && (
             <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FLabel text="Category" />
+                <SearchableSelect value={lead.category ?? 'GENERAL'} disabled={busy}
+                  options={CATEGORY_OPTS}
+                  onChange={(v) => void patch({ category: v }, 'Category updated')} />
+              </div>
               <div>
                 <FLabel text="Status" />
                 <SearchableSelect value={lead.status} disabled={busy}

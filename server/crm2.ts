@@ -1601,6 +1601,12 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     if (lead.converted || lead.linkedConnectorId) {
       throw new ApiError(409, "This lead is already converted / already in the partner funnel");
     }
+    // Only Partner Sign-up leads enter the funnel — a loan/wealth/general lead
+    // must never be moved. If this really is a partner request, set the lead's
+    // Category to "Partner Sign-up" first (drawer Category picker), then move.
+    if (lead.category !== "PARTNER_DSA") {
+      throw new ApiError(400, "Only Partner Sign-up leads can move to the partner funnel — change the lead's Category to 'Partner Sign-up' first if this is genuinely a partner request");
+    }
     const mobile = normaliseMobile(String(lead.mobile ?? "")) || String(lead.mobile ?? "");
     if (!mobile) throw new ApiError(400, "lead has no usable mobile");
     const SRC_TO_PARTNER: Record<string, string> = {

@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Inbox, CalendarClock, ListChecks, ClipboardList, Plus, PhoneCall, AlarmClock, Check,
   List as ListIcon, CalendarDays, ChevronLeft, ChevronRight, Users as UsersIcon,
+  CheckSquare, X,
 } from 'lucide-react';
 import {
   collection, query, where, orderBy, limit, onSnapshot, Timestamp,
@@ -24,8 +25,10 @@ type Tab = 'todo' | 'queue' | 'meetings' | 'cases';
 
 type CaseTask = { id: string; caseId: string; clientName: string | null; text: string; createdByName: string; createdAt: number | null };
 
+type TaskItem = { id: string; text: string; done: boolean };
 type CrmTask = {
   id: string; assignedTo: string; assignedToName: string; text: string;
+  title?: string | null; color?: string | null; items?: TaskItem[] | null;
   dueAt: Timestamp | null; link: string | null; status: 'open' | 'done';
   createdBy: string; createdByName: string; createdAt: Timestamp | null;
 };
@@ -42,8 +45,23 @@ const CRM2_TERMINAL = new Set(['NOT_INTERESTED', 'JUNK_DUPLICATE', 'DROPPED', 'C
 
 const fmtWhen = (d: Date) => d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true });
 const dayKey = (d: Date) => format(d, 'yyyy-MM-dd');
+// Default due = TODAY 6 pm — every new task is dated the day it was created.
+const defaultDue = () => `${format(new Date(), 'yyyy-MM-dd')}T18:00`;
 
-// Calendar item colours — one language across list chips + calendar dots + legend.
+// Google-Keep-style colour accents — rgba tints so both themes stay readable.
+const KEEP_COLORS: Record<string, { bg: string; dot: string }> = {
+  default: { bg: 'var(--shell-hover-soft)', dot: 'var(--shell-border-mid)' },
+  red:     { bg: 'rgba(244,63,94,0.13)',    dot: '#f43f5e' },
+  orange:  { bg: 'rgba(249,115,22,0.13)',   dot: '#f97316' },
+  yellow:  { bg: 'rgba(234,179,8,0.13)',    dot: '#eab308' },
+  green:   { bg: 'rgba(52,211,153,0.12)',   dot: '#34d399' },
+  teal:    { bg: 'rgba(20,184,166,0.13)',   dot: '#14b8a6' },
+  blue:    { bg: 'rgba(96,165,250,0.13)',   dot: '#60a5fa' },
+  purple:  { bg: 'rgba(139,92,246,0.13)',   dot: '#8b5cf6' },
+};
+const colorOf = (c?: string | null) => KEEP_COLORS[c ?? 'default'] ?? KEEP_COLORS.default;
+
+// Calendar item colours — one language across chips + dots + legend.
 const KIND_META = {
   task:     { label: 'Task',      color: '#C9A961' },
   followup: { label: 'Follow-up', color: '#fbbf24' },
@@ -54,9 +72,10 @@ type CalKind = keyof typeof KIND_META;
 type CalItem = { key: string; kind: CalKind; at: Date; label: string; sub?: string; link?: string; task?: CrmTask };
 
 /**
- * TasksPage — unified workspace. The To-Do tab is the "what should I act on"
- * radar: your tasks, lead follow-ups and callbacks — as clean cards or a
- * month calendar.
+ * TasksPage — unified workspace. The To-Do tab is a Google-Keep-style board:
+ * colour note cards with optional checklists, quick capture (due today by
+ * default), due-time reminders (bell + email via the 15-min sweep), plus lead
+ * follow-ups/callbacks and a month calendar.
  */
 export function TasksPage() {
   const [tab, setTab] = useState<Tab>('todo');
@@ -96,7 +115,7 @@ export function TasksPage() {
   );
 }
 
-// ─── To-Do — quick-add + my tasks / assigned-by-me + follow-ups + calendar ────
+// ─── To-Do — Keep board + follow-ups + calendar ───────────────────────────────
 
 function ToDoSection() {
   const { user, profile } = useAuth();
@@ -157,13 +176,13 @@ function ToDoSection() {
   // ── Derived ─────────────────────────────────────────────────────────────────
   const now = Date.now();
 
-  // "My tasks" = everything assigned to me (incl. self-created — shown ONCE here).
+  // "My tasks" = everything assigned to me (a self-created task shows ONCE here).
   const openMine = useMemo(() =>
     myTasks.filter((t) => t.status === 'open')
       .sort((a, b) => (a.dueAt?.toMillis() ?? Infinity) - (b.dueAt?.toMillis() ?? Infinity)
         || (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0)),
     [myTasks]);
-  // "Assigned by me" = tasks I gave to OTHERS (self-assigned live under My tasks).
+  // "Assigned by me" = tasks I gave to OTHERS.
   const openGiven = useMemo(() =>
     givenTasks.filter((t) => t.status === 'open' && t.assignedTo !== uid)
       .sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0)),
@@ -190,13 +209,13 @@ function ToDoSection() {
     const items: CalItem[] = [];
     for (const t of openMine) {
       if (t.dueAt) items.push({
-        key: `t_${t.id}`, kind: 'task', at: t.dueAt.toDate(), label: t.text,
+        key: `t_${t.id}`, kind: 'task', at: t.dueAt.toDate(), label: t.title || t.text,
         sub: t.createdBy === uid ? 'my task' : `from ${t.createdByName}`, task: t,
       });
     }
     for (const t of openGiven) {
       if (t.dueAt) items.push({
-        key: `g_${t.id}`, kind: 'task', at: t.dueAt.toDate(), label: t.text,
+        key: `g_${t.id}`, kind: 'task', at: t.dueAt.toDate(), label: t.title || t.text,
         sub: `to ${t.assignedToName}`, task: t,
       });
     }
@@ -225,28 +244,30 @@ function ToDoSection() {
   }, [openMine, openGiven, activeCrm2, dueCallbacks, meetings, uid]);
 
   const [busyId, setBusyId] = useState('');
-  const setTaskStatus = async (t: CrmTask, status: 'open' | 'done') => {
-    setBusyId(t.id);
+  const patchTask = async (id: string, body: Record<string, unknown>, okMsg?: string) => {
+    setBusyId(id);
     try {
-      await apiCrm2('PATCH', `/api/crm2/tasks/${t.id}`, { status });
-      toast.success(status === 'done' ? 'Done ✓' : 'Task reopened');
+      await apiCrm2('PATCH', `/api/crm2/tasks/${id}`, body);
+      if (okMsg) toast.success(okMsg);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not update task');
     } finally { setBusyId(''); }
   };
+  const setTaskStatus = (t: CrmTask, status: 'open' | 'done') =>
+    patchTask(t.id, { status }, status === 'done' ? 'Done ✓' : 'Task reopened');
 
   const nothingToDo = openMine.length === 0 && openGiven.length === 0 && followUpsDue.length === 0
     && awaitingFirstContact.length === 0 && dueCallbacks.length === 0;
 
   return (
     <div className="space-y-6">
-      {/* Quick add — one line, anyone can add for themselves; managers pick a person */}
-      <QuickAddTask uid={uid} canAssignOthers={canAssignOthers} />
+      {/* Keep-style composer */}
+      <KeepComposer uid={uid} canAssignOthers={canAssignOthers} />
 
-      {/* View toggle */}
+      {/* View toggle + legend */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-1 p-1 rounded-lg" style={{ backgroundColor: 'var(--shell-hover-soft)' }}>
-          {([['list', 'List', ListIcon], ['calendar', 'Calendar', CalendarDays]] as const).map(([v, lbl, Icon]) => (
+          {([['list', 'Board', ListIcon], ['calendar', 'Calendar', CalendarDays]] as const).map(([v, lbl, Icon]) => (
             <button key={v} onClick={() => setView(v)}
               className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md transition-colors"
               style={view === v
@@ -274,94 +295,115 @@ function ToDoSection() {
         <div className="glass-panel p-10 text-center">
           <p className="text-2xl mb-2">🎉</p>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Nothing pending. Add a task above, or check the Calendar for what's coming up.
+            Nothing pending. Add a note or task above — it lands here as a card.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-          {/* LEFT column — tasks */}
-          <div className="space-y-5">
-            {openMine.length > 0 && (
-              <CardSection Icon={ClipboardList} label="My tasks" count={openMine.length} color="#C9A961">
+        <div className="space-y-6">
+          {/* My tasks — Keep masonry */}
+          {openMine.length > 0 && (
+            <div>
+              <BoardHead Icon={ClipboardList} label="My tasks" count={openMine.length} color="#C9A961" />
+              <div className="columns-1 sm:columns-2 xl:columns-3 gap-3">
                 {openMine.map((t) => (
-                  <TaskCard key={t.id} t={t} me={uid} busy={busyId === t.id} now={now}
-                    onDone={() => void setTaskStatus(t, 'done')} />
+                  <TaskKeepCard key={t.id} t={t} me={uid} busy={busyId === t.id} now={now}
+                    onDone={() => void setTaskStatus(t, 'done')}
+                    onPatch={(body) => void patchTask(t.id, body)} />
                 ))}
-              </CardSection>
-            )}
-            {openGiven.length > 0 && (
-              <CardSection Icon={UsersIcon} label="Assigned by me" count={openGiven.length} color="#8B5CF6">
-                {openGiven.map((t) => (
-                  <TaskCard key={t.id} t={t} me={uid} busy={busyId === t.id} now={now}
-                    onDone={() => void setTaskStatus(t, 'done')} />
-                ))}
-              </CardSection>
-            )}
-          </div>
+              </div>
+            </div>
+          )}
 
-          {/* RIGHT column — leads needing action */}
-          <div className="space-y-5">
-            {followUpsDue.length > 0 && (
-              <CardSection Icon={AlarmClock} label="Lead follow-ups due" count={followUpsDue.length} color="#fbbf24">
-                {followUpsDue.map((l) => {
-                  const at = l.nextFollowUpAt!.toDate();
-                  const overdue = at.getTime() < now;
-                  return (
-                    <LinkCard key={l.id} to="/crm/pipeline/leads" overdue={overdue}
-                      icon={<AlarmClock size={15} style={{ color: overdue ? '#f87171' : '#fbbf24' }} />}
-                      title={l.name ?? l.leadCode ?? l.id}
-                      sub={`Follow up ${overdue ? 'was due' : 'due'} ${fmtWhen(at)}${l.nextFollowUpNote ? ` — ${l.nextFollowUpNote}` : ''}`}
-                      subColor={overdue ? '#f87171' : undefined} />
-                  );
-                })}
-              </CardSection>
-            )}
-            {awaitingFirstContact.length > 0 && (
-              <CardSection Icon={PhoneCall} label="New leads — make the first call" count={awaitingFirstContact.length} color="#60a5fa">
-                {awaitingFirstContact.slice(0, 10).map((l) => (
-                  <LinkCard key={l.id} to="/crm/pipeline/leads"
-                    icon={<PhoneCall size={15} style={{ color: '#60a5fa' }} />}
-                    title={l.name ?? l.leadCode ?? l.id}
-                    sub={`Assigned to you${l.receivedAt ? ` · received ${fmtWhen(l.receivedAt.toDate())}` : ''}`} />
+          {/* Assigned by me — Keep masonry */}
+          {openGiven.length > 0 && (
+            <div>
+              <BoardHead Icon={UsersIcon} label="Assigned by me" count={openGiven.length} color="#8B5CF6" />
+              <div className="columns-1 sm:columns-2 xl:columns-3 gap-3">
+                {openGiven.map((t) => (
+                  <TaskKeepCard key={t.id} t={t} me={uid} busy={busyId === t.id} now={now}
+                    onDone={() => void setTaskStatus(t, 'done')}
+                    onPatch={(body) => void patchTask(t.id, body)} />
                 ))}
-                {awaitingFirstContact.length > 10 && (
-                  <Link to="/crm/pipeline/leads" className="block text-center text-xs py-2 underline" style={{ color: 'var(--text-muted)' }}>
-                    +{awaitingFirstContact.length - 10} more on the Leads page →
-                  </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Leads needing action */}
+          {(followUpsDue.length > 0 || awaitingFirstContact.length > 0 || dueCallbacks.length > 0) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+              <div className="space-y-5">
+                {followUpsDue.length > 0 && (
+                  <CardSection Icon={AlarmClock} label="Lead follow-ups due" count={followUpsDue.length} color="#fbbf24">
+                    {followUpsDue.map((l) => {
+                      const at = l.nextFollowUpAt!.toDate();
+                      const overdue = at.getTime() < now;
+                      return (
+                        <LinkCard key={l.id} to="/crm/pipeline/leads" overdue={overdue}
+                          icon={<AlarmClock size={15} style={{ color: overdue ? '#f87171' : '#fbbf24' }} />}
+                          title={l.name ?? l.leadCode ?? l.id}
+                          sub={`Follow up ${overdue ? 'was due' : 'due'} ${fmtWhen(at)}${l.nextFollowUpNote ? ` — ${l.nextFollowUpNote}` : ''}`}
+                          subColor={overdue ? '#f87171' : undefined} />
+                      );
+                    })}
+                  </CardSection>
                 )}
-              </CardSection>
-            )}
-            {dueCallbacks.length > 0 && (
-              <CardSection Icon={PhoneCall} label="Customer callbacks" count={dueCallbacks.length} color="#34d399">
-                {dueCallbacks.map((l) => {
-                  const at = new Date(l.callbackAt!);
-                  const overdue = at.getTime() < now;
-                  return (
-                    <LinkCard key={l.id} to={`/crm/leads/${l.id}`} overdue={overdue}
-                      icon={<PhoneCall size={15} style={{ color: overdue ? '#f87171' : '#34d399' }} />}
-                      title={l.displayName ?? l.id}
-                      sub={`Callback ${overdue ? 'was due' : 'scheduled'} ${fmtWhen(at)}`}
-                      subColor={overdue ? '#f87171' : undefined} />
-                  );
-                })}
-              </CardSection>
-            )}
-          </div>
+                {dueCallbacks.length > 0 && (
+                  <CardSection Icon={PhoneCall} label="Customer callbacks" count={dueCallbacks.length} color="#34d399">
+                    {dueCallbacks.map((l) => {
+                      const at = new Date(l.callbackAt!);
+                      const overdue = at.getTime() < now;
+                      return (
+                        <LinkCard key={l.id} to={`/crm/leads/${l.id}`} overdue={overdue}
+                          icon={<PhoneCall size={15} style={{ color: overdue ? '#f87171' : '#34d399' }} />}
+                          title={l.displayName ?? l.id}
+                          sub={`Callback ${overdue ? 'was due' : 'scheduled'} ${fmtWhen(at)}`}
+                          subColor={overdue ? '#f87171' : undefined} />
+                      );
+                    })}
+                  </CardSection>
+                )}
+              </div>
+              <div className="space-y-5">
+                {awaitingFirstContact.length > 0 && (
+                  <CardSection Icon={PhoneCall} label="New leads — make the first call" count={awaitingFirstContact.length} color="#60a5fa">
+                    {awaitingFirstContact.slice(0, 10).map((l) => (
+                      <LinkCard key={l.id} to="/crm/pipeline/leads"
+                        icon={<PhoneCall size={15} style={{ color: '#60a5fa' }} />}
+                        title={l.name ?? l.leadCode ?? l.id}
+                        sub={`Assigned to you${l.receivedAt ? ` · received ${fmtWhen(l.receivedAt.toDate())}` : ''}`} />
+                    ))}
+                    {awaitingFirstContact.length > 10 && (
+                      <Link to="/crm/pipeline/leads" className="block text-center text-xs py-2 underline" style={{ color: 'var(--text-muted)' }}>
+                        +{awaitingFirstContact.length - 10} more on the Leads page →
+                      </Link>
+                    )}
+                  </CardSection>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-// ─── Quick add — one line, Enter to save ──────────────────────────────────────
+// ─── Keep composer — collapsed row → expanding note card ─────────────────────
 
-function QuickAddTask({ uid, canAssignOthers }: { uid: string; canAssignOthers: boolean }) {
+function KeepComposer({ uid, canAssignOthers }: { uid: string; canAssignOthers: boolean }) {
   const toast = useToast();
   const { employees } = useAllEmployees(canAssignOthers);
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState('');
   const [text, setText] = useState('');
-  const [dueAt, setDueAt] = useState('');
-  const [forUid, setForUid] = useState('');     // '' = myself
+  const [checklist, setChecklist] = useState(false);
+  const [items, setItems] = useState<TaskItem[]>([]);
+  const [newItem, setNewItem] = useState('');
+  const [color, setColor] = useState('default');
+  const [dueAt, setDueAt] = useState(defaultDue());
+  const [forUid, setForUid] = useState('');
   const [saving, setSaving] = useState(false);
+  const seq = useRef(0);
 
   const options = [
     { value: '', label: 'Myself' },
@@ -370,94 +412,224 @@ function QuickAddTask({ uid, canAssignOthers }: { uid: string; canAssignOthers: 
       .map((e) => ({ value: e.userId, label: e.displayName })),
   ];
 
+  const addItem = () => {
+    const t = newItem.trim();
+    if (!t) return;
+    seq.current += 1;
+    setItems((p) => [...p, { id: `n${Date.now()}_${seq.current}`, text: t, done: false }]);
+    setNewItem('');
+  };
+
+  const reset = () => {
+    setOpen(false); setTitle(''); setText(''); setChecklist(false);
+    setItems([]); setNewItem(''); setColor('default'); setDueAt(defaultDue()); setForUid('');
+  };
+
   const submit = async () => {
-    if (text.trim().length < 3) { toast.error('Type the task first'); return; }
+    const list = checklist
+      ? [...items, ...(newItem.trim() ? [{ id: `n${Date.now()}_x`, text: newItem.trim(), done: false }] : [])]
+      : [];
+    if (!title.trim() && !text.trim() && list.length === 0) { toast.error('Type something first'); return; }
     setSaving(true);
     try {
       await apiCrm2('POST', '/api/crm2/tasks', {
         assignedTo: forUid || uid,
-        text: text.trim(),
+        title: title.trim() || null,
+        text: checklist ? '' : text.trim(),
+        items: checklist ? list : null,
+        color,
         ...(dueAt ? { dueAt: new Date(dueAt).toISOString() } : {}),
       });
-      toast.success(forUid ? 'Task assigned — they\'ve been notified' : 'Task added');
-      setText(''); setDueAt(''); setForUid('');
+      toast.success(forUid ? 'Task assigned — they\'ve been notified' : 'Added');
+      reset();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not add the task');
+      toast.error(e instanceof Error ? e.message : 'Could not add');
     } finally { setSaving(false); }
   };
 
+  if (!open) {
+    return (
+      <div className="glass-panel px-4 py-3 flex items-center gap-3 max-w-2xl mx-auto cursor-text"
+        onClick={() => setOpen(true)}>
+        <Plus size={16} style={{ color: '#C9A961' }} />
+        <span className="flex-1 text-sm" style={{ color: 'var(--text-muted)' }}>Add a task or note…</span>
+        <button onClick={(e) => { e.stopPropagation(); setChecklist(true); setOpen(true); }}
+          title="New checklist" className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard)">
+          <CheckSquare size={16} style={{ color: 'var(--text-muted)' }} />
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="glass-panel p-3 flex flex-wrap items-center gap-2">
-      <Plus size={16} className="shrink-0 ml-1" style={{ color: '#C9A961' }} />
-      <input
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter' && !saving) void submit(); }}
-        placeholder="Add a task… e.g. Call Sharma about the HL documents"
-        className="flex-1 min-w-[180px] text-sm px-2 py-2 rounded-lg outline-none"
-        style={{ backgroundColor: 'transparent', color: 'var(--text-primary)' }}
-      />
-      <input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)}
-        title="Due date & time (optional)"
-        className="text-xs px-2.5 py-2 rounded-lg outline-none"
-        style={{ backgroundColor: 'var(--ss-bg)', border: '1px solid var(--shell-border)', color: 'var(--text-muted)' }} />
-      {canAssignOthers && (
-        <div className="w-44">
-          <SearchableSelect options={options} value={forUid} onChange={setForUid} placeholder="For: Myself" />
+    <div className="rounded-2xl max-w-2xl mx-auto p-4 space-y-3"
+      style={{ backgroundColor: colorOf(color).bg, border: '1px solid var(--shell-border)', boxShadow: '0 4px 16px rgba(0,0,0,0.18)' }}>
+      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title"
+        className="w-full text-base font-semibold outline-none bg-transparent"
+        style={{ color: 'var(--text-primary)' }} autoFocus />
+
+      {!checklist ? (
+        <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Take a note…"
+          rows={Math.min(8, Math.max(2, text.split('\n').length))}
+          className="w-full text-sm outline-none bg-transparent resize-none leading-relaxed"
+          style={{ color: 'var(--text-primary)' }} />
+      ) : (
+        <div className="space-y-1.5">
+          {items.map((it) => (
+            <div key={it.id} className="flex items-center gap-2">
+              <span className="w-4 h-4 rounded border-2 shrink-0" style={{ borderColor: 'var(--shell-border-mid)' }} />
+              <span className="flex-1 text-sm" style={{ color: 'var(--text-primary)' }}>{it.text}</span>
+              <button onClick={() => setItems((p) => p.filter((x) => x.id !== it.id))}
+                className="p-1 rounded hover:bg-(--shell-hover-hard)">
+                <X size={12} style={{ color: 'var(--text-dim)' }} />
+              </button>
+            </div>
+          ))}
+          <div className="flex items-center gap-2">
+            <Plus size={14} style={{ color: 'var(--text-dim)' }} />
+            <input value={newItem} onChange={(e) => setNewItem(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }}
+              placeholder="List item — Enter to add"
+              className="flex-1 text-sm outline-none bg-transparent" style={{ color: 'var(--text-primary)' }} />
+          </div>
         </div>
       )}
-      <button onClick={() => void submit()} disabled={saving}
-        className="text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-50"
-        style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
-        {saving ? 'Adding…' : 'Add'}
-      </button>
+
+      {/* Colour dots */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {Object.entries(KEEP_COLORS).map(([k, v]) => (
+          <button key={k} onClick={() => setColor(k)} title={k}
+            className="w-6 h-6 rounded-full transition-transform hover:scale-110"
+            style={{
+              backgroundColor: k === 'default' ? 'var(--ss-bg)' : v.dot,
+              border: color === k ? '2px solid #C9A961' : '2px solid var(--shell-border)',
+            }} />
+        ))}
+        <button onClick={() => setChecklist((c) => !c)}
+          className="ml-auto inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg hover:bg-(--shell-hover-hard)"
+          style={{ color: checklist ? '#C9A961' : 'var(--text-muted)' }}>
+          <CheckSquare size={13} /> {checklist ? 'Note mode' : 'Checklist'}
+        </button>
+      </div>
+
+      {/* Due + person + actions */}
+      <div className="flex items-center gap-2 flex-wrap pt-1" style={{ borderTop: '1px solid var(--shell-border)' }}>
+        <label className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+          <AlarmClock size={13} />
+          <input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)}
+            className="text-xs px-2 py-1.5 rounded-lg outline-none"
+            style={{ backgroundColor: 'var(--ss-bg)', border: '1px solid var(--shell-border)', color: 'var(--text-muted)' }} />
+        </label>
+        {canAssignOthers && (
+          <div className="w-40">
+            <SearchableSelect options={options} value={forUid} onChange={setForUid} placeholder="For: Myself" />
+          </div>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          <button onClick={reset} className="text-xs font-semibold px-3 py-2 rounded-lg hover:bg-(--shell-hover-hard)" style={{ color: 'var(--text-muted)' }}>
+            Close
+          </button>
+          <button onClick={() => void submit()} disabled={saving}
+            className="text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-50"
+            style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+            {saving ? 'Adding…' : 'Add'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
-// ─── Card primitives ──────────────────────────────────────────────────────────
+// ─── Keep card ────────────────────────────────────────────────────────────────
+
+function BoardHead({ Icon, label, count, color }: { Icon: typeof Inbox; label: string; count: number; color: string }) {
+  return (
+    <div className="flex items-center gap-2 mb-2.5">
+      <Icon size={15} style={{ color }} />
+      <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{label}</h3>
+      <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${color}22`, color }}>{count}</span>
+    </div>
+  );
+}
+
+function TaskKeepCard({ t, me, busy, now, onDone, onPatch }: {
+  t: CrmTask; me: string; busy: boolean; now: number;
+  onDone: () => void; onPatch: (body: Record<string, unknown>) => void;
+}) {
+  const overdue = t.dueAt != null && t.dueAt.toMillis() < now;
+  const mineByMe = t.createdBy === me && t.assignedTo === me;
+  const items = t.items ?? [];
+  const doneCount = items.filter((i) => i.done).length;
+  const canTick = t.assignedTo === me || t.createdBy === me;
+
+  const toggleItem = (id: string) => {
+    if (!canTick || busy) return;
+    onPatch({ items: items.map((i) => (i.id === id ? { ...i, done: !i.done } : i)) });
+  };
+
+  return (
+    <div className="break-inside-avoid mb-3 rounded-2xl p-4 transition-shadow hover:shadow-lg"
+      style={{
+        backgroundColor: colorOf(t.color).bg,
+        border: `1px solid ${overdue ? 'rgba(248,113,113,0.55)' : 'var(--shell-border)'}`,
+      }}>
+      {t.title && (
+        <p className="text-sm font-bold mb-1.5 leading-snug" style={{ color: 'var(--text-primary)' }}>{t.title}</p>
+      )}
+      {t.text && (
+        <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>{t.text}</p>
+      )}
+
+      {items.length > 0 && (
+        <div className="mt-1 space-y-1">
+          {items.map((it) => (
+            <button key={it.id} onClick={() => toggleItem(it.id)} disabled={!canTick || busy}
+              className="flex items-start gap-2 w-full text-left group disabled:cursor-default">
+              <span className="mt-0.5 w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center transition-colors"
+                style={{
+                  borderColor: it.done ? '#34d399' : 'var(--shell-border-mid)',
+                  backgroundColor: it.done ? 'rgba(52,211,153,0.18)' : 'transparent',
+                }}>
+                {it.done && <Check size={11} style={{ color: '#34d399' }} />}
+              </span>
+              <span className={`text-sm leading-snug ${it.done ? 'line-through' : ''}`}
+                style={{ color: it.done ? 'var(--text-dim)' : 'var(--text-primary)' }}>
+                {it.text}
+              </span>
+            </button>
+          ))}
+          <p className="text-[10px] pt-0.5" style={{ color: 'var(--text-dim)' }}>{doneCount}/{items.length} done</p>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-2 mt-3 pt-2" style={{ borderTop: '1px solid var(--shell-border)' }}>
+        <p className="text-[11px] min-w-0 truncate" style={{ color: 'var(--text-muted)' }}>
+          {mineByMe ? 'my task' : t.assignedTo === me ? `from ${t.createdByName}` : `to ${t.assignedToName}`}
+          {t.dueAt && (
+            <span className="font-medium" style={{ color: overdue ? '#f87171' : '#C9A961' }}>
+              {' '}· {overdue ? 'OVERDUE' : 'due'} {fmtWhen(t.dueAt.toDate())}
+            </span>
+          )}
+        </p>
+        <button onClick={onDone} disabled={busy}
+          className="shrink-0 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg disabled:opacity-40"
+          style={{ backgroundColor: 'rgba(52,211,153,0.14)', color: '#34d399' }}>
+          ✓ Done
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Small link/list cards for lead actions ───────────────────────────────────
 
 function CardSection({ Icon, label, count, color, children }: {
   Icon: typeof Inbox; label: string; count: number; color: string; children: React.ReactNode;
 }) {
   return (
     <div className="glass-panel p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <Icon size={15} style={{ color }} />
-        <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{label}</h3>
-        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${color}22`, color }}>{count}</span>
-      </div>
+      <BoardHead Icon={Icon} label={label} count={count} color={color} />
       <div className="space-y-2">{children}</div>
-    </div>
-  );
-}
-
-function TaskCard({ t, me, busy, now, onDone }: { t: CrmTask; me: string; busy: boolean; now: number; onDone: () => void }) {
-  const overdue = t.dueAt != null && t.dueAt.toMillis() < now;
-  const mineByMe = t.createdBy === me && t.assignedTo === me;
-  return (
-    <div className="flex items-start gap-3 p-3 rounded-xl transition-colors"
-      style={{
-        backgroundColor: 'var(--shell-hover-soft)',
-        border: `1px solid ${overdue ? 'rgba(248,113,113,0.45)' : 'var(--shell-border)'}`,
-      }}>
-      <button onClick={onDone} disabled={busy} title="Mark done"
-        className="mt-0.5 shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all hover:scale-110 disabled:opacity-40 group"
-        style={{ borderColor: overdue ? '#f87171' : '#C9A961' }}>
-        <Check size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: '#34d399' }} />
-      </button>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm leading-snug" style={{ color: 'var(--text-primary)' }}>{t.text}</p>
-        <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-          {mineByMe ? 'my task' : t.assignedTo === me ? `from ${t.createdByName}` : `to ${t.assignedToName}`}
-          {t.dueAt && (
-            <span className="font-medium" style={{ color: overdue ? '#f87171' : '#C9A961' }}>
-              {' '}· {overdue ? 'OVERDUE — was due' : 'due'} {fmtWhen(t.dueAt.toDate())}
-            </span>
-          )}
-          {t.link && <> · <Link to={t.link} className="underline" style={{ color: '#C9A961' }}>open →</Link></>}
-        </p>
-      </div>
     </div>
   );
 }
@@ -485,7 +657,7 @@ function LinkCard({ to, icon, title, sub, subColor, overdue }: {
 // ─── Month calendar — tasks, follow-ups, callbacks, meetings by date ──────────
 
 function TasksCalendar({ items, busyId, onToggleTask }: {
-  items: CalItem[]; busyId: string; onToggleTask: (t: CrmTask, status: 'open' | 'done') => Promise<void>;
+  items: CalItem[]; busyId: string; onToggleTask: (t: CrmTask, status: 'open' | 'done') => void;
 }) {
   const today = new Date();
   const [ym, setYm] = useState<{ y: number; m: number }>({ y: today.getFullYear(), m: today.getMonth() });
@@ -524,7 +696,7 @@ function TasksCalendar({ items, busyId, onToggleTask }: {
 
   return (
     <div className="space-y-4">
-      <div className="glass-panel p-4">
+      <div className="glass-panel p-3 sm:p-4">
         {/* Month header */}
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>{monthLabel}</h3>
@@ -549,14 +721,14 @@ function TasksCalendar({ items, busyId, onToggleTask }: {
         {/* Grid */}
         <div className="grid grid-cols-7 gap-1">
           {cells.map((d, i) => {
-            if (!d) return <div key={`e${i}`} className="min-h-16 rounded-lg" />;
+            if (!d) return <div key={`e${i}`} className="min-h-12 sm:min-h-16 rounded-lg" />;
             const k = dayKey(d);
             const its = byDay.get(k) ?? [];
             const isToday = k === todayKey;
             const isSelected = k === selectedDay;
             return (
               <button key={k} onClick={() => setSelectedDay(k)}
-                className="min-h-16 rounded-lg p-1 text-left align-top transition-colors hover:bg-(--shell-hover-hard)"
+                className="min-h-12 sm:min-h-16 rounded-lg p-1 text-left align-top transition-colors hover:bg-(--shell-hover-hard)"
                 style={{
                   backgroundColor: isSelected ? 'rgba(201,169,97,0.12)' : 'var(--shell-hover-soft)',
                   border: isToday ? '1.5px solid #C9A961' : `1px solid ${isSelected ? 'rgba(201,169,97,0.5)' : 'var(--shell-border)'}`,
@@ -601,7 +773,7 @@ function TasksCalendar({ items, busyId, onToggleTask }: {
                   {it.sub && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{KIND_META[it.kind].label} · {it.sub}</p>}
                 </div>
                 {it.task ? (
-                  <button onClick={() => void onToggleTask(it.task!, 'done')} disabled={busyId === it.task.id}
+                  <button onClick={() => onToggleTask(it.task!, 'done')} disabled={busyId === it.task.id}
                     className="shrink-0 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg disabled:opacity-40"
                     style={{ backgroundColor: 'rgba(52,211,153,0.12)', color: '#34d399' }}>
                     ✓ Done

@@ -3808,6 +3808,24 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     res.json({ ok: true, tasks });
   }));
 
+  // Keep-style task extras — colour accent + optional checklist items.
+  const TASK_COLORS = new Set(["default", "red", "orange", "yellow", "green", "teal", "blue", "purple"]);
+  function sanitizeTaskColor(v: unknown): string {
+    return isStr(v) && TASK_COLORS.has(String(v)) ? String(v) : "default";
+  }
+  function sanitizeTaskItems(v: unknown): Array<{ id: string; text: string; done: boolean }> | null {
+    if (!Array.isArray(v)) return null;
+    const out = v.slice(0, 50).map((raw, i) => {
+      const it = (raw ?? {}) as Record<string, unknown>;
+      return {
+        id: isStr(it.id) ? String(it.id).slice(0, 40) : `i${i}_${Math.abs(i * 2654435761 % 100000)}`,
+        text: String(it.text ?? "").slice(0, 300),
+        done: it.done === true,
+      };
+    }).filter((it) => it.text.trim() !== "");
+    return out.length ? out : null;
+  }
+
   // ═══ Ad-hoc tasks — a manager/admin assigns a to-do to any specific person ═══
   // Collection /crm_tasks — server-only writes (rules: write false); the assignee,
   // the creator, and managers/admins can read. Assignment bells + emails the
@@ -3824,7 +3842,11 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       const meta = await getCallerMeta(decoded.uid);
       if (!meta.isManager) throw new ApiError(403, "Only a manager or admin can assign tasks to someone else");
     }
-    const text = reqStr(b, "text").slice(0, 2000);
+    const text = (optStr(b, "text") ?? "").slice(0, 4000);
+    const title = (optStr(b, "title") ?? "").slice(0, 200) || null;
+    const color = sanitizeTaskColor(b.color);
+    const items = sanitizeTaskItems(b.items);
+    if (!text.trim() && !title && !(items && items.length)) throw new ApiError(400, "Task needs a title, text or checklist items");
     const dueAt = optTs(b, "dueAt");
     const link = optStr(b, "link");
 
@@ -3840,6 +3862,10 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       assignedTo,
       assignedToName: (assignee.displayName as string) ?? assignedTo,
       text,
+      title,
+      color,
+      items,
+      reminderSent: false,
       dueAt: dueAt ?? null,
       link: link ? link.slice(0, 500) : null,
       status: "open",
@@ -3853,7 +3879,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     if (assignedTo !== decoded.uid) await notify(assignedTo, {
       type: "task_assigned",
       title: `New task from ${callerName}`,
-      body: text.slice(0, 140),
+      body: (title || text).slice(0, 140),
       link: "/crm/tasks",
     });
     const email = assignee.email as string | undefined;
@@ -3862,7 +3888,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         title: "You have a new task",
         intro: `${callerName} assigned you a task on Pulse.`,
         rows: [
-          { label: "Task", value: text.slice(0, 300) },
+          { label: "Task", value: (title ? `${title} — ${text}` : text).slice(0, 300) },
           ...(dueAt ? [{ label: "Due", value: dueAt.toDate().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" }) }] : []),
         ],
         ctaLabel: "Open Tasks", ctaLink: "https://pulse.finvastra.com/crm/tasks",
@@ -3883,13 +3909,24 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       const meta = await getCallerMeta(decoded.uid);
       if (!meta.isManager) throw new ApiError(403, "Not your task");
     }
-    const status = reqEnum((req.body ?? {}) as Record<string, unknown>, "status", ["open", "done"] as const);
-    await taskRef.update({
-      status,
-      doneAt: status === "done" ? FieldValue.serverTimestamp() : null,
-      doneBy: status === "done" ? decoded.uid : null,
-      updatedAt: FieldValue.serverTimestamp(),
-    });
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const fields: Record<string, unknown> = {};
+    if (b.status !== undefined) {
+      const status = reqEnum(b, "status", ["open", "done"] as const);
+      fields.status = status;
+      fields.doneAt = status === "done" ? FieldValue.serverTimestamp() : null;
+      fields.doneBy = status === "done" ? decoded.uid : null;
+    }
+    if (b.title !== undefined) fields.title = (optStr(b, "title") ?? "").slice(0, 200) || null;
+    if (b.text !== undefined) fields.text = (optStr(b, "text") ?? "").slice(0, 4000);
+    if (b.color !== undefined) fields.color = sanitizeTaskColor(b.color);
+    if (b.items !== undefined) fields.items = sanitizeTaskItems(b.items);
+    if (b.dueAt !== undefined) {
+      fields.dueAt = optTs(b, "dueAt");
+      fields.reminderSent = false;                    // re-arm the due reminder
+    }
+    if (Object.keys(fields).length === 0) throw new ApiError(400, "No editable fields in payload");
+    await taskRef.update({ ...fields, updatedAt: FieldValue.serverTimestamp() });
     res.json({ ok: true });
   }));
 

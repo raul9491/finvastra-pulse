@@ -3754,7 +3754,51 @@ async function startServer() {
         partnerNotified++;
       }
 
-      return res.json({ checked: snap.size, notified, partnerChecked: connSnap.size, partnerNotified });
+      // ── Ad-hoc task reminders (crm_tasks) — due within 15 min or overdue ─────
+      // Bell + email the assignee once per due time (reminderSent re-arms when
+      // the task's dueAt changes). Open tasks are few → whole-collection filter.
+      let taskNotified = 0;
+      const taskSnap = await db.collection("crm_tasks").where("status", "==", "open").get();
+      for (const d of taskSnap.docs) {
+        const t: any = d.data();
+        if (t.reminderSent === true) continue;
+        const due = t.dueAt?.toMillis ? t.dueAt.toMillis() : null;
+        if (due === null || due > now + 15 * 60_000) continue;
+        const uid = t.assignedTo as string | undefined;
+        if (!uid) { await d.ref.update({ reminderSent: true }).catch(() => {}); continue; }
+        const label = String(t.title || t.text || "task").slice(0, 60);
+
+        await db.collection("notifications").doc(uid).collection("items").add({
+          type:      "task_assigned",
+          title:     `Task due — ${label}`,
+          body:      "Your task is due now. Open Tasks to mark it done.",
+          link:      "/crm/tasks",
+          read:      false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        }).catch(() => {});
+
+        try {
+          const uDoc = await db.collection("users").doc(uid).get();
+          const email = uDoc.data()?.email as string | undefined;
+          if (email) {
+            const html = buildBrandEmail({
+              title: "Task reminder",
+              intro: "A task on your Pulse To-Do list is due.",
+              rows: [
+                { label: "Task", value: String(t.title || t.text || "-").slice(0, 300) },
+                ...(t.createdByName && t.createdBy !== uid ? [{ label: "From", value: String(t.createdByName) }] : []),
+              ],
+              ctaLabel: "Open Tasks", ctaLink: "https://pulse.finvastra.com/crm/tasks",
+            });
+            await sendGmailMessage(email, `Task due — ${label}`, html).catch(() => {});
+          }
+        } catch { /* bell already delivered */ }
+
+        await d.ref.update({ reminderSent: true }).catch(() => {});
+        taskNotified++;
+      }
+
+      return res.json({ checked: snap.size, notified, partnerChecked: connSnap.size, partnerNotified, taskChecked: taskSnap.size, taskNotified });
     } catch (e) { return res.status(500).json({ error: String(e) }); }
   });
 

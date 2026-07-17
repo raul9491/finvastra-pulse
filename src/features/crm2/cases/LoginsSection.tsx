@@ -656,6 +656,15 @@ function LoginFormModal({ caseId, caseProductId, caseSubProduct, login, lenders,
             const ln = lenders.find((l) => l.id === v);
             setF((p) => {
               const next = { ...p, lenderId: v };
+              // Changing the bank invalidates the previous bank's contacts +
+              // branch — clear them so the new lender starts fresh (then the
+              // single-saved-contact prefill below applies for the new bank).
+              if (v !== p.lenderId) {
+                next.branch = '';
+                next.smName = ''; next.smNumber = ''; next.smEmail = '';
+                next.asmName = ''; next.asmNumber = ''; next.asmEmail = '';
+                p = next;
+              }
               if (canSeeBankContacts) {
                 const only = (role: string) => {
                   const cs = (ln?.contacts ?? []).filter((c) => c.role === role && (c.name ?? '').trim());

@@ -408,6 +408,33 @@ function BranchInput({ value, onChange, lender }: {
   );
 }
 
+// SM/ASM name input — free text + a datalist of the selected lender's saved
+// contacts for that role. Picking (or typing) a name that matches a saved
+// contact auto-fills their number, email and branch for faster entry.
+type LenderContact = { name: string; role: string; email: string; mobile: string; branch: string };
+function ContactNameInput({ value, onChange, lender, role, onPick }: {
+  value: string; onChange: (v: string) => void;
+  lender?: (Lender & { id: string }); role: 'SM' | 'ASM';
+  onPick: (c: LenderContact) => void;
+}) {
+  const contacts = (lender?.contacts ?? []).filter((c) => c.role === role && (c.name ?? '').trim());
+  const listId = `${role.toLowerCase()}-names-${lender?.id ?? 'none'}`;
+  const handle = (v: string) => {
+    onChange(v);
+    const hit = contacts.find((c) => c.name.trim().toLowerCase() === v.trim().toLowerCase());
+    if (hit) onPick(hit as LenderContact);
+  };
+  return (
+    <>
+      <input className={inp()} value={value} list={listId} onChange={(e) => handle(e.target.value)}
+        placeholder={contacts.length ? `Pick a saved ${role} or type…` : `${role} name`} />
+      {contacts.length > 0 && (
+        <datalist id={listId}>{contacts.map((c, i) => <option key={`${c.name}${i}`} value={c.name} />)}</datalist>
+      )}
+    </>
+  );
+}
+
 type SpState = Record<string, { status: string; query: string; remarks: string }>;
 type QLog = Array<{ raisedAt: unknown; detail: string; resolvedAt: unknown }>;
 
@@ -602,15 +629,44 @@ function LoginFormModal({ caseId, caseProductId, caseSubProduct, login, lenders,
       {focusStage === 'FILE_LOGIN' && (
       <Section title="① File / Bank Login">
         <div className="grid grid-cols-2 gap-3">
-          <div><FLabel text="Bank / NBFC (Lender)" /><SearchableSelect value={f.lenderId} onChange={(v) => set('lenderId', v)} placeholder="Select lender…" options={[{ value: '', label: '—' }, ...lenders.filter((l) => l.status === 'ACTIVE' || l.id === f.lenderId).map((l) => ({ value: l.id, label: l.name }))]} /></div>
+          <div><FLabel text="Bank / NBFC (Lender)" /><SearchableSelect value={f.lenderId} onChange={(v) => {
+            // Selecting the bank populates the SM/ASM pickers from its saved
+            // contacts; when it has exactly ONE saved SM (or ASM) and those
+            // fields are still empty, prefill them right away.
+            const ln = lenders.find((l) => l.id === v);
+            setF((p) => {
+              const next = { ...p, lenderId: v };
+              if (canSeeBankContacts) {
+                const only = (role: string) => {
+                  const cs = (ln?.contacts ?? []).filter((c) => c.role === role && (c.name ?? '').trim());
+                  return cs.length === 1 ? cs[0] : null;
+                };
+                const sm = only('SM');
+                if (sm && !p.smName && !p.smNumber && !p.smEmail) {
+                  next.smName = sm.name; next.smNumber = sm.mobile ?? ''; next.smEmail = sm.email ?? '';
+                  if (!p.branch && sm.branch) next.branch = sm.branch;
+                }
+                const asm = only('ASM');
+                if (asm && !p.asmName && !p.asmNumber && !p.asmEmail) {
+                  next.asmName = asm.name; next.asmNumber = asm.mobile ?? ''; next.asmEmail = asm.email ?? '';
+                  if (!next.branch && asm.branch) next.branch = asm.branch;
+                }
+              }
+              return next;
+            });
+          }} placeholder="Select lender…" options={[{ value: '', label: '—' }, ...lenders.filter((l) => l.status === 'ACTIVE' || l.id === f.lenderId).slice().sort((a, b) => a.name.localeCompare(b.name)).map((l) => ({ value: l.id, label: l.name }))]} /></div>
           <div><FLabel text="Branch" /><BranchInput value={f.branch} onChange={(v) => set('branch', v)} lender={selectedLender} /></div>
           <div className="col-span-2"><FLabel text="Amount Requested ₹" /><AmountInput value={f.amountRequested} onChange={(v) => set('amountRequested', v)} words placeholder="30,00,000" /></div>
           {canSeeBankContacts && (<>
             <div className="col-span-2"><p className="text-[10px] font-bold uppercase tracking-widest pt-1" style={{ color: '#C9A961' }}>Bank Contacts <span className="font-normal normal-case" style={{ color: 'var(--text-muted)' }}>· company-confidential</span></p></div>
-            <div><FLabel text="SM Name" /><input className={inp()} value={f.smName} onChange={(e) => set('smName', e.target.value)} /></div>
+            <div><FLabel text="SM Name" /><ContactNameInput value={f.smName} lender={selectedLender} role="SM"
+              onChange={(v) => set('smName', v)}
+              onPick={(c) => { set('smName', c.name); if (c.mobile) set('smNumber', c.mobile); if (c.email) set('smEmail', c.email); if (c.branch && !f.branch) set('branch', c.branch); }} /></div>
             <div><FLabel text="SM Number" /><input className={inp()} value={f.smNumber} onChange={(e) => set('smNumber', e.target.value)} /></div>
             <div className="col-span-2"><FLabel text="SM Email" /><input type="email" className={inp()} value={f.smEmail} onChange={(e) => set('smEmail', e.target.value)} placeholder="sm@bank.com" /></div>
-            <div><FLabel text="ASM Name" /><input className={inp()} value={f.asmName} onChange={(e) => set('asmName', e.target.value)} /></div>
+            <div><FLabel text="ASM Name" /><ContactNameInput value={f.asmName} lender={selectedLender} role="ASM"
+              onChange={(v) => set('asmName', v)}
+              onPick={(c) => { set('asmName', c.name); if (c.mobile) set('asmNumber', c.mobile); if (c.email) set('asmEmail', c.email); if (c.branch && !f.branch) set('branch', c.branch); }} /></div>
             <div><FLabel text="ASM Number" /><input className={inp()} value={f.asmNumber} onChange={(e) => set('asmNumber', e.target.value)} /></div>
             <div className="col-span-2"><FLabel text="ASM Email" /><input type="email" className={inp()} value={f.asmEmail} onChange={(e) => set('asmEmail', e.target.value)} placeholder="asm@bank.com" /></div>
           </>)}

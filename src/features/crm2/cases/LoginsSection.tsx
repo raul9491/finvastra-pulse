@@ -408,9 +408,11 @@ function BranchInput({ value, onChange, lender }: {
   );
 }
 
-// SM/ASM name input — free text + a datalist of the selected lender's saved
-// contacts for that role. Picking (or typing) a name that matches a saved
-// contact auto-fills their number, email and branch for faster entry.
+// SM/ASM contact picker. When the selected lender has saved contacts for this
+// role (Masters → Lenders → contacts), show a VISIBLE dropdown of them — pick
+// a name and the number/email/branch auto-fill. "➕ New" switches to free text
+// for a contact not in the master yet (saving the login adds them to it).
+// Call sites key this by lender id so switching banks resets the mode.
 type LenderContact = { name: string; role: string; email: string; mobile: string; branch: string };
 function ContactNameInput({ value, onChange, lender, role, onPick }: {
   value: string; onChange: (v: string) => void;
@@ -418,18 +420,36 @@ function ContactNameInput({ value, onChange, lender, role, onPick }: {
   onPick: (c: LenderContact) => void;
 }) {
   const contacts = (lender?.contacts ?? []).filter((c) => c.role === role && (c.name ?? '').trim());
-  const listId = `${role.toLowerCase()}-names-${lender?.id ?? 'none'}`;
-  const handle = (v: string) => {
-    onChange(v);
-    const hit = contacts.find((c) => c.name.trim().toLowerCase() === v.trim().toLowerCase());
-    if (hit) onPick(hit as LenderContact);
-  };
+  const [manual, setManual] = useState(false);
+  const valueSaved = contacts.some((c) => c.name === value);
+
+  if (contacts.length > 0 && !manual && (!value || valueSaved)) {
+    return (
+      <SearchableSelect
+        value={valueSaved ? value : ''}
+        onChange={(v) => {
+          if (v === '__new__') { setManual(true); onChange(''); return; }
+          onChange(v);
+          const hit = contacts.find((c) => c.name === v);
+          if (hit) onPick(hit as LenderContact);
+        }}
+        placeholder={`Pick saved ${role}…`}
+        options={[
+          ...contacts.map((c) => ({ value: c.name, label: `${c.name}${c.mobile ? ` · ${c.mobile}` : ''}` })),
+          { value: '__new__', label: `➕ New ${role} (type manually)` },
+        ]}
+      />
+    );
+  }
   return (
     <>
-      <input className={inp()} value={value} list={listId} onChange={(e) => handle(e.target.value)}
-        placeholder={contacts.length ? `Pick a saved ${role} or type…` : `${role} name`} />
+      <input className={inp()} value={value} onChange={(e) => onChange(e.target.value)}
+        placeholder={contacts.length ? `${role} name (new contact)` : `${role} name`} />
       {contacts.length > 0 && (
-        <datalist id={listId}>{contacts.map((c, i) => <option key={`${c.name}${i}`} value={c.name} />)}</datalist>
+        <button type="button" onClick={() => { onChange(''); setManual(false); }}
+          className="text-[10px] underline mt-0.5" style={{ color: '#C9A961' }}>
+          ← pick from saved {role}s instead
+        </button>
       )}
     </>
   );
@@ -659,12 +679,12 @@ function LoginFormModal({ caseId, caseProductId, caseSubProduct, login, lenders,
           <div className="col-span-2"><FLabel text="Amount Requested ₹" /><AmountInput value={f.amountRequested} onChange={(v) => set('amountRequested', v)} words placeholder="30,00,000" /></div>
           {canSeeBankContacts && (<>
             <div className="col-span-2"><p className="text-[10px] font-bold uppercase tracking-widest pt-1" style={{ color: '#C9A961' }}>Bank Contacts <span className="font-normal normal-case" style={{ color: 'var(--text-muted)' }}>· company-confidential</span></p></div>
-            <div><FLabel text="SM Name" /><ContactNameInput value={f.smName} lender={selectedLender} role="SM"
+            <div><FLabel text="SM Name" /><ContactNameInput key={`sm-${f.lenderId}`} value={f.smName} lender={selectedLender} role="SM"
               onChange={(v) => set('smName', v)}
               onPick={(c) => { set('smName', c.name); if (c.mobile) set('smNumber', c.mobile); if (c.email) set('smEmail', c.email); if (c.branch && !f.branch) set('branch', c.branch); }} /></div>
             <div><FLabel text="SM Number" /><input className={inp()} value={f.smNumber} onChange={(e) => set('smNumber', e.target.value)} /></div>
             <div className="col-span-2"><FLabel text="SM Email" /><input type="email" className={inp()} value={f.smEmail} onChange={(e) => set('smEmail', e.target.value)} placeholder="sm@bank.com" /></div>
-            <div><FLabel text="ASM Name" /><ContactNameInput value={f.asmName} lender={selectedLender} role="ASM"
+            <div><FLabel text="ASM Name" /><ContactNameInput key={`asm-${f.lenderId}`} value={f.asmName} lender={selectedLender} role="ASM"
               onChange={(v) => set('asmName', v)}
               onPick={(c) => { set('asmName', c.name); if (c.mobile) set('asmNumber', c.mobile); if (c.email) set('asmEmail', c.email); if (c.branch && !f.branch) set('branch', c.branch); }} /></div>
             <div><FLabel text="ASM Number" /><input className={inp()} value={f.asmNumber} onChange={(e) => set('asmNumber', e.target.value)} /></div>

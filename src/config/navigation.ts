@@ -20,7 +20,7 @@ import {
   BarChart3, Upload, PackageOpen, User, Webhook, GitMerge, IndianRupee,
   AlertTriangle, Command,
   Layers, Eye, Share2, Trash2, Contact, Hourglass, ClipboardCheck, PieChart, Banknote, Award, FileSpreadsheet, Wallet,
-  MessageCircle, BellRing, PhoneCall,
+  MessageCircle, BellRing, PhoneCall, UserX,
 } from 'lucide-react';
 import type { User as FbUser } from 'firebase/auth';
 import type { UserProfile } from '../types';
@@ -168,6 +168,7 @@ export const NAV_NODES: NavNode[] = [
   { key: 'crm.notifications',     label: 'Notifications',       route: '/crm/admin/notifications',    module: 'crm', icon: 'BellRing',      group: 'Admin',     access: (c) => c.isSA || c.isAdmin || c.isCrmManager, keywords: ['alerts', 'emails', 'subscriptions', 'scorecards', 'reminders', 'digest'] },
   { key: 'crm.permissions',       label: 'CRM Permissions',         route: '/crm/pipeline/permissions',   module: 'crm', icon: 'User',            group: 'Admin',     access: crmAdmin },
   { key: 'crm.import-history',    label: 'Import History',      route: '/crm/import/history',         module: 'crm', icon: 'Clock',           group: 'Manage',    access: (c) => crmManager(c) || crmImport(c), keywords: ['import jobs', 'errors', 'retry'] },
+  { key: 'crm.not-eligible',      label: 'Not Eligible',        route: '/crm/reports/not-eligible',   module: 'crm', icon: 'UserX',           group: 'Manage',    access: crmManager, keywords: ['rejected', 'cibil', 'credit', 'ineligible', 'register'] },
   { key: 'crm.commission-leakage',label: 'Commission Leakage',  route: '/crm/admin/commission-leakage',module: 'crm', icon: 'AlertTriangle',       group: 'Admin',     access: crmAdmin },
   { key: 'crm.competitor-intel',  label: 'Competitor Intel',    route: '/crm/admin/competitor-intelligence', module: 'crm', icon: 'Eye', group: 'Admin',     access: crmAdmin },
   { key: 'crm.referral-intel',    label: 'Referral Intel',      route: '/crm/admin/referrers',        module: 'crm', icon: 'Share2',        group: 'Admin',     access: crmAdmin },
@@ -230,7 +231,7 @@ const NAV_ICONS: Record<string, LucideIcon> = {
   BarChart3, Upload, PackageOpen, User, Webhook, GitMerge, IndianRupee,
   AlertTriangle, Command,
   Layers, Eye, Share2, Trash2, Contact, Hourglass, ClipboardCheck, PieChart, Banknote, Award, FileSpreadsheet, Wallet,
-  MessageCircle, BellRing, PhoneCall,
+  MessageCircle, BellRing, PhoneCall, UserX,
 };
 
 export function resolveNavIcon(name: string): LucideIcon {

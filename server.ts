@@ -3213,6 +3213,67 @@ async function startServer() {
     } catch (e) { return res.status(500).json({ error: String(e) }); }
   });
 
+  // ── Not-eligible register — every rejected customer/lead across BOTH models,
+  // with the CIBIL score / reason, who marked it and when. Managers + admins +
+  // super admins get the complete view; the data lives on the lead docs.
+  app.get("/api/crm/not-eligible", async (req, res) => {
+    try {
+      const uid = await verifyFirebaseToken(req);
+      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+      const callerDoc = await db.collection("users").doc(uid).get();
+      const caller: any = callerDoc.data() ?? {};
+      const allowed = caller.role === "admin" || isSuperAdmin(uid) || caller.crmRole === "manager";
+      if (!allowed) return res.status(403).json({ error: "Forbidden" });
+      const fresh = req.query.fresh === "1";
+
+      return res.json(await cachedJson("noteligible", fresh, async () => {
+        const [oldSnap, newSnap, usersSnap] = await Promise.all([
+          db.collection("leads").where("leadStatus", "==", "not_eligible").get(),
+          db.collection("leads").where("status", "==", "NOT_ELIGIBLE").get(),
+          db.collection("users").get(),
+        ]);
+        const nameByUid = new Map<string, string>();
+        const nameByFapl = new Map<string, string>();
+        for (const d of usersSnap.docs) {
+          const u: any = d.data();
+          nameByUid.set(d.id, u.displayName ?? d.id);
+          if (u.employeeId) nameByFapl.set(u.employeeId, u.displayName ?? u.employeeId);
+        }
+        const anyName = (v: string | null | undefined) =>
+          v ? (nameByFapl.get(v) ?? nameByUid.get(v) ?? v) : null;
+        const ms = (v: any) => (v?.toMillis ? v.toMillis() : null);
+
+        const rows: any[] = [];
+        for (const d of oldSnap.docs) {
+          const l: any = d.data();
+          if (l.deleted === true) continue;
+          rows.push({
+            id: d.id, model: "customer",
+            name: l.displayName ?? d.id, mobile: l.phone ?? null,
+            creditScore: l.creditScore ?? null, reason: l.notEligibleReason ?? null,
+            markedBy: anyName(l.leadStatusBy), markedAt: ms(l.leadStatusAt) ?? ms(l.updatedAt),
+            owner: anyName(l.primaryOwnerId),
+            link: `/crm/leads/${d.id}`,
+          });
+        }
+        for (const d of newSnap.docs) {
+          const l: any = d.data();
+          rows.push({
+            id: d.id, model: "lead",
+            name: l.name ?? l.leadCode ?? d.id, mobile: l.mobile ?? null,
+            creditScore: l.creditScore ?? null, reason: l.notEligibleReason ?? null,
+            markedBy: anyName(l.updatedBy), markedAt: ms(l.updatedAt),
+            owner: anyName(l.assignedRm),
+            link: "/crm/pipeline/leads",
+          });
+        }
+        rows.sort((a, b) => (b.markedAt ?? 0) - (a.markedAt ?? 0));
+        return { rows, total: rows.length };
+      }));
+    } catch (e) { return res.status(500).json({ error: String(e) }); }
+  });
+
+
   // GET /api/crm/activity/summary?period=YYYY-MM[&uid=UID]
   // The outbound-call activity view for ONE person: tagged → attempted → outcome.
   // Powers /crm/my-activity. Anyone may view THEMSELVES; a CRM manager may view

@@ -145,6 +145,7 @@ const MyQueuePage              = lazyPage(() => import('./features/crm/leads/MyQ
 const ImportPage               = lazyPage(() => import('./features/crm/import/ImportPage'), 'ImportPage');
 const ImportQueuePage          = lazyPage(() => import('./features/crm/import/ImportQueuePage'), 'ImportQueuePage');
 const ImportHistoryPage        = lazyPage(() => import('./features/crm/import/ImportHistoryPage'), 'ImportHistoryPage');
+const NotEligiblePage          = lazyPage(() => import('./features/crm/reports/NotEligiblePage'), 'NotEligiblePage');
 const MyReferralsPage          = lazyPage(() => import('./features/crm/referrals/MyReferralsPage'), 'MyReferralsPage');
 const SubmitReferralPage       = lazyPage(() => import('./features/crm/referrals/SubmitReferralPage'), 'SubmitReferralPage');
 const ImportReferralsPage      = lazyPage(() => import('./features/crm/referrals/ImportReferralsPage'), 'ImportReferralsPage');
@@ -345,6 +346,7 @@ export const router = createBrowserRouter([
       { path: 'meetings',                    element: s(<MyMeetingsPage />) },
       { path: 'learn',                       element: s(<CrmLearnPage />) },
       { path: 'reports/aging',               element: <LegacyTab tab="aging" /> },
+      { path: 'reports/not-eligible',        element: s(<NotEligiblePage />) },
       // CRM 2.0 / Pipeline (PLAN.md) — coexists with the old CRM until migration
       { path: 'pipeline/masters',            element: s(<Crm2MastersPage />) },
       { path: 'pipeline/leads',              element: s(<Crm2LeadsPage />) },

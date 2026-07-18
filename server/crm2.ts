@@ -3926,6 +3926,12 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       fields.reminderSent = false;                    // re-arm the due reminder
     }
     if (Object.keys(fields).length === 0) throw new ApiError(400, "No editable fields in payload");
+    // Content edits (not status ticks) stamp editedAt → the card shows an "edited" tag.
+    if (b.title !== undefined || b.text !== undefined || b.color !== undefined
+        || b.items !== undefined || b.dueAt !== undefined) {
+      fields.editedAt = FieldValue.serverTimestamp();
+      fields.editedBy = decoded.uid;
+    }
     await taskRef.update({ ...fields, updatedAt: FieldValue.serverTimestamp() });
     res.json({ ok: true });
   }));

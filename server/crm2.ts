@@ -3934,6 +3934,27 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       fields.dueAt = optTs(b, "dueAt");
       fields.reminderSent = false;                    // re-arm the due reminder
     }
+    // Comment — appended with author + time (never overwrites the task), and
+    // bells the other side of the task (assignee <-> creator, never self).
+    if (typeof b.comment === "string" && b.comment.trim()) {
+      const commentText = String(b.comment).trim().slice(0, 1000);
+      const callerSnap = await db.collection("users").doc(decoded.uid).get();
+      const callerName = (callerSnap.data()?.displayName as string) ?? decoded.uid;
+      fields.comments = FieldValue.arrayUnion({
+        by: decoded.uid, byName: callerName,
+        text: commentText,
+        at: Timestamp.now(),   // arrayUnion cannot hold serverTimestamp()
+      });
+      const others = new Set([t.assignedTo, t.createdBy].filter((u) => u && u !== decoded.uid));
+      for (const target of others) {
+        await notify(String(target), {
+          type: "task_assigned",
+          title: `Comment on: ${String(t.title || t.text || "task").slice(0, 50)}`,
+          body: `${callerName}: ${commentText.slice(0, 120)}`,
+          link: "/crm/tasks",
+        });
+      }
+    }
     if (Object.keys(fields).length === 0) throw new ApiError(400, "No editable fields in payload");
     // Content edits (not status ticks) stamp editedAt → the card shows an "edited" tag.
     if (b.title !== undefined || b.text !== undefined || b.color !== undefined

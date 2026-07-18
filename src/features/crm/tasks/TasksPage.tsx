@@ -32,6 +32,7 @@ type CrmTask = {
   dueAt: Timestamp | null; link: string | null; status: 'open' | 'done';
   createdBy: string; createdByName: string; createdAt: Timestamp | null;
   editedAt?: Timestamp | null;
+  comments?: Array<{ by: string; byName: string; text: string; at: Timestamp }> | null;
 };
 
 type Crm2LeadLite = {
@@ -128,7 +129,6 @@ function ToDoSection() {
 
   const [view, setView] = useState<'list' | 'calendar'>('list');
   const [search, setSearch] = useState('');
-  const [editTask, setEditTask] = useState<CrmTask | null>(null);
 
   // ── Data: tasks assigned to me / by me (live) ───────────────────────────────
   const [myTasks, setMyTasks] = useState<CrmTask[]>([]);
@@ -343,8 +343,7 @@ function ToDoSection() {
                 {mineFromOthers.map((t) => (
                   <TaskKeepCard key={t.id} t={t} me={uid} busy={busyId === t.id} now={now}
                     onDone={() => void setTaskStatus(t, 'done')}
-                    onPatch={(body) => void patchTask(t.id, body)}
-                    onOpen={() => setEditTask(t)} />
+                    onPatch={(body) => void patchTask(t.id, body)} />
                 ))}
               </div>
             </div>
@@ -358,8 +357,7 @@ function ToDoSection() {
                 {mineSelf.map((t) => (
                   <TaskKeepCard key={t.id} t={t} me={uid} busy={busyId === t.id} now={now}
                     onDone={() => void setTaskStatus(t, 'done')}
-                    onPatch={(body) => void patchTask(t.id, body)}
-                    onOpen={() => setEditTask(t)} />
+                    onPatch={(body) => void patchTask(t.id, body)} />
                 ))}
               </div>
             </div>
@@ -373,8 +371,7 @@ function ToDoSection() {
                 {givenFiltered.map((t) => (
                   <TaskKeepCard key={t.id} t={t} me={uid} busy={busyId === t.id} now={now}
                     onDone={() => void setTaskStatus(t, 'done')}
-                    onPatch={(body) => void patchTask(t.id, body)}
-                    onOpen={() => setEditTask(t)} />
+                    onPatch={(body) => void patchTask(t.id, body)} />
                 ))}
               </div>
             </div>
@@ -437,11 +434,6 @@ function ToDoSection() {
         </div>
       )}
 
-      {editTask && (
-        <TaskEditModal task={editTask} busy={busyId === editTask.id}
-          onSave={async (body) => { await patchTask(editTask.id, body, 'Saved'); setEditTask(null); }}
-          onClose={() => setEditTask(null)} />
-      )}
     </div>
   );
 }
@@ -610,26 +602,33 @@ function BoardHead({ Icon, label, count, color }: { Icon: typeof Inbox; label: s
   );
 }
 
-function TaskKeepCard({ t, me, busy, now, onDone, onPatch, onOpen }: {
+function TaskKeepCard({ t, me, busy, now, onDone, onPatch }: {
   t: CrmTask; me: string; busy: boolean; now: number;
   onDone: () => void; onPatch: (body: Record<string, unknown>) => void;
-  onOpen?: () => void;
 }) {
   const overdue = t.dueAt != null && t.dueAt.toMillis() < now;
   const mineByMe = t.createdBy === me && t.assignedTo === me;
   const items = t.items ?? [];
   const doneCount = items.filter((i) => i.done).length;
   const canTick = t.assignedTo === me || t.createdBy === me;
+  const comments = t.comments ?? [];
+  const [commentOpen, setCommentOpen] = useState(false);
+  const [commentText, setCommentText] = useState('');
 
   const toggleItem = (id: string) => {
     if (!canTick || busy) return;
     onPatch({ items: items.map((i) => (i.id === id ? { ...i, done: !i.done } : i)) });
   };
 
+  const sendComment = () => {
+    const txt = commentText.trim();
+    if (!txt || busy) return;
+    onPatch({ comment: txt });
+    setCommentText(''); setCommentOpen(false);
+  };
+
   return (
-    <div onClick={onOpen}
-      className={`break-inside-avoid mb-3 rounded-2xl p-4 transition-shadow hover:shadow-lg ${onOpen ? 'cursor-pointer' : ''}`}
-      title={onOpen ? 'Click to edit' : undefined}
+    <div className="break-inside-avoid mb-3 rounded-2xl p-4 transition-shadow hover:shadow-lg"
       style={{
         backgroundColor: colorOf(t.color).bg,
         border: `1px solid ${overdue ? 'rgba(248,113,113,0.55)' : 'var(--shell-border)'}`,
@@ -663,6 +662,36 @@ function TaskKeepCard({ t, me, busy, now, onDone, onPatch, onOpen }: {
         </div>
       )}
 
+      {/* Comment thread — every remark carries who said it and when */}
+      {comments.length > 0 && (
+        <div className="mt-2.5 pt-2 space-y-2" style={{ borderTop: '1px dashed var(--shell-border)' }}>
+          {comments.map((c, i) => (
+            <div key={i}>
+              <p className="text-xs leading-snug" style={{ color: 'var(--text-secondary)' }}>{c.text}</p>
+              <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-dim)' }}>
+                — <span className="font-semibold" style={{ color: '#C9A961' }}>{c.byName}</span>
+                {c.at?.toDate ? ` · ${fmtWhen(c.at.toDate())}` : ''}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+      {commentOpen && (
+        <div className="flex items-center gap-2 mt-2">
+          <input value={commentText} autoFocus
+            onChange={(e) => setCommentText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') sendComment(); }}
+            placeholder="Add a comment…"
+            className="flex-1 min-w-0 text-xs px-2.5 py-2 rounded-lg outline-none"
+            style={{ backgroundColor: 'var(--ss-bg)', border: '1px solid var(--shell-border)', color: 'var(--text-primary)' }} />
+          <button onClick={sendComment} disabled={busy || !commentText.trim()}
+            className="shrink-0 text-[11px] font-semibold px-2.5 py-2 rounded-lg disabled:opacity-40"
+            style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+            Send
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-2 mt-3 pt-2" style={{ borderTop: '1px solid var(--shell-border)' }}>
         <p className="text-[11px] min-w-0 truncate" style={{ color: 'var(--text-muted)' }}>
           {mineByMe ? 'my task' : t.assignedTo === me ? `from ${t.createdByName}` : `to ${t.assignedToName}`}
@@ -671,137 +700,20 @@ function TaskKeepCard({ t, me, busy, now, onDone, onPatch, onOpen }: {
               {' '}· {overdue ? 'OVERDUE' : 'due'} {fmtWhen(t.dueAt.toDate())}
             </span>
           )}
-          {t.editedAt && (
-            <span className="ml-1.5 text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
-              style={{ backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-dim)' }}
-              title={`Edited ${fmtWhen(t.editedAt.toDate())}`}>
-              edited
-            </span>
-          )}
         </p>
-        <button onClick={(e) => { e.stopPropagation(); onDone(); }} disabled={busy}
-          className="shrink-0 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg disabled:opacity-40"
-          style={{ backgroundColor: 'rgba(52,211,153,0.14)', color: '#34d399' }}>
-          ✓ Done
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Task edit modal — click a card to change anything on it ─────────────────
-
-function TaskEditModal({ task, busy, onSave, onClose }: {
-  task: CrmTask; busy: boolean;
-  onSave: (body: Record<string, unknown>) => Promise<void>; onClose: () => void;
-}) {
-  const [title, setTitle] = useState(task.title ?? '');
-  const [text, setText] = useState(task.text ?? '');
-  const [items, setItems] = useState<TaskItem[]>(task.items ?? []);
-  const [newItem, setNewItem] = useState('');
-  const [color, setColor] = useState(task.color ?? 'default');
-  const [dueAt, setDueAt] = useState(task.dueAt ? format(task.dueAt.toDate(), "yyyy-MM-dd'T'HH:mm") : '');
-  const isChecklist = items.length > 0;
-
-  const addItem = () => {
-    const t = newItem.trim();
-    if (!t) return;
-    setItems((p) => [...p, { id: `n${Date.now()}_${p.length}`, text: t, done: false }]);
-    setNewItem('');
-  };
-
-  const save = async () => {
-    const list = [...items, ...(newItem.trim() ? [{ id: `n${Date.now()}_x`, text: newItem.trim(), done: false }] : [])];
-    await onSave({
-      title: title.trim() || null,
-      text: text,
-      items: list.length ? list : null,
-      color,
-      dueAt: dueAt ? new Date(dueAt).toISOString() : null,
-    });
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={onClose}>
-      <div className="rounded-2xl w-full max-w-lg p-5 space-y-3 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-        style={{ backgroundColor: 'var(--ss-bg)', border: '1px solid var(--shell-border)', boxShadow: '0 8px 32px rgba(0,0,0,0.35)' }}>
-        <div className="flex items-center justify-between">
-          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
-            Edit task · {task.assignedTo === task.createdBy ? task.createdByName : `${task.createdByName} → ${task.assignedToName}`}
-          </p>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-(--shell-hover-hard)"><X size={15} style={{ color: 'var(--text-muted)' }} /></button>
-        </div>
-
-        <div className="rounded-xl p-3.5 space-y-3" style={{ backgroundColor: colorOf(color).bg, border: '1px solid var(--shell-border)' }}>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title"
-            className="w-full text-base font-semibold outline-none bg-transparent"
-            style={{ color: 'var(--text-primary)' }} />
-
-          {!isChecklist && (
-            <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Note..."
-              rows={Math.min(10, Math.max(3, text.split('\n').length + 1))}
-              className="w-full text-sm outline-none bg-transparent resize-none leading-relaxed"
-              style={{ color: 'var(--text-primary)' }} />
-          )}
-
-          {isChecklist && (
-            <div className="space-y-1.5">
-              {items.map((it, i) => (
-                <div key={it.id} className="flex items-center gap-2">
-                  <button onClick={() => setItems((p) => p.map((x) => x.id === it.id ? { ...x, done: !x.done } : x))}
-                    className="w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center"
-                    style={{ borderColor: it.done ? '#34d399' : 'var(--shell-border-mid)', backgroundColor: it.done ? 'rgba(52,211,153,0.18)' : 'transparent' }}>
-                    {it.done && <Check size={11} style={{ color: '#34d399' }} />}
-                  </button>
-                  <input value={it.text}
-                    onChange={(e) => setItems((p) => p.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))}
-                    className={`flex-1 text-sm outline-none bg-transparent ${it.done ? 'line-through' : ''}`}
-                    style={{ color: it.done ? 'var(--text-dim)' : 'var(--text-primary)' }} />
-                  <button onClick={() => setItems((p) => p.filter((x) => x.id !== it.id))}
-                    className="p-1 rounded hover:bg-(--shell-hover-hard)">
-                    <X size={12} style={{ color: 'var(--text-dim)' }} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="flex items-center gap-2">
-            <Plus size={14} style={{ color: 'var(--text-dim)' }} />
-            <input value={newItem} onChange={(e) => setNewItem(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }}
-              placeholder={isChecklist ? 'Add list item — Enter' : 'Add a checklist item to convert to a list'}
-              className="flex-1 text-sm outline-none bg-transparent" style={{ color: 'var(--text-primary)' }} />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          {Object.entries(KEEP_COLORS).map(([k, v]) => (
-            <button key={k} onClick={() => setColor(k)} title={k}
-              className="w-6 h-6 rounded-full transition-transform hover:scale-110"
-              style={{
-                backgroundColor: k === 'default' ? 'var(--ss-bg)' : v.dot,
-                border: color === k ? '2px solid #C9A961' : '2px solid var(--shell-border)',
-              }} />
-          ))}
-          <label className="ml-auto inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
-            <AlarmClock size={13} />
-            <input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)}
-              className="text-xs px-2 py-1.5 rounded-lg outline-none"
-              style={{ backgroundColor: 'var(--ss-bg)', border: '1px solid var(--shell-border)', color: 'var(--text-muted)' }} />
-          </label>
-        </div>
-
-        <div className="flex justify-end gap-2 pt-1">
-          <button onClick={onClose} className="text-xs font-semibold px-3.5 py-2 rounded-lg hover:bg-(--shell-hover-hard)" style={{ color: 'var(--text-muted)' }}>
-            Cancel
+        <span className="shrink-0 flex items-center gap-1.5">
+          <button onClick={() => setCommentOpen((o) => !o)} disabled={busy}
+            title="Add a comment"
+            className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg disabled:opacity-40"
+            style={{ backgroundColor: 'var(--shell-hover-hard)', color: commentOpen ? '#C9A961' : 'var(--text-muted)' }}>
+            💬{comments.length > 0 ? ` ${comments.length}` : ''}
           </button>
-          <button onClick={() => void save()} disabled={busy}
-            className="text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-50"
-            style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
-            {busy ? 'Saving...' : 'Save changes'}
+          <button onClick={onDone} disabled={busy}
+            className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg disabled:opacity-40"
+            style={{ backgroundColor: 'rgba(52,211,153,0.14)', color: '#34d399' }}>
+            ✓ Done
           </button>
-        </div>
+        </span>
       </div>
     </div>
   );

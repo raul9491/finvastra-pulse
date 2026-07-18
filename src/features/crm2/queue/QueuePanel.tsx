@@ -6,6 +6,10 @@
 import { useState } from 'react';
 import { PhoneIncoming, Users } from 'lucide-react';
 import { useQueueActions, useQueueState } from './useQueue';
+import { useRmInfo } from '../lib';
+
+const initials = (name: string) =>
+  name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?';
 
 export function QueuePanel({ canWrite, isManager, onOpenLead }: {
   canWrite: boolean;
@@ -14,6 +18,7 @@ export function QueuePanel({ canWrite, isManager, onOpenLead }: {
 }) {
   const { claimNext, claiming } = useQueueActions();
   const { state } = useQueueState(isManager);   // managers poll; telecallers don't need it
+  const rmInfo = useRmInfo();
   const [msg, setMsg] = useState('');
 
   const getNext = async () => {
@@ -53,11 +58,28 @@ export function QueuePanel({ canWrite, isManager, onOpenLead }: {
           <p className="text-[11px] font-semibold uppercase tracking-wider mb-1 inline-flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
             <Users size={11} /> Active reps
           </p>
-          {state.activeTelecallers.map((t) => (
-            <div key={t.fapl} className="flex justify-between text-xs py-0.5" style={{ color: 'var(--text-secondary)' }}>
-              <span className="font-mono">{t.fapl}</span><span>{t.openClaims} open</span>
-            </div>
-          ))}
+          {state.activeTelecallers.map((t) => {
+            const info = rmInfo(t.fapl);
+            return (
+              <div key={t.fapl} className="flex items-center gap-2.5 text-xs py-1" style={{ color: 'var(--text-secondary)' }}>
+                <span className="relative shrink-0">
+                  {info.photoURL ? (
+                    <img src={info.photoURL} alt="" className="w-7 h-7 rounded-full object-cover" />
+                  ) : (
+                    <span className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold"
+                      style={{ backgroundColor: 'rgba(201,169,97,0.18)', color: '#C9A961' }}>
+                      {initials(info.name)}
+                    </span>
+                  )}
+                  {/* green dot = actively working the queue right now */}
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full"
+                    style={{ backgroundColor: '#34d399', border: '2px solid var(--ss-bg)' }} />
+                </span>
+                <span className="flex-1 font-medium truncate" style={{ color: 'var(--text-primary)' }}>{info.name}</span>
+                <span className="shrink-0">{t.openClaims} open</span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

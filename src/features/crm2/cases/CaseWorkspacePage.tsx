@@ -401,7 +401,7 @@ export function CaseWorkspacePage() {
                   {h.from ? `${STAGE_LABEL[h.from] ?? h.from} →` : ''} {STAGE_LABEL[h.to] ?? h.to}
                 </span>
                 <span className="text-[11px] flex-1" style={{ color: 'var(--text-muted)' }}>{h.note ?? ''}</span>
-                <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>{h.by} · {fmtTs(h.at)}</span>
+                <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{rmName(h.by)} · {fmtTs(h.at)}</span>
               </div>
             ))}
           </div>

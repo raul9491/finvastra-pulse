@@ -25,6 +25,22 @@ export function useRmName(): (fapl?: string | null) => string {
   return useMemo(() => (fapl?: string | null): string => (fapl ? (map.get(fapl) ?? fapl) : '—'), [map]);
 }
 
+/** Like useRmName but also returns the employee's profile photo — for avatar
+ *  chips (active reps, presence). FAPL codes are internal ids; the UI shows
+ *  the person's name + photo, never the code. */
+export function useRmInfo(): (fapl?: string | null) => { name: string; photoURL: string | null } {
+  const { employees } = useAllEmployees();
+  const map = useMemo(() => {
+    const m = new Map<string, { name: string; photoURL: string | null }>();
+    for (const e of employees) {
+      if (e.employeeId) m.set(e.employeeId, { name: e.displayName, photoURL: e.photoURL || null });
+    }
+    return m;
+  }, [employees]);
+  return useMemo(() => (fapl?: string | null) =>
+    (fapl ? (map.get(fapl) ?? { name: fapl, photoURL: null }) : { name: '—', photoURL: null }), [map]);
+}
+
 export async function apiCrm2<T = { ok: boolean; id?: string }>(
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
   path: string,

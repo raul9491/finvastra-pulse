@@ -55,7 +55,7 @@ const STATUS_META: Record<Crm2LeadStatus, { label: string; color: string }> = {
   QUALIFIED:      { label: 'Qualified',      color: '#C9A961' },
   JUNK_DUPLICATE: { label: 'Junk / Duplicate', color: '#8B8B85' },
   NOT_INTERESTED: { label: 'Not Interested', color: '#f87171' },
-  NOT_ELIGIBLE:   { label: 'Not eligible (CIBIL)', color: '#fb7185' },
+  NOT_ELIGIBLE:   { label: 'Not eligible', color: '#fb7185' },
   CONVERTED:      { label: 'Converted',      color: '#34d399' },
   DROPPED:        { label: 'Dropped',        color: '#f87171' },
 };
@@ -600,6 +600,7 @@ function LeadDrawer({ lead, canWrite, canAssign, canConvert, faplOptions, produc
   const [note, setNote] = useState('');
   const [scorePrompt, setScorePrompt] = useState(false);
   const [scoreVal, setScoreVal] = useState('');
+  const [neReason, setNeReason] = useState('');
   const [followUpNote, setFollowUpNote] = useState(lead.nextFollowUpNote ?? '');
   const [busy, setBusy] = useState(false);
   const [showConvert, setShowConvert] = useState(false);
@@ -682,24 +683,38 @@ function LeadDrawer({ lead, canWrite, canAssign, canConvert, faplOptions, produc
                   options={(Object.keys(STATUS_META) as Crm2LeadStatus[])
                     .filter((s) => s !== 'CONVERTED')
                     .map((s) => ({ value: s, label: STATUS_META[s].label }))} />
-                {!scorePrompt && lead.creditScore != null && (
-                  <p className="text-[11px] mt-1 font-semibold" style={{ color: '#fb7185' }}>CIBIL score on record: {lead.creditScore}</p>
+                {!scorePrompt && (lead.creditScore != null || lead.notEligibleReason) && (
+                  <p className="text-[11px] mt-1 font-semibold" style={{ color: '#fb7185' }}>
+                    {lead.creditScore != null ? `CIBIL score on record: ${lead.creditScore}` : ''}
+                    {lead.creditScore != null && lead.notEligibleReason ? ' · ' : ''}
+                    {lead.notEligibleReason ? `Reason: ${lead.notEligibleReason}` : ''}
+                  </p>
                 )}
                 {scorePrompt && (
                   <div className="mt-2 p-3 rounded-lg space-y-2" style={{ backgroundColor: 'rgba(251,113,133,0.08)', border: '1px solid rgba(251,113,133,0.35)' }}>
-                    <p className="text-[11px] font-semibold" style={{ color: '#fb7185' }}>Confirm — enter the credit score (CIBIL) that failed:</p>
+                    <p className="text-[11px] font-semibold" style={{ color: '#fb7185' }}>Confirm — enter the failed CIBIL score, the reason, or both:</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <input type="number" min={300} max={900} value={scoreVal} autoFocus
-                        onChange={(e) => setScoreVal(e.target.value)} placeholder="e.g. 580"
-                        className="w-28 text-sm px-3 py-2 rounded-lg outline-none"
+                        onChange={(e) => setScoreVal(e.target.value)} placeholder="CIBIL e.g. 580"
+                        className="w-32 text-sm px-3 py-2 rounded-lg outline-none"
                         style={{ backgroundColor: 'var(--ss-bg)', border: '1px solid var(--shell-border)', color: 'var(--text-primary)' }} />
-                      <button disabled={busy || !(Number(scoreVal) >= 300 && Number(scoreVal) <= 900)}
-                        onClick={() => { void patch({ status: 'NOT_ELIGIBLE', creditScore: Number(scoreVal) }, 'Marked Not eligible'); setScorePrompt(false); setScoreVal(''); }}
+                      <input value={neReason} onChange={(e) => setNeReason(e.target.value)}
+                        placeholder="Reason — e.g. low income / FOIR / profile"
+                        className="flex-1 min-w-40 text-sm px-3 py-2 rounded-lg outline-none"
+                        style={{ backgroundColor: 'var(--ss-bg)', border: '1px solid var(--shell-border)', color: 'var(--text-primary)' }} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button disabled={busy || !((Number(scoreVal) >= 300 && Number(scoreVal) <= 900) || neReason.trim() !== '')}
+                        onClick={() => {
+                          const score = Number(scoreVal) >= 300 && Number(scoreVal) <= 900 ? Number(scoreVal) : null;
+                          void patch({ status: 'NOT_ELIGIBLE', creditScore: score, notEligibleReason: neReason.trim() || null }, 'Marked Not eligible');
+                          setScorePrompt(false); setScoreVal(''); setNeReason('');
+                        }}
                         className="text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40"
                         style={{ backgroundColor: '#fb7185', color: '#fff' }}>
                         Mark Not eligible
                       </button>
-                      <button onClick={() => { setScorePrompt(false); setScoreVal(''); }}
+                      <button onClick={() => { setScorePrompt(false); setScoreVal(''); setNeReason(''); }}
                         className="text-xs px-2.5 py-2" style={{ color: 'var(--text-muted)' }}>Cancel</button>
                     </div>
                   </div>

@@ -212,14 +212,15 @@ export function LeadDetailPage() {
   // plain disposition write and open the move dialog instead.
   const canPromote = hasCrm2Perm(profile, 'crm.leads.write');
   const [promoteOpen, setPromoteOpen] = useState(false);
-  // "Not eligible" asks for the failed CIBIL score first — the confirmation box.
+  // "Not eligible" asks for the failed CIBIL score and/or a reason first.
   const [scorePromptOpen, setScorePromptOpen] = useState(false);
   const [scoreVal, setScoreVal] = useState('');
+  const [neReason, setNeReason] = useState('');
 
-  const handleDisposition = async (status: LeadStatus, creditScore?: number) => {
+  const handleDisposition = async (status: LeadStatus, ne?: { creditScore: number | null; reason: string | null }) => {
     if (!leadId || !user) return;
     if (status === 'interested' && canPromote) { setPromoteOpen(true); return; }
-    if (status === 'not_eligible' && creditScore === undefined) { setScorePromptOpen(true); return; }
+    if (status === 'not_eligible' && ne === undefined) { setScorePromptOpen(true); return; }
     setSavingStatus(true);
     try {
       // Phase P — status change + field_history diff in ONE batch.
@@ -234,10 +235,10 @@ export function LeadDetailPage() {
           updatedAt:    serverTimestamp(),
           // Closing dispositions clear the SLA so the lead drops out of "overdue" instantly.
           ...(TERMINAL_STATUSES.has(status) ? { slaDeadline: null } : {}),
-          ...(creditScore !== undefined ? { creditScore } : {}),
+          ...(ne !== undefined ? { creditScore: ne.creditScore, notEligibleReason: ne.reason } : {}),
         },
       );
-      setScorePromptOpen(false); setScoreVal('');
+      setScorePromptOpen(false); setScoreVal(''); setNeReason('');
     } catch (e) {
       // A denied write must never look like a save — the select snaps back silently otherwise.
       console.error('[lead disposition] failed:', e);
@@ -567,30 +568,39 @@ export function LeadDetailPage() {
               style={{ borderColor: 'rgba(201,169,97,0.4)', color: '#C9A961' }}>
               {loggingVisit ? 'Getting location…' : '📍 Log visit here'}
             </button>
-            {!scorePromptOpen && lead.creditScore != null && (
+            {!scorePromptOpen && (lead.creditScore != null || lead.notEligibleReason) && (
               <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
                 style={{ backgroundColor: 'rgba(251,113,133,0.12)', color: '#fb7185' }}>
-                CIBIL score on record: {lead.creditScore}
+                {lead.creditScore != null ? `CIBIL: ${lead.creditScore}` : ''}
+                {lead.creditScore != null && lead.notEligibleReason ? ' · ' : ''}
+                {lead.notEligibleReason ?? ''}
               </span>
             )}
             {scorePromptOpen && (
               <div className="w-full mt-1 p-3 rounded-lg space-y-2"
                 style={{ backgroundColor: 'rgba(251,113,133,0.08)', border: '1px solid rgba(251,113,133,0.35)' }}>
                 <p className="text-[11px] font-semibold" style={{ color: '#fb7185' }}>
-                  Confirm — enter the credit score (CIBIL) that failed:
+                  Confirm — enter the failed CIBIL score, the reason, or both:
                 </p>
                 <div className="flex items-center gap-2 flex-wrap">
                   <input type="number" min={300} max={900} value={scoreVal} autoFocus
-                    onChange={(e) => setScoreVal(e.target.value)} placeholder="e.g. 580"
-                    className="w-28 text-sm px-3 py-2 rounded-lg outline-none"
+                    onChange={(e) => setScoreVal(e.target.value)} placeholder="CIBIL e.g. 580"
+                    className="w-32 text-sm px-3 py-2 rounded-lg outline-none"
                     style={{ backgroundColor: 'var(--ss-bg)', border: '1px solid var(--shell-border)', color: 'var(--text-primary)' }} />
-                  <button disabled={savingStatus || !(Number(scoreVal) >= 300 && Number(scoreVal) <= 900)}
-                    onClick={() => void handleDisposition('not_eligible', Number(scoreVal))}
+                  <input value={neReason} onChange={(e) => setNeReason(e.target.value)}
+                    placeholder="Reason — e.g. low income / FOIR / profile"
+                    className="flex-1 min-w-40 text-sm px-3 py-2 rounded-lg outline-none"
+                    style={{ backgroundColor: 'var(--ss-bg)', border: '1px solid var(--shell-border)', color: 'var(--text-primary)' }} />
+                  <button disabled={savingStatus || !((Number(scoreVal) >= 300 && Number(scoreVal) <= 900) || neReason.trim() !== '')}
+                    onClick={() => void handleDisposition('not_eligible', {
+                      creditScore: Number(scoreVal) >= 300 && Number(scoreVal) <= 900 ? Number(scoreVal) : null,
+                      reason: neReason.trim() || null,
+                    })}
                     className="text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40"
                     style={{ backgroundColor: '#fb7185', color: '#fff' }}>
                     Mark Not eligible
                   </button>
-                  <button onClick={() => { setScorePromptOpen(false); setScoreVal(''); }}
+                  <button onClick={() => { setScorePromptOpen(false); setScoreVal(''); setNeReason(''); }}
                     className="text-xs px-2.5 py-2" style={{ color: 'var(--text-muted)' }}>Cancel</button>
                 </div>
               </div>

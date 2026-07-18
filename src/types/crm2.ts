@@ -213,6 +213,7 @@ export interface Crm2LeadFields {
   nextFollowUpAt: Ts | null;
   nextFollowUpNote: string | null;    // Phase 3 — emailed with the follow-up reminder
   creditScore?: number | null;        // CIBIL score captured when marked NOT_ELIGIBLE (confirmation)
+  notEligibleReason?: string | null;  // other rejection reason (low income, FOIR, profile...) — score OR reason required
   followUpReminderSent: boolean;      // re-armed whenever nextFollowUpAt changes
   attempts: number;
   activityLog: Array<{ at: Ts; by: string; note: string; action: string }>;

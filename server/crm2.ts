@@ -2763,6 +2763,9 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       if (cs !== null && (cs < 300 || cs > 900)) throw new ApiError(400, "creditScore must be between 300 and 900");
       fields.creditScore = cs;
     }
+    if (b.notEligibleReason !== undefined) {
+      fields.notEligibleReason = (optStr(b, "notEligibleReason") ?? "").slice(0, 500) || null;
+    }
     if (b.linkedExistingClientId !== undefined) fields.linkedExistingClientId = optStr(b, "linkedExistingClientId");
     if (b.customerProfile !== undefined) fields.customerProfile = sanitizeCustomerProfile(b.customerProfile);
     if (b.referredById !== undefined) fields.referredById = optStr(b, "referredById");

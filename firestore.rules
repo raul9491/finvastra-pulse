@@ -370,7 +370,7 @@ service cloud.firestore {
                         incoming().diff(existing()).affectedKeys().hasOnly([
                           'displayName', 'phone', 'email', 'source', 'tags',
                           'primaryOwnerId', 'assignedToCurrentOwnerAt', 'updatedAt', 'slaDeadline',
-                          'leadStatus', 'leadStatusAt', 'leadStatusBy', 'creditScore',
+                          'leadStatus', 'leadStatusAt', 'leadStatusBy', 'creditScore', 'notEligibleReason',
                           'callbackAt', 'callbackReminderSent',
                           'meetingLocation',
                           // Stage-2 SLA: owner stamps first-contact (set-once, client-side).

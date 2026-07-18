@@ -416,6 +416,7 @@ export type LeadStatus =
 
 export interface Lead {
   creditScore?: number | null;   // CIBIL score captured when marked not_eligible (confirmation)
+  notEligibleReason?: string | null;   // other rejection reason — score OR reason required
   id: string;
   displayName: string;
   phone: string;

@@ -53,7 +53,7 @@ export function toMs(v: unknown): number | null {
   return null;
 }
 
-const CRM2_TERMINAL = new Set(['NOT_INTERESTED', 'JUNK_DUPLICATE', 'DROPPED', 'CONVERTED']);
+const CRM2_TERMINAL = new Set(['NOT_INTERESTED', 'NOT_ELIGIBLE', 'JUNK_DUPLICATE', 'DROPPED', 'CONVERTED']);
 const OLD_TERMINAL = new Set(['not_interested', 'no_response', 'wrong_number', 'not_eligible']);
 
 export type SlaLead = Record<string, unknown>;

@@ -1313,7 +1313,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
 
   const LEAD_CATEGORIES = ["LOAN", "WEALTH", "INSURANCE", "CIBIL_CHECK", "PARTNER_DSA", "GENERAL"] as const;
   const LEAD_SOURCES = ["WEBSITE", "JUSTDIAL", "REFERRAL_CLIENT", "REFERRAL_SUBDSA", "ADS", "WALKIN", "COLD_CALL"] as const;
-  const LEAD_STATUSES = ["NEW", "QUEUED", "ASSIGNED", "ATTEMPTED", "CONTACTED", "QUALIFIED", "JUNK_DUPLICATE", "NOT_INTERESTED", "CONVERTED", "DROPPED"] as const;
+  const LEAD_STATUSES = ["NEW", "QUEUED", "ASSIGNED", "ATTEMPTED", "CONTACTED", "QUALIFIED", "JUNK_DUPLICATE", "NOT_INTERESTED", "NOT_ELIGIBLE", "CONVERTED", "DROPPED"] as const;
   const DROP_REASONS = ["RATE", "AVAILED_ELSEWHERE", "NOT_ELIGIBLE", "UNREACHABLE", "DOCS_ISSUE"] as const;
 
   /** Firestore-transaction rate limit (multi-instance safe) — same pattern as the
@@ -2427,7 +2427,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const s = u?.queueSkills;
     return Array.isArray(s) ? (s as unknown[]).filter((x) => isStr(x)).map(String) : [];
   }
-  const CRM2_TERMINAL_STATUS = new Set(["NOT_INTERESTED", "JUNK_DUPLICATE", "DROPPED", "CONVERTED"]);
+  const CRM2_TERMINAL_STATUS = new Set(["NOT_INTERESTED", "NOT_ELIGIBLE", "JUNK_DUPLICATE", "DROPPED", "CONVERTED"]);
   // An unassigned, non-terminal, warm-inbound CRM 2.0 lead waiting in the queue.
   function isWaiting(d: Record<string, unknown>): boolean {
     return d.assignedRm == null && d.converted !== true
@@ -2757,6 +2757,12 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
       fields.followUpReminderSent = false;            // re-arm the email reminder
     }
     if (b.nextFollowUpNote !== undefined) fields.nextFollowUpNote = optStr(b, "nextFollowUpNote");
+    if (b.creditScore !== undefined) {
+      // CIBIL confirmation for NOT_ELIGIBLE — 300-900 (null clears it).
+      const cs = optNum(b, "creditScore");
+      if (cs !== null && (cs < 300 || cs > 900)) throw new ApiError(400, "creditScore must be between 300 and 900");
+      fields.creditScore = cs;
+    }
     if (b.linkedExistingClientId !== undefined) fields.linkedExistingClientId = optStr(b, "linkedExistingClientId");
     if (b.customerProfile !== undefined) fields.customerProfile = sanitizeCustomerProfile(b.customerProfile);
     if (b.referredById !== undefined) fields.referredById = optStr(b, "referredById");

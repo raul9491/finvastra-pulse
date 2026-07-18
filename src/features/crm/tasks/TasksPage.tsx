@@ -42,7 +42,7 @@ type Crm2LeadLite = {
 
 type CallbackLead = { id: string; displayName?: string; callbackAt?: string | null };
 
-const CRM2_TERMINAL = new Set(['NOT_INTERESTED', 'JUNK_DUPLICATE', 'DROPPED', 'CONVERTED']);
+const CRM2_TERMINAL = new Set(['NOT_INTERESTED', 'NOT_ELIGIBLE', 'JUNK_DUPLICATE', 'DROPPED', 'CONVERTED']);
 
 const fmtWhen = (d: Date) => d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true });
 const dayKey = (d: Date) => format(d, 'yyyy-MM-dd');

@@ -154,7 +154,7 @@ export interface DocumentDef extends Audit {
 export type Crm2LeadCategory = 'LOAN' | 'WEALTH' | 'INSURANCE' | 'CIBIL_CHECK' | 'PARTNER_DSA' | 'GENERAL';
 export type Crm2LeadStatus =
   | 'NEW' | 'QUEUED' | 'ASSIGNED' | 'ATTEMPTED' | 'CONTACTED' | 'QUALIFIED' | 'JUNK_DUPLICATE'
-  | 'NOT_INTERESTED' | 'CONVERTED' | 'DROPPED';   // QUEUED/ASSIGNED drive the FIFO pull queue
+  | 'NOT_INTERESTED' | 'NOT_ELIGIBLE' | 'CONVERTED' | 'DROPPED';   // QUEUED/ASSIGNED drive the FIFO pull queue; NOT_ELIGIBLE = failed CIBIL/credit check
 export type Crm2LeadSource =
   | 'WEBSITE' | 'JUSTDIAL' | 'REFERRAL_CLIENT' | 'REFERRAL_SUBDSA' | 'ADS' | 'WALKIN' | 'COLD_CALL' | 'WHATSAPP';
 
@@ -212,6 +212,7 @@ export interface Crm2LeadFields {
   priority: 'HOT' | 'WARM' | 'COLD';  // shown as a Red / Yellow / Green traffic light
   nextFollowUpAt: Ts | null;
   nextFollowUpNote: string | null;    // Phase 3 — emailed with the follow-up reminder
+  creditScore?: number | null;        // CIBIL score captured when marked NOT_ELIGIBLE (confirmation)
   followUpReminderSent: boolean;      // re-armed whenever nextFollowUpAt changes
   attempts: number;
   activityLog: Array<{ at: Ts; by: string; note: string; action: string }>;

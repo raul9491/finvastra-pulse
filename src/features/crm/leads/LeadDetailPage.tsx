@@ -212,10 +212,14 @@ export function LeadDetailPage() {
   // plain disposition write and open the move dialog instead.
   const canPromote = hasCrm2Perm(profile, 'crm.leads.write');
   const [promoteOpen, setPromoteOpen] = useState(false);
+  // "Not eligible" asks for the failed CIBIL score first — the confirmation box.
+  const [scorePromptOpen, setScorePromptOpen] = useState(false);
+  const [scoreVal, setScoreVal] = useState('');
 
-  const handleDisposition = async (status: LeadStatus) => {
+  const handleDisposition = async (status: LeadStatus, creditScore?: number) => {
     if (!leadId || !user) return;
     if (status === 'interested' && canPromote) { setPromoteOpen(true); return; }
+    if (status === 'not_eligible' && creditScore === undefined) { setScorePromptOpen(true); return; }
     setSavingStatus(true);
     try {
       // Phase P — status change + field_history diff in ONE batch.
@@ -230,8 +234,10 @@ export function LeadDetailPage() {
           updatedAt:    serverTimestamp(),
           // Closing dispositions clear the SLA so the lead drops out of "overdue" instantly.
           ...(TERMINAL_STATUSES.has(status) ? { slaDeadline: null } : {}),
+          ...(creditScore !== undefined ? { creditScore } : {}),
         },
       );
+      setScorePromptOpen(false); setScoreVal('');
     } catch (e) {
       // A denied write must never look like a save — the select snaps back silently otherwise.
       console.error('[lead disposition] failed:', e);
@@ -561,6 +567,34 @@ export function LeadDetailPage() {
               style={{ borderColor: 'rgba(201,169,97,0.4)', color: '#C9A961' }}>
               {loggingVisit ? 'Getting location…' : '📍 Log visit here'}
             </button>
+            {!scorePromptOpen && lead.creditScore != null && (
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: 'rgba(251,113,133,0.12)', color: '#fb7185' }}>
+                CIBIL score on record: {lead.creditScore}
+              </span>
+            )}
+            {scorePromptOpen && (
+              <div className="w-full mt-1 p-3 rounded-lg space-y-2"
+                style={{ backgroundColor: 'rgba(251,113,133,0.08)', border: '1px solid rgba(251,113,133,0.35)' }}>
+                <p className="text-[11px] font-semibold" style={{ color: '#fb7185' }}>
+                  Confirm — enter the credit score (CIBIL) that failed:
+                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <input type="number" min={300} max={900} value={scoreVal} autoFocus
+                    onChange={(e) => setScoreVal(e.target.value)} placeholder="e.g. 580"
+                    className="w-28 text-sm px-3 py-2 rounded-lg outline-none"
+                    style={{ backgroundColor: 'var(--ss-bg)', border: '1px solid var(--shell-border)', color: 'var(--text-primary)' }} />
+                  <button disabled={savingStatus || !(Number(scoreVal) >= 300 && Number(scoreVal) <= 900)}
+                    onClick={() => void handleDisposition('not_eligible', Number(scoreVal))}
+                    className="text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40"
+                    style={{ backgroundColor: '#fb7185', color: '#fff' }}>
+                    Mark Not eligible
+                  </button>
+                  <button onClick={() => { setScorePromptOpen(false); setScoreVal(''); }}
+                    className="text-xs px-2.5 py-2" style={{ color: 'var(--text-muted)' }}>Cancel</button>
+                </div>
+              </div>
+            )}
             {visitMessage && (
               <span className="text-xs font-medium"
                 style={{ color: visitMessage.endsWith('✓') ? '#34d399' : '#f87171' }}>

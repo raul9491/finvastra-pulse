@@ -55,11 +55,12 @@ const STATUS_META: Record<Crm2LeadStatus, { label: string; color: string }> = {
   QUALIFIED:      { label: 'Qualified',      color: '#C9A961' },
   JUNK_DUPLICATE: { label: 'Junk / Duplicate', color: '#8B8B85' },
   NOT_INTERESTED: { label: 'Not Interested', color: '#f87171' },
+  NOT_ELIGIBLE:   { label: 'Not eligible (CIBIL)', color: '#fb7185' },
   CONVERTED:      { label: 'Converted',      color: '#34d399' },
   DROPPED:        { label: 'Dropped',        color: '#f87171' },
 };
 const FUNNEL: Array<Crm2LeadStatus | 'ALL'> =
-  ['ALL', 'NEW', 'ATTEMPTED', 'CONTACTED', 'QUALIFIED', 'CONVERTED', 'NOT_INTERESTED', 'DROPPED', 'JUNK_DUPLICATE'];
+  ['ALL', 'NEW', 'ATTEMPTED', 'CONTACTED', 'QUALIFIED', 'CONVERTED', 'NOT_INTERESTED', 'NOT_ELIGIBLE', 'DROPPED', 'JUNK_DUPLICATE'];
 
 const fmtTsFull = (t: { toDate?: () => Date } | null | undefined) =>
   t?.toDate ? t.toDate().toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -597,6 +598,8 @@ function LeadDrawer({ lead, canWrite, canAssign, canConvert, faplOptions, produc
 }) {
   const toast = useToast();
   const [note, setNote] = useState('');
+  const [scorePrompt, setScorePrompt] = useState(false);
+  const [scoreVal, setScoreVal] = useState('');
   const [followUpNote, setFollowUpNote] = useState(lead.nextFollowUpNote ?? '');
   const [busy, setBusy] = useState(false);
   const [showConvert, setShowConvert] = useState(false);
@@ -675,10 +678,32 @@ function LeadDrawer({ lead, canWrite, canAssign, canConvert, faplOptions, produc
               <div>
                 <FLabel text="Status" />
                 <SearchableSelect value={lead.status} disabled={busy}
-                  onChange={(v) => patch({ status: v }, `Status → ${v}`)}
+                  onChange={(v) => { if (v === 'NOT_ELIGIBLE') { setScorePrompt(true); return; } patch({ status: v }, `Status → ${v}`); }}
                   options={(Object.keys(STATUS_META) as Crm2LeadStatus[])
                     .filter((s) => s !== 'CONVERTED')
                     .map((s) => ({ value: s, label: STATUS_META[s].label }))} />
+                {!scorePrompt && lead.creditScore != null && (
+                  <p className="text-[11px] mt-1 font-semibold" style={{ color: '#fb7185' }}>CIBIL score on record: {lead.creditScore}</p>
+                )}
+                {scorePrompt && (
+                  <div className="mt-2 p-3 rounded-lg space-y-2" style={{ backgroundColor: 'rgba(251,113,133,0.08)', border: '1px solid rgba(251,113,133,0.35)' }}>
+                    <p className="text-[11px] font-semibold" style={{ color: '#fb7185' }}>Confirm — enter the credit score (CIBIL) that failed:</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input type="number" min={300} max={900} value={scoreVal} autoFocus
+                        onChange={(e) => setScoreVal(e.target.value)} placeholder="e.g. 580"
+                        className="w-28 text-sm px-3 py-2 rounded-lg outline-none"
+                        style={{ backgroundColor: 'var(--ss-bg)', border: '1px solid var(--shell-border)', color: 'var(--text-primary)' }} />
+                      <button disabled={busy || !(Number(scoreVal) >= 300 && Number(scoreVal) <= 900)}
+                        onClick={() => { void patch({ status: 'NOT_ELIGIBLE', creditScore: Number(scoreVal) }, 'Marked Not eligible'); setScorePrompt(false); setScoreVal(''); }}
+                        className="text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-40"
+                        style={{ backgroundColor: '#fb7185', color: '#fff' }}>
+                        Mark Not eligible
+                      </button>
+                      <button onClick={() => { setScorePrompt(false); setScoreVal(''); }}
+                        className="text-xs px-2.5 py-2" style={{ color: 'var(--text-muted)' }}>Cancel</button>
+                    </div>
+                  </div>
+                )}
               </div>
               <div>
                 {/* Reassignment is a MANAGER action (server enforces too) — non-managers

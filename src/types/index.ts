@@ -415,6 +415,7 @@ export type LeadStatus =
   | 'not_interested' | 'no_response' | 'wrong_number' | 'not_eligible' | 'converted';
 
 export interface Lead {
+  creditScore?: number | null;   // CIBIL score captured when marked not_eligible (confirmation)
   id: string;
   displayName: string;
   phone: string;

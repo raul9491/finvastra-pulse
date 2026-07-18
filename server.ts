@@ -4698,11 +4698,17 @@ async function startServer() {
       if (!lastWorkingDate) return res.status(400).json({ error: "lastWorkingDate is required" });
       if (!exitReason)       return res.status(400).json({ error: "exitReason is required" });
 
-      // 1. Disable Firebase Auth account — employee cannot log in immediately
-      await admin.auth().updateUser(uid, { disabled: true });
-
-      // 2. Revoke all existing sessions — forces token invalidation
-      await admin.auth().revokeRefreshTokens(uid);
+      // 1+2. Disable the Auth account + revoke sessions. SKIPPED when the
+      // employee has no login account at all (needsEmailSetup staff — no
+      // workspace email was ever created): there is nothing to disable, and
+      // the HR exit must still complete. Any OTHER auth error still aborts so
+      // an active login is never left behind on a marked-exited employee.
+      try {
+        await admin.auth().updateUser(uid, { disabled: true });
+        await admin.auth().revokeRefreshTokens(uid);
+      } catch (e) {
+        if ((e as { code?: string }).code !== "auth/user-not-found") throw e;
+      }
 
       // 3. Update Firestore /users doc
       const empSnap = await db.collection("users").doc(uid).get();
@@ -4783,8 +4789,13 @@ async function startServer() {
       const { uid } = req.params;
       const { newJoiningDate, notes } = req.body as Record<string, string>;
 
-      // 1. Re-enable Firebase Auth account
-      await admin.auth().updateUser(uid, { disabled: false });
+      // 1. Re-enable the Auth account — skipped when the employee never had a
+      // login (no workspace email); the HR record still reactivates.
+      try {
+        await admin.auth().updateUser(uid, { disabled: false });
+      } catch (e) {
+        if ((e as { code?: string }).code !== "auth/user-not-found") throw e;
+      }
 
       // 2. Update Firestore /users doc
       const empSnap = await db.collection("users").doc(uid).get();

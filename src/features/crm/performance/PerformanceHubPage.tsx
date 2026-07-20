@@ -20,11 +20,13 @@ import { MyActivityPage } from '../activity/MyActivityPage';
 import { TeamPerformancePage } from '../team/TeamPerformancePage';
 import { LeadAgingPage } from '../reports/LeadAgingPage';
 import { ImportPerformanceSection } from '../import/ImportHistoryPage';
+import { WorkloadSection } from './WorkloadSection';
 
-type HubTab = 'me' | 'team' | 'data' | 'aging';
+type HubTab = 'me' | 'workload' | 'team' | 'data' | 'aging';
 
 const TAB_META: Record<HubTab, { label: string; subtitle: string }> = {
   me:    { label: 'My Activity',  subtitle: 'Your calls, statuses and untouched customers — tagged → attempted → outcome.' },
+  workload: { label: 'Workload',  subtitle: 'Who is handling what right now — open customers, leads and cases per person.' },
   team:  { label: 'Team',         subtitle: 'Every member\'s numbers, flags and reassignment — who to appreciate, who needs help.' },
   data:  { label: 'Data Sources', subtitle: 'Which import files produced business and which went cold.' },
   aging: { label: 'Lead Aging',   subtitle: 'How long leads have sat since creation — fresh, active, aging, stale.' },
@@ -41,6 +43,7 @@ export function PerformanceHubPage() {
 
   const tabs = useMemo(() => {
     const t: HubTab[] = ['me'];
+    if (canTeam) t.push('workload');
     if (canTeam) t.push('team');
     if (canData) t.push('data');
     if (canTeam) t.push('aging');
@@ -83,6 +86,7 @@ export function PerformanceHubPage() {
 
       <div className="pt-1">
         {tab === 'me' && <MyActivityPage embedded />}
+        {tab === 'workload' && <WorkloadSection />}
         {tab === 'team' && <TeamPerformancePage key={initialTeamUid ?? 'own'} embedded initialViewUid={initialTeamUid} />}
         {tab === 'data' && <ImportPerformanceSection />}
         {tab === 'aging' && <LeadAgingPage embedded />}

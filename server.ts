@@ -3213,6 +3213,88 @@ async function startServer() {
     } catch (e) { return res.status(500).json({ error: String(e) }); }
   });
 
+  // ── Workload — who is handling what RIGHT NOW, across all three entity
+  // types (old-model customers, CRM 2.0 leads, cases). One row per person;
+  // managers/admins/SAs get the complete roster + the unassigned bucket.
+  app.get("/api/crm/workload", async (req, res) => {
+    try {
+      const uid = await verifyFirebaseToken(req);
+      if (!uid) return res.status(401).json({ error: "Unauthorized" });
+      const callerDoc = await db.collection("users").doc(uid).get();
+      const caller: any = callerDoc.data() ?? {};
+      const allowed = caller.role === "admin" || isSuperAdmin(uid) || caller.crmRole === "manager";
+      if (!allowed) return res.status(403).json({ error: "Forbidden" });
+      const fresh = req.query.fresh === "1";
+
+      return res.json(await cachedJson("workload", fresh, async () => {
+        const [leadsSnap, casesSnap, usersSnap] = await Promise.all([
+          db.collection("leads").get(),
+          db.collection("cases").get(),
+          db.collection("users").get(),
+        ]);
+        // "Open" definitions — mirrors the app's terminal sets.
+        const OLD_CLOSED = new Set(["not_interested", "no_response", "wrong_number", "not_eligible", "converted"]);
+        const CRM2_TERMINAL = new Set(["NOT_INTERESTED", "NOT_ELIGIBLE", "JUNK_DUPLICATE", "DROPPED", "CONVERTED"]);
+        const CASE_DONE = new Set(["COMPLETED", "CLOSED"]);
+
+        const byUid = new Map<string, { customers: number }>();
+        const byFapl = new Map<string, { leads: number; cases: number; shared: number }>();
+        const bump = <K, T extends Record<string, number>>(m: Map<K, T>, k: K, blank: T, f: keyof T) => {
+          const cur = m.get(k) ?? { ...blank };
+          (cur[f] as number)++;
+          m.set(k, cur);
+        };
+        const unassigned = { customers: 0, leads: 0, cases: 0 };
+
+        for (const d of leadsSnap.docs) {
+          const l: any = d.data();
+          if (l.receivedAt != null) {
+            // CRM 2.0 lead
+            if (l.converted === true || CRM2_TERMINAL.has(String(l.status ?? ""))) continue;
+            if (typeof l.assignedRm === "string" && l.assignedRm) bump(byFapl, l.assignedRm, { leads: 0, cases: 0, shared: 0 }, "leads");
+            else unassigned.leads++;
+          } else {
+            // old-model customer
+            if (l.deleted === true) continue;
+            if (OLD_CLOSED.has(String(l.leadStatus ?? ""))) continue;
+            const owner = l.primaryOwnerId;
+            if (typeof owner === "string" && owner && owner !== "UNASSIGNED") bump(byUid, owner, { customers: 0 }, "customers");
+            else unassigned.customers++;
+          }
+        }
+        for (const d of casesSnap.docs) {
+          const c: any = d.data();
+          if (CASE_DONE.has(String(c.stage ?? ""))) continue;
+          if (typeof c.handlingRm === "string" && c.handlingRm) bump(byFapl, c.handlingRm, { leads: 0, cases: 0, shared: 0 }, "cases");
+          else unassigned.cases++;
+          for (const col of (Array.isArray(c.collaborators) ? c.collaborators : [])) {
+            if (typeof col === "string" && col) bump(byFapl, col, { leads: 0, cases: 0, shared: 0 }, "shared");
+          }
+        }
+
+        const rows: any[] = [];
+        let idle = 0;
+        for (const d of usersSnap.docs) {
+          const u: any = d.data();
+          if (u.employeeStatus === "inactive") continue;
+          const own = byUid.get(d.id) ?? { customers: 0 };
+          const fap = (u.employeeId && byFapl.get(u.employeeId)) || { leads: 0, cases: 0, shared: 0 };
+          const total = own.customers + fap.leads + fap.cases;
+          const crmPerson = u.crmAccess === true || u.crmRole != null || total > 0;
+          if (!crmPerson) continue;
+          if (total === 0 && fap.shared === 0) { idle++; continue; }
+          rows.push({
+            uid: d.id, name: u.displayName ?? d.id,
+            customers: own.customers, leads: fap.leads, cases: fap.cases, shared: fap.shared,
+            total,
+          });
+        }
+        rows.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+        return { rows, unassigned, idle };
+      }));
+    } catch (e) { return res.status(500).json({ error: String(e) }); }
+  });
+
   // ── Not-eligible register — every rejected customer/lead across BOTH models,
   // with the CIBIL score / reason, who marked it and when. Managers + admins +
   // super admins get the complete view; the data lives on the lead docs.

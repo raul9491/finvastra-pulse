@@ -1414,7 +1414,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         status: "NEW", priority: "HOT",   // website / social leads = high (red) priority
         nextFollowUpAt: null, attempts: 0,
         activityLog: [], dropReason: null,
-        converted: false, convertedAt: null,
+        deleted: false, converted: false, convertedAt: null,
         linkedClientId: null, linkedCaseId: null, linkedSubDsaId: null,
         duplicateOfLeadId: duplicate?.collection === "leads" ? duplicate.id : null,
         dupeKeys,
@@ -1574,7 +1574,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         amountRequired: null, city: optStr(b, "city"),
         nextFollowUpAt: null, nextFollowUpNote: null, followUpReminderSent: false, attempts: 0,
         activityLog: [],
-        converted: false, convertedAt: null,
+        deleted: false, converted: false, convertedAt: null,
         linkedClientId: null, linkedCaseId: null, linkedSubDsaId: null, linkedConnectorId: null,
         duplicateOfLeadId: duplicate?.collection === "leads" ? duplicate.id : null,
         dupeKeys,
@@ -1657,7 +1657,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     if (!linked.empty) {
       leadId = linked.docs[0].id;
       await linked.docs[0].ref.update({
-        converted: false, convertedAt: null, status: "NEW",
+        deleted: false, converted: false, convertedAt: null, status: "NEW",
         linkedConnectorId: null, category: "PARTNER_DSA",
         activityLog: FieldValue.arrayUnion({
           at: Timestamp.now(), by: caller.fapl,
@@ -1684,7 +1684,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
           sourceMeta: { formId: "returned-from-funnel", sourceUrl: null, utm: null, via: "internal", productInterest: null },
           assignedRm: null, assignedAt: null, amountRequired: null, city: null,
           nextFollowUpAt: null, nextFollowUpNote: null, followUpReminderSent: false, attempts: 0,
-          activityLog: [], converted: false, convertedAt: null,
+          activityLog: [], deleted: false, converted: false, convertedAt: null,
           linkedClientId: null, linkedCaseId: null, linkedSubDsaId: null, linkedConnectorId: null,
           duplicateOfLeadId: null, dupeKeys, firstContactedAt: null,
           ...createAudit(caller.fapl),
@@ -1939,7 +1939,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         status: "NEW", priority: "HOT",   // website / social leads = high (red) priority
         nextFollowUpAt: null, nextFollowUpNote: null, followUpReminderSent: false,
         attempts: 0, activityLog: [], dropReason: null,
-        converted: false, convertedAt: null,
+        deleted: false, converted: false, convertedAt: null,
         linkedClientId: null, linkedCaseId: null, linkedSubDsaId: null,
         duplicateOfLeadId: duplicate?.collection === "leads" ? duplicate.id : null,
         dupeKeys,
@@ -2100,7 +2100,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
             status: "NEW", priority: "WARM",
             nextFollowUpAt: null, nextFollowUpNote: null, followUpReminderSent: false,
             attempts: 0, activityLog: [], dropReason: null,
-            converted: false, convertedAt: null,
+            deleted: false, converted: false, convertedAt: null,
             linkedClientId: null, linkedCaseId: null, linkedSubDsaId: null,
             duplicateOfLeadId: null, dupeKeys: buildDupeKeys(mobile, null),
             firstContactedAt: null,
@@ -2709,7 +2709,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         nextFollowUpAt: optTs(b, "nextFollowUpAt"), nextFollowUpNote: optStr(b, "nextFollowUpNote"),
         followUpReminderSent: false, attempts: 0,
         activityLog: [], dropReason: null,
-        converted: false, convertedAt: null,
+        deleted: false, converted: false, convertedAt: null,
         linkedClientId: null, linkedCaseId: null, linkedSubDsaId: null,
         duplicateOfLeadId: duplicate?.collection === "leads" ? duplicate.id : null,
         dupeKeys,
@@ -3145,7 +3145,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         note: "Promoted from Customer → Lead", action: "promote",
       }],
       dropReason: null,
-      converted: false, convertedAt: null,
+      deleted: false, converted: false, convertedAt: null,
       linkedClientId: null, linkedCaseId: null, linkedSubDsaId: null,
       duplicateOfLeadId: null, dupeKeys,
       // A promoted Customer is interested ⇒ already contacted: preserve any prior

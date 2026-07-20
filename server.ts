@@ -12,6 +12,7 @@ import { getStorage } from "firebase-admin/storage";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import { encryptField, decryptField } from "./src/lib/encryption.js";
+import { isCrm2Lead, isLeadDeleted, isLeadTerminal, leadBucket, leadOwner, leadName, leadMobile, leadCreatedMs, leadAttempted } from "./src/lib/crm2/leadModel.js";
 import { registerCrm2Routes } from "./server/crm2.js";
 
 dotenv.config();
@@ -2940,59 +2941,41 @@ async function startServer() {
 
     const callbacks: any[] = [];
     const slaBreaches: any[] = [];
-    const CLOSED = new Set(["not_interested", "no_response", "wrong_number", "not_eligible", "converted"]);
 
     // Resolve a CRM 2.0 lead's assignedRm (FAPL-xxx) → that person's accumulator.
     const byFapl = new Map<string, any>();
     for (const m of people) if (m.employeeId) byFapl.set(m.employeeId, acc.get(m.uid));
-    // CRM 2.0 statuses map into the same old-model buckets so the status column,
-    // conversion and attempted/untouched read consistently across both models.
-    const CRM2_TO_BUCKET: Record<string, string> = {
-      NEW: "new", QUEUED: "new", ASSIGNED: "new", ATTEMPTED: "new",
-      CONTACTED: "interested", QUALIFIED: "interested",
-      CONVERTED: "converted", NOT_INTERESTED: "not_interested",
-      NOT_ELIGIBLE: "not_eligible", DROPPED: "no_response", JUNK_DUPLICATE: "wrong_number",
-    };
 
+    // ALL lead reads go through leadModel — ONE source of truth for both models
+    // (owner uid-vs-FAPL, status bucket, deleted, timestamps). See src/lib/crm2/leadModel.ts.
     leadsSnap.forEach((d) => {
       const l: any = d.data();
-      const uMs = l.updatedAt?.toMillis ? l.updatedAt.toMillis() : 0;
+      if (isLeadDeleted(l)) return;                      // deleted filtered in-memory (query fetches all)
+      const owner = leadOwner(l);                        // {kind:'fapl'|'uid', value}
+      const a = owner.kind === "fapl" ? byFapl.get(owner.value ?? "") : acc.get(owner.value ?? "");
+      if (!a) return;                                    // unassigned / not in this team
 
-      if (l.deleted === true) return;
-      if (l.deleted === true) return;   // deleted filtered in-memory (query fetches all)
-      if (l.receivedAt != null) {
-        // ── CRM 2.0 lead — attributed by assignedRm (FAPL) ──────────────────
-        const a = byFapl.get(l.assignedRm); if (!a) return;
-        a.leads++;
-        const converted = l.converted === true || l.status === "CONVERTED";
-        const bucket = converted ? "converted" : (CRM2_TO_BUCKET[String(l.status ?? "")] ?? "new");
-        a.status[bucket] = (a.status[bucket] ?? 0) + 1;
-        if (l.firstContactedAt) a.attempted++;
-        else if (bucket === "new") a.untouched++;
-        if (uMs > a.lastActivityMs) a.lastActivityMs = uMs;
-        const rMs = l.receivedAt?.toMillis ? l.receivedAt.toMillis() : 0;
-        if (rMs >= startMs) a.newLeads++;
-        return;
-      }
-
-      // ── Old-model customer — attributed by primaryOwnerId (uid) ───────────
-      const a = acc.get(l.primaryOwnerId); if (!a) return;
+      const bucket = leadBucket(l);
       a.leads++;
-      const st = (typeof l.leadStatus === "string" && l.leadStatus) ? l.leadStatus : "new";
-      a.status[st] = (a.status[st] ?? 0) + 1;
-      if (l.firstContactedAt) a.attempted++;
-      else if (st === "new") a.untouched++;
+      a.status[bucket] = (a.status[bucket] ?? 0) + 1;
+      if (leadAttempted(l)) a.attempted++;
+      else if (bucket === "new") a.untouched++;
+      const uMs = l.updatedAt?.toMillis ? l.updatedAt.toMillis() : 0;
       if (uMs > a.lastActivityMs) a.lastActivityMs = uMs;
-      const cms = l.createdAt?.toMillis ? l.createdAt.toMillis() : 0;
-      if (cms >= startMs) a.newLeads++;
-      if (l.leadStatus === "callback" && typeof l.callbackAt === "string" && new Date(l.callbackAt).getTime() <= nowMs) {
-        a.dueCallbacks++;
-        callbacks.push({ leadId: d.id, name: l.displayName ?? "Lead", phone: l.phone ?? "", ownerName: a.name, callbackAt: l.callbackAt });
-      }
-      const slaMs = l.slaDeadline?.toMillis ? l.slaDeadline.toMillis() : (typeof l.slaDeadline === "string" ? new Date(l.slaDeadline).getTime() : 0);
-      if (!CLOSED.has(l.leadStatus) && slaMs && slaMs < nowMs) {
-        a.overdueSla++;
-        slaBreaches.push({ leadId: d.id, name: l.displayName ?? "Lead", phone: l.phone ?? "", ownerName: a.name, slaDeadlineMs: slaMs });
+      if (leadCreatedMs(l) >= startMs) a.newLeads++;
+
+      // Callback + SLA-deadline are OLD-MODEL signals (CRM 2.0 has its own SLA
+      // engine + queue). Only old-model customers contribute to these.
+      if (!isCrm2Lead(l)) {
+        if (l.leadStatus === "callback" && typeof l.callbackAt === "string" && new Date(l.callbackAt).getTime() <= nowMs) {
+          a.dueCallbacks++;
+          callbacks.push({ leadId: d.id, name: leadName(l), phone: leadMobile(l) ?? "", ownerName: a.name, callbackAt: l.callbackAt });
+        }
+        const slaMs = l.slaDeadline?.toMillis ? l.slaDeadline.toMillis() : (typeof l.slaDeadline === "string" ? new Date(l.slaDeadline).getTime() : 0);
+        if (!isLeadTerminal(l) && slaMs && slaMs < nowMs) {
+          a.overdueSla++;
+          slaBreaches.push({ leadId: d.id, name: leadName(l), phone: leadMobile(l) ?? "", ownerName: a.name, slaDeadlineMs: slaMs });
+        }
       }
     });
     openSnap.forEach((d) => {
@@ -3430,12 +3413,6 @@ async function startServer() {
       const crm2Snap = targetFapl
         ? await db.collection("leads").where("assignedRm", "==", targetFapl).get()
         : null;
-      const CRM2_TO_BUCKET: Record<string, string> = {
-        NEW: "new", QUEUED: "new", ASSIGNED: "new", ATTEMPTED: "new",
-        CONTACTED: "interested", QUALIFIED: "interested",
-        CONVERTED: "converted", NOT_INTERESTED: "not_interested",
-        NOT_ELIGIBLE: "not_eligible", DROPPED: "no_response", JUNK_DUPLICATE: "wrong_number",
-      };
 
       // Optional import filter: restrict everything (counts, statuses, untouched
       // list, and the activity log below) to leads from ONE import file — so
@@ -3474,8 +3451,7 @@ async function startServer() {
         crm2Snap.forEach((d) => {
           const l: any = d.data();
           tagged++;
-          const converted = l.converted === true || l.status === "CONVERTED";
-          const bucket = converted ? "converted" : (CRM2_TO_BUCKET[String(l.status ?? "")] ?? "new");
+          const bucket = leadBucket(l);   // single source: src/lib/crm2/leadModel.ts
           status[bucket] = (status[bucket] ?? 0) + 1;
           const tMs = l.receivedAt?.toMillis ? l.receivedAt.toMillis() : 0;
           if (tMs >= startMs && tMs < endMs) taggedInPeriod++;

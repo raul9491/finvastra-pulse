@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../../components/ui/primitives';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
-import { apiCrm2, hasCrm2Perm } from '../lib';
+import { apiCrm2, hasCrm2Perm, useRmName } from '../lib';
 import { DataView, SimpleTable, type Column } from '../../../components/ui/DataView';
 import { ReBar, fmtINR, fmtNum } from '../../../components/ui/charts';
 
@@ -66,6 +66,7 @@ export function DashboardsPage() {
   const [d, setD] = useState<Dash | null>(null);
   const [loading, setLoading] = useState(true);
   const canMoney = hasCrm2Perm(profile, 'payout.amounts.read');
+  const rmName = useRmName();   // FAPL code -> employee name (codes are internal only)
 
   const load = async () => {
     setLoading(true);
@@ -178,7 +179,7 @@ export function DashboardsPage() {
           {(() => {
             const rows = d.rmPerformance.filter((r) => r.rm !== '—' && r.rm !== 'unassigned');
             const cols: Column<typeof rows[number]>[] = [
-              { key: 'rm', label: 'RM', render: (r) => <span className="font-mono text-xs">{r.rm}</span> },
+              { key: 'rm', label: 'RM', render: (r) => <span className="text-xs">{rmName(r.rm)}</span> },
               { key: 'leadsHandled', label: 'Leads', align: 'right' },
               { key: 'conversionPct', label: 'Conv %', align: 'right', render: (r) => `${r.conversionPct}%` },
               ...(canMoney ? [
@@ -191,7 +192,7 @@ export function DashboardsPage() {
                 title="RM performance"
                 table={<SimpleTable columns={cols} rows={rows} />}
                 graph={<ReBar
-                  data={rows.map((r) => ({ name: r.rm, value: canMoney ? (r.disbursedValue ?? 0) : r.leadsHandled }))}
+                  data={rows.map((r) => ({ name: rmName(r.rm), value: canMoney ? (r.disbursedValue ?? 0) : r.leadsHandled }))}
                   xKey="name" money={canMoney} horizontal
                   series={[{ key: 'value', name: canMoney ? 'Disbursed' : 'Leads handled' }]}
                   height={Math.max(200, rows.length * 30 + 24)}

@@ -73,7 +73,7 @@ export function ReBar({ data, xKey, series, height = 280, money, legend, stacked
       <BarChart data={data} layout={horizontal ? 'vertical' : 'horizontal'} margin={{ top: 8, right: 8, bottom: 4, left: horizontal ? 8 : 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={!horizontal} horizontal={horizontal ? false : true} />
         {horizontal
-          ? (<><XAxis type="number" tick={AXIS_TICK} tickFormatter={(v) => money ? fmtINR(v) : fmtNum(v)} axisLine={false} tickLine={false} /><YAxis type="category" dataKey={xKey} tick={AXIS_TICK} width={110} axisLine={false} tickLine={false} /></>)
+          ? (<><XAxis type="number" tick={AXIS_TICK} tickFormatter={(v) => money ? fmtINR(v) : fmtNum(v)} axisLine={false} tickLine={false} /><YAxis type="category" dataKey={xKey} tick={AXIS_TICK} width={132} axisLine={false} tickLine={false} /></>)
           : (<><XAxis dataKey={xKey} tick={AXIS_TICK} axisLine={false} tickLine={false} interval="preserveStartEnd" /><YAxis tick={AXIS_TICK} tickFormatter={(v) => money ? fmtINR(v) : fmtNum(v)} axisLine={false} tickLine={false} width={money ? 56 : 36} /></>)}
         <Tooltip cursor={{ fill: 'var(--shell-hover-soft)' }} content={<ChartTooltip money={money} />} />
         {legend && <Legend wrapperStyle={{ fontSize: 11, color: 'var(--text-muted)' }} />}

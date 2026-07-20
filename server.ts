@@ -3428,6 +3428,8 @@ async function startServer() {
       const status: Record<string, number> = { new: 0, interested: 0, callback: 0, not_interested: 0, no_response: 0, wrong_number: 0, not_eligible: 0, converted: 0 };
       let tagged = 0, taggedInPeriod = 0, attempted = 0;
       const untouched: Array<{ leadId: string; name: string; taggedAtMs: number | null; importName: string | null }> = [];
+      // Per-contact drill-down: clicking a status chip in the UI opens these.
+      const contacts: Array<{ leadId: string; name: string; mobile: string | null; status: string; model: "customer" | "lead" }> = [];
       leadsSnap.forEach((d) => {
         const l: any = d.data();
         const leadImport = typeof l.importName === "string" && l.importName ? l.importName : null;
@@ -3439,6 +3441,7 @@ async function startServer() {
         tagged++;
         const st = (typeof l.leadStatus === "string" && l.leadStatus) ? l.leadStatus : "new";
         status[st] = (status[st] ?? 0) + 1;
+        contacts.push({ leadId: d.id, name: l.displayName ?? "Customer", mobile: l.phone ?? null, status: st, model: "customer" });
         const tMs = l.assignedToCurrentOwnerAt?.toMillis ? l.assignedToCurrentOwnerAt.toMillis()
           : (l.createdAt?.toMillis ? l.createdAt.toMillis() : 0);
         if (tMs >= startMs && tMs < endMs) taggedInPeriod++;
@@ -3453,6 +3456,7 @@ async function startServer() {
           tagged++;
           const bucket = leadBucket(l);   // single source: src/lib/crm2/leadModel.ts
           status[bucket] = (status[bucket] ?? 0) + 1;
+          contacts.push({ leadId: d.id, name: l.name ?? l.leadCode ?? "Lead", mobile: l.mobile ?? null, status: bucket, model: "lead" });
           const tMs = l.receivedAt?.toMillis ? l.receivedAt.toMillis() : 0;
           if (tMs >= startMs && tMs < endMs) taggedInPeriod++;
           if (l.firstContactedAt) attempted++;
@@ -3497,6 +3501,7 @@ async function startServer() {
         uniqueCustomersTouched: touchedLeads.size,
         daily: [...daily.entries()].sort().map(([date, count]) => ({ date, count })),
         recent,
+        contacts: contacts.slice(0, 2000),
       });
     } catch (e) { return res.status(500).json({ error: String(e) }); }
   });

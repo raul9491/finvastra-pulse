@@ -136,15 +136,18 @@ export function ReArea({ data, xKey, series, height = 280, money, legend, empty 
 }
 
 // ── Donut / Pie ───────────────────────────────────────────────────────────────
-export function RePie({ data, height = 280, money, donut = true, colors = CHART_COLORS, empty }: {
+export function RePie({ data, height = 280, money, donut = true, colors = CHART_COLORS, empty, onSliceClick }: {
   data: Array<{ name: string; value: number }>; height?: number; money?: boolean; donut?: boolean; colors?: string[]; empty?: ReactNode;
+  onSliceClick?: (name: string) => void;
 }) {
   const total = data.reduce((s, d) => s + (d.value || 0), 0);
   if (!data.length || total === 0) return <EmptyChart height={height}>{empty}</EmptyChart>;
   return (
     <ResponsiveContainer width="100%" height={height}>
       <PieChart>
-        <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={donut ? '58%' : 0} outerRadius="82%" paddingAngle={data.length > 1 ? 2 : 0} stroke="var(--glass-panel-bg)" strokeWidth={2}>
+        <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={donut ? '58%' : 0} outerRadius="82%" paddingAngle={data.length > 1 ? 2 : 0} stroke="var(--glass-panel-bg)" strokeWidth={2}
+          onClick={onSliceClick ? (e: { name?: string }) => e?.name && onSliceClick(e.name) : undefined}
+          style={onSliceClick ? { cursor: 'pointer' } : undefined}>
           {data.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
         </Pie>
         <Tooltip content={<ChartTooltip money={money} />} />

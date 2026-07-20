@@ -16,7 +16,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   PhoneCall, Users, CheckCircle2, AlertTriangle, RefreshCw,
-  MessageCircle, Mail, CalendarClock, StickyNote, ArrowRight,
+  MessageCircle, Mail, CalendarClock, StickyNote, ArrowRight, ExternalLink,
 } from 'lucide-react';
 import { collection, getDocs } from 'firebase/firestore';
 import { auth, db } from '../../../lib/firebase';
@@ -25,6 +25,7 @@ import { isSuperAdmin } from '../../../config/hrmsConfig';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { PageHeader, StatCard, Card, Section } from '../../../components/ui/primitives';
 import { ReBar, RePie } from '../../../components/ui/charts';
+import { ContactActions, PhoneLink } from '../components/ContactActions';
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   new:            { label: 'Not yet actioned', color: '#94a3b8' },
@@ -57,6 +58,7 @@ interface Summary {
   byType: Record<string, number>; totalTouches: number; uniqueCustomersTouched: number;
   daily: Array<{ date: string; count: number }>;
   recent: Array<{ leadId: string | null; leadName: string; type: string; atMs: number; content: string }>;
+  contacts: Array<{ leadId: string; name: string; mobile: string | null; status: string; model: 'customer' | 'lead' }>;
 }
 
 const fmtDay = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
@@ -72,6 +74,7 @@ export function MyActivityPage({ embedded = false }: { embedded?: boolean } = {}
   const [tab, setTab] = useState<'log' | 'untouched'>(() => (searchParams.get('view') === 'untouched' ? 'untouched' : 'log'));
   const [people, setPeople] = useState<Array<{ uid: string; name: string; mgr?: string }>>([]);
   const [importFilter, setImportFilter] = useState('');
+  const [openStatus, setOpenStatus] = useState<string | null>(null);   // status chip drill-down
 
   const isAdmin = profile?.role === 'admin' || (user ? isSuperAdmin(user.uid, profile) : false);
   const isManager = profile?.crmRole === 'manager';
@@ -120,7 +123,7 @@ export function MyActivityPage({ embedded = false }: { embedded?: boolean } = {}
 
   useEffect(() => { if (user) void load(period, viewUid, importFilter); }, [user, period, viewUid, importFilter, load]);
   // Reset the import filter when switching person — their imports differ.
-  useEffect(() => { setImportFilter(''); }, [viewUid]);
+  useEffect(() => { setImportFilter(''); setOpenStatus(null); }, [viewUid]);
 
   const statusChips = useMemo(() => {
     if (!data) return [];
@@ -226,18 +229,62 @@ export function MyActivityPage({ embedded = false }: { embedded?: boolean } = {}
         </Card>
         <Card>
           <Section label="What the customers answered (status set)">
+            <p className="text-[11px] mb-2" style={{ color: 'var(--text-dim)' }}>Click a status to see those customers ↓</p>
             <div className="flex flex-wrap gap-1.5 mb-3">
               {statusChips.map((s) => (
-                <span key={s.key} className="text-[11px] font-semibold px-2 py-1 rounded-full"
-                  style={{ color: s.color, backgroundColor: `${s.color}1f`, border: `1px solid ${s.color}44` }}>
+                <button key={s.key} onClick={() => setOpenStatus((o) => (o === s.key ? null : s.key))}
+                  className="text-[11px] font-semibold px-2 py-1 rounded-full transition-all"
+                  style={{
+                    color: openStatus === s.key ? '#0B1538' : s.color,
+                    backgroundColor: openStatus === s.key ? s.color : `${s.color}1f`,
+                    border: `1px solid ${s.color}${openStatus === s.key ? '' : '44'}`,
+                  }}>
                   {s.label} · {s.count}
-                </span>
+                </button>
               ))}
               {!loading && statusChips.length === 0 && (
                 <span className="text-sm" style={{ color: 'var(--text-dim)' }}>No customers tagged yet.</span>
               )}
             </div>
-            <RePie data={pieData} colors={pieColors} height={190} empty="No statuses set yet." />
+
+            {/* Drill-down — the contacts behind the clicked status */}
+            {openStatus && (() => {
+              const list = (data?.contacts ?? []).filter((c) => c.status === openStatus);
+              const meta = STATUS_META[openStatus] ?? { label: openStatus, color: '#94a3b8' };
+              return (
+                <div className="mb-3 rounded-xl overflow-hidden" style={{ border: `1px solid ${meta.color}44` }}>
+                  <div className="flex items-center justify-between px-3 py-2" style={{ backgroundColor: `${meta.color}14` }}>
+                    <span className="text-xs font-bold" style={{ color: meta.color }}>{meta.label} — {list.length} customer{list.length === 1 ? '' : 's'}</span>
+                    <button onClick={() => setOpenStatus(null)} className="text-[11px]" style={{ color: 'var(--text-muted)' }}>close ✕</button>
+                  </div>
+                  <div className="max-h-72 overflow-y-auto divide-y" style={{ borderColor: 'var(--shell-border)' }}>
+                    {list.length === 0 && <p className="px-3 py-4 text-sm text-center" style={{ color: 'var(--text-muted)' }}>No contacts in this status.</p>}
+                    {list.slice(0, 500).map((c) => (
+                      <div key={`${c.model}_${c.leadId}`} className="flex items-center gap-2 px-3 py-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
+                          {c.mobile && <PhoneLink phone={c.mobile} className="text-[11px]" />}
+                        </div>
+                        {c.mobile && <ContactActions phone={c.mobile} name={c.name} size="sm" />}
+                        <a href={c.model === 'customer' ? `/crm/leads/${c.leadId}` : '/crm/pipeline/leads'}
+                          target="_blank" rel="noopener noreferrer"
+                          className="shrink-0 text-[11px] font-semibold px-2 py-1 rounded-lg inline-flex items-center gap-1"
+                          style={{ color: '#C9A961', border: '1px solid rgba(201,169,97,0.4)' }} title="Open in a new tab">
+                          Open <ExternalLink size={11} />
+                        </a>
+                      </div>
+                    ))}
+                    {list.length > 500 && <p className="px-3 py-2 text-[11px] text-center" style={{ color: 'var(--text-dim)' }}>+{list.length - 500} more — narrow by import or month</p>}
+                  </div>
+                </div>
+              );
+            })()}
+
+            <RePie data={pieData} colors={pieColors} height={190} empty="No statuses set yet."
+              onSliceClick={(name) => {
+                const chip = statusChips.find((s) => s.label === name);
+                if (chip) setOpenStatus((o) => (o === chip.key ? null : chip.key));
+              }} />
           </Section>
         </Card>
       </div>

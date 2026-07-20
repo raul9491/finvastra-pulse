@@ -156,7 +156,7 @@ export function SearchableSelect({
           boxShadow: isOpen ? '0 0 0 3px var(--ss-ring)' : undefined,
         }}
       >
-        <span style={{ color: selectedOption ? 'var(--ss-text)' : 'var(--ss-placeholder)' }}>
+        <span className="truncate min-w-0" style={{ color: selectedOption ? 'var(--ss-text)' : 'var(--ss-placeholder)' }}>
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <span className="flex items-center gap-1 shrink-0">

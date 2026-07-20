@@ -45,6 +45,14 @@ interface StageTrackerRow {
   vaultDocId: string | null;
 }
 
+// Constant-time secret compare (avoids timing side-channels). A non-string
+// header value or any length mismatch is treated as not-matching — identical
+// behavior to the previous `===` string compare.
+function safeEqual(a?: string | string[], b?: string): boolean {
+  if (typeof a !== "string" || !b || a.length !== b.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
+
 interface Deps {
   db: Firestore;
   admin: typeof adminNs;
@@ -1364,7 +1372,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     // shares Google IPs, so the public 20/h cap would otherwise drop legit campaign
     // leads. Browser posts (no secret) stay rate-limited + honeypotted as before.
     const trusted = !!process.env.WEBSITE_WEBHOOK_SECRET
-      && req.headers["x-finvastra-webhook-secret"] === process.env.WEBSITE_WEBHOOK_SECRET;
+      && safeEqual(req.headers["x-finvastra-webhook-secret"], process.env.WEBSITE_WEBHOOK_SECRET);
 
     // Real client IP: Cloud Run appends it as the LAST X-Forwarded-For entry
     // (first-entry parsing is client-spoofable). req.ip agrees via trust proxy=1.
@@ -1538,7 +1546,7 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const b = (req.body ?? {}) as Record<string, unknown>;
     if (isStr(b.website)) { res.json({ ok: true }); return; }   // honeypot -> no write
     const trusted = !!process.env.WEBSITE_WEBHOOK_SECRET
-      && req.headers["x-finvastra-webhook-secret"] === process.env.WEBSITE_WEBHOOK_SECRET;
+      && safeEqual(req.headers["x-finvastra-webhook-secret"], process.env.WEBSITE_WEBHOOK_SECRET);
     const ip = extractClientIp(req.headers["x-forwarded-for"], req.ip);
     if (!trusted && !(await rateLimit(`partnerpub:${ip}`, 20, 60 * 60 * 1000))) {
       throw new ApiError(429, "Too many submissions — try again later");
@@ -3201,6 +3209,11 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const callerSnap = await db.collection("users").doc(decoded.uid).get();
     if (decoded.role !== "admin" && callerSnap.data()?.role !== "admin") {
       res.status(403).json({ error: "Admin only" }); return;
+    }
+    // Protect super admin accounts: only another super admin can change their perms.
+    const saUids = new Set(superAdminUidsFromEnv());
+    if (saUids.has(req.params.uid) && !saUids.has(decoded.uid)) {
+      res.status(403).json({ error: "Only a super admin can modify another super admin's permissions." }); return;
     }
     const fapl = await resolveFapl(decoded.uid);
 

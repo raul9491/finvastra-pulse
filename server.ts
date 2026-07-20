@@ -1020,12 +1020,17 @@ async function startServer() {
   // OAuth Callback
   app.get(["/api/auth/callback", "/api/auth/callback/"], async (req, res) => {
     const { code } = req.query;
+    const appOrigin =
+      process.env.APP_ORIGIN ||
+      (process.env.NODE_ENV === "production"
+        ? "https://pulse.finvastra.com"
+        : "http://localhost:3000");
     try {
       const { tokens } = await oauth2Client.getToken(code as string);
       res.send(`
         <html><body><script>
           if (window.opener) {
-            window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', tokens: ${JSON.stringify(tokens)} }, '*');
+            window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', tokens: ${JSON.stringify(tokens)} }, '${appOrigin}');
             window.close();
           } else { window.location.href = '/'; }
         </script><p>Authentication successful.</p></body></html>
@@ -2254,6 +2259,17 @@ async function startServer() {
     const { email } = req.body as { email?: string };
     const ok = () => res.json({ ok: true });
 
+    // Rate-limit abuse (per client IP and per normalised email). On limit exceeded
+    // return the same generic { ok: true } so enumeration is not introduced.
+    const fpIp = req.ip ?? req.socket.remoteAddress ?? "unknown";
+    const fpEmailKey = (email ?? "").trim().toLowerCase();
+    if (
+      !(await checkRateLimit(fpIp, "forgot-password-ip", 6, HOUR_MS)) ||
+      (fpEmailKey && !(await checkRateLimit(fpEmailKey, "forgot-password-email", 6, HOUR_MS)))
+    ) {
+      return ok();
+    }
+
     if (!email || !email.trim().endsWith("@finvastra.com")) return ok();
 
     try {
@@ -2303,6 +2319,12 @@ async function startServer() {
   // Compares the MM-DD portion against /user_details/{uid}.dateOfBirth (stored MM-DD).
   // Returns { dobRequired: false } when no DOB is on file (skip the check gracefully).
   app.post("/api/auth/verify-reset-dob", async (req, res) => {
+    // Rate-limit brute-forcing the DOB check (per client IP).
+    const vrdIp = req.ip ?? req.socket.remoteAddress ?? "unknown";
+    if (!(await checkRateLimit(vrdIp, "verify-reset-dob-ip", 10, HOUR_MS))) {
+      return res.status(429).json({ error: "Too many attempts. Please try again later." });
+    }
+
     const { email, dob } = req.body as { email?: string; dob?: string };
     if (!email || !dob) return res.status(400).json({ error: "Missing fields" });
 
@@ -2806,14 +2828,27 @@ async function startServer() {
   const inr = (n: number) => "₹" + Math.round(Number(n) || 0).toLocaleString("en-IN");
 
   // Branded HTML email (navy/gold) — server-side builder (no client buildHrEmailHtml available here).
+  // Escape user-controlled plain-text before interpolating into email HTML,
+  // so a value like "<script>" can't inject markup into the branded template.
+  function escapeHtml(s: string): string {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   function buildBrandEmail(opts: { title: string; intro: string; rows: Array<{ label: string; value: string }>; note?: string; ctaLabel?: string; ctaLink?: string }): string {
+    // title / intro / row label+value / note are caller-supplied plain text — escape them.
+    // ctaLink / ctaLabel are system-built (never caller HTML) and left as-is.
     const rowsHtml = opts.rows.map((r) =>
-      `<tr><td style="padding:6px 0;color:#8B8B85;font-size:13px;">${r.label}</td><td style="padding:6px 0;color:#0A0A0A;font-size:14px;font-weight:600;text-align:right;">${r.value}</td></tr>`).join("");
+      `<tr><td style="padding:6px 0;color:#8B8B85;font-size:13px;">${escapeHtml(r.label)}</td><td style="padding:6px 0;color:#0A0A0A;font-size:14px;font-weight:600;text-align:right;">${escapeHtml(r.value)}</td></tr>`).join("");
     const noteHtml = opts.note
-      ? `<div style="margin-top:20px;padding:14px 16px;background:#FAF6EC;border-left:3px solid #C9A961;border-radius:8px;color:#2A2A2A;font-size:14px;"><strong>Priority:</strong> ${opts.note}</div>` : "";
+      ? `<div style="margin-top:20px;padding:14px 16px;background:#FAF6EC;border-left:3px solid #C9A961;border-radius:8px;color:#2A2A2A;font-size:14px;"><strong>Priority:</strong> ${escapeHtml(opts.note)}</div>` : "";
     const ctaHtml = opts.ctaLink
       ? `<table width="100%"><tr><td align="center" style="padding-top:24px;"><a href="${opts.ctaLink}" style="display:inline-block;background:linear-gradient(135deg,#0B1538,#1B2A4E);color:#C9A961;padding:12px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">${opts.ctaLabel ?? "Open"} &rarr;</a></td></tr></table>` : "";
-    return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#F2EFE7;font-family:Arial,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#F2EFE7;padding:32px 0;"><tr><td align="center"><table width="600" style="max-width:600px;width:100%;"><tr><td style="background:#ffffff;border-radius:16px 16px 0 0;padding:26px 40px 18px;text-align:center;border-bottom:3px solid #C9A961;"><img src="https://pulse.finvastra.com/images/logo-finvastra.png" alt="Finvastra" width="150" style="display:block;width:150px;max-width:60%;height:auto;border:0;margin:0 auto;"/></td></tr><tr><td style="background:#fff;padding:36px 40px;"><h1 style="font-family:Georgia,serif;font-size:22px;color:#0A0A0A;margin:0 0 6px;">${opts.title}</h1><p style="font-size:14px;color:#2A2A2A;margin:0 0 18px;">${opts.intro}</p><table width="100%" style="border-collapse:collapse;">${rowsHtml}</table>${noteHtml}${ctaHtml}</td></tr><tr><td style="padding:18px 40px;text-align:center;color:#8B8B85;font-size:11px;">Finvastra Advisors Pvt. Ltd. &middot; Finvastra Pulse</td></tr></table></td></tr></table></body></html>`;
+    return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#F2EFE7;font-family:Arial,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#F2EFE7;padding:32px 0;"><tr><td align="center"><table width="600" style="max-width:600px;width:100%;"><tr><td style="background:#ffffff;border-radius:16px 16px 0 0;padding:26px 40px 18px;text-align:center;border-bottom:3px solid #C9A961;"><img src="https://pulse.finvastra.com/images/logo-finvastra.png" alt="Finvastra" width="150" style="display:block;width:150px;max-width:60%;height:auto;border:0;margin:0 auto;"/></td></tr><tr><td style="background:#fff;padding:36px 40px;"><h1 style="font-family:Georgia,serif;font-size:22px;color:#0A0A0A;margin:0 0 6px;">${escapeHtml(opts.title)}</h1><p style="font-size:14px;color:#2A2A2A;margin:0 0 18px;">${escapeHtml(opts.intro)}</p><table width="100%" style="border-collapse:collapse;">${rowsHtml}</table>${noteHtml}${ctaHtml}</td></tr><tr><td style="padding:18px 40px;text-align:center;color:#8B8B85;font-size:11px;">Finvastra Advisors Pvt. Ltd. &middot; Finvastra Pulse</td></tr></table></td></tr></table></body></html>`;
   }
 
   // Send a branded email WITH a PDF attachment (multipart MIME via Gmail API).
@@ -5676,7 +5711,16 @@ async function startServer() {
   // Always returns 200 on duplicate so the website doesn't retry unnecessarily.
   app.post("/api/leads/intake/website", async (req, res) => {
     const secret = process.env.WEBSITE_WEBHOOK_SECRET;
-    if (!secret || req.headers["x-finvastra-webhook-secret"] !== secret) {
+    // Constant-time secret comparison (guard undefined + length mismatch first).
+    const providedSecret = req.headers["x-finvastra-webhook-secret"];
+    const providedSecretStr = typeof providedSecret === "string" ? providedSecret : "";
+    let webhookSecretOk = false;
+    if (secret && providedSecretStr) {
+      const a = Buffer.from(providedSecretStr);
+      const b = Buffer.from(secret);
+      webhookSecretOk = a.length === b.length && crypto.timingSafeEqual(a, b);
+    }
+    if (!webhookSecretOk) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
@@ -5737,8 +5781,14 @@ async function startServer() {
   app.post("/api/leads/intake/meta", async (req, res) => {
     const secret = process.env.META_WEBHOOK_SECRET;
 
-    // HMAC verification — uses rawBody captured by express.json verify option
-    if (secret) {
+    // HMAC verification — uses rawBody captured by express.json verify option.
+    // Fail closed: with no configured secret there is no way to authenticate the
+    // caller, so reject rather than processing (and creating leads from) unsigned input.
+    if (!secret) {
+      console.warn("[webhook/meta] META_WEBHOOK_SECRET not set — rejecting (fail closed)");
+      return res.status(403).json({ error: "Webhook not configured" });
+    }
+    {
       const sig = req.headers["x-hub-signature-256"] as string | undefined;
       const rawBuf = (req as express.Request & { rawBody?: Buffer }).rawBody ?? Buffer.alloc(0);
       const expected = "sha256=" + crypto.createHmac("sha256", secret).update(rawBuf).digest("hex");
@@ -5746,8 +5796,6 @@ async function startServer() {
         console.warn("[webhook/meta] HMAC mismatch — rejected");
         return res.status(403).json({ error: "Signature mismatch" });
       }
-    } else {
-      console.warn("[webhook/meta] META_WEBHOOK_SECRET not set — skipping HMAC check (dev mode)");
     }
 
     // Always ACK immediately — Meta retries on non-200

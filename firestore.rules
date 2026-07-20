@@ -928,8 +928,11 @@ service cloud.firestore {
     // Claim-first (see role-check note near the top) — get() only as fallback.
     // Phase P: also true for users with an active MIS page share (sharedModules).
     function hasMisAccess() {
+      // NOTE: sync-claims stamps misAccess as 'admin' | 'viewer' | null on EVERY token,
+      // so the claim is present-but-null for non-MIS users. Must test membership, not
+      // `!= ''` — a null claim satisfies `!= ''` and would grant MIS reads to everyone.
       return isSignedIn() && (
-             request.auth.token.get('misAccess', '') != '' ||
+             request.auth.token.get('misAccess', '') in ['admin', 'viewer'] ||
              (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
               (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('misAccess', null) != null ||
                'mis' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('sharedModules', []))));

@@ -2917,7 +2917,7 @@ async function startServer() {
     const startMs = periodStartMs(period);
     const nowMs = Date.now();
     const [leadsSnap, openSnap, crSnap, targetsSnap] = await Promise.all([
-      db.collection("leads").where("deleted", "==", false).get(),
+      db.collection("leads").get(),   // deleted filtered in-memory (CRM 2.0 leads omit the field)
       db.collectionGroup("opportunities").where("status", "==", "open").get(),
       db.collection("commission_records").get(),
       db.collection("rm_targets").where("period", "==", period).get(),
@@ -2942,15 +2942,46 @@ async function startServer() {
     const slaBreaches: any[] = [];
     const CLOSED = new Set(["not_interested", "no_response", "wrong_number", "not_eligible", "converted"]);
 
+    // Resolve a CRM 2.0 lead's assignedRm (FAPL-xxx) → that person's accumulator.
+    const byFapl = new Map<string, any>();
+    for (const m of people) if (m.employeeId) byFapl.set(m.employeeId, acc.get(m.uid));
+    // CRM 2.0 statuses map into the same old-model buckets so the status column,
+    // conversion and attempted/untouched read consistently across both models.
+    const CRM2_TO_BUCKET: Record<string, string> = {
+      NEW: "new", QUEUED: "new", ASSIGNED: "new", ATTEMPTED: "new",
+      CONTACTED: "interested", QUALIFIED: "interested",
+      CONVERTED: "converted", NOT_INTERESTED: "not_interested",
+      NOT_ELIGIBLE: "not_eligible", DROPPED: "no_response", JUNK_DUPLICATE: "wrong_number",
+    };
+
     leadsSnap.forEach((d) => {
       const l: any = d.data();
+      const uMs = l.updatedAt?.toMillis ? l.updatedAt.toMillis() : 0;
+
+      if (l.deleted === true) return;
+      if (l.deleted === true) return;   // deleted filtered in-memory (query fetches all)
+      if (l.receivedAt != null) {
+        // ── CRM 2.0 lead — attributed by assignedRm (FAPL) ──────────────────
+        const a = byFapl.get(l.assignedRm); if (!a) return;
+        a.leads++;
+        const converted = l.converted === true || l.status === "CONVERTED";
+        const bucket = converted ? "converted" : (CRM2_TO_BUCKET[String(l.status ?? "")] ?? "new");
+        a.status[bucket] = (a.status[bucket] ?? 0) + 1;
+        if (l.firstContactedAt) a.attempted++;
+        else if (bucket === "new") a.untouched++;
+        if (uMs > a.lastActivityMs) a.lastActivityMs = uMs;
+        const rMs = l.receivedAt?.toMillis ? l.receivedAt.toMillis() : 0;
+        if (rMs >= startMs) a.newLeads++;
+        return;
+      }
+
+      // ── Old-model customer — attributed by primaryOwnerId (uid) ───────────
       const a = acc.get(l.primaryOwnerId); if (!a) return;
       a.leads++;
       const st = (typeof l.leadStatus === "string" && l.leadStatus) ? l.leadStatus : "new";
       a.status[st] = (a.status[st] ?? 0) + 1;
       if (l.firstContactedAt) a.attempted++;
       else if (st === "new") a.untouched++;
-      const uMs = l.updatedAt?.toMillis ? l.updatedAt.toMillis() : 0;
       if (uMs > a.lastActivityMs) a.lastActivityMs = uMs;
       const cms = l.createdAt?.toMillis ? l.createdAt.toMillis() : 0;
       if (cms >= startMs) a.newLeads++;
@@ -3392,6 +3423,20 @@ async function startServer() {
         db.collection("users").doc(target).get(),
       ]);
 
+      // CRM 2.0 leads are keyed by assignedRm (the person's FAPL), not
+      // primaryOwnerId — pull them too so the activity view reflects ALL the
+      // leads this person actually handles (not just old-model customers).
+      const targetFapl = (targetDoc.data()?.employeeId as string | undefined) ?? null;
+      const crm2Snap = targetFapl
+        ? await db.collection("leads").where("assignedRm", "==", targetFapl).get()
+        : null;
+      const CRM2_TO_BUCKET: Record<string, string> = {
+        NEW: "new", QUEUED: "new", ASSIGNED: "new", ATTEMPTED: "new",
+        CONTACTED: "interested", QUALIFIED: "interested",
+        CONVERTED: "converted", NOT_INTERESTED: "not_interested",
+        NOT_ELIGIBLE: "not_eligible", DROPPED: "no_response", JUNK_DUPLICATE: "wrong_number",
+      };
+
       // Optional import filter: restrict everything (counts, statuses, untouched
       // list, and the activity log below) to leads from ONE import file — so
       // management can judge a specific data set. importNames is always the
@@ -3423,6 +3468,21 @@ async function startServer() {
         if (l.firstContactedAt) attempted++;
         else if (st === "new") untouched.push({ leadId: d.id, name: l.displayName ?? "Lead", taggedAtMs: tMs || null, importName: l.importName ?? null });
       });
+      // CRM 2.0 leads have no importName → skip entirely under an import filter
+      // (imports are an old-model concept), but always count them otherwise.
+      if (crm2Snap && !importFilter) {
+        crm2Snap.forEach((d) => {
+          const l: any = d.data();
+          tagged++;
+          const converted = l.converted === true || l.status === "CONVERTED";
+          const bucket = converted ? "converted" : (CRM2_TO_BUCKET[String(l.status ?? "")] ?? "new");
+          status[bucket] = (status[bucket] ?? 0) + 1;
+          const tMs = l.receivedAt?.toMillis ? l.receivedAt.toMillis() : 0;
+          if (tMs >= startMs && tMs < endMs) taggedInPeriod++;
+          if (l.firstContactedAt) attempted++;
+          else if (bucket === "new") untouched.push({ leadId: d.id, name: l.name ?? l.leadCode ?? "Lead", taggedAtMs: tMs || null, importName: null });
+        });
+      }
       untouched.sort((a, b) => (a.taggedAtMs ?? 0) - (b.taggedAtMs ?? 0)); // oldest data first
 
       // Activity in the period: counts by type, per-IST-day outreach, unique

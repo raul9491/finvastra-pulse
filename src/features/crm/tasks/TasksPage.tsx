@@ -677,18 +677,22 @@ function TaskKeepCard({ t, me, busy, now, onDone, onPatch }: {
         </div>
       )}
       {commentOpen && (
-        <div className="flex items-center gap-2 mt-2">
-          <input value={commentText} autoFocus
-            onChange={(e) => setCommentText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') sendComment(); }}
-            placeholder="Add a comment…"
-            className="flex-1 min-w-0 text-xs px-2.5 py-2 rounded-lg outline-none"
-            style={{ backgroundColor: 'var(--ss-bg)', border: '1px solid var(--shell-border)', color: 'var(--text-primary)' }} />
-          <button onClick={sendComment} disabled={busy || !commentText.trim()}
-            className="shrink-0 text-[11px] font-semibold px-2.5 py-2 rounded-lg disabled:opacity-40"
-            style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
-            Send
-          </button>
+        <div className="mt-2.5 p-2.5 rounded-xl space-y-1.5"
+          style={{ backgroundColor: 'rgba(201,169,97,0.10)', border: '1.5px solid rgba(201,169,97,0.55)' }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#C9A961' }}>💬 Your comment</p>
+          <div className="flex items-center gap-2">
+            <input value={commentText} autoFocus
+              onChange={(e) => setCommentText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') sendComment(); }}
+              placeholder="Type here and press Enter…"
+              className="flex-1 min-w-0 text-sm px-3 py-2.5 rounded-lg outline-none focus:ring-2"
+              style={{ backgroundColor: 'var(--ss-bg)', border: '1px solid rgba(201,169,97,0.5)', color: 'var(--text-primary)' }} />
+            <button onClick={sendComment} disabled={busy || !commentText.trim()}
+              className="shrink-0 text-xs font-semibold px-3.5 py-2.5 rounded-lg disabled:opacity-40"
+              style={{ backgroundColor: '#C9A961', color: '#0B1538' }}>
+              Send
+            </button>
+          </div>
         </div>
       )}
 
@@ -705,8 +709,10 @@ function TaskKeepCard({ t, me, busy, now, onDone, onPatch }: {
           <button onClick={() => setCommentOpen((o) => !o)} disabled={busy}
             title="Add a comment"
             className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg disabled:opacity-40"
-            style={{ backgroundColor: 'var(--shell-hover-hard)', color: commentOpen ? '#C9A961' : 'var(--text-muted)' }}>
-            💬{comments.length > 0 ? ` ${comments.length}` : ''}
+            style={commentOpen
+              ? { backgroundColor: '#C9A961', color: '#0B1538' }
+              : { backgroundColor: 'rgba(201,169,97,0.14)', color: '#C9A961', border: '1px solid rgba(201,169,97,0.45)' }}>
+            💬 Comment{comments.length > 0 ? ` (${comments.length})` : ''}
           </button>
           <button onClick={onDone} disabled={busy}
             className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg disabled:opacity-40"

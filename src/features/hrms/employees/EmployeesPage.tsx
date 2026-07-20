@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Edit2, Download, UserPlus, Shield, Eye, LogOut, UserCheck, AlertTriangle, CheckSquare, X, Users } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
@@ -271,12 +271,13 @@ function EditEmployeeModal({ employee, allEmployees, onClose, adminUserId }: {
 }
 
 // ─── Deactivate modal ─────────────────────────────────────────────────────────
-function DeactivateModal({ employee, onClose, onDone }: {
+function DeactivateModal({ employee, onClose, onDone, defaultReason }: {
   employee: UserProfile; onClose: () => void; onDone: (warning?: string | null) => void;
+  defaultReason?: ExitReason;
 }) {
   const { user } = useAuth();
   const [lwd,        setLwd]        = useState('');
-  const [exitReason, setExitReason] = useState<ExitReason>('resignation');
+  const [exitReason, setExitReason] = useState<ExitReason>(defaultReason ?? 'resignation');
   const [notes,      setNotes]      = useState('');
   const [busy,       setBusy]       = useState(false);
   const [error,      setError]      = useState('');
@@ -514,6 +515,7 @@ export function EmployeesPage() {
   const [statusFilter,     setStatusFilter]     = useState<StatusFilter>(canManage ? 'all' : 'active');
   const [editingEmployee,  setEditingEmployee]  = useState<UserProfile | null>(null);
   const [deactivatingEmp,  setDeactivatingEmp]  = useState<UserProfile | null>(null);
+  const [exitReasonPreset, setExitReasonPreset] = useState<ExitReason | undefined>(undefined);
   const [reactivatingEmp,  setReactivatingEmp]  = useState<UserProfile | null>(null);
   const [showAddModal,     setShowAddModal]     = useState(false);
   const [addPrefill,       setAddPrefill]       = useState<{ name?: string; email?: string; phone?: string } | undefined>();
@@ -533,6 +535,22 @@ export function EmployeesPage() {
     // Only run on mount — searchParams reference is stable for initial load
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-open the Exit modal for ?exitFor={uid} (e.g. from Probation "fail & exit"),
+  // so probation → terminate → offboarding is ONE flow. Waits for the list to load.
+  const exitedHandledRef = useRef(false);
+  const exitReasonParam = (searchParams.get('exitReason') as ExitReason | null) ?? undefined;
+  useEffect(() => {
+    const uid = searchParams.get('exitFor');
+    if (!uid || exitedHandledRef.current || !canManage || loading) return;
+    const emp = employees.find((e) => e.userId === uid);
+    if (!emp) return;
+    exitedHandledRef.current = true;
+    setExitReasonPreset(exitReasonParam);
+    setDeactivatingEmp(emp);
+    setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employees, loading]);
 
   // Bulk edit state (admin + hrmsManager only)
   const [selectedIds,    setSelectedIds]    = useState<Set<string>>(new Set());
@@ -902,7 +920,7 @@ export function EmployeesPage() {
         />
       )}
       {deactivatingEmp && (
-        <DeactivateModal employee={deactivatingEmp}
+        <DeactivateModal employee={deactivatingEmp} defaultReason={exitReasonPreset}
           onClose={() => setDeactivatingEmp(null)}
           onDone={(warning) => {
             setDeactivatingEmp(null);

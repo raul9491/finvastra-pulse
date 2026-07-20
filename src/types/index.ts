@@ -1375,7 +1375,10 @@ export interface ChecklistItem {
   id: string;
   category: ChecklistItemCategory;
   task: string;
-  completed: boolean;
+  completed: boolean;   // "resolved" — TRUE for both done AND not-applicable
+  // How it was resolved: 'done' = actually done/issued · 'not_applicable' = never
+  // applied to this employee (e.g. no laptop/SIM issued). null = still pending.
+  outcome?: 'done' | 'not_applicable' | null;
   completedAt: import('firebase/firestore').Timestamp | null;
   completedBy: string | null;   // uid
   notes: string | null;

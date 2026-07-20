@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { differenceInDays, parseISO, format, addMonths } from 'date-fns';
 import { jsPDF } from 'jspdf';
@@ -708,6 +708,7 @@ export function ProbationPage() {
   const { records, loading } = useProbationRecords(canManage);
 
   const [filter, setFilter] = useState<Filter>('all');
+  const navigate = useNavigate();
   const [evalRecord,    setEvalRecord]    = useState<ProbationRecord | null>(null);
   const [confirmRecord, setConfirmRecord] = useState<ProbationRecord | null>(null);
   const [extendRecord,  setExtendRecord]  = useState<ProbationRecord | null>(null);
@@ -952,6 +953,17 @@ export function ProbationPage() {
                                 title="Extend Probation"
                               >
                                 Extend
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`Fail ${rec.employeeName}'s probation and start their exit? This opens the Exit form (reason preset to Termination) and creates their offboarding checklist.`))
+                                    navigate(`/hrms/employees?exitFor=${rec.employeeId}&exitReason=termination`);
+                                }}
+                                className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors hover:bg-red-50"
+                                style={{ color: '#DC2626' }}
+                                title="Fail probation → start exit + offboarding"
+                              >
+                                Fail &amp; Exit
                               </button>
                             </>
                           )}

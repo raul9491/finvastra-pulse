@@ -84,7 +84,11 @@ function ChecklistDetail({
   // NOTE: completedAt uses Timestamp.now() (client), NOT serverTimestamp() —
   // Firestore forbids serverTimestamp() inside an array element, which was the
   // silent-failure bug. Top-level completedAt/updatedAt keep serverTimestamp().
-  const toggleItem = async (item: ChecklistItem) => {
+  // Set an item's outcome: 'done' (actually done/issued), 'not_applicable' (never
+  // applied — e.g. no laptop/SIM issued to this employee), or null (back to
+  // pending). Both done AND not_applicable count as RESOLVED (completed:true) so
+  // the checklist can reach 100% when an asset was never given.
+  const setOutcome = async (item: ChecklistItem, outcome: 'done' | 'not_applicable' | null) => {
     if (savingId) return;
     setSavingId(item.id);
     try {
@@ -92,10 +96,10 @@ function ChecklistDetail({
       const snap = await getDoc(ref);
       if (!snap.exists()) return;
       const data = snap.data() as Omit<OnboardingChecklist, 'id'>;
-      const complete = !item.completed;
+      const resolved = outcome !== null;
       const updatedItems = data.items.map(i =>
         i.id === item.id
-          ? { ...i, completed: complete, completedAt: complete ? Timestamp.now() : null, completedBy: complete ? currentUid : null }
+          ? { ...i, completed: resolved, outcome, completedAt: resolved ? Timestamp.now() : null, completedBy: resolved ? currentUid : null }
           : i
       );
       const allDone = updatedItems.every(i => i.completed);
@@ -108,7 +112,7 @@ function ChecklistDetail({
         updatedAt: serverTimestamp(),
       });
     } catch (e) {
-      console.error('Failed to toggle onboarding item', e);
+      console.error('Failed to update onboarding item', e);
     } finally {
       setSavingId(null);
     }
@@ -176,36 +180,58 @@ function ChecklistDetail({
               <span className="ml-auto text-xs text-muted">{catDone}/{items.length}</span>
             </div>
             <ul className="divide-y divide-(--shell-border)">
-              {items.map(item => (
+              {items.map(item => {
+                const na = item.outcome === 'not_applicable';
+                const busy = savingId === item.id;
+                return (
                 <li key={item.id}
-                  className={`flex items-start gap-3 px-5 py-3 hover:bg-(--glass-panel-bg) transition-colors cursor-pointer select-none ${savingId === item.id ? 'opacity-50 pointer-events-none' : ''}`}
-                  onClick={() => toggleItem(item)}>
-                  <div className="mt-0.5 shrink-0">
-                    {item.completed
+                  className={`flex items-start gap-3 px-5 py-3 transition-colors ${busy ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <button onClick={() => setOutcome(item, item.completed && !na ? null : 'done')}
+                    className="mt-0.5 shrink-0" title={item.completed && !na ? 'Undo' : 'Mark done'}>
+                    {item.completed && !na
                       ? <CheckCircle2 size={18} className="text-green-500" />
-                      : <div className="w-4.5 h-4.5 rounded-full border-2 border-(--shell-border-mid)" />}
-                  </div>
+                      : na
+                        ? <Circle size={18} className="text-(--text-dim)" />
+                        : <div className="w-4.5 h-4.5 rounded-full border-2 border-(--shell-border-mid) hover:border-green-500" />}
+                  </button>
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm ${item.completed ? 'line-through text-muted' : 'text-(--text-primary)'}`}>
                       {item.task}
                     </p>
-                    {item.notes && (
-                      <p className="text-xs text-muted mt-0.5 truncate">{item.notes}</p>
-                    )}
                     {item.completedAt && (
                       <p className="text-xs text-muted mt-0.5">
-                        {format(toDate(item.completedAt)!, 'dd MMM yyyy')}
+                        {na ? 'Marked N/A · ' : ''}{format(toDate(item.completedAt)!, 'dd MMM yyyy')}
                       </p>
                     )}
                   </div>
+                  {/* Done / N/A actions */}
+                  <div className="shrink-0 flex items-center gap-1.5">
+                    {na && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full"
+                        style={{ backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-muted)' }}>N/A</span>
+                    )}
+                    {!item.completed && (
+                      <button onClick={() => setOutcome(item, 'not_applicable')}
+                        className="text-[10px] font-semibold px-2 py-1 rounded-lg hover:bg-(--shell-hover-hard)"
+                        style={{ color: 'var(--text-muted)', border: '1px solid var(--shell-border)' }}
+                        title="Not applicable to this employee (e.g. no laptop/SIM issued)">
+                        N/A
+                      </button>
+                    )}
+                    {na && (
+                      <button onClick={() => setOutcome(item, null)}
+                        className="text-[10px] px-1.5 py-1" style={{ color: 'var(--text-dim)' }} title="Reset">✕</button>
+                    )}
+                  </div>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </div>
         );
       })}
 
-      <p className="text-xs text-muted text-center pt-1">Tap any item to tick it — changes save instantly.</p>
+      <p className="text-xs text-muted text-center pt-1">Tap the circle to mark done, or <b>N/A</b> if it never applied (e.g. no laptop/SIM given). Saves instantly.</p>
     </div>
   );
 }

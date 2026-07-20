@@ -528,16 +528,19 @@ function TickItemModal({
   const [notes, setNotes] = useState(item.notes ?? '');
   const [saving, setSaving] = useState(false);
 
-  const handleSave = async (complete: boolean) => {
+  // 'done' = actually done · 'not_applicable' = never applied (e.g. no laptop/SIM
+  // to return) · null = back to pending. Both done + N/A resolve the item.
+  const handleSave = async (outcome: 'done' | 'not_applicable' | null) => {
     setSaving(true);
     try {
       const ref = doc(db, 'offboarding_checklists', checklistId);
       const snap = await getDoc(ref);
       if (!snap.exists()) return;
       const data = snap.data() as Omit<OffboardingChecklist, 'id'>;
+      const complete = outcome !== null;
       const updatedItems = data.items.map(i =>
         i.id === item.id
-          ? { ...i, completed: complete, completedAt: complete ? Timestamp.now() : null, completedBy: complete ? uid : null, notes: notes.trim() || null }
+          ? { ...i, completed: complete, outcome, completedAt: complete ? Timestamp.now() : null, completedBy: complete ? uid : null, notes: notes.trim() || null }
           : i
       );
       const allDone = updatedItems.every(i => i.completed);
@@ -564,22 +567,28 @@ function TickItemModal({
           <textarea className="w-full border border-(--shell-border) rounded-xl px-3 py-2 text-sm resize-none outline-none focus:ring-2 focus:ring-gold/30"
             rows={3} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Add a note…" />
         </div>
-        <div className="flex gap-3 pt-1">
+        <div className="flex gap-2 pt-1">
           <button onClick={onClose} disabled={saving}
             className="flex-1 border border-(--shell-border) rounded-xl py-2 text-sm font-medium text-muted hover:bg-(--glass-panel-bg) transition-colors">
             Cancel
           </button>
-          {item.completed && (
-            <button onClick={() => handleSave(false)} disabled={saving}
+          {item.completed ? (
+            <button onClick={() => handleSave(null)} disabled={saving}
               className="flex-1 border border-amber-200 rounded-xl py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 transition-colors">
-              Mark Incomplete
+              Reset to pending
             </button>
-          )}
-          {!item.completed && (
-            <button onClick={() => handleSave(true)} disabled={saving}
-              className="flex-1 bg-navy text-white rounded-xl py-2 text-sm font-semibold hover:bg-navy-soft transition-colors flex items-center justify-center gap-1.5">
-              <Check size={14} />Mark Done
-            </button>
+          ) : (
+            <>
+              <button onClick={() => handleSave('not_applicable')} disabled={saving}
+                className="flex-1 border border-(--shell-border) rounded-xl py-2 text-sm font-medium text-muted hover:bg-(--glass-panel-bg) transition-colors"
+                title="Never applied to this employee (e.g. no laptop/SIM to return)">
+                Not applicable
+              </button>
+              <button onClick={() => handleSave('done')} disabled={saving}
+                className="flex-1 bg-navy text-white rounded-xl py-2 text-sm font-semibold hover:bg-navy-soft transition-colors flex items-center justify-center gap-1.5">
+                <Check size={14} />Mark Done
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -1092,15 +1101,21 @@ function ChecklistDetail({
                   className={`flex items-start gap-3 px-5 py-3 transition-colors ${item.completed && item.task.toLowerCase().includes('disabled') ? 'opacity-60' : 'hover:bg-(--glass-panel-bg) cursor-pointer'}`}
                   onClick={() => !item.task.toLowerCase().includes('disabled') && setTickingItem(item)}>
                   <div className="mt-0.5 flex-shrink-0">
-                    {item.completed
-                      ? <CheckCircle2 size={18} className="text-green-500" />
-                      : <div className="w-[18px] h-[18px] rounded-full border-2 border-(--shell-border-mid)" />}
+                    {item.outcome === 'not_applicable'
+                      ? <Circle size={18} className="text-(--text-dim)" />
+                      : item.completed
+                        ? <CheckCircle2 size={18} className="text-green-500" />
+                        : <div className="w-[18px] h-[18px] rounded-full border-2 border-(--shell-border-mid)" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm ${item.completed ? 'line-through text-muted' : 'text-(--text-primary)'}`}>{item.task}</p>
                     {item.notes && <p className="text-xs text-muted mt-0.5 truncate">{item.notes}</p>}
-                    {item.completedAt && <p className="text-xs text-muted mt-0.5">{format(toDate(item.completedAt)!, 'dd MMM yyyy')}</p>}
+                    {item.completedAt && <p className="text-xs text-muted mt-0.5">{item.outcome === 'not_applicable' ? 'Marked N/A · ' : ''}{format(toDate(item.completedAt)!, 'dd MMM yyyy')}</p>}
                   </div>
+                  {item.outcome === 'not_applicable' && (
+                    <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full self-center"
+                      style={{ backgroundColor: 'var(--shell-hover-hard)', color: 'var(--text-muted)' }}>N/A</span>
+                  )}
                 </li>
               ))}
             </ul>

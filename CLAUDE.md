@@ -56,6 +56,8 @@ The ~14 client `where('deleted','==',false)` reads on `/leads` live in the old-C
 
 **3m MIS statements group + shared-state hoist ✅ (2026-07-21, Cloud Run rev `pulse-api-00135-xpg`, verify:deploy 3/3 + mis upload/process unauth 401)** — first group needing a stateful hoist: moved the MIS-CSV parser cluster into **`server/lib/mis.ts`** — critically `_stagedParsedData` is now a **module singleton** so the upload route (writes) and process route (reads/deletes) share ONE Map instance (the cross-request handoff), exactly as before; the 4 parsers (`parseCsvLine`/`detectColumns`/`parseFlexibleDate`/`parseAmount`) are pure. Then extracted the 3 MIS routes into **`server/routes/mis.ts`** as `registerMisRoutes(app)` (imports the parsers from ../lib/mis.js). server.ts 1223→**1006** (~83% below the original 6057). 9 route groups extracted.
 
+**3n OAuth/calendar group + oauth2Client singleton hoist ✅ (2026-07-21, Cloud Run rev `pulse-api-00136-9nf`, verify:deploy 3/3 + auth/google/url 200 + sync-calendar 401)** — hoisted the shared **`oauth2Client`** into **`server/lib/oauth.ts`** as a module singleton (its `.credentials` are set by the OAuth callback and read by leave→calendar sync, so all consumers share ONE instance), then extracted the 4 OAuth/calendar routes (google/url, callback, calendar/events, leave-sync) into **`server/routes/oauth.ts`** as `registerOAuthRoutes(app)` (hand-added `google` import). server.ts 1006→**885** (~85% below the original 6057). 10 route groups extracted.
+
 ## Architecture
 
 | Layer | Tech | Notes |

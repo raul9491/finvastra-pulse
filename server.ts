@@ -2,17 +2,11 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import fs from "fs";
-import crypto from "crypto";
 import { fileURLToPath } from "url";
-import { google } from "googleapis";
-import { JWT, OAuth2Client } from "google-auth-library";
 import admin from "firebase-admin";
-import { getStorage } from "firebase-admin/storage";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
-import { encryptField, decryptField } from "./src/lib/encryption.js";
-import { isCrm2Lead, isLeadDeleted, isLeadTerminal, leadBucket, leadOwner, leadName, leadMobile, leadCreatedMs, leadAttempted } from "./src/lib/crm2/leadModel.js";
-import { db, useEmulator } from "./server/db.js";
+import { db } from "./server/db.js";
 import { registerCrm2Routes } from "./server/crm2.js";
 
 dotenv.config();
@@ -24,48 +18,12 @@ const __dirname = path.dirname(__filename);
 // ./server/db.ts so route/helper modules can import them directly. `admin` above
 // is the same singleton db.ts initializes; `useEmulator` is re-exported from there.
 
-import {
-  getSheetsClient,
-  getServiceAccountEmail,
-  extractSheetId,
-  getServiceAccountPath,
-  fetchEmployeeMasterRows,
-  parseEmployeeRow,
-  splitPhones,
-  canonicalPhone,
-  salvagePhoneFromName,
-  validateCells,
-  validateRow,
-  buildImportHash,
-  buildImportHashLegacy,
-  findExistingImportHashes,
-  detectColumnMapping,
-  extractCells,
-  writeImportedLead,
-  processImportBatch,
-  distributeBatch,
-  TEMPLATE_SHEET_URL,
-} from "./server/lib/imports.js";
-import type { ColumnMapping } from "./server/lib/imports.js";
-import { verifyFirebaseToken, verifySchedulerOIDC, validateServerEnv, isSuperAdmin, checkRateLimit, SUPER_ADMIN_UIDS_LIST, HOUR_MS } from "./server/lib/auth.js";
-import {
-  computeActualsServer, latestActivity, requireAdminOrScheduler, activeRmFilter,
-  computeDownline, isElevatedUser, periodStartMs, sumTeamTotals, accumulatePerf,
-  computeTeamSummary, cachedJson,
-} from "./server/lib/perf.js";
-import {
-  getGmailClient, getCalendarClient, encodeEmailSubject, notificationsEnabled,
-  sendGmailMessage, buildPasswordResetEmail, escapeHtml, buildBrandEmail, sendGmailWithAttachment,
-} from "./server/lib/email.js";
-import { normaliseIndianPhone, workloadAwareAssign, writeWebhookLog, processInboundLead } from "./server/lib/webhook.js";
-import { inrRound as inr } from "./src/lib/money.js";
-import { generateAndDeliverScorecard } from "./server/lib/scorecard.js";
-import { oauth2Client } from "./server/lib/oauth.js";
+import { verifySchedulerOIDC, validateServerEnv } from "./server/lib/auth.js";
+import { buildBrandEmail, sendGmailMessage } from "./server/lib/email.js";
 import { registerImportRoutes } from "./server/routes/imports.js";
 import { registerJobRoutes } from "./server/routes/jobs.js";
 import { registerOAuthRoutes } from "./server/routes/oauth.js";
 import { registerMisRoutes } from "./server/routes/mis.js";
-import { _stagedParsedData, cleanStagedData, parseCsvLine, detectColumns, parseFlexibleDate, parseAmount } from "./server/lib/mis.js";
 import { registerEmployeeRoutes } from "./server/routes/employees.js";
 import { registerTrackerRoutes } from "./server/routes/tracker.js";
 import { registerNotificationRoutes } from "./server/routes/notifications.js";
@@ -73,7 +31,6 @@ import { registerAdminRoutes } from "./server/routes/admin.js";
 import { registerMeetingRoutes } from "./server/routes/meetings.js";
 import { registerWebhookRoutes } from "./server/routes/webhook.js";
 import { registerCrmPerformanceRoutes } from "./server/routes/crmPerformance.js";
-import { createOnboardingChecklist, createOffboardingChecklist } from "./server/lib/employee.js";
 validateServerEnv();
 
 async function startServer() {

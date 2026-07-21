@@ -7,12 +7,12 @@ import { fileURLToPath } from "url";
 import { google } from "googleapis";
 import { JWT, OAuth2Client } from "google-auth-library";
 import admin from "firebase-admin";
-import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import { encryptField, decryptField } from "./src/lib/encryption.js";
 import { isCrm2Lead, isLeadDeleted, isLeadTerminal, leadBucket, leadOwner, leadName, leadMobile, leadCreatedMs, leadAttempted } from "./src/lib/crm2/leadModel.js";
+import { db, useEmulator } from "./server/db.js";
 import { registerCrm2Routes } from "./server/crm2.js";
 
 dotenv.config();
@@ -20,20 +20,9 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize Firebase Admin (uses Application Default Credentials in Cloud Run)
-if (!admin.apps.length) {
-  admin.initializeApp();
-}
-
-// Named Firestore database — must match firestoreDatabaseId in firebase-applet-config.json.
-// The emulator uses the default database; production uses the named one.
-// Migrated 2026-06-10 from the AI-Studio free-tier DB (ai-studio-27afcadd-…), which
-// had an unliftable 50k-reads/day cap, to a standard uncapped database.
-const FIRESTORE_DB_ID = "pulse";
-const useEmulator = process.env.VITE_USE_EMULATOR === "true";
-const db = useEmulator
-  ? admin.firestore()
-  : getFirestore(admin.app(), FIRESTORE_DB_ID);
+// Firebase Admin init + the named Firestore handle (`db`) now live in
+// ./server/db.ts so route/helper modules can import them directly. `admin` above
+// is the same singleton db.ts initializes; `useEmulator` is re-exported from there.
 
 // ─── Sheets API helpers ────────────────────────────────────────────────────────
 

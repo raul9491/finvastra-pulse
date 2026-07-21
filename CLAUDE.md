@@ -48,6 +48,8 @@ The ~14 client `where('deleted','==',false)` reads on `/leads` live in the old-C
 
 **3i webhook-intake route group ✅ (2026-07-21, Cloud Run rev `pulse-api-00131-zbz`, verify:deploy 3/3 + intake/website no-secret 401 + intake/meta wrong-verify 403)** — extracted the website + Meta + referral lead-intake webhooks + webhook-logs (5 routes, 310 lines) into **`server/routes/webhook.ts`** as `registerWebhookRoutes(app)` (imports `processInboundLead`/`normaliseIndianPhone`/etc. from ../lib/webhook.js + auth + db). **Extractor gotcha:** the auto-import detector doesn't catch Node builtins used as `crypto.xxx`/`Buffer` — the Meta HMAC + timing-safe secret compare needed `import crypto from "crypto"` added by hand (tsc caught it). server.ts 3396→**3089** (~49% below the original 6057 — nearly half).
 
+**3j meetings + admin/infra route groups ✅ (2026-07-21, Cloud Run rev `pulse-api-00132-jkh`, verify:deploy 3/3 + health 200 + sync-claims 401 + crm/meetings 401)** — two more clean groups (batched into one deploy): **`server/routes/meetings.ts`** (`registerMeetingRoutes` — CRM meetings→scheduler Google Calendar create/update, 158 lines, uses `getCalendarClient` from email.js) + **`server/routes/admin.ts`** (`registerAdminRoutes` — health/deep-health + dev bootstrap-admin + sync-claims/sync-all-claims + PAN encrypt/migrate, 254 lines; the extractor auto-detected + added the `encryptField`/`decryptField` import for the PAN routes). server.ts 3089→**2683** (~56% below the original 6057). 5 route groups now extracted (imports · crmPerformance · webhook · meetings · admin).
+
 ## Architecture
 
 | Layer | Tech | Notes |

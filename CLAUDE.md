@@ -46,6 +46,8 @@ The ~14 client `where('deleted','==',false)` reads on `/leads` live in the old-C
 
 **3h CRM performance route group ✅ (2026-07-21, Cloud Run rev `pulse-api-00130-sb6`, verify:deploy 3/3)** — extracted the 7 CRM team/performance + activity/workload/not-eligible/imports-perf READ routes (434 lines) into **`server/routes/crmPerformance.ts`** as `registerCrmPerformanceRoutes(app)` (auto-detected deps: db/admin, auth×2, perf×8, leadModel leadBucket/leadName). Reusable extractor `scratchpad/extract_route_group.py` (parses every `server/lib/*` module's exports, imports only what the block uses). **AUTHED calc re-check** (this group owns team/performance): admin token → **head.leads=15 / conv 13% / totals 16 — identical to pre-move**. server.ts 3827→**3396** (~44% below the original 6057).
 
+**3i webhook-intake route group ✅ (2026-07-21, Cloud Run rev `pulse-api-00131-zbz`, verify:deploy 3/3 + intake/website no-secret 401 + intake/meta wrong-verify 403)** — extracted the website + Meta + referral lead-intake webhooks + webhook-logs (5 routes, 310 lines) into **`server/routes/webhook.ts`** as `registerWebhookRoutes(app)` (imports `processInboundLead`/`normaliseIndianPhone`/etc. from ../lib/webhook.js + auth + db). **Extractor gotcha:** the auto-import detector doesn't catch Node builtins used as `crypto.xxx`/`Buffer` — the Meta HMAC + timing-safe secret compare needed `import crypto from "crypto"` added by hand (tsc caught it). server.ts 3396→**3089** (~49% below the original 6057 — nearly half).
+
 ## Architecture
 
 | Layer | Tech | Notes |

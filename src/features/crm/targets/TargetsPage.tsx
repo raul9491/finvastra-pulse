@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { inrRound as fmtINR } from '../../../lib/money';
 import { useNavigate } from 'react-router-dom';
 import { collectionGroup, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { Loader2, Pencil, FileText } from 'lucide-react';
@@ -25,7 +26,6 @@ function daysLeftInMonth(period: string): number {
   return period < cur ? 0 : lastDay;
 }
 
-const fmtINR = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 const fmtVal = (kind: 'count' | 'money', n: number) => (kind === 'money' ? fmtINR(n) : String(n));
 
 const METRICS = [

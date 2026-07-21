@@ -6,6 +6,7 @@
  * collection needed. All Firestore reads are one-time (getDocs) on mount.
  */
 import { useState, useEffect } from 'react';
+import { inrRound as formatCurrency } from '../../../lib/money';
 import { Link } from 'react-router-dom';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
@@ -140,9 +141,7 @@ export function CrmPerformanceWidget({ employeeUid, employeeName: _employeeName 
     ? stats.totalLeads > 0 || stats.openOpportunities > 0 || stats.commissionThisMonth > 0
     : false;
 
-  const formatCurrency = (n: number) =>
-    `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-
+  
   return (
     <div className="bg-(--glass-panel-bg) rounded-2xl border border-(--shell-border) p-6">
       {/* Heading */}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { inr as formatCurrency } from '../../../lib/money';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Download, X, Receipt } from 'lucide-react';
 import { getDoc, doc } from 'firebase/firestore';
@@ -19,9 +20,6 @@ function formatMonth(month: string): string {
   return new Date(+yr, +mo - 1, 1).toLocaleString('en-IN', { month: 'long', year: 'numeric' });
 }
 
-function formatCurrency(amount: number): string {
-  return `₹${amount.toLocaleString('en-IN')}`;
-}
 
 // ─── Edit Profile button ──────────────────────────────────────────────────────
 function EditProfileButton() {

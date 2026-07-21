@@ -8,6 +8,7 @@
  * Admin / HR manager only.
  */
 import { useMemo, useState } from 'react';
+import { inrRound as fmtINR } from '../../../lib/money';
 import { Navigate } from 'react-router-dom';
 import {
   Car, Smartphone, Heart, Fuel, Users, HelpCircle, CreditCard, Laptop, Package,
@@ -31,7 +32,6 @@ const CATEGORY_META: Record<ClaimType, { label: string; icon: typeof Car; color:
 };
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const fmtINR = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 const fmtShort = (n: number) => (n >= 1e7 ? `₹${(n / 1e7).toFixed(1)}Cr` : n >= 1e5 ? `₹${(n / 1e5).toFixed(1)}L` : n >= 1e3 ? `₹${Math.round(n / 1e3)}k` : `₹${Math.round(n)}`);
 
 // The date a claim's spend belongs to: the bill date if recorded, else submission.

@@ -14,6 +14,7 @@
  * add-members picker here.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { inrRound as fmtINR } from '../../../lib/money';
 import { useNavigate } from 'react-router-dom';
 import { Users, Phone, AlertTriangle, RefreshCw, ArrowRight, ArrowRightLeft, UserPlus, UserMinus, X, ChevronDown, ChevronRight, Star } from 'lucide-react';
 import { doc, collection, query, where, orderBy, getDocs, writeBatch, serverTimestamp } from 'firebase/firestore';
@@ -44,7 +45,6 @@ const tsMs = (v: any): number => (v?.toMillis ? v.toMillis() : (typeof v === 'st
 function currentPeriod(): string {
   return new Date().toISOString().slice(0, 7);
 }
-const fmtINR = (n: number) => `₹${Math.round(n || 0).toLocaleString('en-IN')}`;
 
 interface MemberRow {
   uid: string; name: string; designation: string;

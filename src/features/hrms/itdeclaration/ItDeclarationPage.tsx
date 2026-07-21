@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { inrRound as inr } from '../../../lib/money';
 import { ChevronDown, ChevronRight, Info, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import {
@@ -14,7 +15,6 @@ import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
-const inr = (v: number) => `₹${Math.round(v).toLocaleString('en-IN')}`;
 const numInput = (e: React.ChangeEvent<HTMLInputElement>) =>
   Math.max(0, Number(e.target.value) || 0);
 

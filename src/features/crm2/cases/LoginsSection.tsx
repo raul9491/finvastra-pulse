@@ -5,6 +5,7 @@
  * The disbursement stage is reserved for the money engine (Build #2).
  */
 import { useEffect, useMemo, useState } from 'react';
+import { inr as fmtMoney } from '../../../lib/money';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { Plus, X } from 'lucide-react';
 import { db } from '../../../lib/firebase';
@@ -31,7 +32,6 @@ const STAGE_NUM: Record<LoginStage, number> = {
 const DECISION_OPTS = [{ value: '', label: '—' }, { value: 'ACCEPTED', label: 'Accepted' }, { value: 'PENDING', label: 'Pending' }, { value: 'REJECTED', label: 'Rejected' }];
 const PDD_OPTS = ['NA', 'PENDING', 'PARTIAL', 'CLEARED'].map((v) => ({ value: v, label: v }));
 const OTC_OPTS = ['NA', 'PENDING', 'CLEARED'].map((v) => ({ value: v, label: v }));
-const fmtMoney = (n: number | null | undefined) => (n == null ? '—' : `₹${n.toLocaleString('en-IN')}`);
 
 // Stage 6 — In-Process parallel sub-processes (PLAN §4 stage 6).
 const SUB_PROCS: Array<{ key: 'pd' | 'technical' | 'valuation' | 'legal' | 'credit'; label: string }> = [

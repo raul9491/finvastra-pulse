@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { inrRound as inr } from '../../../lib/money';
 import { format } from 'date-fns';
 import {
   CheckCircle2, Clock, AlertCircle, TrendingUp, Star, ChevronDown, ChevronRight,
@@ -12,7 +13,6 @@ import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const inr = (v: number) => `₹${Math.round(v).toLocaleString('en-IN')}`;
 
 function toDate(ts: unknown): Date | null {
   if (!ts) return null;

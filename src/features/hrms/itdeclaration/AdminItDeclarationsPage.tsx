@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { inrRound as inr } from '../../../lib/money';
 import { Download, Eye, CheckCircle2, RotateCcw, ChevronLeft, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '../../auth/AuthContext';
@@ -14,7 +15,6 @@ import { PageHeader } from '../../../components/ui/primitives';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
-const inr = (v: number) => `₹${Math.round(v).toLocaleString('en-IN')}`;
 
 function toDate(ts: unknown): Date | null {
   if (!ts) return null;

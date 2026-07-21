@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { inr as formatCurrency } from '../../../lib/money';
 import { Navigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { serverTimestamp, getDoc, doc } from 'firebase/firestore';
@@ -75,9 +76,6 @@ function computeNetPay(v: PayslipFormValues): {
   return { totalEarnings, totalDeductions, netPay: totalEarnings - totalDeductions };
 }
 
-function formatCurrency(n: number): string {
-  return `₹${n.toLocaleString('en-IN')}`;
-}
 
 // ─── NumberInput ──────────────────────────────────────────────────────────────
 // Thin wrapper: renders a compact number input; converts empty string → 0.

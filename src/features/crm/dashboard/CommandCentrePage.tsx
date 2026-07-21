@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { inrRound as fmtINR } from '../../../lib/money';
 import { useNavigate } from 'react-router-dom';
 import {
   collection, collectionGroup, getDocs, query, where, orderBy, limit,
@@ -15,7 +16,6 @@ import { DataView } from '../../../components/ui/DataView';
 import { RePie } from '../../../components/ui/charts';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const fmtINR = (n: number) => `₹${Math.round(Number(n) || 0).toLocaleString('en-IN')}`;
 const fmtCompact = (n: number) => {
   const v = Number(n) || 0;
   if (v >= 1e7) return `₹${(v / 1e7).toFixed(2)}Cr`;

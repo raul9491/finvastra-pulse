@@ -5,6 +5,7 @@
  * and a read-only document vault. Reads are rule-scoped; writes via /api/crm2.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { inr as fmtMoney } from '../../../lib/money';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   collection, doc, onSnapshot, query, where, orderBy,
@@ -31,8 +32,6 @@ const STATUS_COLOR: Record<string, { bg: string; fg: string }> = {
 };
 const fmtDate = (t: { toDate?: () => Date } | null | undefined) =>
   t?.toDate ? t.toDate().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-const fmtMoney = (n: number | null | undefined) =>
-  n == null ? '—' : `₹${n.toLocaleString('en-IN')}`;
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

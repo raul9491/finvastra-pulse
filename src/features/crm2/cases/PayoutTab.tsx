@@ -7,6 +7,7 @@
  * API which strips amounts otherwise).
  */
 import { useEffect, useState } from 'react';
+import { inr } from '../../../lib/money';
 import { CheckCircle2, Circle, X, AlertTriangle, IndianRupee } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
@@ -15,7 +16,6 @@ import { FLabel, inp } from '../masters/MastersPage';
 import type { Crm2Case, PayoutCycle, PayoutCycleStatus } from '../../../types/crm2';
 import { PAYOUT_STATUS_LABEL } from '../labels';
 
-const inr = (n: number | null | undefined) => n != null ? `₹${Number(n).toLocaleString('en-IN')}` : '—';
 const fmtTs = (t: { toDate?: () => Date; _seconds?: number } | null | undefined) => {
   if (!t) return null;
   const ms = t.toDate ? t.toDate().getTime() : (t._seconds != null ? t._seconds * 1000 : null);

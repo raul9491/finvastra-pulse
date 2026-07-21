@@ -7,6 +7,7 @@
  * or change any business value; it only renders the server-aggregated `d`.
  */
 import { useEffect, useState } from 'react';
+import { inr } from '../../../lib/money';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../../components/ui/primitives';
 import { RefreshCw } from 'lucide-react';
@@ -15,7 +16,6 @@ import { apiCrm2, hasCrm2Perm, useRmName } from '../lib';
 import { DataView, SimpleTable, type Column } from '../../../components/ui/DataView';
 import { ReBar, fmtINR, fmtNum } from '../../../components/ui/charts';
 
-const inr = (n: number | null | undefined) => n != null ? `₹${Number(n).toLocaleString('en-IN')}` : '—';
 const thisMonth = () => new Date().toISOString().slice(0, 7);
 
 interface Dash {

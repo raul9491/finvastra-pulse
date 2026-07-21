@@ -7,6 +7,7 @@
  * Phase 4 disburse transaction writes it. All mutations via /api/crm2/*.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { inr } from '../../../lib/money';
 import { useParams, useNavigate } from 'react-router-dom';
 import { collection, doc, onSnapshot, orderBy, query as fsQuery } from 'firebase/firestore';
 import { ArrowLeft, Plus, X, Check, AlertTriangle, FileText, Upload, ChevronRight } from 'lucide-react';
@@ -28,7 +29,6 @@ import { CASE_LEVEL_STAGE_ORDER, type CaseLevelStage, CASE_PIPELINE, activeCaseP
 type WithId<T> = T & { id: string };
 const fmtTs = (t: { toDate?: () => Date } | null | undefined) =>
   t?.toDate ? t.toDate().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
-const inr = (n: number | null | undefined) => n != null ? `₹${Number(n).toLocaleString('en-IN')}` : '—';
 
 function useSubcollection<T>(path: string[], orderField?: string, enabled = true) {
   const [rows, setRows] = useState<Array<T & { id: string }>>([]);

@@ -8,6 +8,7 @@
  * multi-login cases pass the loginId so the right cycle is flagged.
  */
 import { useState } from 'react';
+import { inr } from '../../../lib/money';
 import { useNavigate } from 'react-router-dom';
 import { Upload, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
@@ -17,7 +18,6 @@ import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
 import { FLabel, inp } from '../masters/MastersPage';
 import type { Aggregator } from '../../../types/crm2';
 
-const inr = (n: number | null | undefined) => n != null ? `₹${Number(n).toLocaleString('en-IN')}` : '—';
 const thisMonth = () => new Date().toISOString().slice(0, 7);
 
 interface MissingEntry { misId: string; caseId: string; loginId: string | null; loanAccountNo: string | null; }

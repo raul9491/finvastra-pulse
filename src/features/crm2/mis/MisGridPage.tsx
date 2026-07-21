@@ -5,6 +5,7 @@
  * payout.amounts.read). Requires mis.read.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { inr } from '../../../lib/money';
 import { useNavigate } from 'react-router-dom';
 import { Download, Send, RefreshCw } from 'lucide-react';
 import { auth } from '../../../lib/firebase';
@@ -19,7 +20,6 @@ interface MisRow {
   disbursedAmount: number | null; expectedGross: number | null; receivedNet: number | null;
   netMargin: number | null; cycleStatus: string; ageingDays: number | null; reportingMonth: string;
 }
-const inr = (n: number | null | undefined) => n != null ? `₹${Number(n).toLocaleString('en-IN')}` : '—';
 const thisMonth = () => new Date().toISOString().slice(0, 7);
 
 export function MisGridPage() {

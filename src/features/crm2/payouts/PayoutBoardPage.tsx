@@ -5,6 +5,7 @@
  * amounts; payout.amounts.read users get the money columns.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { inr } from '../../../lib/money';
 import { useNavigate } from 'react-router-dom';
 import { RefreshCw, AlertTriangle, X, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
@@ -20,7 +21,6 @@ interface CycleRow {
 }
 
 const STATUSES: PayoutCycleStatus[] = ['AWAITING_DATA_SHARE', 'CONFIRMATION_RAISED', 'BANKER_CONFIRMED', 'PDD_OTC_HOLD', 'PAYOUT_CONFIRMED', 'BILLED', 'RECEIVED', 'SUBDSA_PAID', 'CLOSED', 'DISPUTED'];
-const inr = (n: number | null | undefined) => n != null ? `₹${Number(n).toLocaleString('en-IN')}` : '—';
 const ageDays = (d: { _seconds?: number } | null) => d?._seconds ? Math.floor((Date.now() - d._seconds * 1000) / 86400000) : null;
 
 export function PayoutBoardPage() {

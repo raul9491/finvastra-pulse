@@ -23,6 +23,9 @@ A staged, **behavior-preserving** structural refactor (plan `~/.claude/plans/mel
 - **Deferred as unsafe/churn** (documented, NOT done): tsconfig `noUnusedLocals`/`noUnusedParameters` — would HARD-FAIL the build on the ~31 unused locals deliberately kept (possible side-effecting initializers); ESLint warns on them non-blocking instead. Prettier — skipped to avoid a whole-repo reformat diff.
 - **`package.json`**: added devDeps (eslint toolchain) + **`"lint:es": "eslint ."`**. **CI** (`.github/workflows/ci.yml`): added ESLint + `npm run build` + the `qa:partner` gate (was defined but unwired) → Typecheck → ESLint → Unit tests → Build → 4 emulator gates. Verified locally: tsc 0 · `eslint .` exit 0 · **202 unit tests pass** · build clean.
 
+### Phase 1 (started) ✅ (2026-07-21, hosting-only, verify:deploy 3/3) — shared money util
+`src/lib/money.ts` (pure, **6 unit tests**) is the ONE home for ₹ formatting, replacing 20+ private copies that had drifted into three behaviours: **`inr(n)`** (exact, null→'—' — the crm2 variant), **`inrRound(n)`** (whole-rupee, null/NaN→₹0), **`inrPaise(n)`** (2-decimal payslip/FnF). Each reproduces an existing behaviour EXACTLY. Adopted this increment in the **6 byte-identical crm2 `inr` files** (CaseWorkspace, PayoutTab, DashboardsPage, MisGrid, PayoutBoard, Recon) — zero display change. **Next increments:** swap the rounded `fmtINR`/`inr` copies → `inrRound` and the payslip `formatCurrency` → `inrPaise` (each verified per-site for parity), then add `src/lib/dates.ts` (`formatIst`/`istDateKey`) for the ~12 hand-rolled IST formatters. **Rule: match the EXACT existing behaviour when swapping — never change a displayed number.**
+
 ## Architecture
 
 | Layer | Tech | Notes |

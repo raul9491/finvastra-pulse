@@ -27,8 +27,14 @@ jobs:
       - name: Typecheck
         run: npm run lint
 
+      - name: ESLint
+        run: npm run lint:es
+
       - name: Unit tests
         run: npm test
+
+      - name: Build
+        run: npm run build
 
       # Meta webhook emulator gate — boots auth+firestore emulators + the dev server
       # pointed at an in-process mock Graph API (offline; no real Meta token).
@@ -45,3 +51,7 @@ jobs:
       # /state, SLA regression, live config reshape.
       - name: Pull-queue gate (qa:queue)
         run: npm run qa:queue
+
+      # Partner-intake gate — screening→scoring→onboarding→activation chain.
+      - name: Partner gate (qa:partner)
+        run: npm run qa:partner

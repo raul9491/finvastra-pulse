@@ -14,6 +14,15 @@
 
 ---
 
+## Refactor initiative (2026-07-21, in progress) — guardrails first
+A staged, **behavior-preserving** structural refactor (plan `~/.claude/plans/melodic-roaming-sloth.md`), approved by Rahul, to lift the codebase from "works but leans on human discipline" to tooling-enforced. Phases: 0 guardrails ✅ · 1 shared money/date utils · 2 client `leadModel` adoption + kill the `deleted==false` trap · 3 split the backend god files (`server.ts` 6k/70 routes, `server/crm2.ts` 5.7k/75) into `server/routes/*` via the existing `registerXxx(app, ctx)` pattern · 4 break up the 1000+ line pages (MastersPage 1805, OppDetail, Offboarding, CaseWorkspace, EmployeeProfile) · 5 (opt) strict TS incrementally. Rule: every phase is its own verified, shippable commit; NO feature/behavior change; verify tsc+eslint+`npm test`+build+gates each step.
+
+### Phase 0 ✅ (2026-07-21, tooling-only — NOT a runtime change, no deploy) — ESLint + CI guardrails
+- **NEW `eslint.config.js`** (flat, ESLint 9 + `typescript-eslint` 8 + `eslint-plugin-react-hooks` 7): deliberately LENIENT. The headline is **`react-hooks/rules-of-hooks` = `error`** — auto-catches the "hook after an early return" crash class (React #310) that CLAUDE.md previously guarded with a manual `awk` scan. `no-explicit-any`/`exhaustive-deps`/style rules OFF for now; `@typescript-eslint/no-unused-vars` = warn; stale `eslint-disable exhaustive-deps` directives silenced.
+- **Hook-debt baseline:** ESLint found **123 real rules-of-hooks violations in 15 files** (the "guard clause before the hooks" pattern — worst `HrLetterGeneratorPage` 62; masked in practice by upstream route-gating, which is why they've never crashed). These 15 files are **baselined to `warn`** (listed in `HOOK_BASELINE` in the config) so CI is green + all OTHER code is protected by `error`; each will be fixed when its page is restructured in Phase 4 (remove from the list then).
+- **Deferred as unsafe/churn** (documented, NOT done): tsconfig `noUnusedLocals`/`noUnusedParameters` — would HARD-FAIL the build on the ~31 unused locals deliberately kept (possible side-effecting initializers); ESLint warns on them non-blocking instead. Prettier — skipped to avoid a whole-repo reformat diff.
+- **`package.json`**: added devDeps (eslint toolchain) + **`"lint:es": "eslint ."`**. **CI** (`.github/workflows/ci.yml`): added ESLint + `npm run build` + the `qa:partner` gate (was defined but unwired) → Typecheck → ESLint → Unit tests → Build → 4 emulator gates. Verified locally: tsc 0 · `eslint .` exit 0 · **202 unit tests pass** · build clean.
+
 ## Architecture
 
 | Layer | Tech | Notes |

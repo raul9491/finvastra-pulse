@@ -1023,6 +1023,7 @@ The app has three modules behind a post-login launcher. **Never add features fro
 | `/hrms/*` | `HrmsShell` + nested pages | authenticated + `hrmsAccess` |
 | `/crm/*` | `CrmShell` + nested pages | authenticated + `crmAccess` |
 | `/mis/*` | `MisShell` + nested pages | authenticated + `misAccess` |
+| `/partner/*` | `PartnerShell` + 5 screens | authenticated + `connectorId` (channel partners only; staff are redirected away) |
 
 **Module access flags on `/users/{uid}`:**
 - `hrmsAccess: boolean` — default `true`. Everyone gets HRMS self-service.
@@ -3270,7 +3271,8 @@ Authoritative list of every Express route. Verify against `server.ts` after any 
 **Admin / dev / claims**
 - `GET  /api/health` (static ok) · `GET /api/health/deep` (does a real Firestore read → 200 if OK, 503 if the DB read fails; **uptime-monitored** so DB/quota/rules outages page within minutes)
 - `POST /api/dev/bootstrap-admin` — promote allowlisted admin email
-- `POST /api/admin/users/:uid/sync-claims` — stamp role/access custom claims
+- `POST /api/admin/users/:uid/sync-claims` — stamp role/access custom claims (now also stamps `connectorId`)
+- `POST /api/admin/users/:uid/connector` `{connectorId}`|`{connectorId:null}` — turn an account INTO a channel-partner (connector) account or back. Forces `hrmsAccess:false` + `crmAccess:false` + minimal perms, re-stamps claims, audit-logged. THE only supported way to make one (2026-07-22).
 - `POST /api/admin/sync-all-claims` — bulk re-stamp claims for EVERY user (admin-only; super-admin targets skipped unless caller is super admin). Button on Permission Manager. Run once so all tokens carry claims → the claims-first rules skip the per-request /users read. Returns `{synced, skipped, noAuth, total}`.
 - `POST /api/admin/migrate-pan-encryption` — one-time PAN encryption migration
 - `POST /api/admin/test-smtp` — admin test email
@@ -3296,6 +3298,10 @@ Authoritative list of every Express route. Verify against `server.ts` after any 
 - `POST /api/admin/employees/create` · `POST /api/hrms/employees/create`
 - `POST /api/admin/employees/:uid/deactivate` · `POST /api/admin/employees/:uid/reactivate`
 - `POST /api/admin/employees/import-preview` · `POST /api/admin/employees/import-confirm` · `POST /api/hrms/employees/import-from-sheet`
+
+**Connector (channel partner) self-service** — `server/routes/partner.ts`, self-scoped from the verified token (401 anon / 403 staff)
+- `GET /api/crm2/partner/me` — own profile + KYC/bank **LAST-4 ONLY** (encrypted PAN + account number never leave the server)
+- `GET /api/crm2/partner/summary` — own lead/case counts + payout totals
 
 **MIS**
 - `POST /api/mis/statements/upload` · `POST /api/mis/statements/process` · `POST /api/mis/statements/:statementId/lines`

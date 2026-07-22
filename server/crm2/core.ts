@@ -87,3 +87,13 @@ export function rejectFullAadhaar(body: Record<string, unknown>): void {
     }
   }
 }
+
+export const optBool = (b: Record<string, unknown>, f: string): boolean | undefined =>
+  (b[f] === undefined ? undefined : b[f] === true);
+export const optEnum = (b: Record<string, unknown>, f: string, allowed: string[]): string | null | undefined => {
+  if (b[f] === undefined) return undefined;
+  if (b[f] === null || b[f] === "") return null;
+  const v = String(b[f]);
+  if (!allowed.includes(v)) throw new ApiError(400, `${f} must be one of: ${allowed.join(", ")}`);
+  return v;
+};

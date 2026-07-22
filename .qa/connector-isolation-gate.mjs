@@ -162,6 +162,55 @@ async function main() {
     ok(`A CANNOT re-attribute its own lead to B (${reattr.status})`);
   }
 
+  console.log('\n— self-service profile: LAST-4 ONLY, never the full value —');
+  // Seed A's private financial exactly as the server stores it: encrypted PAN +
+  // account number alongside their last-4. The endpoint must return only last-4.
+  await seed(`connectors/${A_ID}/private/financial`, {
+    panLast4: str('4321'),
+    aadhaarLast4: str('8765'),
+    panEnc: { mapValue: { fields: { ciphertext: str('SECRET-PAN-CIPHERTEXT'), iv: str('iv'), tag: str('tag') } } },
+    tdsPct: { doubleValue: 5 },
+    payoutBank: { mapValue: { fields: {
+      bankName: str('HDFC Bank'), accountHolderName: str('Partner A'), ifsc: str('HDFC0001234'),
+      accountNoLast4: str('9012'), branchName: str('Hyderabad'),
+      accountNoEnc: { mapValue: { fields: { ciphertext: str('SECRET-ACCT-CIPHERTEXT'), iv: str('iv'), tag: str('tag') } } },
+    } } },
+  });
+
+  const me = await api('GET', '/api/crm2/partner/me', connA.token);
+  if (me.status === 200) {
+    const body = JSON.stringify(me.data);
+    me.data.kyc?.panLast4 === '4321' ? ok('own PAN last-4 returned (4321)') : bad('PAN last-4', body.slice(0, 140));
+    me.data.bank?.accountNoLast4 === '9012' ? ok('own bank account last-4 returned (9012)') : bad('account last-4', body.slice(0, 140));
+    me.data.bank?.ifsc === 'HDFC0001234' ? ok('own bank name/IFSC returned') : bad('bank details');
+    !body.includes('SECRET-PAN-CIPHERTEXT') ? ok('encrypted PAN is NOT in the response') : bad('PAN ciphertext leaked', 'LEAK');
+    !body.includes('SECRET-ACCT-CIPHERTEXT') ? ok('encrypted account no is NOT in the response') : bad('account ciphertext leaked', 'LEAK');
+    !body.includes('panEnc') && !body.includes('accountNoEnc') ? ok('no *Enc field names in the response') : bad('Enc fields present', 'LEAK');
+  } else {
+    bad('GET /partner/me', `status ${me.status} ${JSON.stringify(me.data).slice(0, 120)}`);
+  }
+
+  // The private financial doc itself must stay unreadable by the connector —
+  // the last-4 come from the API, never from a direct read of the ciphertext doc.
+  DENIED(await readAs(connA.token, `connectors/${A_ID}/private/financial`))
+    ? ok('A CANNOT read its own private/financial doc directly (ciphertext stays server-side)')
+    : bad('private/financial readable', 'LEAK');
+
+  const meB = await api('GET', '/api/crm2/partner/me', connB.token);
+  meB.status === 200 && meB.data.connector?.id === B_ID
+    ? ok('B gets B — /partner/me is self-scoped from the token, not a parameter')
+    : bad('B self-scope', JSON.stringify(meB).slice(0, 140));
+
+  const meStaff = await api('GET', '/api/crm2/partner/me', admin.token);
+  meStaff.status === 403 ? ok('staff get 403 on the partner area (not a connector)') : bad('staff on /partner/me', `status ${meStaff.status}`);
+  const meAnon = await api('GET', '/api/crm2/partner/me', null);
+  meAnon.status === 401 ? ok('anonymous gets 401 on the partner area') : bad('anon on /partner/me', `status ${meAnon.status}`);
+
+  const sum = await api('GET', '/api/crm2/partner/summary', connA.token);
+  sum.status === 200 && sum.data.connectorId === A_ID && sum.data.payouts?.pending === 2000
+    ? ok(`summary is own-only (pending ₹${sum.data.payouts.pending}, B's ₹9999 excluded)`)
+    : bad('summary', JSON.stringify(sum.data).slice(0, 160));
+
   console.log('\n— staff access is UNCHANGED (regression) —');
   ALLOWED(await readAs(admin.token, 'leads/LD-GATE-A')) ? ok('admin still reads any lead') : bad('admin reads lead', 'REGRESSION');
   ALLOWED(await readAs(admin.token, 'leads/LD-GATE-B')) ? ok("admin still reads another partner's lead") : bad('admin reads lead B', 'REGRESSION');

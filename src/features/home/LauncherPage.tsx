@@ -76,6 +76,10 @@ export function LauncherPage() {
   if (loading) return <FullPageLoader />;
   if (!user) return <Navigate to="/login" replace />;
 
+  // A channel partner has no module launcher — they go straight to their own area.
+  // (Their access is enforced in firestore.rules; this is just where they land.)
+  if (profile?.connectorId) return <Navigate to="/partner/home" replace />;
+
   // Authenticated but the profile couldn't load. Most often this is simply being
   // offline (Pulse needs a connection to load your account + data); otherwise a
   // brief blip. Tailor the message so it's clear, not alarming.

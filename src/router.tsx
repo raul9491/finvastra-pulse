@@ -168,6 +168,14 @@ const Crm2PermissionsPage      = lazyPage(() => import('./features/crm2/admin/Cr
 
 // ── MIS (lazy group) ─────────────────────────────────────────────────────────
 const MisShell                 = lazyPage(() => import('./components/layout/MisShell'), 'MisShell');
+// Connector (channel-partner) self-service area — its own minimal shell, NOT the
+// CRM shell: a partner must see only their own work (see CLAUDE.md "Connector isolation").
+const PartnerShell             = lazyPage(() => import('./features/partner/PartnerShell'), 'PartnerShell');
+const PartnerHomePage          = lazyPage(() => import('./features/partner/PartnerPages'), 'PartnerHomePage');
+const PartnerLeadsPage         = lazyPage(() => import('./features/partner/PartnerPages'), 'PartnerLeadsPage');
+const PartnerCasesPage         = lazyPage(() => import('./features/partner/PartnerPages'), 'PartnerCasesPage');
+const PartnerPayoutsPage       = lazyPage(() => import('./features/partner/PartnerPages'), 'PartnerPayoutsPage');
+const PartnerProfilePage       = lazyPage(() => import('./features/partner/PartnerPages'), 'PartnerProfilePage');
 const MisOverviewPage          = lazyPage(() => import('./features/mis/overview/MisOverviewPage'), 'MisOverviewPage');
 const DisputesPage             = lazyPage(() => import('./features/mis/disputes/DisputesPage'), 'DisputesPage');
 const MisLearnPage             = lazyPage(() => import('./features/mis/learn/MisLearnPage'), 'MisLearnPage');
@@ -397,6 +405,19 @@ export const router = createBrowserRouter([
       { index: true,            element: <Navigate to="/social/inbox" replace /> },
       { path: 'inbox',          element: s(<SocialInboxPage />) },
       { path: 'inbox/:leadId',  element: s(<SocialInboxPage />) },
+    ],
+  },
+  {
+    path: '/partner',
+    element: s(<PartnerShell />),
+    errorElement: <RouteErrorBoundary />,
+    children: [
+      { index: true,     element: <Navigate to="/partner/home" replace /> },
+      { path: 'home',    element: s(<PartnerHomePage />) },
+      { path: 'leads',   element: s(<PartnerLeadsPage />) },
+      { path: 'cases',   element: s(<PartnerCasesPage />) },
+      { path: 'payouts', element: s(<PartnerPayoutsPage />) },
+      { path: 'profile', element: s(<PartnerProfilePage />) },
     ],
   },
   // Legacy / mistyped deep links → the canonical module path (don't hit the error boundary).

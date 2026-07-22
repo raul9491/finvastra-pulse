@@ -28,6 +28,7 @@ import { registerEmployeeRoutes } from "./server/routes/employees.js";
 import { registerTrackerRoutes } from "./server/routes/tracker.js";
 import { registerNotificationRoutes } from "./server/routes/notifications.js";
 import { registerAdminRoutes } from "./server/routes/admin.js";
+import { registerPartnerRoutes } from "./server/routes/partner.js";
 import { registerMeetingRoutes } from "./server/routes/meetings.js";
 import { registerWebhookRoutes } from "./server/routes/webhook.js";
 import { registerCrmPerformanceRoutes } from "./server/routes/crmPerformance.js";
@@ -74,6 +75,7 @@ async function startServer() {
 
 
   registerAdminRoutes(app);
+  registerPartnerRoutes(app);   // connector (channel-partner) self-service
 
 
   // Import/lead-pull/phone-backfill routes -> ./server/routes/imports.ts

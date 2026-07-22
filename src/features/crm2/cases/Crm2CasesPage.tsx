@@ -12,7 +12,7 @@ import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { apiCrm2, useCrm2Collection, hasCrm2Perm, useRmName } from '../lib';
-import { FLabel, inp } from '../masters/MastersPage';
+import { FLabel, inp } from '../formPrimitives';
 import { CASE_LEVEL_STAGE_ORDER, type Crm2Case, type Client, type Product } from '../../../types/crm2';
 
 type CaseRow = Crm2Case & { id: string };

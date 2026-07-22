@@ -12,7 +12,7 @@ import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { apiCrm2, useCrm2Collection } from '../lib';
 import { findSlabOverlaps, type SlabForResolution } from '../../../lib/crm2/slab';
-import { FLabel, inp } from './MastersPage';
+import { FLabel, inp } from '../formPrimitives';
 import type { DsaCodeMapping, Aggregator, Lender, Product, SubProduct, MappingSlab } from '../../../types/crm2';
 
 type WithId<T> = T & { id: string };

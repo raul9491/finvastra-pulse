@@ -13,7 +13,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
-import { FLabel, inp } from '../masters/MastersPage';
+import { FLabel, inp } from '../formPrimitives';
 import { isSuperAdmin } from '../../../config/hrmsConfig';
 import { rollUpCaseStatus } from '../../../lib/crm2/logins';
 import { formatIndianNumber, digitsOnly, amountInWords } from '../../../lib/numberToWords';

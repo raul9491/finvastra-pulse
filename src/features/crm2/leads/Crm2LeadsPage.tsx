@@ -17,7 +17,7 @@ import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { apiCrm2, useCrm2Collection, hasCrm2Perm, useRmName } from '../lib';
-import { FLabel, inp } from '../masters/MastersPage';
+import { FLabel, inp } from '../formPrimitives';
 import { useClientForm, ClientFieldsGrid, stateFromLead } from '../clients/ClientFormModal';
 import { ContactActions, PhoneLink } from '../../crm/components/ContactActions';
 import { QueuePanel } from '../queue/QueuePanel';

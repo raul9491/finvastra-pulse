@@ -17,7 +17,7 @@ import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { apiCrm2, useCrm2Collection, hasCrm2Perm } from '../lib';
-import { FLabel } from '../masters/MastersPage';
+import { FLabel } from '../formPrimitives';
 import { ClientFormModal, clientCompletionPct, CONSTITUTION_OPTS } from './ClientFormModal';
 import { STAGE_LABEL } from '../cases/Crm2CasesPage';
 import type { Client, Crm2Case, VaultDoc, Product, CaseStage } from '../../../types/crm2';

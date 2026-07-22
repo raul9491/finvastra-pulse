@@ -16,7 +16,7 @@ import { X, Plus, Trash2 } from 'lucide-react';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { useToast } from '../../../components/ui/Toast';
 import { apiCrm2 } from '../lib';
-import { FLabel, inp } from '../masters/MastersPage';
+import { FLabel, inp } from '../formPrimitives';
 import type { Client } from '../../../types/crm2';
 
 export const CONSTITUTION_OPTS = [

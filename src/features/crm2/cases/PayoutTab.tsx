@@ -12,7 +12,7 @@ import { CheckCircle2, Circle, X, AlertTriangle, IndianRupee } from 'lucide-reac
 import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
 import { apiCrm2, hasCrm2Perm } from '../lib';
-import { FLabel, inp } from '../masters/MastersPage';
+import { FLabel, inp } from '../formPrimitives';
 import type { Crm2Case, PayoutCycle, PayoutCycleStatus } from '../../../types/crm2';
 import { PAYOUT_STATUS_LABEL } from '../labels';
 

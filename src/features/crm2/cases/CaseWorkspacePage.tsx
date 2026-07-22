@@ -16,7 +16,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../../components/ui/Toast';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { apiCrm2, useCrm2Collection, hasCrm2Perm, useRmName } from '../lib';
-import { FLabel, inp } from '../masters/MastersPage';
+import { FLabel, inp } from '../formPrimitives';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import { MultiSearchableSelect } from '../../../components/ui/SearchableSelect';
 import { STAGE_LABEL } from './Crm2CasesPage';

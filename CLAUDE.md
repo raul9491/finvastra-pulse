@@ -2276,6 +2276,19 @@ New **"Social Media" module** at `/social/*` (joins HRMS · CRM · MIS · Comman
 
 ---
 
+## ⚠️ EXTERNAL-USER READINESS — the app is INTERNAL-ONLY by architecture (assessed 2026-07-22)
+
+> **Context: Rahul plans to give Pulse to the CONNECTORS being hired (external channel partners), and wants it "the best, most trustable and secure".** Assessment below is from reading the actual rules/auth code, not the docs. **Verdict: do NOT hand connectors the current app, even with restricted access flags — the flags are enforced in React, not in the data layer.** "External user" is not a concept this codebase has; every rule is written assuming an authenticated principal is a trusted `@finvastra.com` employee. A connector portal is its own build, not a permission toggle.
+
+**The three findings that make this a build, not a toggle:**
+1. **The `@finvastra.com` gate is CLIENT-SIDE ONLY.** `AuthContext.tsx:162` hard-blocks non-domain emails in React; `firestore.rules` `isSignedIn()` is just `request.auth != null` — **no domain check anywhere in the data layer**. This is safe today only because account creation is admin-only. The moment non-Finvastra accounts exist on purpose, the rules have no way to tell an employee from an outsider. (Related: the audit's deferred "domain check in `isSignedIn()`" item is NOT just hardening — it's the missing boundary. Note the documented lockout risk: email/password accounts default `email_verified:false`.)
+2. **Any signed-in user can list EVERY employee record** — `/users` is `allow get/list: if isSignedIn()` (the accepted "Dirty Dozen Payload 12" limitation). Harmless for 25 colleagues; unacceptable for external partners, who would get the full staff directory (names, emails, employee IDs, departments, roles, access flags, reporting lines).
+3. **`crm.leads.read` grants EVERY lead, and leads still carry raw `panRaw`.** The `/leads` read rule is not owner-scoped for that perm, and PAN is a plain field on the lead doc — so such a user can read **every customer's raw PAN + phone + email across the whole book**, not just their own sourced files. Under DPDP Act 2023 + the RBI DSA directions this is the highest-exposure item. (This is the deferred `panEncrypted` → `/leads/{id}/private` migration.)
+
+**What a connector portal requires (scope, not yet built):** a separate scoped surface (NOT the CRM shell) showing only own sourced cases + own payout ledger + document upload — the existing public tokenised `/track/:token` tracker is the right precedent; an **`isExternal` custom claim enforced IN RULES** so scoping is server-side (CRM 2.0 lead scoping today is UI/query-level only — `useScopedCases`/`useCrm2Leads` — which is NOT a boundary for a non-employee); PAN moved off the lead doc; `/users` read tightened so external accounts get nothing.
+
+**Recommended next step (not yet run):** a read-only audit mapping exactly what a hypothetical connector account could reach today — every collection, every rule path — so the portal scope is grounded in fact rather than inference from four files.
+
 ## Authentication rules
 
 - **Only `@finvastra.com` Google Workspace accounts** may log in. Enforced in `onAuthStateChanged` (hard block) — not just the Google picker hint. Personal Gmail addresses are blocked even if they somehow reach the auth flow.

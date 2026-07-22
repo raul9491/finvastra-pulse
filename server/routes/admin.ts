@@ -99,6 +99,11 @@ export function registerAdminRoutes(app: express.Express): void {
         isHrmsManager:  p.isHrmsManager ?? false,
         misAccess:      p.misAccess     ?? null,
         perms:          p.perms         ?? {},   // CRM 2.0 permission keys (PLAN.md decision 2)
+        // CON-### id when this account IS a channel partner (connector) rather than
+        // an employee. Its PRESENCE is what marks the account external-scoped: the
+        // rules helper isConnectorUser() keys off it, so every read they get is
+        // narrowed to rows carrying their own channelPartnerId. null for staff.
+        connectorId:    p.connectorId   ?? null,
       });
 
       // Signal the target user's open sessions to force-refresh their ID token —
@@ -150,6 +155,7 @@ export function registerAdminRoutes(app: express.Express): void {
             isHrmsManager: p.isHrmsManager ?? false,
             misAccess:     p.misAccess     ?? null,
             perms:         p.perms         ?? {},   // CRM 2.0 permission keys
+            connectorId:   p.connectorId   ?? null, // CON-### when this account is a connector
           });
           await docu.ref.update({
             claimsRefreshedAt: admin.firestore.FieldValue.serverTimestamp(),

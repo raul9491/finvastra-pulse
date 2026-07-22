@@ -60,6 +60,40 @@ service cloud.firestore {
               (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('crmAccess', false) == true ||
                'crm' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('sharedModules', []))));
     }
+    // ─── Connector (channel-partner) accounts ────────────────────────────────
+    // A connector is an EXTERNAL channel partner who is nevertheless issued a
+    // @finvastra.com Workspace login, so nothing about the identity distinguishes
+    // them from staff — `connectorId` does. It is stamped into custom claims by
+    // sync-claims and holds their own CON-### id.
+    //
+    // SAFETY PROPERTY: for every existing user this is absent, so isConnectorUser()
+    // is false and each rule below falls through to its ORIGINAL employee condition
+    // unchanged. Scoping only ever ADDS a narrower path for accounts explicitly
+    // marked as connectors — no staff access is altered.
+    //
+    // Claims-first with a doc fallback (mirrors hasCrmAccess) so a freshly-created
+    // connector is scoped immediately, before their token refreshes. Erring toward
+    // "is a connector" is the safe direction: it restricts, never widens.
+    function isConnectorUser() {
+      return isSignedIn() && (
+             request.auth.token.get('connectorId', '') is string &&
+             request.auth.token.get('connectorId', '') != ''
+             ||
+             (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('connectorId', '') != ''));
+    }
+    // The caller's own CON-### id ('' when they are staff). Every connector-scoped
+    // read compares a document's channelPartnerId against THIS.
+    function myConnectorId() {
+      return request.auth.token.get('connectorId', '') != ''
+             ? request.auth.token.get('connectorId', '')
+             : get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('connectorId', '');
+    }
+    // True when `doc` carries this connector's own sourcing attribution.
+    function ownedByConnector(doc) {
+      return isConnectorUser() && doc.get('channelPartnerId', '') == myConnectorId();
+    }
+
     // Any employee with HRMS self-service access (hrmsAccess absent = true by default).
     // Used to allow HRMS-only employees to submit employee_referral leads.
     function hasHrmsAccess() {
@@ -217,8 +251,11 @@ service cloud.firestore {
     // ─── Users (org directory — readable by all signed-in employees) ────────────
     // No personal data here. Personal fields live in /user_details/{userId}.
     match /users/{userId} {
-      allow get:  if isSignedIn();
-      allow list: if isSignedIn();
+      // Staff keep the directory read (the accepted Payload-12 limitation). A
+      // CONNECTOR gets their own doc and nothing else — no staff directory, no
+      // other partner's account.
+      allow get:  if (!isConnectorUser() && isSignedIn()) || isOwner(userId);
+      allow list: if !isConnectorUser() && isSignedIn();
 
       // First sign-in bootstrap.
       // Regular employees land as 'employee'. Admin email is verified by Firebase Auth
@@ -330,13 +367,21 @@ service cloud.firestore {
     // ─── CRM: Leads (person record) ──────────────────────────────────────────────
     match /leads/{leadId} {
       // Admin sees all; RM sees their primary leads; HRMS employee tracks their own referrals.
-      allow get:  if isAdmin() ||
-                     (hasCrmAccess() && resource.data.primaryOwnerId == request.auth.uid) ||
-                     isManagerOf(resource.data.primaryOwnerId) ||
-                     resource.data.get('referredBy', null) == request.auth.uid ||
-                     hasCrm2Perm('crm.leads.read') ||   // CRM 2.0 Pipeline readers
-                     hasSocialAccess();                 // Social Media inbox (WhatsApp)
-      allow list: if isAdmin() ||
+      // A CONNECTOR account is narrowed to the leads it sourced; every staff path
+      // below is gated behind !isConnectorUser() so it is unchanged for employees.
+      allow get:  if (!isConnectorUser() && (
+                       isAdmin() ||
+                       (hasCrmAccess() && resource.data.primaryOwnerId == request.auth.uid) ||
+                       isManagerOf(resource.data.primaryOwnerId) ||
+                       resource.data.get('referredBy', null) == request.auth.uid ||
+                       hasCrm2Perm('crm.leads.read') ||   // CRM 2.0 Pipeline readers
+                       hasSocialAccess()                  // Social Media inbox (WhatsApp)
+                     ))
+                     || ownedByConnector(resource.data);
+      // Connector list queries MUST pin channelPartnerId to their own id (the
+      // partner UI does exactly that); anything broader is denied row-by-row.
+      allow list: if (!isConnectorUser() && (
+                     isAdmin() ||
                      (hasCrmAccess() && resource.data.primaryOwnerId == request.auth.uid) ||
                      // Manager team view — works for queries that pin primaryOwnerId
                      // to a single value (the client queries per direct report).
@@ -348,7 +393,9 @@ service cloud.firestore {
                      ((isManager() || hasCrmImport()) && resource.data.primaryOwnerId == 'UNASSIGNED') ||
                      resource.data.get('referredBy', null) == request.auth.uid ||
                      hasCrm2Perm('crm.leads.read') ||   // CRM 2.0 Pipeline readers
-                     hasSocialAccess();                 // Social Media inbox (WhatsApp)
+                     hasSocialAccess()                  // Social Media inbox (WhatsApp)
+                     ))
+                     || ownedByConnector(resource.data);
 
       // Admin always bypasses crmAccess — needed when the user doc was bootstrapped
       // with crmAccess:false on first emulator sign-in before admin role was set.
@@ -1008,8 +1055,12 @@ service cloud.firestore {
     // routes recompute them on every write and never accept them from the body;
     // update stays admin/HR only, so there is no client path to forge them.
     match /connectors/{connectorId} {
-      allow read:   if isAdmin() || isHrmsManager() || hasCrmAccess();
-      allow create: if isAdmin() || isHrmsManager() || hasCrmAccess();
+      // A connector reads ONLY their own record — never another partner's name,
+      // mobile, email, score or funnel stage. Staff keep the full registry read
+      // (the CRM "Sourced by Connector" picker depends on it).
+      allow read:   if (!isConnectorUser() && (isAdmin() || isHrmsManager() || hasCrmAccess()))
+                       || (isConnectorUser() && connectorId == myConnectorId());
+      allow create: if !isConnectorUser() && (isAdmin() || isHrmsManager() || hasCrmAccess());
       allow update: if isAdmin() || isHrmsManager();
       allow delete: if false;
 
@@ -1028,7 +1079,12 @@ service cloud.firestore {
 
     // What Finvastra owes a connector for a sourced case. Admin/HR only.
     match /connector_payouts/{payoutId} {
-      allow read:   if isAdmin() || isHrmsManager();
+      // The partner's own payout ledger — this is the "calculation pertaining to
+      // their cases". Reading it CANNOT leak Finvastra's margin: gross/net live in
+      // payoutCycles + misRecords, which stay behind payout.amounts.read and are
+      // never granted to a connector.
+      allow read:   if isAdmin() || isHrmsManager()
+                       || (isConnectorUser() && resource.data.get('connectorId', '') == myConnectorId());
       allow create,
             update: if isAdmin() || isHrmsManager();
       allow delete: if false;
@@ -1444,7 +1500,10 @@ service cloud.firestore {
     // Cases + subcollections (created by convert; full CRUD lands in Phase 3).
     // The money mirror is doc-split into private/payout (PLAN.md decision 2).
     match /cases/{caseId} {
-      allow read:  if isAdmin() || hasCrm2Perm('crm.cases.read');
+      // Connector accounts see ONLY the cases they sourced; staff keep the
+      // permission-wide read (the page-level scoping stays a UX convenience).
+      allow read:  if (!isConnectorUser() && (isAdmin() || hasCrm2Perm('crm.cases.read')))
+                      || ownedByConnector(resource.data);
       allow write: if false;
 
       match /private/{docId} {

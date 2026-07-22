@@ -35,7 +35,7 @@ async function resolveFapl(uid: string): Promise<string> {
  *  perms sync. Returns the caller identity or null (response already sent). */
 async function requirePerm(
   req: express.Request, res: express.Response, key: Crm2PermKey,
-): Promise<{ uid: string; fapl: string } | null> {
+): Promise<{ uid: string; fapl: string; connectorId: string | null } | null> {
   const decoded = await decodeToken(req);
   if (!decoded) { res.status(401).json({ error: "Unauthorized" }); return null; }
 
@@ -50,7 +50,26 @@ async function requirePerm(
     res.status(403).json({ error: `Missing permission: ${key}` });
     return null;
   }
-  return { uid: decoded.uid, fapl: await resolveFapl(decoded.uid) };
+  return {
+    uid: decoded.uid,
+    fapl: await resolveFapl(decoded.uid),
+    connectorId: await resolveConnectorId(decoded),
+  };
+}
+
+/**
+ * CON-### id when the CALLER is a channel partner (connector) rather than staff,
+ * else null. Claims-first (stamped by sync-claims) with a doc fallback so a
+ * freshly-created connector works before their token refreshes — the fallback
+ * matters because this value is a SECURITY boundary, not a convenience: routes
+ * use it to FORCE attribution, so a stale/absent claim must never silently
+ * degrade into "not a connector" for someone who is one.
+ */
+async function resolveConnectorId(decoded: { uid: string; connectorId?: unknown }): Promise<string | null> {
+  if (typeof decoded.connectorId === "string" && decoded.connectorId) return decoded.connectorId;
+  const snap = await db.collection("users").doc(decoded.uid).get();
+  const v = snap.data()?.connectorId;
+  return typeof v === "string" && v ? v : null;
 }
 
 /** Caller's platform role + CRM role — for ownership/assign-RM access on clients. */

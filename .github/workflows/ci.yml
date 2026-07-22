@@ -52,6 +52,14 @@ jobs:
       - name: Pull-queue gate (qa:queue)
         run: npm run qa:queue
 
+      # Connector-isolation gate — proves a connector account can reach ONLY its own
+      # lead / case / payout / connector record, cannot list the staff directory or
+      # the connector registry, cannot forge sourcing attribution, and that staff
+      # access is unchanged. Reads Firestore DIRECTLY with each principal's token,
+      # so it tests firestore.rules rather than the UI's query scoping.
+      - name: Connector isolation gate (qa:connector)
+        run: npm run qa:connector
+
       # Partner-intake gate — screening→scoring→onboarding→activation chain.
       # (Was briefly non-blocking on 2026-07-22 while its CI-only failure was
       # diagnosed: the gate had gone stale against the 2026-07-16 rule that only

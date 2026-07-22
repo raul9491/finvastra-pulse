@@ -26,19 +26,35 @@ API="${API_BASE:-http://127.0.0.1:8090}"
 _server_health() { curl -sf "$API/api/health" >/dev/null 2>&1; }
 
 # Kill any gate server (ours or a leftover) and wait until the port stops answering.
+#
+# NOTE (2026-07-22): `pkill` does NOT exist in Git Bash on Windows, so on a dev
+# machine the pkill branch is a no-op and a leftover server survives. Windows gets
+# a taskkill fallback that resolves the PID holding the port via netstat. If the
+# port is STILL answering afterwards we return non-zero so the caller FAILS LOUDLY
+# — silently proceeding is what made a stale server masquerade as a gate failure
+# (the classic symptom: meta's assertions 403 because the leftover server carries
+# no META_* env).
 free_gate_port() {
   if [ -n "${SERVER_PID:-}" ]; then kill "$SERVER_PID" 2>/dev/null || true; fi
   if command -v pkill >/dev/null 2>&1; then pkill -f "tsx server.ts" 2>/dev/null || true; fi
+  # Windows fallback — no pkill; kill whatever holds the gate port.
+  if command -v taskkill >/dev/null 2>&1 && command -v netstat >/dev/null 2>&1; then
+    local port="${PORT:-8090}"
+    for pid in $(netstat -ano 2>/dev/null | grep -E ":${port}[[:space:]]" | grep LISTENING | awk '{print $NF}' | sort -u); do
+      taskkill //PID "$pid" //F >/dev/null 2>&1 || true
+    done
+  fi
   for _ in $(seq 1 40); do
     _server_health || return 0
     sleep 0.5
   done
-  return 0
+  echo "gate: a server is STILL answering on $API after cleanup — refusing to run against it" >&2
+  return 1
 }
 
 # Start a fresh server for THIS gate and block until it is genuinely healthy.
 start_gate_server() {
-  free_gate_port                       # never inherit a previous gate's server
+  free_gate_port || return 1           # never inherit a previous gate's server
   npx tsx server.ts >/tmp/gate-server.log 2>&1 &
   SERVER_PID=$!
   trap free_gate_port EXIT

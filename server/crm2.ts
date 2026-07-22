@@ -1901,9 +1901,18 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
         referredByType: refType(b.referredByType),
         referredByName: optStr(b, "referredByName"),
         referredByCode: optStr(b, "referredByCode"),
-        channelPartnerId: optStr(b, "channelPartnerId"),
-        channelPartnerCode: optStr(b, "channelPartnerCode"),
-        channelPartnerName: optStr(b, "channelPartnerName"),
+        // SECURITY: sourcing attribution. For a CONNECTOR caller this is FORCED to
+        // their own CON- id and the client body is IGNORED — otherwise a connector
+        // could attribute a lead to another partner, or claim one by writing
+        // someone else's id. It is also the key every scoped read keys off, so it
+        // must never be client-controlled for them. Staff keep the free picker.
+        ...(caller.connectorId
+          ? { channelPartnerId: caller.connectorId, channelPartnerCode: null, channelPartnerName: null }
+          : {
+              channelPartnerId: optStr(b, "channelPartnerId"),
+              channelPartnerCode: optStr(b, "channelPartnerCode"),
+              channelPartnerName: optStr(b, "channelPartnerName"),
+            }),
         linkedExistingClientId: optStr(b, "linkedExistingClientId"),
         customerProfile: sanitizeCustomerProfile(b.customerProfile),
         assignedRm, assignedAt: assignedRm ? FieldValue.serverTimestamp() : null,
@@ -1933,6 +1942,14 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     const snap = await ref.get();
     if (!snap.exists) throw new ApiError(404, `${req.params.id} not found`);
     const cur = snap.data()!;
+
+    // SECURITY: a CONNECTOR caller may only touch leads they themselves sourced.
+    // crm.leads.write alone is a capability, not an ownership check — without this
+    // a connector could edit any lead in the book. 404 (not 403) so the endpoint
+    // never confirms that someone else's lead id exists.
+    if (caller.connectorId && cur.channelPartnerId !== caller.connectorId) {
+      throw new ApiError(404, `${req.params.id} not found`);
+    }
 
     const fields: Record<string, unknown> = {};
     if (b.status !== undefined) {
@@ -1975,9 +1992,14 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     if (b.referredByType !== undefined) fields.referredByType = refType(b.referredByType);
     if (b.referredByName !== undefined) fields.referredByName = optStr(b, "referredByName");
     if (b.referredByCode !== undefined) fields.referredByCode = optStr(b, "referredByCode");
-    if (b.channelPartnerId !== undefined) fields.channelPartnerId = optStr(b, "channelPartnerId");
-    if (b.channelPartnerCode !== undefined) fields.channelPartnerCode = optStr(b, "channelPartnerCode");
-    if (b.channelPartnerName !== undefined) fields.channelPartnerName = optStr(b, "channelPartnerName");
+    // SECURITY: a CONNECTOR caller may never re-attribute a lead — doing so would
+    // move it out of (or into) their own scope. Silently ignored for them; staff
+    // keep the editable picker.
+    if (!caller.connectorId) {
+      if (b.channelPartnerId !== undefined) fields.channelPartnerId = optStr(b, "channelPartnerId");
+      if (b.channelPartnerCode !== undefined) fields.channelPartnerCode = optStr(b, "channelPartnerCode");
+      if (b.channelPartnerName !== undefined) fields.channelPartnerName = optStr(b, "channelPartnerName");
+    }
     if (b.productId !== undefined) fields.productId = optStr(b, "productId");
     if (b.category !== undefined) fields.category = reqEnum(b, "category", LEAD_CATEGORIES);
     if (b.amountRequired !== undefined) fields.amountRequired = optNum(b, "amountRequired");

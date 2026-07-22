@@ -91,6 +91,16 @@ export interface UserProfile {
   misAccess?: MisAccess;
   commandCentreAccess?: boolean; // grants the cross-module Command Centre (admins always have it)
   socialAccess?: boolean;        // grants the Social Media module (/social/* — WhatsApp inbox etc.); admins always have it
+  /**
+   * CON-### id when this account IS a channel partner (connector) rather than a
+   * member of staff. Its PRESENCE marks the account external-scoped: it is stamped
+   * into custom claims by sync-claims, and `isConnectorUser()` in firestore.rules
+   * keys off it to narrow EVERY read to rows carrying this same channelPartnerId.
+   * Staff accounts leave it unset — nothing about their access changes.
+   * Connector accounts must also be created with hrmsAccess:false explicitly
+   * (both the create path and the rules fallback default it to TRUE).
+   */
+  connectorId?: string | null;
   // Phase P — page sharing: modules in which this user holds ≥1 active page
   // share. Grants module-level DATA read via rules; UI restricts nav to the
   // shared pages. Maintained atomically alongside /page_shares writes.

@@ -80,6 +80,16 @@ The ~14 client `where('deleted','==',false)` reads on `/leads` live in the old-C
 
 **crm2 pure/foundation extraction is COMPLETE; 2 db-bound domain clusters (leads, meta) also hoisted.** The remaining reduction is the per-domain route-group extraction (scattered routes 116–1128+ interleaved by domain + shared db-bound helpers like `resolveMapping`/`findDuplicate`/`masterCfg`/the meta+whatsapp processors) — a heavy, dedicated multi-commit effort, foundation fully in place (`core`/`context`/`sanitizers`/`slabs`/`connectors` all importable; only `verifyScheduler`+`sendBrandedEmail` need threading, both already in `server/lib/*`). **Remaining pure clusters to hoist next: `sanitizeApplicant`/`sanitizeCustomerProfile`/`sanitizeCycle`/`sanitizeEligibility`/`sanitizeTask*` + `sanitizeSlab` + `masterCfg`/`nextConnectorCodeServer` + `connectorMainFields`/`buildPayoutBank` + the meta/whatsapp parsing helpers; then the Deps-context-threaded route-group extraction (full gate suite).**
 
+## ⚠️ OPEN ISSUE — GitHub Actions CI is RED on every push (2026-07-22, unresolved)
+
+Every commit in the 2026-07-21/22 refactor run triggered a **failing `CI / build-test`** run (one email per push). **This went unnoticed because verification was done locally + via Cloud Run `verify:deploy`, never against GitHub Actions — ALWAYS check CI after pushing.**
+
+**Verified locally at HEAD (`002f0cc`) — the ENTIRE CI pipeline passes:** `npm ci` (in sync) · `npm run lint` (tsc 0) · `npm run lint:es` (eslint 0 errors) · `npm test` (208 passed) · `npm run build` · **all four gates: `qa:meta` 15/15 · `qa:sla` 17/17 · `qa:queue` 18/18 · `qa:partner` 30/30**. All 30 `server/**` module files are tracked in git (a fresh checkout is complete) and `npm test` is `vitest run` (not watch mode). So the failure is **environment-specific to the CI runner, not a code regression.**
+
+**Leading hypothesis — the emulator gates.** `.github/workflows/ci.yml` runs 4 gates sequentially; each boots the Firebase emulators AND `npx tsx server.ts` (which in dev mode also starts a Vite dev server), while **`.qa/_gate-inner.sh` waits only 40 s (80 × 0.5 s) for `/api/health`**. On a slower 2-core GitHub runner that wait can be exceeded, so the gate runs against a server that isn't up — the same failure signature seen locally when a stale server answered. Note Phase 0 (`99e5b2f`) ADDED three steps to CI: **ESLint, Build, and `qa:partner`** (previously "defined but unwired") — if CI was green before Phase 0, one of those is the trigger.
+
+**To diagnose:** open a failed run → `build-test` job → note which STEP goes red. Candidate fixes: (a) raise the `_gate-inner.sh` health wait 40 s → ~120 s and/or run gates against a built server instead of Vite dev; (b) keep typecheck/ESLint/tests/build blocking and make the emulator gates `continue-on-error` / PR-or-nightly-only; (c) revert the specific Phase 0 CI step. `gh` CLI is NOT installed in the dev environment and the repo is private (anonymous GitHub API → 404), so the run log must be read from the browser.
+
 ## Architecture
 
 | Layer | Tech | Notes |

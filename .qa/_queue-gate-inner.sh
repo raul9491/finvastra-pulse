@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
-# Runs INSIDE `firebase emulators:exec`. Starts dev server, waits, runs gate, tears down.
+# Runs INSIDE `firebase emulators:exec` (emulator hosts already in env). Starts a
+# fresh dev server for THIS gate (its own env), waits for health, runs the pull-queue
+# gate, tears down. Not called directly.
 set -uo pipefail
 cd "$(dirname "$0")/.."
-npx tsx server.ts &
-SERVER_PID=$!
-cleanup() { kill "$SERVER_PID" 2>/dev/null || true; }
-trap cleanup EXIT
-for _ in $(seq 1 60); do
-  if curl -sf "${API_BASE:-http://127.0.0.1:8090}/api/health" >/dev/null 2>&1; then break; fi
-  sleep 0.5
-done
+source .qa/_server-lifecycle.sh
+start_gate_server || exit 1
 node .qa/crm2-queue-gate.mjs
 exit $?

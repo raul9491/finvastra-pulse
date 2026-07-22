@@ -32,6 +32,7 @@ import { validateTransition, gateForStage, keyDateForStage } from "../src/lib/cr
 import { validateLoginTransition, keyDateForLoginStage, validateCaseLevelTransition, type LoginLite } from "../src/lib/crm2/logins.js";
 import { deriveCycleStatus, computeAgeing, computeBankerMismatch, computePctVariance, computeAmountVariance, computeNetMarginRealised, canClose, validateMilestoneOrder, MILESTONE_STEPS, type MilestoneStep } from "../src/lib/crm2/payout.js";
 import { matchDumpRow, computeSnapshot, type DumpRow, type MisLite, type CycleLite } from "../src/lib/crm2/recon.js";
+import { ApiError, safeEqual, PAN_RE, MOBILE_RE, isStr, reqStr, optStr, reqEnum, optNum, optMoney, optPct, strArr, optTs, rejectFullAadhaar } from "./crm2/core.js";
 import type { Crm2PermKey } from "../src/types/crm2.js";
 
 type CaseStageT =
@@ -43,14 +44,6 @@ interface StageTrackerRow {
   requiredByStage: "LOGIN" | "SANCTION" | "DISBURSEMENT" | "PDD";
   status: "PENDING" | "REQUESTED" | "RECEIVED" | "VERIFIED" | "REJECTED_REUPLOAD" | "EXPIRED";
   vaultDocId: string | null;
-}
-
-// Constant-time secret compare (avoids timing side-channels). A non-string
-// header value or any length mismatch is treated as not-matching — identical
-// behavior to the previous `===` string compare.
-function safeEqual(a?: string | string[], b?: string): boolean {
-  if (typeof a !== "string" || !b || a.length !== b.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
 }
 
 interface Deps {
@@ -67,15 +60,6 @@ interface Deps {
   }) => Promise<void>;
 }
 
-/** Typed 4xx error — handlers throw it; the wrapper maps it to a JSON response. */
-class ApiError extends Error {
-  constructor(readonly status: number, message: string, readonly details?: unknown) {
-    super(message);
-  }
-}
-
-const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
-const MOBILE_RE = /^[6-9]\d{9}$/;
 
 export function registerCrm2Routes(app: express.Express, { db, admin, verifyScheduler, sendBrandedEmail }: Deps): void {
   const { FieldValue, Timestamp } = admin.firestore;
@@ -157,67 +141,6 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   }
 
   // ─── Validation helpers ──────────────────────────────────────────────────────
-
-  const isStr = (v: unknown): v is string => typeof v === "string" && v.trim().length > 0;
-  function reqStr(body: Record<string, unknown>, field: string): string {
-    const v = body[field];
-    if (!isStr(v)) throw new ApiError(400, `${field} is required`);
-    return v.trim();
-  }
-  function optStr(body: Record<string, unknown>, field: string): string | null {
-    const v = body[field];
-    return isStr(v) ? v.trim() : null;
-  }
-  function reqEnum<T extends string>(body: Record<string, unknown>, field: string, allowed: readonly T[]): T {
-    const v = body[field];
-    if (typeof v !== "string" || !(allowed as readonly string[]).includes(v)) {
-      throw new ApiError(400, `${field} must be one of: ${allowed.join(", ")}`);
-    }
-    return v as T;
-  }
-  function optNum(body: Record<string, unknown>, field: string): number | null {
-    const v = body[field];
-    if (v === undefined || v === null || v === "") return null;
-    const n = Number(v);
-    if (!Number.isFinite(n)) throw new ApiError(400, `${field} must be a finite number`);
-    return n;
-  }
-  /** Client-supplied money AMOUNT: finite and never negative (reject, don't clamp). */
-  function optMoney(body: Record<string, unknown>, field: string): number | null {
-    const n = optNum(body, field);
-    if (n != null && n < 0) throw new ApiError(400, `${field} must not be negative`);
-    return n;
-  }
-  /** Client-supplied PERCENTAGE: finite and within 0–100 (reject, don't clamp). */
-  function optPct(body: Record<string, unknown>, field: string): number | null {
-    const n = optNum(body, field);
-    if (n != null && (n < 0 || n > 100)) throw new ApiError(400, `${field} must be between 0 and 100`);
-    return n;
-  }
-  function strArr(body: Record<string, unknown>, field: string): string[] {
-    const v = body[field];
-    if (v === undefined || v === null) return [];
-    if (!Array.isArray(v) || v.some((x) => typeof x !== "string")) {
-      throw new ApiError(400, `${field} must be an array of strings`);
-    }
-    return v as string[];
-  }
-  /** ISO date string → Timestamp (null passthrough). */
-  function optTs(body: Record<string, unknown>, field: string) {
-    const v = body[field];
-    if (v === undefined || v === null || v === "") return null;
-    const d = new Date(v as string);
-    if (isNaN(d.getTime())) throw new ApiError(400, `${field} must be an ISO date`);
-    return Timestamp.fromDate(d);
-  }
-  /** Hard guardrail: reject anything that looks like a full Aadhaar number. */
-  function rejectFullAadhaar(body: Record<string, unknown>): void {
-    for (const [k, v] of Object.entries(body)) {
-      if (typeof v === "string" && /^\d{12}$/.test(v.replace(/[\s-]/g, "")) && /aadhaar/i.test(k)) {
-        throw new ApiError(400, `${k}: full Aadhaar numbers are never stored — send only the last 4 digits`);
-      }
-    }
-  }
 
   /** Wrap a handler: ApiError → its status; anything else → 500. */
   const route = (fn: (req: express.Request, res: express.Response) => Promise<void>) =>

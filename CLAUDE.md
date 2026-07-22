@@ -68,6 +68,8 @@ The ~14 client `where('deleted','==',false)` reads on `/leads` live in the old-C
 
 **crm2-partners ✅ (Cloud Run rev `pulse-api-00140-k8g`, verify:deploy 3/3 + partner gate 30/30)** — hoisted `optBool`/`optEnum` into **`server/crm2/core.ts`** (general validators, 10 uses) + the whole partner-intake cluster into **`server/crm2/partners.ts`**: the `PARTNER_*` funnel/screening enums, the client-body field builders (`partnerScreeningFields`/`partnerOnboardingFields`/`partnerPracticalFields`), `activationBlockers` (the go-Active gate), and `isPartnerIntent`. Pure (imports only core validators + Timestamp). crm2.ts 5644→**5534**.
 
+**crm2-sanitizers ✅ (Cloud Run rev `pulse-api-00141-dm2`, verify:deploy 3/3 + partner gate 30/30 + crm2/masters/lenders unauth 401)** — hoisted the whole master/entity sanitizer cluster into **`server/crm2/sanitizers.ts`**: the `Sanitizer` type, `CONSTITUTIONS` enum, and `sanitizeLender`/`sanitizeProduct`/`sanitizeSubProduct`/`sanitizeAggregator`/`sanitizeSubDsa`/`sanitizeDocumentDef`/`sanitizeAddress`/`sanitizeClient`. Pure (core validators + Timestamp + `encryptField` for PAN/bank + `buildDupeKeys`); the `masterCfg` config map in crm2.ts imports them back. crm2.ts 5534→**5323** (~7% out across 3 crm2 modules: core · partners · sanitizers). **Remaining pure clusters to hoist next: `sanitizeApplicant`/`sanitizeCustomerProfile`/`sanitizeCycle`/`sanitizeEligibility`/`sanitizeTask*` + `sanitizeSlab` + `masterCfg`/`nextConnectorCodeServer` + `connectorMainFields`/`buildPayoutBank` + the meta/whatsapp parsing helpers; then the Deps-context-threaded route-group extraction (full gate suite).**
+
 ## Architecture
 
 | Layer | Tech | Notes |

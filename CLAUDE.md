@@ -2276,32 +2276,31 @@ New **"Social Media" module** at `/social/*` (joins HRMS · CRM · MIS · Comman
 
 ---
 
-## ⚠️ CONNECTOR ACCESS — spec settled, NOT BUILT (assessed 2026-07-22)
+## Connector isolation — BOUNDARY BUILT + DEPLOYED ✅ (2026-07-22, ruleset `e9b1d6fc`, Cloud Run rev `pulse-api-00147-p97`, verify:deploy 3/3)
 
-> **What Rahul wants (confirmed):** the CON-### connectors being hired get a **`@finvastra.com` Workspace email** (settled, not changing) and use Pulse to **add the cases they source — which land as LEADS, since a connector is a direct contact — across the loan / wealth / insurance verticals**, then track them. They must see **only their own cases and the payout calculation for those cases, their own details, and nothing else. No HRMS.**
->
-> **Authentication is therefore a non-issue** (an earlier "build a separate external portal" assessment was premised on external emails and is RETRACTED). **The problem is authorization: inside the domain, `firestore.rules` cannot distinguish a connector from an employee**, and today the case/lead read scoping lives in the UI query (`useScopedCases`, `useCrm2Leads`), not in the rules. This is rules hardening + a small scoped surface, NOT a new app.
+> **Requirement (Rahul):** the CON-### connectors being hired get a **`@finvastra.com` Workspace email** (settled) and use Pulse to **add the cases they source — which land as LEADS, since a connector is a direct contact — across loan / wealth / insurance**, then track them. They must see **only their own cases + the payout calculation for them, their own details, and nothing else. No HRMS. No other connector's cases, details or contact information. Zero leakage.**
 
-**ARCHITECTURAL WIN (why this is safe to build):** the model ALREADY separates *what Finvastra earns* (`payoutCycles` / `misRecords`, gated by `payout.amounts.read`) from *what Finvastra owes the partner* (`connector_payouts`, auto-created at disburse). **So showing a connector their payout cannot leak Finvastra's gross/net margin — they simply never get `payout.amounts.read`.** Ownership keys on **`channelPartnerId`** (the CON- id), which is already denormalised lead → case → login → misRecord by the 2026-06-16 Sub DSA capture work — nothing new to model.
+**THE PROBLEM:** a connector is issued a domain login, so **nothing about the identity distinguishes them from staff** — and the case/lead scoping on the CRM 2.0 pages (`useScopedCases`, `useCrm2Leads`) is a **QUERY filter, not a boundary**: devtools or a direct REST call walks straight past it. The boundary had to move into `firestore.rules`.
 
-**GAPS THAT MUST CLOSE BEFORE ANY CONNECTOR ACCOUNT EXISTS (all verified in code):**
-1. **`/connectors` read is `hasCrmAccess()`** — a connector user would read **EVERY other partner's record** (name, mobile, email, score, funnel stage). Partner-confidentiality leak. Must scope to own.
-2. **`connector_payouts` read is `isAdmin() || isHrmsManager()`** — so a connector cannot see their own payouts *at all* today. Needs a scoped read (`connectorId == own`).
-3. **Lead create takes a CLIENT-SUPPLIED `channelPartnerId`** (`server/crm2.ts:1904` `optStr(b,"channelPartnerId")`) — a connector could attribute a lead to another partner or claim someone else's. **The server must FORCE it to the caller's own CON- id** for connector callers.
-4. **`/cases` + `/leads` reads are book-wide in rules** (`crm.cases.read` / `crm.leads.read` have no ownership condition) — the page-level scoping is a QUERY filter, not a boundary.
-5. **`/users` is `allow get/list: if isSignedIn()`** — full staff directory, regardless of module flags.
-6. **`hrmsAccess` defaults TRUE** in BOTH the create path (`server/routes/employees.ts:42,163`) and the rules fallback (`firestore.rules:69` — `.data.get('hrmsAccess', true)`). Must be set `false` EXPLICITLY; omitting it grants HRMS. _Defaulting an access flag OPEN is backwards — consider flipping that fallback._
+**THE SAFETY PROPERTY (why this was non-breaking):** `connectorId` is absent for every existing user, so `isConnectorUser()` is false and **every rule falls through to its ORIGINAL employee condition unchanged**. Scoping only ever ADDS a narrower path for accounts explicitly marked as connectors. **Deploying it changed nothing in production until an account is marked** — which is also why it could ship before the UI.
 
-**DESIGN (agreed, build order — each step shippable, safest first):**
-1. **`connectorId` on the user doc + stamped into custom claims by the existing `sync-claims`** — the ENABLER: rules then scope via `resource.data.channelPartnerId == request.auth.token.connectorId` with **no per-request `/users` read**. Additive, no behaviour change.
-2. Server **forces `channelPartnerId`** for connector callers on lead create; add the connector role/flag.
-3. Rules: owner-scoped reads for `leads` / `cases` / `connector_payouts` / `connectors`; lock `/users`.
-4. **A dedicated `/partner/*` shell — NOT the CRM shell** (recommended). A referral-only precedent exists inside CrmShell, but gating ~40 CRM routes makes every future route a potential leak; three purpose-built screens (Add lead per vertical · My cases · My payouts) means the attack surface is only what was deliberately built.
-5. **An emulator gate proving ISOLATION** — connector A cannot read B's lead / case / payout. **Not optional:** "most secure" means the isolation is proven by a test that runs on every push (like the money gate), not asserted.
+**What was built:**
+- **`connectorId` on the user doc, stamped into custom claims** by `sync-claims` + `sync-all-claims`. Its PRESENCE marks the account external-scoped. `requirePerm` now returns the caller's `connectorId` (**claims-first with a doc fallback** so a freshly-created connector is scoped before their token refreshes — erring toward "is a connector" restricts, never widens).
+- **Attribution is FORCED server-side.** `POST /api/crm2/leads` sets `channelPartnerId` to the caller's own CON- id and **ignores the body** — otherwise a connector could attribute a lead to another partner, or claim one. `PATCH` may not re-attribute, and may not touch a lead they did not source (**404**, so the API never confirms someone else's lead id exists).
+- **Owner-scoped rules** on `/leads`, `/cases`, `/connector_payouts`, `/connectors` and `/users`, each written as `(!isConnectorUser() && <original employee condition>) || (connector && owns it)`. New helpers `isConnectorUser()` / `myConnectorId()` / `ownedByConnector(doc)`.
+- **Margin is structurally safe:** a connector reading their payout CANNOT leak Finvastra's economics — gross/net live in `payoutCycles` + `misRecords` behind `payout.amounts.read`, which they never get. Their ledger is the separate `connector_payouts`. Ownership keys on **`channelPartnerId`**, already denormalised lead → case → login → misRecord.
 
-**WRITES ARE ALREADY SAFE** — every case/lead mutation goes through the Express API with server-side perm checks; rules deny client writes to those collections. **The READ side is the entire gap.**
+**NEW GATE `.qa/connector-isolation-gate.mjs` (`npm run qa:connector`, wired into CI) — 20/20.** It deliberately **bypasses the UI and the Express API and reads Firestore with each principal's own ID token**, because that is the actual attack surface: A reads own lead/case/payout/connector/user ALLOWED · A reads B's DENIED · A cannot list `/users` or `/connectors` · create forces attribution to A though the body claimed B · A cannot PATCH B's lead (404) nor re-attribute its own · **admin still reads every lead/connector/payout and lists `/users` (no regression)**.
 
-**Open decisions (do not block steps 1-2):** (a) should a connector see full case stage detail (bank, sanction, disbursal figures) or a simplified status + their payout — the simpler view leaks less about lender relationships; (b) show them their own PAN/bank last-4 (currently `/connectors/{id}/private/financial`, admin/HR only) or leave it locked.
+**Gate-harness fix shipped with it:** `free_gate_port()` relied on `pkill`, which **does not exist in Git Bash on Windows**, so a leaked server survived and the next gate silently ran against it — this bit during the very session that wrote it (meta reported 4/15 until the leftover on :8090 was killed, then 15/15). Added a `taskkill`/`netstat` fallback and it now **FAILS LOUDLY** if the port still answers, instead of testing the wrong server.
+
+**Verified:** tsc · eslint 0 errors · 208 unit tests · build · rules compile · **all five gates green (connector 20/20 · partner 32/32 · queue 18/18 · sla 17/17 · meta 15/15)** · live unauth smoke 401.
+
+### Connector — REMAINING WORK (not built)
+1. **No way to CREATE a connector account yet** — nothing in the admin UI sets `connectorId`. Until then the boundary is dormant. **When adding one, `hrmsAccess:false` must be set EXPLICITLY** — both the create path (`server/routes/employees.ts:42,163`) and the rules fallback (`firestore.rules` `.data.get('hrmsAccess', true)`) default it to **TRUE**. _Defaulting an access flag OPEN is backwards — consider flipping that fallback._
+2. **The `/partner/*` scoped shell** — Add lead per vertical · My cases · My payouts · My details. Recommended as its OWN shell, not the CRM shell: gating ~40 CRM routes makes every future route a potential leak, whereas a purpose-built surface has only what was deliberately added. (Rules are the boundary either way — this limits attack surface.)
+3. **Open decisions:** (a) full case stage detail (bank, sanction, disbursal figures) vs a simplified status + their payout — the simpler view leaks less about lender relationships; (b) show them their own PAN/bank last-4 (`/connectors/{id}/private/financial`, admin/HR only today) or leave it locked.
+4. Raw `panRaw` still sits on the lead doc — connectors are not granted book-wide lead read so it is not on their path, but the `/leads/{id}/private` migration remains the right hardening.
 
 ## Authentication rules
 

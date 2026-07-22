@@ -65,4 +65,16 @@ jobs:
       # gate's CI assumption, then delete `continue-on-error`.
       - name: Partner gate (qa:partner)
         continue-on-error: true
-        run: npm run qa:partner
+        run: |
+          set -o pipefail
+          npm run qa:partner 2>&1 | tee partner-gate.log
+
+      # Publishes the gate output so the failure can be read without repo-admin
+      # rights (the job-log REST endpoint is admin-only even on a public repo).
+      - name: Upload partner gate log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: partner-gate-log
+          path: partner-gate.log
+          retention-days: 7

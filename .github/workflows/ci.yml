@@ -53,18 +53,11 @@ jobs:
         run: npm run qa:queue
 
       # Partner-intake gate — screening→scoring→onboarding→activation chain.
-      #
-      # NON-BLOCKING (2026-07-22) — KNOWN-FAILING IN CI, PASSES 30/30 LOCALLY.
-      # This step was wired into CI by the Phase 0 commit (99e5b2f) without ever
-      # being verified here; it has NEVER passed on a runner, so every push since
-      # has been red on this one step while steps 1–12 pass. That drowned the real
-      # CI signal for 26 commits. Until the CI-specific failure is diagnosed (the
-      # job log needs repo-admin rights to download; the annotations only say
-      # "exit code 1"), it runs but does not fail the build.
-      # TO FIX: open a failed run → this step → read the `✗ …` assertion, fix the
-      # gate's CI assumption, then delete `continue-on-error`.
+      # (Was briefly non-blocking on 2026-07-22 while its CI-only failure was
+      # diagnosed: the gate had gone stale against the 2026-07-16 rule that only
+      # PARTNER_DSA-category leads may enter the partner funnel. Gate fixed, so
+      # this is blocking again.)
       - name: Partner gate (qa:partner)
-        continue-on-error: true
         run: |
           set -o pipefail
           rc=0

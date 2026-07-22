@@ -171,10 +171,18 @@ async function main() {
   fv(wlDoc, 'status') === 'NEW' && fv(wlDoc, 'category') === 'PARTNER_DSA' && !fv(wlDoc, 'linkedConnectorId')
     ? ok('auto-detect STAMPS the lead PARTNER_DSA — stays a lead, no code minted') : bad('auto-stamp', JSON.stringify({ s: fv(wlDoc, 'status'), c: fv(wlDoc, 'category') }));
 
-  // 10. Promote a GENERAL lead into the funnel manually; second promote -> 409.
+  // 10. Only Partner Sign-up leads may enter the funnel (rule added 2026-07-16, so a
+  //     loan/wealth/general enquiry can never be moved). A GENERAL lead is REJECTED;
+  //     recategorising it first — the lead drawer's Category picker escape hatch —
+  //     then allows the promote. Second promote -> 409.
   const gl = await api('POST', '/api/public/leads', null, { name: 'General Guy', mobile: '9876500066' });
+  const prBlocked = await api('POST', `/api/crm2/leads/${gl.data.id}/promote-partner`, token, {});
+  prBlocked.status === 400
+    ? ok('GENERAL lead BLOCKED from the partner funnel (400)') : bad('promote guard', JSON.stringify(prBlocked));
+  const recat = await api('PATCH', `/api/crm2/leads/${gl.data.id}`, token, { category: 'PARTNER_DSA' });
+  recat.status === 200 ? ok('lead recategorised to Partner Sign-up') : bad('recategorise', JSON.stringify(recat));
   const pr = await api('POST', `/api/crm2/leads/${gl.data.id}/promote-partner`, token, {});
-  pr.status === 200 && pr.data.connectorCode ? ok(`GENERAL lead promoted to partner funnel (${pr.data.connectorCode})`) : bad('promote', JSON.stringify(pr));
+  pr.status === 200 && pr.data.connectorCode ? ok(`recategorised lead promoted to partner funnel (${pr.data.connectorCode})`) : bad('promote', JSON.stringify(pr));
   const pr2 = await api('POST', `/api/crm2/leads/${gl.data.id}/promote-partner`, token, {});
   pr2.status === 409 ? ok('second promote rejected (409 already in funnel)') : bad('promote idempotency', JSON.stringify(pr2));
 

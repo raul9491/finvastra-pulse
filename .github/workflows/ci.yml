@@ -67,7 +67,14 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
-          npm run qa:partner 2>&1 | tee partner-gate.log
+          rc=0
+          npm run qa:partner 2>&1 | tee partner-gate.log || rc=$?
+          # Re-emit the gate's failing assertions as workflow annotations. The job-log
+          # and artifact REST endpoints both require auth, but annotations are public —
+          # this is what makes the CI-only failure diagnosable.
+          grep -aE "✗|passed, [0-9]+ failed|Error|error:" partner-gate.log | head -20 \
+            | while IFS= read -r line; do echo "::error title=qa:partner::${line}"; done
+          exit $rc
 
       # Publishes the gate output so the failure can be read without repo-admin
       # rights (the job-log REST endpoint is admin-only even on a public repo).

@@ -424,11 +424,6 @@ export function AssetsPage() {
     return unsub;
   }, []);
 
-  // ── Guard ────────────────────────────────────────────────────────────────────
-  if (profile && profile.role !== 'admin' && !profile.isHrmsManager) {
-    return <Navigate to="/hrms/dashboard" replace />;
-  }
-
   const filtered = useMemo(() => assets.filter((a) => {
     if (typeFilter !== 'all'   && a.assetType !== typeFilter)       return false;
     if (statusFilter !== 'all' && a.currentStatus !== statusFilter) return false;
@@ -451,6 +446,13 @@ export function AssetsPage() {
     available:   assets.filter((a) => a.currentStatus === 'available').length,
     under_repair:assets.filter((a) => a.currentStatus === 'under_repair').length,
   }), [assets]);
+
+  // ── Guard ────────────────────────────────────────────────────────────────────
+  // Returned after every hook so the hook count stays stable between renders
+  // (an early return above a hook is React #310).
+  if (profile && profile.role !== 'admin' && !profile.isHrmsManager) {
+    return <Navigate to="/hrms/dashboard" replace />;
+  }
 
   const adminUid = user?.uid ?? '';
   const thCls = 'px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-left whitespace-nowrap';

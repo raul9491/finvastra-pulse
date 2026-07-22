@@ -116,9 +116,10 @@ export function WebhookConfigPage() {
   const [logsLoading, setLogsLoading] = useState(true);
   const [logsError,   setLogsError]   = useState('');
 
-  if (profile !== null && profile.role !== 'admin') {
-    return <Navigate to="/crm/dashboard" replace />;
-  }
+  // Admin gate. The redirect is returned AFTER every hook (see below) — an early
+  // return here would skip them and change the hook count between renders
+  // (React #310). `denied` keeps a non-admin from calling the logs endpoint.
+  const denied = profile !== null && profile.role !== 'admin';
 
   const fetchLogs = async () => {
     setLogsLoading(true);
@@ -138,10 +139,12 @@ export function WebhookConfigPage() {
     }
   };
 
-  useEffect(() => { fetchLogs(); }, []);
+  useEffect(() => { if (!denied) fetchLogs(); }, [denied]);
 
   // Masked secret helper — shows first 4 chars + ***
   const masked = (label: string) => `${label.slice(0, 4)}${'*'.repeat(label.length - 4 > 0 ? label.length - 4 : 8)}`;
+
+  if (denied) return <Navigate to="/crm/dashboard" replace />;
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">

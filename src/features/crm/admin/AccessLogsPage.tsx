@@ -45,30 +45,32 @@ export function AccessLogsPage() {
   const [viewFromDate,    setViewFromDate]    = useState('');
   const [viewToDate,      setViewToDate]      = useState('');
 
-  // Admin gate
-  if (profile !== null && profile.role !== 'admin') {
-    return <Navigate to="/crm/dashboard" replace />;
-  }
+  // Admin gate. The redirect is returned AFTER every hook (see below) — an early
+  // return here would skip them and change the hook count between renders
+  // (React #310). `denied` keeps a non-admin from subscribing to either log.
+  const denied = profile !== null && profile.role !== 'admin';
 
   const actorOptions = employees.map((e) => ({ value: e.userId, label: e.displayName }));
 
   useEffect(() => {
+    if (denied) return;
     const q = query(collection(db, 'access_logs'), orderBy('accessedAt', 'desc'), limit(100));
     const unsub = onSnapshot(q, (snap) => {
       setLogs(snap.docs.map((d) => ({ id: d.id, ...d.data() } as AccessLog)));
       setLoading(false);
     });
     return unsub;
-  }, []);
+  }, [denied]);
 
   useEffect(() => {
+    if (denied) return;
     const q = query(collection(db, 'lead_view_logs'), orderBy('viewedAt', 'desc'), limit(200));
     const unsub = onSnapshot(q, (snap) => {
       setViewLogs(snap.docs.map((d) => ({ id: d.id, ...d.data() } as LeadViewLog)));
       setViewLoading(false);
     });
     return unsub;
-  }, []);
+  }, [denied]);
 
   // ── Filtering helpers ─────────────────────────────────────────────────────
   const fmtTs = (ts: AccessLog['accessedAt'] | LeadViewLog['viewedAt']): string => {
@@ -131,6 +133,8 @@ export function AccessLogsPage() {
     URL.revokeObjectURL(url);
   };
   const topViewers = Object.entries(viewsByEmployee).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  if (denied) return <Navigate to="/crm/dashboard" replace />;
 
   return (
     <div className="space-y-5">

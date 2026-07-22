@@ -203,16 +203,17 @@ export function EligibilityRulesPage() {
   const allProviders = useProviders();
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Admin gate
-  if (profile !== null && profile.role !== 'admin') {
-    return <Navigate to="/crm/dashboard" replace />;
-  }
-
   // Only banks have eligibility rules for loan products
   const bankProviders = useMemo(
     () => allProviders.filter(p => p.type === 'bank'),
     [allProviders],
   );
+
+  // Admin gate — returned after every hook so the hook count stays stable
+  // between renders (an early return above a hook is React #310).
+  if (profile !== null && profile.role !== 'admin') {
+    return <Navigate to="/crm/dashboard" replace />;
+  }
 
   const handleSave = async (providerId: string, rule: EligibilityRule) => {
     await updateDoc(doc(db, 'providers', providerId), {

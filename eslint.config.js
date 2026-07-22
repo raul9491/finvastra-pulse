@@ -20,15 +20,6 @@ const HOOK_BASELINE = [
   'src/features/hrms/training/AdminTrainingPage.tsx',
   'src/features/hrms/salary/AdminSalaryHistoryPage.tsx',
   'src/features/hrms/helpdesk/AdminHelpdeskPage.tsx',
-  'src/features/hrms/assets/AssetsPage.tsx',
-  'src/features/hrms/dataimport/DataImportPage.tsx',
-  'src/features/hrms/recruitment/RecruitmentPage.tsx',
-  'src/features/crm/admin/AccessLogsPage.tsx',
-  'src/features/crm/admin/CommissionLeakagePage.tsx',
-  'src/features/crm/admin/DocumentTypesPage.tsx',
-  'src/features/crm/admin/EligibilityRulesPage.tsx',
-  'src/features/crm/admin/ProvidersPage.tsx',
-  'src/features/crm/admin/WebhookConfigPage.tsx',
 ];
 
 export default [

@@ -24,12 +24,13 @@ export function DocumentTypesPage() {
   const [rowStates, setRowStates] = useState<Record<string, RowState>>({});
   const [loading, setLoading] = useState(true);
 
-  // Admin guard
-  if (profile && profile.role !== 'admin') {
-    return <Navigate to="/crm/dashboard" replace />;
-  }
+  // Admin guard. The redirect is returned AFTER every hook (see below) — an early
+  // return here would skip them and change the hook count between renders
+  // (React #310). `denied` keeps a non-admin from subscribing.
+  const denied = !!profile && profile.role !== 'admin';
 
   useEffect(() => {
+    if (denied) return;
     return onSnapshot(collection(db, 'document_types'), (snap) => {
       const rows: DocTypeRow[] = snap.docs
         .map(d => {
@@ -63,7 +64,7 @@ export function DocumentTypesPage() {
 
       setLoading(false);
     });
-  }, []);
+  }, [denied]);
 
   function setField<K extends keyof RowState>(id: string, key: K, value: RowState[K]) {
     setRowStates(prev => ({
@@ -110,6 +111,8 @@ export function DocumentTypesPage() {
       }));
     }
   }
+
+  if (denied) return <Navigate to="/crm/dashboard" replace />;
 
   if (loading) {
     return (

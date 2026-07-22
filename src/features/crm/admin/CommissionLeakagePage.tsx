@@ -55,13 +55,15 @@ export function CommissionLeakagePage() {
   const [runResult,   setRunResult]   = useState<string>('');
   const [resolvingId, setResolvingId] = useState<string | null>(null);
 
-  // Admin gate
-  if (profile !== null && profile.role !== 'admin') {
-    return <Navigate to="/crm/dashboard" replace />;
-  }
+  // Admin gate. NOTE: the redirect must be returned AFTER every hook below —
+  // returning early here would skip them and change the hook count between
+  // renders (React #310). The subscription is skipped via `denied` instead, so
+  // a non-admin still never reads the collection.
+  const denied = profile !== null && profile.role !== 'admin';
 
   // Subscribe to the most recent leakage report
   useEffect(() => {
+    if (denied) return;
     const q = query(
       collection(db, 'commission_leakage_reports'),
       orderBy('runAt', 'desc'),
@@ -77,7 +79,7 @@ export function CommissionLeakagePage() {
       setLoading(false);
     }, () => setLoading(false));
     return unsub;
-  }, []);
+  }, [denied]);
 
   // Trigger the server job
   const handleRunCheck = async () => {
@@ -133,6 +135,8 @@ export function CommissionLeakagePage() {
   };
 
   const visibleLeaks = report?.leaks.filter((l) => !l.resolved) ?? [];
+
+  if (denied) return <Navigate to="/crm/dashboard" replace />;
 
   return (
     <div className="space-y-6">

@@ -186,15 +186,16 @@ export function ProvidersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<ProviderType | ''>('');
 
-  // Admin gate
-  if (profile !== null && profile.role !== 'admin') {
-    return <Navigate to="/crm/dashboard" replace />;
-  }
-
   const filtered = useMemo(() => {
     if (!filterType) return providers;
     return providers.filter((p) => p.type === filterType);
   }, [providers, filterType]);
+
+  // Admin gate — returned after every hook so the hook count stays stable
+  // between renders (an early return above a hook is React #310).
+  if (profile !== null && profile.role !== 'admin') {
+    return <Navigate to="/crm/dashboard" replace />;
+  }
 
   const handleSaveSLA = async (providerId: string, values: SLAValues) => {
     await updateDoc(doc(db, 'providers', providerId), {

@@ -268,9 +268,6 @@ export function DataImportPage() {
   const [result, setResult]             = useState<ImportResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Guard: Super Admin only
-  if (!isSA) return <Navigate to="/hrms/dashboard" replace />;
-
   const reset = () => {
     setFile(null); setParsedRows(null); setGlobalErrors([]); setResult(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -362,6 +359,10 @@ export function DataImportPage() {
 
   const validRows   = parsedRows?.filter((r) => r._errors.length === 0).length ?? 0;
   const invalidRows = parsedRows?.filter((r) => r._errors.length > 0).length  ?? 0;
+
+  // Guard: Super Admin only. Returned after every hook so the hook count stays
+  // stable between renders (an early return above a hook is React #310).
+  if (!isSA) return <Navigate to="/hrms/dashboard" replace />;
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">

@@ -543,8 +543,6 @@ export function RecruitmentPage() {
     return () => { unsub1(); unsub2(); };
   }, [canAccess]);
 
-  if (profile && !canAccess) return <Navigate to="/hrms/dashboard" replace />;
-
   // Summary metrics
   const openPositions   = openings.filter(o => o.status === 'open').length;
   const activeCandidates = candidates.filter(c => c.stage !== 'hired' && c.stage !== 'rejected').length;
@@ -563,6 +561,10 @@ export function RecruitmentPage() {
     if (search && !c.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   }), [candidates, filterOpeningId, stageFilter, search]);
+
+  // Access gate — returned after every hook so the hook count stays stable
+  // between renders (an early return above a hook is React #310).
+  if (profile && !canAccess) return <Navigate to="/hrms/dashboard" replace />;
 
   const candidatesByOpening = (openingId: string) => candidates.filter(c => c.openingId === openingId).length;
 

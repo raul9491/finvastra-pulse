@@ -2296,11 +2296,27 @@ New **"Social Media" module** at `/social/*` (joins HRMS · CRM · MIS · Comman
 
 **Verified:** tsc · eslint 0 errors · 208 unit tests · build · rules compile · **all five gates green (connector 20/20 · partner 32/32 · queue 18/18 · sla 17/17 · meta 15/15)** · live unauth smoke 401.
 
-### Connector — REMAINING WORK (not built)
-1. **No way to CREATE a connector account yet** — nothing in the admin UI sets `connectorId`. Until then the boundary is dormant. **When adding one, `hrmsAccess:false` must be set EXPLICITLY** — both the create path (`server/routes/employees.ts:42,163`) and the rules fallback (`firestore.rules` `.data.get('hrmsAccess', true)`) default it to **TRUE**. _Defaulting an access flag OPEN is backwards — consider flipping that fallback._
-2. **The `/partner/*` scoped shell** — Add lead per vertical · My cases · My payouts · My details. Recommended as its OWN shell, not the CRM shell: gating ~40 CRM routes makes every future route a potential leak, whereas a purpose-built surface has only what was deliberately added. (Rules are the boundary either way — this limits attack surface.)
-3. **Open decisions:** (a) full case stage detail (bank, sanction, disbursal figures) vs a simplified status + their payout — the simpler view leaks less about lender relationships; (b) show them their own PAN/bank last-4 (`/connectors/{id}/private/financial`, admin/HR only today) or leave it locked.
-4. Raw `panRaw` still sits on the lead doc — connectors are not granted book-wide lead read so it is not on their path, but the `/leads/{id}/private` migration remains the right hardening.
+### Connector self-service area ✅ BUILT + DEPLOYED (2026-07-22, Cloud Run rev `pulse-api-00148-78j` + hosting, verify:deploy 3/3)
+**Decision (Rahul): a connector SEES THEIR OWN PAN / bank LAST-4.** Built on top of the isolation boundary above.
+- **NEW `server/routes/partner.ts`** (`registerPartnerRoutes(app)`) — **`GET /api/crm2/partner/me`** (own profile + **KYC/bank LAST-4 ONLY**) and **`GET /api/crm2/partner/summary`** (own lead/case counts + payout totals). Both **self-scope from the VERIFIED TOKEN — there is no partner-id parameter to tamper with**; 401 anonymous, 403 for staff. **WHY AN ENDPOINT AND NOT A RULE:** `/connectors/{id}/private/financial` holds the **encrypted PAN + account number**, so that doc stays admin/HR-only and the API returns only `panLast4`/`aadhaarLast4`/`accountNoLast4` — **ciphertext never reaches a browser** and a full number can't be reconstructed client-side.
+- **NEW `POST /api/admin/users/:uid/connector` `{connectorId}` | `{connectorId:null}`** (`server/routes/admin.ts`, admin-only) — **the ONLY supported way to make a connector account**, because getting the flags wrong is what would leak: **`hrmsAccess` FORCED false** (both the create path and the rules fallback default it TRUE, so merely omitting it hands over the staff module), **`crmAccess` FORCED false**, and `perms` reduced to the single **`crm.leads.write`** needed to submit — **their READS need no perm at all**, the rules grant their own rows via `ownedByConnector`. Verifies the CON- record exists, re-stamps claims + `claimsRefreshedAt` (so scoping applies to open sessions), audit-logged. Passing `null` unlinks.
+- **NEW `src/features/partner/`** — `PartnerShell.tsx` + `PartnerPages.tsx` (Home · My Leads · My Cases · My Payouts · My Details) + `usePartner.ts`. **Deliberately NOT built on ModuleSidebar / AppsMenu / CommandPalette** — those surface every other module; five links, no module switcher, no cross-app search. Leads/cases/payouts stream **live from Firestore** (already rules-scoped, so the query is convenience not boundary); the submit form sends **NO partner id**. **Case stage is shown COARSELY** (Received / In progress / Completed) rather than exposing lender-by-lender detail. Route `/partner/*`; **a connector landing on `/` is redirected to `/partner/home`** (LauncherPage).
+- **Gate extended 20 → 31** (`npm run qa:connector`, in CI): own PAN/bank last-4 returned · **encrypted PAN + account ciphertext NOT in the response** · no `*Enc` field names · `private/financial` still unreadable directly · B gets B (self-scoped from token) · staff 403 · anonymous 401 · summary excludes the other partner's money.
+- Verified: tsc · eslint 0 errors · 208 unit tests · build (Partner chunks 2.7 kB + 14.2 kB, code-split) · **all five gates (connector 31/31 · partner 32/32 · queue 18/18 · sla 17/17 · meta 15/15)** · live unauth smoke 401 on all three new endpoints.
+
+### HOW TO ONBOARD A CONNECTOR (exact steps)
+1. **Create the partner record** — CRM → Admin → **Masters → Connectors → Add**. Fill name/mobile/email/verticals; note the auto-assigned **CON-###**. (KYC + payout bank are entered here too; PAN/account are encrypted server-side, and what the partner later sees is the last-4.)
+2. **Create their Workspace email** — a normal `@finvastra.com` account in Google Workspace (this is what they log in with; the domain gate expects it).
+3. **Create the Pulse account** — HRMS → Employees → **Add Employee** with that email. They will be a normal employee doc at this point.
+4. **Mark the account as a connector** — `POST /api/admin/users/{uid}/connector` with `{"connectorId":"CON-###"}` (admin token). This forces `hrmsAccess:false` + `crmAccess:false`, sets `perms:{crm.leads.write:true}`, and re-stamps claims. _(No UI button yet — see below.)_
+5. **They sign in** at `pulse.finvastra.com` → land on **`/partner/home`** automatically. They can submit leads, watch their cases, see payouts + their own last-4.
+- **To revoke:** same endpoint with `{"connectorId": null}`, then deactivate the account via HRMS → Employees → Mark as Exited.
+
+### Connector — REMAINING WORK
+1. **No admin BUTTON yet for step 4** — the endpoint exists and is the supported path, but Permission Manager has no UI for it, so today it is a one-line API call. Worth adding a "Make this a partner account" control next to the CRM-role picker.
+2. **Open decision left:** whether a partner should see richer case detail than the coarse Received / In progress / Completed (current choice leaks the least about lender relationships).
+3. Raw `panRaw` still sits on the lead doc — connectors are **not** granted book-wide lead read so it is not on their path, but the `/leads/{id}/private` migration remains the right hardening.
+4. `hrmsAccess` defaulting **TRUE** in the rules fallback is still backwards; the connector endpoint forces it false, but consider flipping the default.
 
 ## Authentication rules
 

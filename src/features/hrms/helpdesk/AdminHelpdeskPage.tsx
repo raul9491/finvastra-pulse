@@ -180,11 +180,17 @@ function RespondModal({
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
+/** Thin access gate — see the note in HrLetterGeneratorPage (React #310). */
 export function AdminHelpdeskPage() {
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
   const isAdmin     = profile?.role === 'admin';
   const isHrManager = profile?.isHrmsManager === true;
   if (!isAdmin && !isHrManager) return <Navigate to="/hrms/dashboard" replace />;
+  return <AdminHelpdeskContent />;
+}
+
+function AdminHelpdeskContent() {
+  const { user } = useAuth();
 
   const { tickets, loading } = useAllTickets();
   const [statusFilter,   setStatusFilter]   = useState<'all' | HrTicketStatus>('all');

@@ -40,13 +40,18 @@ function BalanceChip({ employeeId }: { employeeId: string }) {
 
 // ─── AdminCompOffPage ─────────────────────────────────────────────────────────
 
+/** Thin access gate — see the note in HrLetterGeneratorPage (React #310). */
 export function AdminCompOffPage() {
-  const { user, profile } = useAuth();
-  const uid = user?.uid ?? '';
-
+  const { profile } = useAuth();
   const isAdmin      = profile?.role === 'admin';
   const isHrmsManager = profile?.isHrmsManager === true;
   if (!isAdmin && !isHrmsManager) return <Navigate to="/hrms/dashboard" replace />;
+  return <AdminCompOffContent />;
+}
+
+function AdminCompOffContent() {
+  const { user, profile } = useAuth();
+  const uid = user?.uid ?? '';
 
   const { employees } = useAllEmployees();
   const { credits, loading: creditsLoading } = useAllCompOffCredits();

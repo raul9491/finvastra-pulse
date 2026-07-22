@@ -1,26 +1,16 @@
 // Flat ESLint config — Phase 0 guardrails. The headline value is
 // react-hooks/rules-of-hooks, which auto-catches the "hook after an early
 // return" crash class (React #310) that was previously guarded by a manual
-// `awk` scan. It is 'error' for ALL new/other code. The ~15 pre-existing
-// legacy offenders (a "guard clause before the hooks" pattern, currently masked
-// by upstream route-gating so they don't crash in practice) are BASELINED to
-// 'warn' below and will be fixed when each page is restructured (plan Phase 4).
+// `awk` scan. It is 'error' EVERYWHERE — the 123-violation legacy baseline
+// (15 files with a guard clause above their hooks) was fully cleared on
+// 2026-07-22, so there is no exemption list any more. Keep it that way: put
+// an access guard in a thin wrapper component, or below every hook.
 // Style/any/exhaustive-deps rules are intentionally OFF for now (tighten later).
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 
-// Legacy files with the guard-clause-before-hooks pattern (baseline → warn).
-// Remove entries as each page is restructured in Phase 4.
-const HOOK_BASELINE = [
-  'src/features/hrms/letters/HrLetterGeneratorPage.tsx',
-  'src/features/hrms/leave/LeaveYearEndPage.tsx',
-  'src/features/hrms/leave/AdminCompOffPage.tsx',
-  'src/features/hrms/training/AdminTrainingPage.tsx',
-  'src/features/hrms/salary/AdminSalaryHistoryPage.tsx',
-  'src/features/hrms/helpdesk/AdminHelpdeskPage.tsx',
-];
 
 export default [
   {
@@ -60,10 +50,5 @@ export default [
       'preserve-caught-error': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true, caughtErrors: 'none' }],
     },
-  },
-  {
-    // Baseline: pre-existing hook-order debt → warn (see HOOK_BASELINE note above).
-    files: HOOK_BASELINE,
-    rules: { 'react-hooks/rules-of-hooks': 'warn' },
   },
 ];

@@ -372,11 +372,17 @@ function CompleteModal({
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
+/** Thin access gate — see the note in HrLetterGeneratorPage (React #310). */
 export function AdminTrainingPage() {
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
   const isAdmin      = profile?.role === 'admin';
   const isHrManager  = profile?.isHrmsManager === true;
   if (!isAdmin && !isHrManager) return <Navigate to="/hrms/dashboard" replace />;
+  return <AdminTrainingContent />;
+}
+
+function AdminTrainingContent() {
+  const { user } = useAuth();
 
   const { programs, loading: progLoading } = useTrainingPrograms();
   const { records,  loading: recLoading  } = useAllTrainingRecords();

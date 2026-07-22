@@ -59,12 +59,23 @@ function buildPreview(employees: UserProfile[], balMap: Map<string, LeaveBalance
 
 // ─── LeaveYearEndPage ─────────────────────────────────────────────────────────
 
+/**
+ * Thin access gate — see the note in HrLetterGeneratorPage. The guard used to
+ * sit above every hook in the body, so a guarded render skipped them all and
+ * changed the hook count between renders (React #310). Keeping it in a wrapper
+ * means the body's hooks run unconditionally AND an unauthorised user never
+ * mounts the body (so its subscriptions never start) — behaviour unchanged.
+ */
 export function LeaveYearEndPage() {
-  const { user, profile } = useAuth();
-
+  const { profile } = useAuth();
   const isAdmin      = profile?.role === 'admin';
   const isManager    = profile?.isHrmsManager === true;
   if (!isAdmin && !isManager) return <Navigate to="/hrms/dashboard" replace />;
+  return <LeaveYearEndContent />;
+}
+
+function LeaveYearEndContent() {
+  const { user } = useAuth();
 
   const year    = currentFyYear();
   const prevYear = year - 1;

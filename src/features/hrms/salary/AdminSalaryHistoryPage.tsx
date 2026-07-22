@@ -291,11 +291,17 @@ function AddRevisionModal({
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
+/** Thin access gate — see the note in HrLetterGeneratorPage (React #310). */
 export function AdminSalaryHistoryPage() {
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
   const isAdmin     = profile?.role === 'admin';
   const isHrManager = profile?.isHrmsManager === true;
   if (!isAdmin && !isHrManager) return <Navigate to="/hrms/dashboard" replace />;
+  return <AdminSalaryHistoryContent />;
+}
+
+function AdminSalaryHistoryContent() {
+  const { user } = useAuth();
 
   const { records, loading } = useAllSalaryHistory();
 

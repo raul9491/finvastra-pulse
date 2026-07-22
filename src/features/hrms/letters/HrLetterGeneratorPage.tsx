@@ -129,12 +129,25 @@ const fLabel = (
 
 // ─── HrLetterGeneratorPage ────────────────────────────────────────────────────
 
+/**
+ * Thin access gate. It exists so the heavy body below can call its ~60 hooks
+ * UNCONDITIONALLY: the guard used to sit above them, so a guarded render
+ * skipped every one of them and changed the hook count between renders
+ * (React #310 — the crash class that took down the case page on 2026-06-18).
+ * Splitting also means an unauthorised user never mounts the body, so its
+ * Firestore subscriptions never start — same behaviour as the old early return.
+ */
 export function HrLetterGeneratorPage() {
-  const { user, profile } = useAuth();
-  const uid           = user?.uid ?? '';
+  const { profile } = useAuth();
   const isAdmin       = profile?.role === 'admin';
   const isHrmsManager = profile?.isHrmsManager === true;
   if (!isAdmin && !isHrmsManager) return <Navigate to="/hrms/dashboard" replace />;
+  return <HrLetterGeneratorContent />;
+}
+
+function HrLetterGeneratorContent() {
+  const { user, profile } = useAuth();
+  const uid           = user?.uid ?? '';
 
   const { employees }                   = useAllEmployees();
   const { letters, loading: llLoading } = useAllLetters();

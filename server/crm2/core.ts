@@ -6,6 +6,7 @@
  * optTs/rejectFullAadhaar). No Deps closure — safe to share across the crm2
  * route modules. Behaviour unchanged.
  */
+import type express from "express";
 import crypto from "crypto";
 import { Timestamp } from "firebase-admin/firestore";
 
@@ -15,6 +16,17 @@ export class ApiError extends Error {
     super(message);
   }
 }
+
+/** Wrap a handler: ApiError → its status; anything else → 500. */
+export const route = (fn: (req: express.Request, res: express.Response) => Promise<void>) =>
+  async (req: express.Request, res: express.Response) => {
+    try { await fn(req, res); }
+    catch (e) {
+      if (e instanceof ApiError) { res.status(e.status).json({ error: e.message, details: e.details ?? null }); return; }
+      console.error("crm2 error:", e);
+      res.status(500).json({ error: e instanceof Error ? e.message : "Internal error" });
+    }
+  };
 
 // Constant-time secret compare (avoids timing side-channels). A non-string
 // header value or any length mismatch is treated as not-matching — identical

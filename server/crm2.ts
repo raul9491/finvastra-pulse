@@ -32,7 +32,7 @@ import { validateTransition, gateForStage, keyDateForStage } from "../src/lib/cr
 import { validateLoginTransition, keyDateForLoginStage, validateCaseLevelTransition, type LoginLite } from "../src/lib/crm2/logins.js";
 import { deriveCycleStatus, computeAgeing, computeBankerMismatch, computePctVariance, computeAmountVariance, computeNetMarginRealised, canClose, validateMilestoneOrder, MILESTONE_STEPS, type MilestoneStep } from "../src/lib/crm2/payout.js";
 import { matchDumpRow, computeSnapshot, type DumpRow, type MisLite, type CycleLite } from "../src/lib/crm2/recon.js";
-import { ApiError, safeEqual, PAN_RE, MOBILE_RE, isStr, reqStr, optStr, reqEnum, optNum, optMoney, optPct, strArr, optTs, rejectFullAadhaar, optBool, optEnum } from "./crm2/core.js";
+import { ApiError, safeEqual, PAN_RE, MOBILE_RE, isStr, reqStr, optStr, reqEnum, optNum, optMoney, optPct, strArr, optTs, rejectFullAadhaar, optBool, optEnum, route } from "./crm2/core.js";
 import {
   PARTNER_FUNNEL, PARTNER_TERMINAL, PARTNER_LEAD_SOURCE, PARTNER_NETWORK_TYPE, PARTNER_NETWORK_SIZE,
   PARTNER_FIT, PARTNER_TRACK, PARTNER_VOLUME, PARTNER_KYC, PARTNER_NEXT_ACTION,
@@ -81,15 +81,6 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   // ─── Validation helpers ──────────────────────────────────────────────────────
 
   /** Wrap a handler: ApiError → its status; anything else → 500. */
-  const route = (fn: (req: express.Request, res: express.Response) => Promise<void>) =>
-    async (req: express.Request, res: express.Response) => {
-      try { await fn(req, res); }
-      catch (e) {
-        if (e instanceof ApiError) { res.status(e.status).json({ error: e.message, details: e.details ?? null }); return; }
-        console.error("crm2 error:", e);
-        res.status(500).json({ error: e instanceof Error ? e.message : "Internal error" });
-      }
-    };
 
   // ─── Masters config ──────────────────────────────────────────────────────────
   // Generic create/update for the simple masters; mappings have dedicated routes.

@@ -141,6 +141,29 @@ Verbatim (declaration diff 17 → 17). **`attendanceRegularizations.tsx` (275)**
 Verbatim (declaration diff 16 → 16). **`probationModals.tsx` (414)** — evaluation / confirm / extend dialogs · **`probationLetters.ts` (223)** — confirmation + extension PDFs · **`probationDates.ts` (26)** — the countdown, pure and testable · the page keeps the list, filters, status config and `StatCard`.
 - `daysInfo()` read `new Date()` inline, so it was untestable. **`today` is now injectable** and it has **6 tests** — the one that matters being the precedence rule: **an EXTENDED probation counts down to `extensionEndDate`, NOT the original `probationEndDate`.** Get that backwards and an employee whose probation was extended is measured against a date that no longer applies and shows overdue. Also pinned: "Today" on the end date · the label reading "10d overdue" not "-10d" · the fallback when extended with no extension date · `extensionEndDate` ignored unless status is actually `extended`. Unit tests **251 → 257**.
 
+#### Phase 4 #11 ✅ — `Crm2LeadsPage` 1033 → 281. **PAGE BREAKUP COMPLETE** (2026-07-23, hosting-only, verify:deploy 3/3)
+Verbatim (declaration diff 22 → 22). **`LeadDrawer.tsx` (357)** · **`ConvertModal.tsx` (208)** · **`NewLeadModal.tsx` (208)** · **`leadOptions.ts` (55)** — option lists, `PRIORITY_META`, `buildReferral`/`buildChannelPartner`/`filterProductsByCat` · the page keeps the list, funnel chips, filters and queue panel. No buried calculation — the CRM 2.0 lead logic already lives in tested libs.
+- **TWO near-misses, both caught by the DIFF and not by tsc:** `PRIORITY_META` fell in a gap between slices and was then **duplicated** when recovered (the survivor was already inside another slice); and the `LeadRow` type landed in `leadOptions` rather than the page, so four consumers imported it from the wrong module. **That is 2 of 11 splits where the declaration-set diff caught something tsc alone would not have surfaced cleanly** — it is not ceremony.
+
+### ✅ PHASE 4 PAGE BREAKUP — COMPLETE (2026-07-23)
+**Of the ten pages that were over 1000 lines, NINE are now well under; the tenth is documented as out of scope for a mechanical split.**
+
+| Page | Before → After | Tests added |
+|---|---|---|
+| MastersPage | 1805 → 287 | — |
+| OpportunityDetailPage | 1450 → 472 | — |
+| OffboardingPage | 1310 → 228 | **+13** FnF settlement math |
+| CaseWorkspacePage | 1286 → 411 | — |
+| EmployeeProfilePage | 1192 → 350 | — |
+| AdminLeavePage | 1132 → 99 | **+11** balance-edit math |
+| HrmsDashboardPage | 1074 → 273 | **+9** working days |
+| AdminAttendancePage | 1040 → 378 | — |
+| ProbationPage | 1035 → 410 | **+6** probation countdown |
+| Crm2LeadsPage | 1033 → 281 | — |
+| _HrLetterGeneratorPage_ | _1170 → 1052_ | **+10** amount-in-words — **NOT split: needs a state redesign (~60 interleaved useState across five letter types), and it generates legal documents. Deliberate pass required.** |
+
+**Unit tests 208 → 257.** eslint held at the 69-warning baseline across every commit. **Three live bugs found on the way** — all of them duplicated/drifted copies of a rule that already existed correctly elsewhere: DPDP erasure missing CRM 2.0 leads · `ctcToWords` printing "undefined" on offer letters · `isWeekend` making Saturday a non-working day (which also blocked Saturday regularization requests entirely).
+
 - **SCOPE CORRECTION (measured 2026-07-22): there are TEN pages over 1000 lines, not the five the plan named.** Full list: OpportunityDetailPage 1450 · OffboardingPage 1310 · CaseWorkspacePage 1286 · EmployeeProfilePage 1192 · **HrLetterGeneratorPage 1170** · AdminLeavePage 1132 · HrmsDashboardPage 1074 · AdminAttendancePage 1040 · ProbationPage 1035 · Crm2LeadsPage 1033. So Phase 4 is roughly twice the size it was scoped as. **Note HrLetterGeneratorPage is still on the list** — its 62 hook violations were fixed via the wrapper split above, but that was a CORRECTNESS fix and did not shrink the file; its breakup is still outstanding.
 
 ### Phase 3 — DONE ✅ (server.ts 6057→145, ~98%)

@@ -130,6 +130,13 @@ Verbatim (declaration-set diff: 20 before, 20 after). **`profileModals.tsx` (436
 - Split: **`dashboardCelebrations.tsx` (318)** · **`dashboardAdminPanels.tsx` (234)** · **`dashboardBanners.tsx` (157)** · **`dashboardCards.tsx` (142)**. Declaration diff 27 → 26, the one "missing" being `workingDaysInMonth` — expected, it moved to the shared lib.
 - **THIRD bug this pass found by the same habit:** read what a helper actually does before moving it. `deleted==false` → DPDP erasure gap; `ctcToWords` → "undefined" on legal letters; `isWeekend` → Saturday. **All three were duplicated or drifted implementations of a rule that already existed correctly elsewhere.**
 
+#### Phase 4 #9 ✅ — `AdminAttendancePage` 1040 → 378 (2026-07-23, hosting-only, verify:deploy 3/3)
+Verbatim (declaration diff 17 → 17). **`attendanceRegularizations.tsx` (275)** — the Corrections tab · **`attendanceMonthly.tsx` (229)** — monthly grid + CSV export · **`attendanceGeofence.tsx` (198)** · the page keeps the Daily view, tab shell and inline `EditRow`.
+- Checked for buried logic first: nothing to rescue — and **this file already had the working-week rule RIGHT** (`isSunday = weekday(d) === 0`), which is exactly why the employee-facing dashboard + attendance calendar stood out as wrong in #8. The admin monthly grid has always counted Saturday.
+- `MONTH_MARK` moved to `attendanceMonthly` with the grid that uses it, rather than being shared back from where the slice boundary happened to drop it.
+
+**Phase 4 running total: 8 clean splits + 1 partial (letters).** MastersPage 1805→287 · OpportunityDetail 1450→472 · Offboarding 1310→228 (+13) · CaseWorkspace 1286→411 · EmployeeProfile 1192→350 · AdminLeave 1132→99 (+11) · HrLetterGenerator 1170→1053 (partial, +10) · HrmsDashboard 1074→273 (+9) · AdminAttendance 1040→378. **Remaining: ProbationPage 1035 · Crm2LeadsPage 1033.**
+
 - **SCOPE CORRECTION (measured 2026-07-22): there are TEN pages over 1000 lines, not the five the plan named.** Full list: OpportunityDetailPage 1450 · OffboardingPage 1310 · CaseWorkspacePage 1286 · EmployeeProfilePage 1192 · **HrLetterGeneratorPage 1170** · AdminLeavePage 1132 · HrmsDashboardPage 1074 · AdminAttendancePage 1040 · ProbationPage 1035 · Crm2LeadsPage 1033. So Phase 4 is roughly twice the size it was scoped as. **Note HrLetterGeneratorPage is still on the list** — its 62 hook violations were fixed via the wrapper split above, but that was a CORRECTNESS fix and did not shrink the file; its breakup is still outstanding.
 
 ### Phase 3 — DONE ✅ (server.ts 6057→145, ~98%)

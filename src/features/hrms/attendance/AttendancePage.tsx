@@ -4,7 +4,6 @@ import {
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
-  isWeekend,
   isSameDay,
   parseISO,
   addMonths,
@@ -16,6 +15,7 @@ import { useAuth } from '../../auth/AuthContext';
 import type { UserProfile } from '../../../types';
 import { useMyAttendance, useTodayAttendance, checkIn, checkOut } from '../hooks/useAttendance';
 import { useGeofenceConfig, enforceGeofence } from '../../../lib/geo';
+import { isWorkingDay } from '../../../lib/workingDays';
 import { isSuperAdmin } from '../../../config/hrmsConfig';
 import type { AttendanceStatus, Attendance } from '../../../types';
 import {
@@ -598,7 +598,10 @@ export function AttendancePage() {
               const rec = recordMap.get(dateStr);
               const isToday = isSameDay(day, today);
               const isFuture = day > today;
-              const isWknd = isWeekend(day);
+              // Finvastra works Mon-SAT: only Sunday is off. Using date-fns isWeekend
+              // here excluded Saturdays, so a Saturday absence could never be
+              // regularized (fixed 2026-07-23 — see src/lib/workingDays.ts).
+              const isWknd = !isWorkingDay(day);
               const regReq = regularizationMap.get(dateStr);
 
               // Eligible for regularization: past working day that's absent OR missing check-in/out

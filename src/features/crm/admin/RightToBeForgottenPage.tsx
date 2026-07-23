@@ -4,10 +4,13 @@ import { collection, where, query, getDocs } from 'firebase/firestore';
 import { AlertTriangle, Search, ShieldOff, CheckCircle, X } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { db } from '../../../lib/firebase';
+import { leadName, leadMobile, type LeadDocLike } from '../../../lib/crm2/leadModel';
 import { anonymiseLead, type RTBFResult } from '../../../lib/leadAnonymisation';
 import type { Lead } from '../../../types';
 
-type LeadWithId = Lead & { id: string };
+// `& LeadDocLike` so the shared lead normalizer accepts these rows: /leads holds
+// BOTH document shapes and the Lead type only describes the old-CRM one.
+type LeadWithId = Lead & LeadDocLike & { id: string };
 
 type PageState =
   | { step: 'search' }
@@ -55,18 +58,33 @@ export function RightToBeForgottenPage() {
       // Exact phone match (most reliable for RTBF — customer typically quotes their number)
       const isPhone = /^[6-9]\d{9}$/.test(trimmed);
 
+      // `/leads` holds TWO shapes: old-CRM Customers (phone/displayName) and CRM 2.0
+      // leads (mobile/name). Searching only the old field names made every CRM 2.0
+      // lead UNFINDABLE here — so an erasure request for someone who exists only as
+      // a CRM 2.0 lead silently returned nothing. Every new lead is CRM 2.0, so both
+      // shapes must be searched. (Fixed 2026-07-23.)
+      const dedupe = (docs: LeadWithId[]) => {
+        const seen = new Set<string>();
+        return docs.filter((d) => (seen.has(d.id) ? false : (seen.add(d.id), true)));
+      };
+
       if (isPhone) {
-        const snap = await getDocs(
-          query(collection(db, 'leads'), where('phone', '==', trimmed), where('deleted', '==', false)),
-        );
-        setSearchResults(snap.docs.map((d) => ({ id: d.id, ...d.data() } as LeadWithId)));
+        const [oldSnap, crm2Snap] = await Promise.all([
+          getDocs(query(collection(db, 'leads'), where('phone', '==', trimmed))),
+          getDocs(query(collection(db, 'leads'), where('mobile', '==', trimmed))),
+        ]);
+        const rows = dedupe([...oldSnap.docs, ...crm2Snap.docs].map((d) => ({ id: d.id, ...d.data() } as LeadWithId)));
+        setSearchResults(rows);
+        if (rows.length === 0) setSearchError('No records found for that number.');
       } else {
-        // Name search: case-sensitive prefix match — inform user about limitations
-        const snap = await getDocs(
-          query(collection(db, 'leads'), where('displayName', '>=', trimmed), where('displayName', '<=', trimmed + ''), where('deleted', '==', false)),
-        );
-        setSearchResults(snap.docs.map((d) => ({ id: d.id, ...d.data() } as LeadWithId)));
-        if (snap.empty) {
+        // Name search: case-sensitive prefix match — across both name fields.
+        const [oldSnap, crm2Snap] = await Promise.all([
+          getDocs(query(collection(db, 'leads'), where('displayName', '>=', trimmed), where('displayName', '<=', trimmed + ''))),
+          getDocs(query(collection(db, 'leads'), where('name', '>=', trimmed), where('name', '<=', trimmed + ''))),
+        ]);
+        const rows = dedupe([...oldSnap.docs, ...crm2Snap.docs].map((d) => ({ id: d.id, ...d.data() } as LeadWithId)));
+        setSearchResults(rows);
+        if (rows.length === 0) {
           setSearchError('No results. Name search is case-sensitive and prefix-only. Try searching by the customer\'s 10-digit phone number for an exact match.');
         }
       }
@@ -134,9 +152,10 @@ export function RightToBeForgottenPage() {
         >
           <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: '#C9A961' }} />
           <p className="text-sm" style={{ color: '#C9A961' }}>
-            Anonymisation permanently replaces the customer's name, phone, email, and PAN with
-            redacted placeholders. Opportunity records, commission records, and activity timestamps
-            are preserved for regulatory audit purposes. This cannot be undone.
+            Anonymisation permanently replaces the customer's name, phone (including any alternate
+            numbers), email and PAN with redacted placeholders, and redacts their call notes,
+            imported details and WhatsApp messages. Opportunity records, commission records and
+            activity timestamps are preserved for regulatory audit purposes. This cannot be undone.
           </p>
         </div>
 
@@ -191,8 +210,8 @@ export function RightToBeForgottenPage() {
                   style={{ border: '1px solid var(--shell-border-mid)' }}
                 >
                   <div className="space-y-0.5">
-                    <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{lead.displayName}</p>
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{lead.phone}</p>
+                    <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{leadName(lead)}</p>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{leadMobile(lead) ?? '—'}</p>
                     {lead.email && (
                       <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{lead.email}</p>
                     )}
@@ -245,8 +264,8 @@ export function RightToBeForgottenPage() {
         {/* Lead summary */}
         <div className="glass-panel p-5 space-y-1">
           <p className="text-xs uppercase tracking-wide font-medium mb-2" style={{ color: 'var(--text-muted)' }}>Customer</p>
-          <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>{lead.displayName}</p>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{lead.phone}</p>
+          <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>{leadName(lead)}</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{leadMobile(lead) ?? '—'}</p>
           {lead.email && <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{lead.email}</p>}
           <p className="text-xs pt-1" style={{ color: 'var(--text-muted)' }}>ID: …{lead.id.slice(-6).toUpperCase()}</p>
         </div>

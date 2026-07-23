@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, collectionGroup, getDocs, query, where } from 'firebase/firestore';
+import { collection, collectionGroup, getDocs } from 'firebase/firestore';
 import { Download, Loader2, Clock } from 'lucide-react';
 import { db } from '../../../lib/firebase';
+import { leadName, leadOwner, isLeadDeleted } from '../../../lib/crm2/leadModel';
 import { useAuth } from '../../auth/AuthContext';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { DataView } from '../../../components/ui/DataView';
@@ -48,12 +49,29 @@ export function LeadAgingPage({ embedded = false }: { embedded?: boolean } = {})
     let alive = true;
     (async () => {
       const [leadsSnap, oppsSnap, usersSnap] = await Promise.all([
-        getDocs(query(collection(db, 'leads'), where('deleted', '==', false))),
+        getDocs(collection(db, 'leads')),
         getDocs(collectionGroup(db, 'opportunities')),
         getDocs(collection(db, 'users')),
       ]);
+      // /leads holds TWO shapes. Old-CRM Customers own by uid (primaryOwnerId);
+      // CRM 2.0 leads own by FAPL code (assignedRm). Resolving only uid made every
+      // CRM 2.0 lead read as "Unassigned" with no name — 22 of 25 in production.
       const nameByUid = new Map<string, string>();
-      usersSnap.forEach((d) => nameByUid.set(d.id, (d.data() as any).displayName ?? d.id));
+      const nameByFapl = new Map<string, string>();
+      usersSnap.forEach((d) => {
+        const u = d.data() as any;
+        const nm = u.displayName ?? d.id;
+        nameByUid.set(d.id, nm);
+        if (u.employeeId) nameByFapl.set(u.employeeId, nm);
+      });
+      const ownerNameOf = (l: any): { id: string; name: string } => {
+        const o = leadOwner(l);
+        if (!o.value) return { id: '', name: 'Unassigned' };
+        const nm = o.kind === 'fapl'
+          ? (nameByFapl.get(o.value) ?? o.value)
+          : (nameByUid.get(o.value) ?? o.value);
+        return { id: o.value, name: nm };
+      };
 
       // Map leadId → { stage, businessLine } (prefer an open opportunity)
       const oppByLead = new Map<string, { stage: string; line: string; open: boolean }>();
@@ -68,16 +86,17 @@ export function LeadAgingPage({ embedded = false }: { embedded?: boolean } = {})
         }
       });
 
-      const out: Row[] = leadsSnap.docs.map((d) => {
+      const out: Row[] = leadsSnap.docs.filter((d) => !isLeadDeleted(d.data() as any)).map((d) => {
         const l = d.data() as any;
+        const owner = ownerNameOf(l);
         const age = daysSince(tsMs(l.createdAt));
         const opp = oppByLead.get(d.id);
         const actMs = tsMs(l.updatedAt) || tsMs(l.createdAt);
         return {
           leadId: d.id,
-          name: l.displayName ?? '—',
-          rmId: l.primaryOwnerId ?? '',
-          rmName: nameByUid.get(l.primaryOwnerId) ?? l.primaryOwnerId ?? 'Unassigned',
+          name: leadName(l),
+          rmId: owner.id,
+          rmName: owner.name,
           source: l.source ?? '—',
           stage: opp?.stage ?? '—',
           businessLine: opp?.line ?? '—',

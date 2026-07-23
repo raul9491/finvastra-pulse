@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
-  collection, collectionGroup, doc, getDocs, onSnapshot, query, where,
+  collection, collectionGroup, doc, getDoc, getDocs, onSnapshot, query, where,
   setDoc, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
+import { leadOwner, isLeadDeleted } from '../../../lib/crm2/leadModel';
 import type { RmTarget, RmActuals } from '../../../types';
 
 // ─── Pure helpers ───────────────────────────────────────────────────────────
@@ -30,12 +31,24 @@ export async function computeActuals(uid: string, period: string): Promise<RmAct
   if (!uid) return { newLeads: 0, leadsConverted: 0, disbursalAmount: 0, commissionGenerated: 0 };
   const startMs = monthStartMs(period);
 
-  // newLeads — leads owned by this RM, created this month, not deleted
-  const leadsSnap = await getDocs(
-    query(collection(db, 'leads'), where('primaryOwnerId', '==', uid), where('deleted', '==', false)),
-  );
+  // newLeads — leads owned by this RM this month, across BOTH lead models.
+  // Old-CRM Customers are owned by uid (primaryOwnerId); CRM 2.0 leads are owned
+  // by the RM's FAPL code (assignedRm). Querying only primaryOwnerId silently
+  // EXCLUDED every CRM 2.0 lead, so an RM's actuals undercounted against their
+  // target — and disagreed with the server-side team numbers, which were fixed
+  // on 2026-07-20. Two pinned queries rather than a full scan.
+  const fapl = (await getDoc(doc(db, 'users', uid))).data()?.employeeId as string | undefined;
+  const [oldSnap, crm2Snap] = await Promise.all([
+    getDocs(query(collection(db, 'leads'), where('primaryOwnerId', '==', uid))),
+    fapl
+      ? getDocs(query(collection(db, 'leads'), where('assignedRm', '==', fapl)))
+      : Promise.resolve({ docs: [] as Array<{ data: () => any }> }),
+  ]);
   let newLeads = 0;
-  leadsSnap.forEach((d) => { if (tsMs(d.data().createdAt) >= startMs) newLeads++; });
+  for (const d of [...oldSnap.docs, ...crm2Snap.docs]) {
+    const l = d.data();
+    if (!isLeadDeleted(l) && tsMs(l.createdAt) >= startMs) newLeads++;
+  }
 
   // leadsConverted — won opportunities owned by this RM, closed this period
   const wonSnap = await getDocs(
@@ -151,8 +164,16 @@ export function useTeamTargets(period: string, enabled: boolean) {
       targetsSnap.forEach((d) => { const t = d.data() as RmTarget; targetByRm.set(t.rmId, t); });
 
       // Bulk source data — fetched once, aggregated per RM in memory
+      // FAPL -> uid, so CRM 2.0 leads (owned by FAPL) land in the same per-uid
+      // bucket as old-model Customers instead of being skipped entirely.
+      const uidByFapl = new Map<string, string>();
+      usersSnap.forEach((d) => {
+        const e = (d.data() as any).employeeId;
+        if (e) uidByFapl.set(e, d.id);
+      });
+
       const [leadsSnap, wonSnap, crSnap] = await Promise.all([
-        getDocs(query(collection(db, 'leads'), where('deleted', '==', false))),
+        getDocs(collection(db, 'leads')),
         getDocs(query(collectionGroup(db, 'opportunities'), where('status', '==', 'won'))),
         getDocs(collection(db, 'commission_records')),
       ]);
@@ -163,7 +184,11 @@ export function useTeamTargets(period: string, enabled: boolean) {
 
       leadsSnap.forEach((d) => {
         const l = d.data() as any;
-        if (l.primaryOwnerId && tsMs(l.createdAt) >= startMs) get(l.primaryOwnerId).newLeads++;
+        if (isLeadDeleted(l) || tsMs(l.createdAt) < startMs) return;
+        const o = leadOwner(l);
+        if (!o.value) return;
+        const ownerUid = o.kind === 'fapl' ? uidByFapl.get(o.value) : o.value;
+        if (ownerUid) get(ownerUid).newLeads++;
       });
       wonSnap.forEach((d) => {
         const o = d.data() as any;

@@ -8,8 +8,9 @@
 import { useState, useEffect } from 'react';
 import { inrRound as formatCurrency } from '../../../lib/money';
 import { Link } from 'react-router-dom';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
+import { isLeadDeleted } from '../../../lib/crm2/leadModel';
 import { format } from 'date-fns';
 
 interface Props {
@@ -59,16 +60,21 @@ export function CrmPerformanceWidget({ employeeUid, employeeName: _employeeName 
 
     async function fetchStats() {
       try {
-        // 1. Total leads where this employee is the primary RM
-        const leadsSnap = await getDocs(
-          query(
-            collection(db, 'leads'),
-            where('primaryOwnerId', '==', employeeUid),
-            where('deleted', '==', false),
-          )
-        );
-        const totalLeads = leadsSnap.size;
-        const leadIds    = leadsSnap.docs.map((d) => d.id);
+        // 1. Total leads where this employee is the RM — across BOTH lead models.
+        // Old-CRM Customers are owned by uid (primaryOwnerId); CRM 2.0 leads by the
+        // employee's FAPL code (assignedRm). Querying only primaryOwnerId made this
+        // widget undercount, and disagree with the server-side team numbers.
+        const fapl = (await getDoc(doc(db, 'users', employeeUid))).data()?.employeeId as string | undefined;
+        const [oldSnap, crm2Snap] = await Promise.all([
+          getDocs(query(collection(db, 'leads'), where('primaryOwnerId', '==', employeeUid))),
+          fapl
+            ? getDocs(query(collection(db, 'leads'), where('assignedRm', '==', fapl)))
+            : Promise.resolve({ docs: [] as Array<{ id: string; data: () => any }> }),
+        ]);
+        const liveLeads = [...oldSnap.docs, ...crm2Snap.docs].filter((d) => !isLeadDeleted(d.data()));
+        const totalLeads = liveLeads.length;
+        // Opportunities live only on old-model leads; the CRM 2.0 funnel uses cases.
+        const leadIds    = oldSnap.docs.filter((d) => !isLeadDeleted(d.data())).map((d) => d.id);
 
         // 2. Opportunities for each lead — count won and open ones owned by this employee
         let wonOpportunities  = 0;

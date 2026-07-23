@@ -22,9 +22,10 @@ export function registerAdminRoutes(app: express.Express): void {
    * account — or back into a normal one. This is the ONLY supported way to create
    * one, because getting the flags wrong is what would leak:
    *
-   *  - `hrmsAccess` is forced FALSE. Both the create path and the rules fallback
-   *    default it to TRUE, so merely omitting it would hand a partner the staff
-   *    module (employee directory, org chart, announcements).
+   *  - `hrmsAccess` is forced FALSE — written explicitly, never left to a default.
+   *    (The rules fallback was itself flipped fail-closed on 2026-07-23, but the
+   *    employee create path still defaults it TRUE, which is correct for staff and
+   *    exactly why a partner account must set it here rather than omit it.)
    *  - `crmAccess` is forced FALSE and CRM 2.0 perms are reduced to the single
    *    `crm.leads.write` they need to submit a lead. Their READS need no perm at
    *    all — firestore.rules grants them their own rows via `ownedByConnector`.
@@ -66,7 +67,7 @@ export function registerAdminRoutes(app: express.Express): void {
       const patch: Record<string, unknown> = connectorId
         ? {
             connectorId,
-            hrmsAccess: false,            // MUST be explicit — defaults to true otherwise
+            hrmsAccess: false,            // explicit: the employee create path defaults this TRUE
             crmAccess: false,             // they use /partner, never the CRM shell
             perms: { "crm.leads.write": true },   // submit a lead; reads come from the rules
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -80,7 +81,7 @@ export function registerAdminRoutes(app: express.Express): void {
       const after = (await db.collection("users").doc(uid).get()).data() ?? {};
       await admin.auth().setCustomUserClaims(uid, {
         role:          after.role          ?? "employee",
-        hrmsAccess:    after.hrmsAccess    ?? true,
+        hrmsAccess:    after.hrmsAccess    === true,
         crmAccess:     after.crmAccess     ?? false,
         crmRole:       after.crmRole       ?? null,
         isHrmsManager: after.isHrmsManager ?? false,
@@ -187,7 +188,7 @@ export function registerAdminRoutes(app: express.Express): void {
 
       await admin.auth().setCustomUserClaims(uid, {
         role:           p.role          ?? "employee",
-        hrmsAccess:     p.hrmsAccess    ?? true,
+        hrmsAccess:     p.hrmsAccess    === true,
         crmAccess:      p.crmAccess     ?? false,
         crmRole:        p.crmRole       ?? null,
         isHrmsManager:  p.isHrmsManager ?? false,
@@ -243,7 +244,7 @@ export function registerAdminRoutes(app: express.Express): void {
         try {
           await admin.auth().setCustomUserClaims(uid, {
             role:          p.role          ?? "employee",
-            hrmsAccess:    p.hrmsAccess    ?? true,
+            hrmsAccess:    p.hrmsAccess    === true,
             crmAccess:     p.crmAccess     ?? false,
             crmRole:       p.crmRole       ?? null,
             isHrmsManager: p.isHrmsManager ?? false,

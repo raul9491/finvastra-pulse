@@ -11,6 +11,7 @@ import { useAllEmployees } from '../../../lib/hooks/useProfile';
 import type { UserProfile, CrmRole, MisAccess, ConvertorVertical } from '../../../types';
 import { isSuperAdmin, SUPER_ADMIN_UIDS, SUPER_ADMIN_LABELS } from '../../../config/hrmsConfig';
 import { SuperAdminPromotionSection } from './SuperAdminPromotionSection';
+import { ConnectorAccountsSection } from './ConnectorAccountsSection';
 import { appendFieldHistory } from '../../../lib/fieldHistory';
 
 // Ajay is the first super admin UID — his permissions need a one-time fix
@@ -878,6 +879,9 @@ export function SuperAdminPermissionsPage() {
           {filteredRows.length} of {editableEmployees.length} employees shown
         </p>
       )}
+
+      {/* ── Partner (connector) logins — external channel partners ────────── */}
+      <ConnectorAccountsSection employees={employees} />
 
       {/* ── Phase P: Super Admin promotion / demotion + audit log ─────────── */}
       <SuperAdminPromotionSection

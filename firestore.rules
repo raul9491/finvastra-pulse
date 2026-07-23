@@ -100,7 +100,14 @@ service cloud.firestore {
       return isSignedIn() && (
              request.auth.token.get('hrmsAccess', false) == true ||
              (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-              (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('hrmsAccess', true) == true ||
+              // Fails CLOSED. This defaulted to `true` until 2026-07-23, which meant a
+              // user doc that simply omitted the field was granted the staff module —
+              // backwards for an access flag, and the one thing standing between a
+              // mis-created partner account and the employee directory. Verified safe
+              // to flip: all 26 production user docs set hrmsAccess explicitly, and
+              // every creation path (employee create, self-bootstrap in AuthContext,
+              // the connector endpoint) writes it, so nobody relies on the default.
+              (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('hrmsAccess', false) == true ||
                'hrms' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('sharedModules', []))));
     }
     // Social Media module access (WhatsApp inbox). Not in custom claims — reads the

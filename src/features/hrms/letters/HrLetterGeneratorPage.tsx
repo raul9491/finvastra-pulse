@@ -25,11 +25,11 @@ import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/fires
 import { getAuth } from 'firebase/auth';
 import { useAuth } from '../../auth/AuthContext';
 import { useAllEmployees } from '../../../lib/hooks/useProfile';
+import { amountInWordsWithOnly } from '../../../lib/numberToWords';
 import { SearchableSelect } from '../../../components/ui/SearchableSelect';
 import { DEPARTMENTS } from '../../../config/hrmsConfig';
 import { db } from '../../../lib/firebase';
 import { useAllLetters } from '../hooks/useGeneratedLetters';
-import type { GeneratedLetter } from '../../../types';
 import {
   generateLetterPdf, letterFilename, letterRefNumber, TYPE_ABBREV,
   type LetterType, type LetterData, type Salutation, type SalaryRow,
@@ -37,95 +37,12 @@ import {
   type ProbationExtensionData, type ConsultantAgreementData,
 } from './letterPdf';
 import { PageHeader } from '../../../components/ui/primitives';
+import {
+  LETTER_TYPES, SALARY_COMPONENTS, SALUTATIONS, DEFAULT_SALARY_ROWS,
+  inp, baseTa, fLabel, LetterRow, type EmpDetails, type EmpSalary,
+} from './letterFormBits';
 
 // ─── Letter type catalogue ────────────────────────────────────────────────────
-
-const LETTER_TYPES: { value: LetterType; label: string; desc: string }[] = [
-  { value: 'offer_letter',        label: 'Offer Letter',           desc: 'Pre-joining offer for new candidates'},
-  { value: 'appointment',         label: 'Appointment Letter',     desc: 'Full legal employment accord'        },
-  { value: 'confirmation',        label: 'Confirmation Letter',    desc: 'End of probation — permanent status' },
-  { value: 'probation_extension', label: 'Probation Extension',    desc: 'Extend probation period'             },
-  { value: 'consultant_agreement',label: 'Consultant Agreement',   desc: '13-clause engagement contract'       },
-];
-
-const SALARY_COMPONENTS = [
-  'Basic Salary',
-  'House Rent Allowance (HRA)',
-  'Conveyance Allowance',
-  'Medical Allowance',
-  'Special Allowance',
-  'Performance Incentive',
-  'Travel Allowance',
-  'Other Allowance',
-];
-
-/** Convert a number to Indian number-system words. e.g. 1800000 → "Eighteen Lakh Only" */
-function ctcToWords(n: number): string {
-  if (!n || isNaN(n)) return '';
-  const units = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten',
-    'Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
-  const tens  = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
-  function below100(num: number): string {
-    if (num < 20) return units[num];
-    return tens[Math.floor(num / 10)] + (num % 10 ? ' ' + units[num % 10] : '');
-  }
-  function below1000(num: number): string {
-    if (num < 100) return below100(num);
-    return units[Math.floor(num / 100)] + ' Hundred' + (num % 100 ? ' ' + below100(num % 100) : '');
-  }
-  let result = '';
-  let rem = n;
-  if (rem >= 10000000) { result += below1000(Math.floor(rem / 10000000)) + ' Crore '; rem %= 10000000; }
-  if (rem >= 100000)   { result += below1000(Math.floor(rem / 100000))   + ' Lakh ';  rem %= 100000;   }
-  if (rem >= 1000)     { result += below1000(Math.floor(rem / 1000))     + ' Thousand '; rem %= 1000;  }
-  if (rem > 0)         { result += below1000(rem); }
-  return result.trim() + ' Only';
-}
-
-const SALUTATIONS: Salutation[] = ['Mr.', 'Ms.', 'Mrs.', 'Dr.'];
-
-// Admin-only employee docs the letter form prefills from.
-type EmpDetails = { gender?: string; presentAddress?: string; permanentAddress?: string };
-type EmpSalary  = {
-  salaryBasic?: number; salaryHra?: number; salaryConveyance?: number;
-  salaryMedical?: number; salaryOther?: number; grossSalary?: number;
-};
-
-// ─── Default salary row components ───────────────────────────────────────────
-
-const DEFAULT_SALARY_ROWS: SalaryRow[] = [
-  { component: 'Basic Salary',              description: 'Monthly Fixed', monthly: '' },
-  { component: 'House Rent Allowance',      description: '',              monthly: '' },
-  { component: 'Conveyance Allowance',      description: '',              monthly: '' },
-  { component: 'Other Allowance',           description: '',              monthly: '' },
-];
-
-// ─── Form style helpers ───────────────────────────────────────────────────────
-
-const baseInp = 'w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-2 bg-(--glass-panel-bg) transition-colors';
-const baseTa  = `${baseInp} resize-none`;
-
-const inp = (field?: string, fe?: Record<string, string>) =>
-  `${baseInp} ${field && fe?.[field]
-    ? 'border-red-400 focus:ring-red-200/50 bg-red-50/30'
-    : 'border-(--shell-border) focus:ring-navy/10 focus:border-navy'}`;
-
-const fLabel = (
-  text: string,
-  fe: Record<string, string>,
-  field?: string,
-  req = false,
-) => (
-  <label className="block text-xs font-semibold uppercase tracking-wider mb-1"
-    style={{ color: field && fe[field] ? '#DC2626' : 'var(--text-muted)' }}>
-    {text}{req && <span className="text-red-500 ml-0.5">*</span>}
-    {field && fe[field] && (
-      <span className="ml-2 font-medium normal-case tracking-normal text-red-500">
-        — {fe[field]}
-      </span>
-    )}
-  </label>
-);
 
 // ─── HrLetterGeneratorPage ────────────────────────────────────────────────────
 
@@ -347,13 +264,13 @@ function HrLetterGeneratorContent() {
   // Auto-populate CTC in words for appointment letter
   useEffect(() => {
     const raw = parseFloat(apt_ctcAnnual.replace(/,/g, ''));
-    setApt_ctcInWords(raw > 0 ? ctcToWords(raw) : '');
+    setApt_ctcInWords(raw > 0 ? amountInWordsWithOnly(raw) : '');
   }, [apt_ctcAnnual]);
 
   // Auto-populate CTC in words for offer letter
   useEffect(() => {
     const raw = parseFloat(ofl_ctcAnnual.replace(/,/g, ''));
-    setOfl_ctcInWords(raw > 0 ? ctcToWords(raw) : '');
+    setOfl_ctcInWords(raw > 0 ? amountInWordsWithOnly(raw) : '');
   }, [ofl_ctcAnnual]);
 
   // ── Salary row helpers ──────────────────────────────────────────────────────
@@ -1133,38 +1050,3 @@ function HrLetterGeneratorContent() {
 
 // ─── Letter row ───────────────────────────────────────────────────────────────
 
-function LetterRow({ letter: l }: { letter: GeneratedLetter }) {
-  const d         = l.generatedAt?.toDate?.();
-  const typeLabel = LETTER_TYPES.find((t) => t.value === l.letterType)?.label ?? l.letterType;
-
-  return (
-    <tr className="border-b border-(--shell-border) hover:bg-(--glass-panel-bg)/50">
-      <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{l.employeeName}</td>
-      <td className="px-4 py-3">
-        <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
-          style={{ backgroundColor: '#EDE9FE', color: '#5B21B6' }}>
-          {typeLabel}
-        </span>
-      </td>
-      <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>{l.refNumber}</td>
-      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{l.generatedByName}</td>
-      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>
-        {d ? format(d, 'd MMM yyyy, h:mm a') : '—'}
-      </td>
-      <td className="px-4 py-3">
-        {l.storageUrl ? (
-          <button
-            onClick={() => window.open(l.storageUrl!, '_blank')}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border border-(--shell-border) hover:bg-(--glass-panel-bg) transition-colors"
-            style={{ color: 'var(--text-primary)' }}
-            title="Open / download PDF"
-          >
-            <Download size={12} /> PDF
-          </button>
-        ) : (
-          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>
-        )}
-      </td>
-    </tr>
-  );
-}

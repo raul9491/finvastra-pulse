@@ -31,3 +31,20 @@ export function amountInWords(n: number): string {
   if (rem > 0) { out += below1000(rem); }
   return out.trim();
 }
+
+/**
+ * Indian-format amount in words with the legal "Only" suffix, as printed on HR
+ * letters (offer / appointment / salary certificate).
+ *
+ * Consolidated here on 2026-07-23. HrLetterGeneratorPage carried its own copy
+ * (`ctcToWords`) that was algorithmically identical EXCEPT it lacked the
+ * `Math.round` and the negative guard below. That mattered: the CTC field is free
+ * text read with `parseFloat`, so a decimal CTC (e.g. "1250000.50") produced a
+ * fractional remainder, `units[0.5]` → **undefined**, and the letter printed
+ * "… Thousand undefined Only". Routing through amountInWords fixes it and leaves
+ * one implementation to test instead of two that can drift.
+ */
+export function amountInWordsWithOnly(n: number): string {
+  const words = amountInWords(n);
+  return words ? `${words} Only` : '';
+}

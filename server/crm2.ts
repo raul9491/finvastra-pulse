@@ -27,7 +27,7 @@ import { DEFAULT_BUSINESS_HOURS, type BusinessHoursConfig } from "../src/lib/crm
 import { validateTransition, gateForStage, keyDateForStage } from "../src/lib/crm2/stages.js";
 import { deriveCycleStatus, computeAgeing, computeBankerMismatch, computePctVariance, computeAmountVariance, computeNetMarginRealised, canClose, validateMilestoneOrder, MILESTONE_STEPS, type MilestoneStep } from "../src/lib/crm2/payout.js";
 import { matchDumpRow, computeSnapshot, type DumpRow, type MisLite, type CycleLite } from "../src/lib/crm2/recon.js";
-import { ApiError, safeEqual, MOBILE_RE, isStr, reqStr, optStr, optNum, optMoney, optPct, optTs, optBool, optEnum, route } from "./crm2/core.js";
+import { ApiError, safeEqual, MOBILE_RE, isStr, reqStr, optStr, optNum, optMoney, optPct, optTs, optBool, optEnum, route, tsToMs, monthOf } from "./crm2/core.js";
 import { LEAD_CATEGORIES } from "./crm2/leadEnums.js";
 import {
   PARTNER_FUNNEL, PARTNER_LEAD_SOURCE, PARTNER_NETWORK_TYPE, PARTNER_NETWORK_SIZE,
@@ -988,15 +988,6 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
   // payout cycle + MIS record. Milestones derive status/variance/ageing (never
   // client-set) and keep case mirror + MIS in lock-step in one batch.
 
-  const tsToMs = (v: unknown): number | null => {
-    if (!v) return null;
-    if (typeof (v as { toMillis?: () => number }).toMillis === "function") return (v as { toMillis: () => number }).toMillis();
-    return null;
-  };
-  const monthOf = (ms: number): string => {
-    const d = new Date(ms);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  };
   /** users/{*}.employeeId == fapl → displayName (best-effort; falls back to the code). */
   async function faplDisplayName(fapl: string): Promise<string> {
     if (!fapl) return "—";

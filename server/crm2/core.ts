@@ -109,3 +109,16 @@ export const optEnum = (b: Record<string, unknown>, f: string, allowed: string[]
   if (!allowed.includes(v)) throw new ApiError(400, `${f} must be one of: ${allowed.join(", ")}`);
   return v;
 };
+
+/** Firestore Timestamp-like → millis (null-safe). Shared by the money pipeline,
+ *  recon and the scheduled jobs — a pure conversion, so it lives in core. */
+export const tsToMs = (v: unknown): number | null => {
+  if (!v) return null;
+  if (typeof (v as { toMillis?: () => number }).toMillis === "function") return (v as { toMillis: () => number }).toMillis();
+  return null;
+};
+/** millis → "YYYY-MM" reporting-month key. */
+export const monthOf = (ms: number): string => {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};

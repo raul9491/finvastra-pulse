@@ -25,7 +25,7 @@ import { verifyMetaSignature, extractLeadgenEvents, mapMetaFields, type MetaLead
 import { evaluateSla, slaConfigFromDoc, toMs, type SlaConfig } from "../src/lib/crm2/sla.js";
 import { DEFAULT_BUSINESS_HOURS, type BusinessHoursConfig } from "../src/lib/crm2/businessHours.js";
 import { validateTransition, gateForStage, keyDateForStage } from "../src/lib/crm2/stages.js";
-import { deriveCycleStatus, computeAgeing, computeBankerMismatch, computePctVariance, computeAmountVariance, computeNetMarginRealised, canClose, validateMilestoneOrder, MILESTONE_STEPS, type MilestoneStep } from "../src/lib/crm2/payout.js";
+import { canClose, validateMilestoneOrder, MILESTONE_STEPS, type MilestoneStep } from "../src/lib/crm2/payout.js";
 import { matchDumpRow, computeSnapshot, type DumpRow, type MisLite, type CycleLite } from "../src/lib/crm2/recon.js";
 import { ApiError, safeEqual, MOBILE_RE, isStr, reqStr, optStr, optNum, optMoney, optPct, optTs, optBool, optEnum, route, tsToMs, monthOf } from "./crm2/core.js";
 import { LEAD_CATEGORIES } from "./crm2/leadEnums.js";
@@ -39,6 +39,7 @@ import {
 } from "./crm2/sanitizers.js";
 import { decodeToken, resolveFapl, requirePerm, createAudit, updateAudit, nextIdInTx } from "./crm2/context.js";
 import { toResolution, pickUnambiguousMapping } from "./crm2/slabs.js";
+import { deriveCycleFields } from "./crm2/payoutCompute.js";
 import { scoreFor } from "./crm2/connectors.js";
 import { rateLimit, findDuplicate, leadYearCounter } from "./crm2/leads.js";
 import { META_MAX_ATTEMPTS, persistMetaEvent, logMetaWebhook, deadLetterMeta, fetchMetaLead, processMetaLeadgen } from "./crm2/meta.js";
@@ -1508,31 +1509,8 @@ export function registerCrm2Routes(app: express.Express, { db, admin, verifySche
     }
   }));
 
-  // ─── Recompute all derived fields from a merged cycle + write cycle/case/MIS ──
-  // Pure-function driven: status, ageing, variance flags, margin. Returns the
-  // derived patch applied to the cycle, and mirrors the relevant bits to MIS.
-  function deriveCycleFields(cy: Record<string, unknown>): Record<string, unknown> {
-    const ms = (k: string) => tsToMs(cy[k]);
-    const status = deriveCycleStatus({
-      disputeFlag: cy.disputeFlag === true, closedAt: ms("closedAt"), subDsaPaidAt: ms("subDsaPaidAt"),
-      receivedAt: ms("receivedAt"), billSentAt: ms("billSentAt"), billDate: ms("billDate"),
-      payoutConfirmedAt: ms("payoutConfirmedAt"), holdFlag: cy.holdFlag === true,
-      bankerConfirmedAt: ms("bankerConfirmedAt"), confirmationRaisedAt: ms("confirmationRaisedAt"),
-    });
-    const disbMs = tsToMs(cy.disbursementDate) ?? 0;
-    const ageing = computeAgeing({
-      disbursementDate: disbMs, dataSharedAt: ms("dataSharedAt"), bankerConfirmedAt: ms("bankerConfirmedAt"),
-      billedAt: ms("billSentAt") ?? ms("billDate"), receivedAt: ms("receivedAt"),
-    });
-    const bankerMismatch = computeBankerMismatch(
-      ms("bankerConfirmedAt"), cy.confirmedAmount as number | null, cy.disbursedAmount as number,
-      cy.confirmedDsaCode as string | null, cy.dsaCode as string);
-    const pctVariance = computePctVariance(cy.confirmedPayoutPct as number | null, cy.finvastraPayoutPct as number);
-    const amountVariance = computeAmountVariance(
-      ms("receivedAt"), cy.billGross as number | null, cy.tdsDeducted as number | null, cy.receivedNet as number | null);
-    const netMarginRealised = computeNetMarginRealised(cy.receivedNet as number | null, cy.subDsaPaidAmount as number | null);
-    return { status, ageing, bankerMismatch, pctVariance, amountVariance, netMarginRealised };
-  }
+  // deriveCycleFields (cycle status/ageing/variance/margin recompute) hoisted to
+  // ./crm2/payoutCompute.ts (2026-07-24) — shared by disburse/milestone + recon.
 
   // ─── PATCH /api/crm2/payout-cycles/:id/milestone ─────────────────────────────
   app.patch("/api/crm2/payout-cycles/:id/milestone", route(async (req, res) => {

@@ -79,7 +79,13 @@ async function main() {
   const prot = await api('PATCH', `/api/crm2/cases/${caseId}/logins/${loginId}`, token, { stage: 'SANCTIONED' });
   prot.status === 400 ? ok('protected login field (stage) rejected') : bad('protected', JSON.stringify(prot));
 
-  // 4. Stage forward-by-one
+  // 4. Stage forward-by-one.
+  // FILE_LOGIN → CODE_LOGIN_DONE requires the "Docs sent to bank" confirmation
+  // (rule shipped 2026-06-22; the login stage endpoint 422s without it). This
+  // gate predates that rule and never set it — a stale-gate failure, not a code
+  // bug (see the phase4/phase4-money gates, which set it the same way). Fixed
+  // 2026-07-23.
+  await api('PATCH', `/api/crm2/cases/${caseId}/logins/${loginId}`, token, { docsSent: true });
   for (const to of ['CODE_LOGIN_DONE', 'IN_PROCESS', 'SANCTIONED']) {
     const r = await api('POST', `/api/crm2/cases/${caseId}/logins/${loginId}/stage`, token, { to });
     if (!(r.status === 200 && r.data.to === to)) { bad(`advance → ${to}`, JSON.stringify(r)); }

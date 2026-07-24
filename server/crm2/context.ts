@@ -105,4 +105,42 @@ async function nextIdInTx(
   return `${prefix}${String(seq).padStart(pad, "0")}`;
 }
 
+/**
+ * Seed a case docTracker from the document master (EACH_APPLICANT / GUARANTOR /
+ * ENTITY rules). Idempotent via existingRowIds. Used by BOTH the walk-in/manual
+ * case-open (crm2.ts) and lead convert (leadRoutes) - shared here so it lives once.
+ */
+export function expandDocTracker(
+  tx: Transaction,
+  caseRef: FirebaseFirestore.DocumentReference,
+  docDefs: Array<{ id: string; applicableTo: string; requiredByStage: string }>,
+  applicants: Array<{ id: string; type: string }>,
+  existingRowIds: Set<string>,
+  fapl: string,
+): number {
+  let createdRows = 0;
+  const mk = (defId: string, applicantId: string | null, stage: string) => {
+    const rowId = `${defId}_${applicantId ?? "entity"}`;
+    if (existingRowIds.has(rowId)) return;
+    tx.set(caseRef.collection("docTracker").doc(rowId), {
+      documentDefId: defId, applicantId,
+      requiredByStage: stage, status: "PENDING",
+      vaultDocId: null, requestedAt: null, receivedAt: null,
+      verifiedBy: null, remarks: null,
+      ...createAudit(fapl),
+    });
+    createdRows++;
+  };
+  for (const def of docDefs) {
+    if (def.applicableTo === "EACH_APPLICANT") {
+      for (const a of applicants) mk(def.id, a.id, def.requiredByStage);
+    } else if (def.applicableTo === "GUARANTOR") {
+      for (const a of applicants.filter((x) => x.type === "GUARANTOR")) mk(def.id, a.id, def.requiredByStage);
+    } else {
+      mk(def.id, null, def.requiredByStage);   // ENTITY / PROPERTY
+    }
+  }
+  return createdRows;
+}
+
 export { decodeToken, resolveFapl, requirePerm, getCallerMeta, createAudit, updateAudit, nextIdInTx };
